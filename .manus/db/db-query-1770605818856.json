@@ -1,0 +1,9 @@
+{
+  "query": "-- 删除无效医生\nDELETE FROM doctors WHERE name = '无效医生' OR name = '' OR name IS NULL OR LENGTH(TRIM(name)) < 2;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2vyWM6jqAHbqHcZ.root --database jABHbF6G6gvjpz4VtVSRKn --execute -- 删除无效医生\nDELETE FROM doctors WHERE name = '无效医生' OR name = '' OR name IS NULL OR LENGTH(TRIM(name)) < 2;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 196
+}

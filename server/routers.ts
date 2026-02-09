@@ -42,13 +42,13 @@ export const appRouter = router({
         const messages = [
           {
             role: "system" as const,
-            content: `你是MediBridge的医疗咨询助手，帮助患者找到合适的医生。你的任务是：
-1. 友好地询问患者的症状、病程、年龄等信息
-2. 根据患者描述，提取关键医疗关键词（疾病名称、症状、专科等）
-3. 如果信息不足，继续询问以获取更准确的推荐
-4. 当信息充足时，告知患者你将为其推荐合适的医生
+            content: `You are MediBridge's medical consultation assistant, helping patients find suitable doctors in Shanghai, China. Your tasks:
+1. Kindly ask about the patient's symptoms, duration, age, and medical history
+2. Extract key medical keywords from patient descriptions (disease names, symptoms, specialties)
+3. If information is insufficient, continue asking to get more accurate recommendations
+4. When sufficient information is gathered, inform the patient you will recommend suitable doctors
 
-请用温暖、专业的语气与患者交流。不要直接给出医疗建议，而是帮助患者找到合适的专科医生。`
+Use a warm, professional tone. Do not provide direct medical advice - instead, help patients find appropriate specialist doctors.`
           },
           ...chatHistory.map(msg => ({
             role: msg.role,
@@ -69,21 +69,21 @@ export const appRouter = router({
           messages: [
             {
               role: "system",
-              content: `从患者的对话中提取医疗关键词。返回JSON格式：
+              content: `Extract medical keywords from patient conversation. Return JSON format:
 {
-  "keywords": ["关键词1", "关键词2"],
-  "symptoms": "症状描述",
-  "duration": "病程",
-  "age": 年龄数字或null,
+  "keywords": ["keyword1", "keyword2"],
+  "symptoms": "symptom description",
+  "duration": "duration description",
+  "age": age_number or null,
   "readyForRecommendation": true/false
 }
 
-关键词应包括：疾病名称、症状、专科名称、治疗方式等。
-readyForRecommendation表示是否有足够信息推荐医生。`
+Keywords should include: disease names, symptoms, specialty names, treatment methods, etc.
+readyForRecommendation indicates whether there is enough information to recommend doctors.`
             },
             {
               role: "user",
-              content: `患者对话历史：\n${chatHistory.map(m => `${m.role}: ${m.content}`).join('\n')}\n\n最新消息：${input.message}`
+              content: `Patient conversation history:\n${chatHistory.map(m => `${m.role}: ${m.content}`).join('\n')}\n\nLatest message: ${input.message}`
             }
           ],
           response_format: {
@@ -97,23 +97,23 @@ readyForRecommendation表示是否有足够信息推荐医生。`
                   keywords: {
                     type: "array",
                     items: { type: "string" },
-                    description: "提取的医疗关键词"
+                    description: "Extracted medical keywords"
                   },
                   symptoms: {
                     type: "string",
-                    description: "症状描述"
+                    description: "Symptom description"
                   },
                   duration: {
                     type: "string",
-                    description: "病程描述"
+                    description: "Duration description"
                   },
                   age: {
                     type: ["number", "null"],
-                    description: "患者年龄"
+                    description: "Patient age"
                   },
                   readyForRecommendation: {
                     type: "boolean",
-                    description: "是否准备好推荐医生"
+                    description: "Ready to recommend doctors"
                   }
                 },
                 required: ["keywords", "symptoms", "duration", "age", "readyForRecommendation"],
@@ -136,32 +136,32 @@ readyForRecommendation表示是否有足够信息推荐医生。`
               id: r.doctor.id,
               index: idx,
               text: `${idx + 1}. ${r.doctor.name} - ${r.hospital.name} ${r.department.name}
-职称：${r.doctor.title || '未知'}
-专业擅长：${r.doctor.expertise?.substring(0, 200) || '暂无信息'}
-推荐度：${r.doctor.recommendationScore || 'N/A'}`
+Title: ${r.doctor.title || 'Unknown'}
+Expertise: ${r.doctor.expertise?.substring(0, 200) || 'No information'}
+Recommendation Score: ${r.doctor.recommendationScore || 'N/A'}`
             }));
 
             const rankingResponse = await invokeLLM({
               messages: [
                 {
                   role: "system",
-                  content: `根据患者需求，从候选医生中选择最合适的3-5位医生，按相关性排序。
-返回JSON格式：
+                  content: `Based on patient needs, select the 3-5 most suitable doctors from candidates, ranked by relevance.
+Return JSON format:
 {
   "selectedDoctors": [
     {
-      "doctorId": 医生ID,
-      "reason": "推荐理由"
+      "doctorId": doctor_id,
+      "reason": "recommendation reason"
     }
   ]
 }`
                 },
                 {
                   role: "user",
-                  content: `患者需求：${extraction.symptoms}
-关键词：${extraction.keywords.join(', ')}
+                  content: `Patient needs: ${extraction.symptoms}
+Keywords: ${extraction.keywords.join(', ')}
 
-候选医生：
+Candidate doctors:
 ${doctorDescriptions.map(d => d.text).join('\n\n')}`
                 }
               ],

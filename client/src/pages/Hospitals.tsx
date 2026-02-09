@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Hospital, Stethoscope, Search, ChevronRight, Loader2 } from "lucide-react";
+import { ArrowLeft, Hospital, Stethoscope, Search, ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
+
+type ViewMode = "hospitals" | "departments" | "doctors";
 
 export default function Hospitals() {
+  const [viewMode, setViewMode] = useState<ViewMode>("hospitals");
   const [selectedHospitalId, setSelectedHospitalId] = useState<number | null>(null);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -25,11 +27,39 @@ export default function Hospitals() {
     { enabled: selectedDepartmentId !== null }
   );
 
+  const selectedHospital = hospitals?.find(h => h.id === selectedHospitalId);
+  const selectedDepartment = departments?.find(d => d.id === selectedDepartmentId);
+
   const filteredDoctors = doctors?.filter(d =>
-    d.doctor.name.includes(searchQuery) ||
-    d.doctor.expertise?.includes(searchQuery) ||
-    d.doctor.specialty?.includes(searchQuery)
+    d.doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    d.doctor.expertise?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    d.doctor.specialty?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleSelectHospital = (hospitalId: number) => {
+    setSelectedHospitalId(hospitalId);
+    setViewMode("departments");
+    setSearchQuery("");
+  };
+
+  const handleSelectDepartment = (departmentId: number) => {
+    setSelectedDepartmentId(departmentId);
+    setViewMode("doctors");
+    setSearchQuery("");
+  };
+
+  const handleBackToDepartments = () => {
+    setViewMode("departments");
+    setSelectedDepartmentId(null);
+    setSearchQuery("");
+  };
+
+  const handleBackToHospitals = () => {
+    setViewMode("hospitals");
+    setSelectedHospitalId(null);
+    setSelectedDepartmentId(null);
+    setSearchQuery("");
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-accent/20">
@@ -43,13 +73,13 @@ export default function Hospitals() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-foreground">MediBridge</h1>
-                <p className="text-sm text-muted-foreground">浏览医院和科室</p>
+                <p className="text-sm text-muted-foreground">Browse Hospitals & Doctors</p>
               </div>
             </div>
             <Link href="/">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                返回首页
+                Back to Home
               </Button>
             </Link>
           </div>
@@ -57,156 +87,218 @@ export default function Hospitals() {
       </header>
 
       <div className="container py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Hospitals List */}
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Hospital className="w-5 h-5 text-primary" />
-                医院列表
-              </CardTitle>
-              <CardDescription>选择医院查看科室</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {hospitalsLoading && (
-                <div className="py-8 text-center">
-                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
-                </div>
-              )}
-              {hospitals?.map((hospital) => (
-                <Button
-                  key={hospital.id}
-                  variant={selectedHospitalId === hospital.id ? "default" : "ghost"}
-                  className="w-full justify-start text-left h-auto py-3"
-                  onClick={() => {
-                    setSelectedHospitalId(hospital.id);
-                    setSelectedDepartmentId(null);
-                  }}
+        <div className="max-w-4xl mx-auto">
+          {/* Breadcrumb Navigation */}
+          <div className="flex items-center gap-2 mb-6 text-sm text-muted-foreground">
+            <button
+              onClick={handleBackToHospitals}
+              className={`hover:text-foreground transition-colors ${viewMode === "hospitals" ? "text-foreground font-medium" : ""}`}
+            >
+              Hospitals
+            </button>
+            {viewMode !== "hospitals" && (
+              <>
+                <ChevronRight className="w-4 h-4" />
+                <button
+                  onClick={handleBackToDepartments}
+                  className={`hover:text-foreground transition-colors ${viewMode === "departments" ? "text-foreground font-medium" : ""}`}
                 >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{hospital.name}</p>
-                    {hospital.level && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{hospital.level}</p>
-                    )}
-                  </div>
-                  <ChevronRight className="w-4 h-4 flex-shrink-0 ml-2" />
-                </Button>
-              ))}
-            </CardContent>
-          </Card>
+                  {selectedHospital?.name || "Departments"}
+                </button>
+              </>
+            )}
+            {viewMode === "doctors" && (
+              <>
+                <ChevronRight className="w-4 h-4" />
+                <span className="text-foreground font-medium">
+                  {selectedDepartment?.name || "Doctors"}
+                </span>
+              </>
+            )}
+          </div>
 
-          {/* Departments List */}
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle>科室列表</CardTitle>
-              <CardDescription>
-                {selectedHospitalId ? "选择科室查看医生" : "请先选择医院"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {!selectedHospitalId && (
-                <div className="py-8 text-center text-muted-foreground">
-                  <Hospital className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">请先选择医院</p>
-                </div>
-              )}
-              {departmentsLoading && (
-                <div className="py-8 text-center">
-                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
-                </div>
-              )}
-              {departments?.map((dept) => (
-                <Button
-                  key={dept.id}
-                  variant={selectedDepartmentId === dept.id ? "default" : "ghost"}
-                  className="w-full justify-start text-left"
-                  onClick={() => setSelectedDepartmentId(dept.id)}
-                >
-                  {dept.name}
-                  <ChevronRight className="w-4 h-4 ml-auto" />
-                </Button>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Doctors List */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>医生列表</CardTitle>
-              <CardDescription>
-                {selectedDepartmentId
-                  ? `共 ${filteredDoctors?.length || 0} 位医生`
-                  : "请先选择科室"}
-              </CardDescription>
-              {selectedDepartmentId && (
-                <div className="mt-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      placeholder="搜索医生姓名或专长..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9"
-                    />
+          {/* Hospitals View */}
+          {viewMode === "hospitals" && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Hospital className="w-6 h-6 text-primary" />
+                  Select a Hospital
+                </CardTitle>
+                <CardDescription>
+                  Choose from {hospitals?.length || 0} premier hospitals in Shanghai
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {hospitalsLoading && (
+                  <div className="py-12 text-center">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
                   </div>
+                )}
+                {hospitals?.map((hospital) => (
+                  <button
+                    key={hospital.id}
+                    onClick={() => handleSelectHospital(hospital.id)}
+                    className="w-full text-left"
+                  >
+                    <Card className="hover:shadow-md transition-shadow hover:border-primary/50">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold text-foreground mb-1">
+                              {hospital.name}
+                            </h3>
+                            {hospital.nameEn && (
+                              <p className="text-sm text-muted-foreground mb-2">{hospital.nameEn}</p>
+                            )}
+                            <div className="flex flex-wrap gap-2">
+                              {hospital.level && (
+                                <Badge variant="outline">{hospital.level}</Badge>
+                              )}
+                              {hospital.city && (
+                                <Badge variant="secondary">{hospital.city}</Badge>
+                              )}
+                            </div>
+                          </div>
+                          <ChevronRight className="w-6 h-6 text-muted-foreground flex-shrink-0 ml-4" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Departments View */}
+          {viewMode === "departments" && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Stethoscope className="w-6 h-6 text-primary" />
+                      Select a Department
+                    </CardTitle>
+                    <CardDescription>
+                      {selectedHospital?.name}
+                    </CardDescription>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={handleBackToHospitals}>
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Back
+                  </Button>
                 </div>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {!selectedDepartmentId && (
-                <div className="py-12 text-center text-muted-foreground">
-                  <Stethoscope className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">请先选择科室</p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {departmentsLoading && (
+                  <div className="py-12 text-center">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
+                  </div>
+                )}
+                {departments?.map((dept) => (
+                  <button
+                    key={dept.id}
+                    onClick={() => handleSelectDepartment(dept.id)}
+                    className="w-full text-left"
+                  >
+                    <Card className="hover:shadow-md transition-shadow hover:border-primary/50">
+                      <CardContent className="p-5">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="text-lg font-semibold text-foreground">
+                              {dept.name}
+                            </h3>
+                            {dept.nameEn && (
+                              <p className="text-sm text-muted-foreground mt-1">{dept.nameEn}</p>
+                            )}
+                          </div>
+                          <ChevronRight className="w-6 h-6 text-muted-foreground flex-shrink-0 ml-4" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Doctors View */}
+          {viewMode === "doctors" && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <CardTitle>Doctors</CardTitle>
+                    <CardDescription>
+                      {selectedDepartment?.name} • {filteredDoctors?.length || 0} doctors
+                    </CardDescription>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={handleBackToDepartments}>
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Back
+                  </Button>
                 </div>
-              )}
-              {doctorsLoading && (
-                <div className="py-12 text-center">
-                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name or expertise..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
                 </div>
-              )}
-              {filteredDoctors && filteredDoctors.length === 0 && selectedDepartmentId && (
-                <div className="py-12 text-center text-muted-foreground">
-                  <p className="text-sm">未找到匹配的医生</p>
-                </div>
-              )}
-              {filteredDoctors?.map(({ doctor, hospital, department }) => (
-                <Card key={doctor.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-semibold text-foreground">{doctor.name}</h4>
-                          {doctor.recommendationScore && (
-                            <Badge variant="secondary" className="text-xs">
-                              ★ {doctor.recommendationScore}
-                            </Badge>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {doctorsLoading && (
+                  <div className="py-12 text-center">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
+                  </div>
+                )}
+                {filteredDoctors && filteredDoctors.length === 0 && (
+                  <div className="py-12 text-center text-muted-foreground">
+                    <p className="text-sm">No doctors found</p>
+                  </div>
+                )}
+                {filteredDoctors?.map(({ doctor }) => (
+                  <Card key={doctor.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-semibold text-lg text-foreground">{doctor.name}</h4>
+                            {doctor.recommendationScore && (
+                              <Badge variant="secondary" className="text-xs">
+                                ★ {doctor.recommendationScore}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-3">{doctor.title}</p>
+                          {doctor.specialty && (
+                            <p className="text-sm text-muted-foreground mb-2">
+                              <span className="font-medium">Specialty: </span>
+                              {doctor.specialty}
+                            </p>
+                          )}
+                          {doctor.expertise && (
+                            <p className="text-sm text-muted-foreground line-clamp-3">
+                              <span className="font-medium">Expertise: </span>
+                              {doctor.expertise}
+                            </p>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground mb-2">{doctor.title}</p>
-                        {doctor.specialty && (
-                          <p className="text-sm text-muted-foreground mb-2">
-                            <span className="font-medium">专业方向：</span>
-                            {doctor.specialty}
-                          </p>
-                        )}
-                        {doctor.expertise && (
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            <span className="font-medium">专业擅长：</span>
-                            {doctor.expertise}
-                          </p>
-                        )}
+                        <Link href={`/doctor/${doctor.id}`}>
+                          <Button size="sm">
+                            View Profile
+                          </Button>
+                        </Link>
                       </div>
-                      <Link href={`/doctor/${doctor.id}`}>
-                        <Button size="sm" variant="outline">
-                          查看详情
-                        </Button>
-                      </Link>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </CardContent>
-          </Card>
+                    </CardContent>
+                  </Card>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

@@ -30,9 +30,9 @@ export default function DoctorDetail() {
         <div className="container py-12">
           <Card>
             <CardContent className="p-12 text-center">
-              <p className="text-muted-foreground">未找到医生信息</p>
+              <p className="text-muted-foreground">Doctor not found</p>
               <Link href="/">
-                <Button variant="link" className="mt-4">返回首页</Button>
+                <Button variant="link" className="mt-4">Back to Home</Button>
               </Link>
             </CardContent>
           </Card>
@@ -55,13 +55,13 @@ export default function DoctorDetail() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-foreground">MediBridge</h1>
-                <p className="text-sm text-muted-foreground">AI智能医生推荐平台</p>
+                <p className="text-sm text-muted-foreground">AI-Powered Medical Bridge to China</p>
               </div>
             </div>
             <Link href="/">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                返回首页
+                Back to Home
               </Button>
             </Link>
           </div>
@@ -99,7 +99,7 @@ export default function DoctorDetail() {
                 <div>
                   <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
                     <Stethoscope className="w-4 h-4 text-primary" />
-                    专业方向
+                    Specialty
                   </h3>
                   <p className="text-muted-foreground">{doctor.specialty}</p>
                 </div>
@@ -110,7 +110,7 @@ export default function DoctorDetail() {
               {/* Expertise */}
               {doctor.expertise && (
                 <div>
-                  <h3 className="font-semibold text-foreground mb-2">专业擅长</h3>
+                  <h3 className="font-semibold text-foreground mb-2">Areas of Expertise</h3>
                   <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">
                     {doctor.expertise}
                   </p>
@@ -125,7 +125,7 @@ export default function DoctorDetail() {
                   <div className="bg-accent/30 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-1">
                       <ThumbsUp className="w-4 h-4 text-primary" />
-                      <span className="text-sm font-medium text-muted-foreground">主观疗效</span>
+                      <span className="text-sm font-medium text-muted-foreground">Treatment Satisfaction</span>
                     </div>
                     <p className="text-lg font-semibold text-foreground">{doctor.satisfactionRate}</p>
                   </div>
@@ -135,7 +135,7 @@ export default function DoctorDetail() {
                   <div className="bg-accent/30 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-1">
                       <Star className="w-4 h-4 text-primary" />
-                      <span className="text-sm font-medium text-muted-foreground">态度满意度</span>
+                      <span className="text-sm font-medium text-muted-foreground">Attitude Score</span>
                     </div>
                     <p className="text-lg font-semibold text-foreground">{doctor.attitudeScore}</p>
                   </div>
@@ -145,7 +145,7 @@ export default function DoctorDetail() {
                   <div className="bg-accent/30 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-1">
                       <Star className="w-4 h-4 text-secondary fill-secondary" />
-                      <span className="text-sm font-medium text-muted-foreground">病友推荐度</span>
+                      <span className="text-sm font-medium text-muted-foreground">Patient Recommendation</span>
                     </div>
                     <p className="text-lg font-semibold text-foreground">{doctor.recommendationScore}</p>
                   </div>
@@ -157,11 +157,11 @@ export default function DoctorDetail() {
                 <>
                   <Separator />
                   <div>
-                    <h3 className="font-semibold text-foreground mb-3">服务信息</h3>
+                    <h3 className="font-semibold text-foreground mb-3">Services</h3>
                     <div className="space-y-2">
                       {doctor.onlineConsultation && (
                         <div className="flex items-center gap-2">
-                          <Badge variant="secondary">在线问诊</Badge>
+                          <Badge variant="secondary">Online Consultation</Badge>
                           <span className="text-sm text-muted-foreground">{doctor.onlineConsultation}</span>
                         </div>
                       )}
@@ -169,7 +169,7 @@ export default function DoctorDetail() {
                         <div className="flex items-start gap-2">
                           <Badge variant="secondary" className="mt-0.5">
                             <Calendar className="w-3 h-3 mr-1" />
-                            预约挂号
+                            Appointment
                           </Badge>
                           <span className="text-sm text-muted-foreground flex-1">
                             {doctor.appointmentAvailable.length > 200
@@ -188,28 +188,28 @@ export default function DoctorDetail() {
           {/* Hospital Info Card */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-xl">医院信息</CardTitle>
+              <CardTitle className="text-xl">Hospital Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <span className="text-sm font-medium text-muted-foreground">医院名称：</span>
+                <span className="text-sm font-medium text-muted-foreground">Hospital: </span>
                 <span className="text-foreground">{hospital.name}</span>
               </div>
               {hospital.nameEn && (
                 <div>
-                  <span className="text-sm font-medium text-muted-foreground">英文名称：</span>
+                  <span className="text-sm font-medium text-muted-foreground">English Name: </span>
                   <span className="text-foreground">{hospital.nameEn}</span>
                 </div>
               )}
               {hospital.city && (
                 <div>
-                  <span className="text-sm font-medium text-muted-foreground">所在城市：</span>
+                  <span className="text-sm font-medium text-muted-foreground">City: </span>
                   <span className="text-foreground">{hospital.city}</span>
                 </div>
               )}
               {hospital.level && (
                 <div>
-                  <span className="text-sm font-medium text-muted-foreground">医院等级：</span>
+                  <span className="text-sm font-medium text-muted-foreground">Level: </span>
                   <Badge variant="outline">{hospital.level}</Badge>
                 </div>
               )}
@@ -221,13 +221,13 @@ export default function DoctorDetail() {
             <Link href="/">
               <Button variant="outline" className="flex-1">
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                返回咨询
+                Back to Consultation
               </Button>
             </Link>
             <Link href="/hospitals">
               <Button variant="outline" className="flex-1">
                 <Hospital className="w-4 h-4 mr-2" />
-                浏览更多医院
+                Browse More Hospitals
               </Button>
             </Link>
           </div>

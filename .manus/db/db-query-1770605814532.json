@@ -1,0 +1,80 @@
+{
+  "query": "-- 查看无效医生\nSELECT id, name, hospitalId, departmentId FROM doctors WHERE name = '无效医生' OR name = '' OR name IS NULL LIMIT 10;\n\n-- 查看重复科室\nSELECT name, COUNT(*) as count FROM departments GROUP BY name HAVING count > 1 LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2vyWM6jqAHbqHcZ.root --database jABHbF6G6gvjpz4VtVSRKn --execute -- 查看无效医生\nSELECT id, name, hospitalId, departmentId FROM doctors WHERE name = '无效医生' OR name = '' OR name IS NULL LIMIT 10;\n\n-- 查看重复科室\nSELECT name, COUNT(*) as count FROM departments GROUP BY name HAVING count > 1 LIMIT 10;",
+  "rows": [
+    {
+      "id": "20",
+      "name": "无效医生",
+      "hospitalId": "1",
+      "departmentId": "18"
+    },
+    {
+      "id": "22",
+      "name": "无效医生",
+      "hospitalId": "1",
+      "departmentId": "20"
+    },
+    {
+      "id": "23",
+      "name": "无效医生",
+      "hospitalId": "1",
+      "departmentId": "21"
+    },
+    {
+      "id": "32",
+      "name": "无效医生",
+      "hospitalId": "1",
+      "departmentId": "30"
+    },
+    {
+      "id": "39",
+      "name": "无效医生",
+      "hospitalId": "1",
+      "departmentId": "37"
+    },
+    {
+      "id": "44",
+      "name": "无效医生",
+      "hospitalId": "2",
+      "departmentId": "42"
+    },
+    {
+      "id": "45",
+      "name": "无效医生",
+      "hospitalId": "2",
+      "departmentId": "42"
+    },
+    {
+      "id": "46",
+      "name": "无效医生",
+      "hospitalId": "2",
+      "departmentId": "42"
+    },
+    {
+      "id": "47",
+      "name": "无效医生",
+      "hospitalId": "2",
+      "departmentId": "42"
+    },
+    {
+      "id": "48",
+      "name": "无效医生",
+      "hospitalId": "2",
+      "departmentId": "42"
+    }
+  ],
+  "messages": [
+    "name\tcount",
+    "口腔外科\t2",
+    "耳鼻咽喉头颈外科\t2",
+    "胸外科\t2",
+    "内分泌科\t2",
+    "骨科-足踝外科\t2",
+    "口腔预防科\t2",
+    "核医学科\t2",
+    "骨科\t2"
+  ],
+  "stdout": "id\tname\thospitalId\tdepartmentId\n20\t无效医生\t1\t18\n22\t无效医生\t1\t20\n23\t无效医生\t1\t21\n32\t无效医生\t1\t30\n39\t无效医生\t1\t37\n44\t无效医生\t2\t42\n45\t无效医生\t2\t42\n46\t无效医生\t2\t42\n47\t无效医生\t2\t42\n48\t无效医生\t2\t42\nname\tcount\n口腔外科\t2\n耳鼻咽喉头颈外科\t2\n胸外科\t2\n内分泌科\t2\n骨科-足踝外科\t2\n口腔预防科\t2\n核医学科\t2\n骨科\t2\n",
+  "stderr": "",
+  "execution_time_ms": 99
+}
