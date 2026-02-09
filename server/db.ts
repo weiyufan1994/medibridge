@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, like, or, and, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, doctors, hospitals, departments, patientSessions, InsertPatientSession } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,163 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+/**
+ * Search doctors by keywords in expertise, specialty, department, or hospital
+ */
+export async function searchDoctors(keywords: string[], limit: number = 20) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  // Build search conditions
+  const conditions = keywords.flatMap(keyword => [
+    like(doctors.expertise, `%${keyword}%`),
+    like(doctors.specialty, `%${keyword}%`),
+    like(departments.name, `%${keyword}%`),
+    like(hospitals.name, `%${keyword}%`),
+  ]);
+
+  const results = await db
+    .select({
+      doctor: doctors,
+      hospital: hospitals,
+      department: departments,
+    })
+    .from(doctors)
+    .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
+    .innerJoin(departments, eq(doctors.departmentId, departments.id))
+    .where(or(...conditions))
+    .orderBy(desc(doctors.recommendationScore))
+    .limit(limit);
+
+  return results;
+}
+
+/**
+ * Get doctor by ID with hospital and department info
+ */
+export async function getDoctorById(doctorId: number) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const results = await db
+    .select({
+      doctor: doctors,
+      hospital: hospitals,
+      department: departments,
+    })
+    .from(doctors)
+    .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
+    .innerJoin(departments, eq(doctors.departmentId, departments.id))
+    .where(eq(doctors.id, doctorId))
+    .limit(1);
+
+  return results.length > 0 ? results[0] : null;
+}
+
+/**
+ * Get all hospitals
+ */
+export async function getAllHospitals() {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  return await db.select().from(hospitals).orderBy(hospitals.name);
+}
+
+/**
+ * Get departments by hospital ID
+ */
+export async function getDepartmentsByHospital(hospitalId: number) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  return await db
+    .select()
+    .from(departments)
+    .where(eq(departments.hospitalId, hospitalId))
+    .orderBy(departments.name);
+}
+
+/**
+ * Get doctors by department ID
+ */
+export async function getDoctorsByDepartment(departmentId: number, limit: number = 50) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const results = await db
+    .select({
+      doctor: doctors,
+      hospital: hospitals,
+      department: departments,
+    })
+    .from(doctors)
+    .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
+    .innerJoin(departments, eq(doctors.departmentId, departments.id))
+    .where(eq(doctors.departmentId, departmentId))
+    .orderBy(desc(doctors.recommendationScore))
+    .limit(limit);
+
+  return results;
+}
+
+/**
+ * Save or update patient session
+ */
+export async function upsertPatientSession(session: InsertPatientSession) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const existing = await db
+    .select()
+    .from(patientSessions)
+    .where(eq(patientSessions.sessionId, session.sessionId))
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db
+      .update(patientSessions)
+      .set({
+        chatHistory: session.chatHistory,
+        symptoms: session.symptoms,
+        duration: session.duration,
+        age: session.age,
+        medicalHistory: session.medicalHistory,
+        recommendedDoctors: session.recommendedDoctors,
+        updatedAt: new Date(),
+      })
+      .where(eq(patientSessions.sessionId, session.sessionId));
+  } else {
+    await db.insert(patientSessions).values(session);
+  }
+}
+
+/**
+ * Get patient session by session ID
+ */
+export async function getPatientSession(sessionId: string) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const results = await db
+    .select()
+    .from(patientSessions)
+    .where(eq(patientSessions.sessionId, sessionId))
+    .limit(1);
+
+  return results.length > 0 ? results[0] : null;
+}

@@ -1,0 +1,1 @@
+ALTER TABLE `doctors` MODIFY COLUMN `specialty` text;

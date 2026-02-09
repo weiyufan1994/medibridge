@@ -1,0 +1,110 @@
+{
+  "query": "SELECT h.name as hospital, d.name as department, COUNT(*) as doctor_count\nFROM doctors doc\nJOIN hospitals h ON doc.hospitalId = h.id\nJOIN departments d ON doc.departmentId = d.id\nGROUP BY h.name, d.name\nORDER BY h.name, doctor_count DESC\nLIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2vyWM6jqAHbqHcZ.root --database jABHbF6G6gvjpz4VtVSRKn --execute SELECT h.name as hospital, d.name as department, COUNT(*) as doctor_count\nFROM doctors doc\nJOIN hospitals h ON doc.hospitalId = h.id\nJOIN departments d ON doc.departmentId = d.id\nGROUP BY h.name, d.name\nORDER BY h.name, doctor_count DESC\nLIMIT 20;",
+  "rows": [
+    {
+      "hospital": "上海交通大学医学院附属瑞金医院",
+      "department": "未分类",
+      "doctor_count": "21"
+    },
+    {
+      "hospital": "上海交通大学医学院附属第九人民医院",
+      "department": "消化内科",
+      "doctor_count": "120"
+    },
+    {
+      "hospital": "上海交通大学医学院附属第九人民医院",
+      "department": "心血管内科",
+      "doctor_count": "120"
+    },
+    {
+      "hospital": "上海交通大学医学院附属第九人民医院",
+      "department": "内分泌科",
+      "doctor_count": "120"
+    },
+    {
+      "hospital": "上海交通大学医学院附属第九人民医院",
+      "department": "眼科",
+      "doctor_count": "90"
+    },
+    {
+      "hospital": "上海交通大学医学院附属第九人民医院",
+      "department": "整复外科",
+      "doctor_count": "56"
+    },
+    {
+      "hospital": "上海交通大学医学院附属第九人民医院",
+      "department": "口腔外科",
+      "doctor_count": "52"
+    },
+    {
+      "hospital": "上海交通大学医学院附属第九人民医院",
+      "department": "口腔预防科",
+      "doctor_count": "22"
+    },
+    {
+      "hospital": "上海市第六人民医院",
+      "department": "骨科-创伤外科",
+      "doctor_count": "60"
+    },
+    {
+      "hospital": "上海市第六人民医院",
+      "department": "骨科-关节外科",
+      "doctor_count": "51"
+    },
+    {
+      "hospital": "上海市第六人民医院",
+      "department": "耳鼻咽喉头颈外科",
+      "doctor_count": "42"
+    },
+    {
+      "hospital": "上海市第六人民医院",
+      "department": "超声医学科",
+      "doctor_count": "36"
+    },
+    {
+      "hospital": "上海市第六人民医院",
+      "department": "骨科-脊柱外科",
+      "doctor_count": "33"
+    },
+    {
+      "hospital": "上海市第六人民医院",
+      "department": "核医学科",
+      "doctor_count": "31"
+    },
+    {
+      "hospital": "上海市第六人民医院",
+      "department": "骨科-手与修复重建科",
+      "doctor_count": "30"
+    },
+    {
+      "hospital": "上海市第六人民医院",
+      "department": "骨科-足踝外科",
+      "doctor_count": "30"
+    },
+    {
+      "hospital": "上海市第六人民医院",
+      "department": "骨科",
+      "doctor_count": "30"
+    },
+    {
+      "hospital": "上海市第六人民医院",
+      "department": "骨质疏松和骨病专科",
+      "doctor_count": "24"
+    },
+    {
+      "hospital": "上海市第六人民医院",
+      "department": "骨科-骨肿瘤科",
+      "doctor_count": "21"
+    },
+    {
+      "hospital": "上海市第六人民医院",
+      "department": "骨科-髋部外科",
+      "doctor_count": "18"
+    }
+  ],
+  "messages": [],
+  "stdout": "hospital\tdepartment\tdoctor_count\n上海交通大学医学院附属瑞金医院\t未分类\t21\n上海交通大学医学院附属第九人民医院\t消化内科\t120\n上海交通大学医学院附属第九人民医院\t心血管内科\t120\n上海交通大学医学院附属第九人民医院\t内分泌科\t120\n上海交通大学医学院附属第九人民医院\t眼科\t90\n上海交通大学医学院附属第九人民医院\t整复外科\t56\n上海交通大学医学院附属第九人民医院\t口腔外科\t52\n上海交通大学医学院附属第九人民医院\t口腔预防科\t22\n上海市第六人民医院\t骨科-创伤外科\t60\n上海市第六人民医院\t骨科-关节外科\t51\n上海市第六人民医院\t耳鼻咽喉头颈外科\t42\n上海市第六人民医院\t超声医学科\t36\n上海市第六人民医院\t骨科-脊柱外科\t33\n上海市第六人民医院\t核医学科\t31\n上海市第六人民医院\t骨科-手与修复重建科\t30\n上海市第六人民医院\t骨科-足踝外科\t30\n上海市第六人民医院\t骨科\t30\n上海市第六人民医院\t骨质疏松和骨病专科\t24\n上海市第六人民医院\t骨科-骨肿瘤科\t21\n上海市第六人民医院\t骨科-髋部外科\t18\n",
+  "stderr": "",
+  "execution_time_ms": 127
+}
