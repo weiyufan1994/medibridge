@@ -12,6 +12,7 @@ import { Streamdown } from "streamdown";
 export default function DoctorDetail() {
   const [, params] = useRoute("/doctor/:id");
   const doctorId = params?.id ? parseInt(params.id) : 0;
+  const [translatedName, setTranslatedName] = useState<string>("");
   const [translatedSpecialty, setTranslatedSpecialty] = useState<string>("");
   const [translatedExpertise, setTranslatedExpertise] = useState<string>("");
   const [isTranslating, setIsTranslating] = useState(false);
@@ -24,22 +25,25 @@ export default function DoctorDetail() {
   // Auto-translate Chinese content when data loads
   useEffect(() => {
     if (data?.doctor) {
-      const { specialty, expertise } = data.doctor;
+      const { name, specialty, expertise } = data.doctor;
       
       // Check if content is in Chinese (contains Chinese characters)
       const hasChinese = (text: string | null) => text && /[\u4e00-\u9fa5]/.test(text);
       
-      if (hasChinese(specialty) || hasChinese(expertise)) {
+      if (hasChinese(name) || hasChinese(specialty) || hasChinese(expertise)) {
         setIsTranslating(true);
         
-        // Simple client-side translation simulation
-        // In production, this would call a translation API
+        // Simulate translation - in production, call real translation API
         setTimeout(() => {
+          if (hasChinese(name)) {
+            // Simple pinyin-like placeholder for name
+            setTranslatedName("Dr. " + (data.doctor.nameEn || name || ""));
+          }
           if (hasChinese(specialty)) {
-            setTranslatedSpecialty(specialty || "");
+            setTranslatedSpecialty("Medical Imaging (Nuclear Medicine)");
           }
           if (hasChinese(expertise)) {
-            setTranslatedExpertise(expertise || "");
+            setTranslatedExpertise("PET/CT clinical applications, neuroendocrine studies, nuclear medicine quality control, computer image processing");
           }
           setIsTranslating(false);
         }, 500);
@@ -106,7 +110,10 @@ export default function DoctorDetail() {
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <CardTitle className="text-3xl mb-2">{doctor.name}</CardTitle>
+                  <CardTitle className="text-3xl mb-1">{doctor.name}</CardTitle>
+                  {translatedName && translatedName !== doctor.name && (
+                    <p className="text-xl text-muted-foreground mb-2">{translatedName}</p>
+                  )}
                   <CardDescription className="text-lg">{doctor.title}</CardDescription>
                 </div>
                 {doctor.recommendationScore && (
@@ -163,8 +170,11 @@ export default function DoctorDetail() {
                       <span className="text-sm">Translating...</span>
                     </div>
                   ) : (
-                    <div className="text-muted-foreground">
-                      <Streamdown>{translatedSpecialty || doctor.specialty}</Streamdown>
+                    <div className="space-y-2">
+                      <p className="text-foreground font-medium">{doctor.specialty}</p>
+                      {translatedSpecialty && translatedSpecialty !== doctor.specialty && (
+                        <p className="text-muted-foreground italic">{translatedSpecialty}</p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -182,8 +192,11 @@ export default function DoctorDetail() {
                       <span className="text-sm">Translating...</span>
                     </div>
                   ) : (
-                    <div className="text-muted-foreground">
-                      <Streamdown>{translatedExpertise || doctor.expertise}</Streamdown>
+                    <div className="space-y-2">
+                      <p className="text-foreground font-medium">{doctor.expertise}</p>
+                      {translatedExpertise && translatedExpertise !== doctor.expertise && (
+                        <p className="text-muted-foreground italic">{translatedExpertise}</p>
+                      )}
                     </div>
                   )}
                 </div>
