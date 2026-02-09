@@ -425,11 +425,16 @@ function DoctorRecommendationCard({
               </div>
             )}
             <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{reason}</p>
-            <Link href={`/doctor/${doctorId}`}>
-              <Button variant="link" size="sm" className="px-0 h-auto mt-2">
-                View Profile →
+            <div className="mt-3 flex gap-2">
+              <Link href={`/doctor/${doctorId}`}>
+                <Button variant="outline" size="sm" className="text-xs">
+                  View Profile
+                </Button>
+              </Link>
+              <Button size="sm" className="text-xs">
+                Book Appointment
               </Button>
-            </Link>
+            </div>
           </div>
         </div>
       </CardContent>

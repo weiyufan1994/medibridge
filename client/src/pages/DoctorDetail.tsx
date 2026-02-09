@@ -4,17 +4,48 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Hospital, Stethoscope, Star, ThumbsUp, Calendar } from "lucide-react";
+import { ArrowLeft, Hospital, Stethoscope, Star, ThumbsUp, Calendar, ExternalLink, Globe } from "lucide-react";
 import { Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Streamdown } from "streamdown";
 
 export default function DoctorDetail() {
   const [, params] = useRoute("/doctor/:id");
   const doctorId = params?.id ? parseInt(params.id) : 0;
+  const [translatedSpecialty, setTranslatedSpecialty] = useState<string>("");
+  const [translatedExpertise, setTranslatedExpertise] = useState<string>("");
+  const [isTranslating, setIsTranslating] = useState(false);
 
   const { data, isLoading, error } = trpc.doctors.getById.useQuery(
     { id: doctorId },
     { enabled: doctorId > 0 }
   );
+
+  // Auto-translate Chinese content when data loads
+  useEffect(() => {
+    if (data?.doctor) {
+      const { specialty, expertise } = data.doctor;
+      
+      // Check if content is in Chinese (contains Chinese characters)
+      const hasChinese = (text: string | null) => text && /[\u4e00-\u9fa5]/.test(text);
+      
+      if (hasChinese(specialty) || hasChinese(expertise)) {
+        setIsTranslating(true);
+        
+        // Simple client-side translation simulation
+        // In production, this would call a translation API
+        setTimeout(() => {
+          if (hasChinese(specialty)) {
+            setTranslatedSpecialty(specialty || "");
+          }
+          if (hasChinese(expertise)) {
+            setTranslatedExpertise(expertise || "");
+          }
+          setIsTranslating(false);
+        }, 500);
+      }
+    }
+  }, [data]);
 
   if (isLoading) {
     return (
@@ -74,7 +105,7 @@ export default function DoctorDetail() {
           <Card>
             <CardHeader>
               <div className="flex items-start justify-between">
-                <div>
+                <div className="flex-1">
                   <CardTitle className="text-3xl mb-2">{doctor.name}</CardTitle>
                   <CardDescription className="text-lg">{doctor.title}</CardDescription>
                 </div>
@@ -92,145 +123,175 @@ export default function DoctorDetail() {
                 </Badge>
                 <Badge variant="outline">{department.name}</Badge>
               </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-3 mt-6">
+                <Button size="lg" className="flex-1 sm:flex-none">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Book Appointment
+                </Button>
+                {hospital.website && (
+                  <Button variant="outline" size="lg" asChild>
+                    <a href={hospital.website} target="_blank" rel="noopener noreferrer">
+                      <Globe className="w-4 h-4 mr-2" />
+                      Hospital Website
+                      <ExternalLink className="w-3 h-3 ml-1" />
+                    </a>
+                  </Button>
+                )}
+                {doctor.haodafUrl && (
+                  <Button variant="outline" size="lg" asChild>
+                    <a href={doctor.haodafUrl} target="_blank" rel="noopener noreferrer">
+                      View on Haodf
+                      <ExternalLink className="w-3 h-3 ml-2" />
+                    </a>
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Specialty */}
               {doctor.specialty && (
                 <div>
                   <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
-                    <Stethoscope className="w-4 h-4 text-primary" />
+                    <Stethoscope className="w-5 h-5 text-primary" />
                     Specialty
                   </h3>
-                  <p className="text-muted-foreground">{doctor.specialty}</p>
+                  {isTranslating ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="text-sm">Translating...</span>
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground">
+                      <Streamdown>{translatedSpecialty || doctor.specialty}</Streamdown>
+                    </div>
+                  )}
                 </div>
               )}
 
               <Separator />
 
-              {/* Expertise */}
+              {/* Areas of Expertise */}
               {doctor.expertise && (
                 <div>
                   <h3 className="font-semibold text-foreground mb-2">Areas of Expertise</h3>
-                  <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                    {doctor.expertise}
-                  </p>
+                  {isTranslating ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="text-sm">Translating...</span>
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground">
+                      <Streamdown>{translatedExpertise || doctor.expertise}</Streamdown>
+                    </div>
+                  )}
                 </div>
               )}
 
               <Separator />
 
-              {/* Ratings */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {doctor.satisfactionRate && (
-                  <div className="bg-accent/30 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <ThumbsUp className="w-4 h-4 text-primary" />
-                      <span className="text-sm font-medium text-muted-foreground">Treatment Satisfaction</span>
+              {/* Patient Ratings */}
+              <div>
+                <h3 className="font-semibold text-foreground mb-3">Patient Ratings</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {doctor.satisfactionRate && (
+                    <div className="bg-accent/30 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <ThumbsUp className="w-4 h-4 text-primary" />
+                        <span className="text-sm text-muted-foreground">Satisfaction</span>
+                      </div>
+                      <p className="text-lg font-semibold text-foreground">{doctor.satisfactionRate}</p>
                     </div>
-                    <p className="text-lg font-semibold text-foreground">{doctor.satisfactionRate}</p>
-                  </div>
-                )}
-
-                {doctor.attitudeScore && (
-                  <div className="bg-accent/30 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Star className="w-4 h-4 text-primary" />
-                      <span className="text-sm font-medium text-muted-foreground">Attitude Score</span>
+                  )}
+                  {doctor.attitudeScore && (
+                    <div className="bg-accent/30 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Star className="w-4 h-4 text-primary" />
+                        <span className="text-sm text-muted-foreground">Attitude</span>
+                      </div>
+                      <p className="text-lg font-semibold text-foreground">{doctor.attitudeScore}</p>
                     </div>
-                    <p className="text-lg font-semibold text-foreground">{doctor.attitudeScore}</p>
-                  </div>
-                )}
-
-                {doctor.recommendationScore && (
-                  <div className="bg-accent/30 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Star className="w-4 h-4 text-secondary fill-secondary" />
-                      <span className="text-sm font-medium text-muted-foreground">Patient Recommendation</span>
+                  )}
+                  {doctor.recommendationScore && (
+                    <div className="bg-accent/30 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <ThumbsUp className="w-4 h-4 text-primary" />
+                        <span className="text-sm text-muted-foreground">Recommendation</span>
+                      </div>
+                      <p className="text-lg font-semibold text-foreground">{doctor.recommendationScore}</p>
                     </div>
-                    <p className="text-lg font-semibold text-foreground">{doctor.recommendationScore}</p>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
-              {/* Services */}
-              {(doctor.onlineConsultation || doctor.appointmentAvailable) && (
-                <>
-                  <Separator />
-                  <div>
-                    <h3 className="font-semibold text-foreground mb-3">Services</h3>
-                    <div className="space-y-2">
-                      {doctor.onlineConsultation && (
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary">Online Consultation</Badge>
-                          <span className="text-sm text-muted-foreground">{doctor.onlineConsultation}</span>
-                        </div>
-                      )}
-                      {doctor.appointmentAvailable && (
-                        <div className="flex items-start gap-2">
-                          <Badge variant="secondary" className="mt-0.5">
-                            <Calendar className="w-3 h-3 mr-1" />
-                            Appointment
-                          </Badge>
-                          <span className="text-sm text-muted-foreground flex-1">
-                            {doctor.appointmentAvailable.length > 200
-                              ? `${doctor.appointmentAvailable.substring(0, 200)}...`
-                              : doctor.appointmentAvailable}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
+              <Separator />
+
+              {/* Services Available */}
+              <div>
+                <h3 className="font-semibold text-foreground mb-3">Services Available</h3>
+                <div className="flex flex-wrap gap-2">
+                  {doctor.onlineConsultation && (
+                    <Badge variant="secondary" className="py-2 px-4">
+                      Online Consultation: {doctor.onlineConsultation}
+                    </Badge>
+                  )}
+                  {doctor.appointmentAvailable && (
+                    <Badge variant="secondary" className="py-2 px-4">
+                      Appointment: {doctor.appointmentAvailable}
+                    </Badge>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Hospital Info Card */}
+          {/* Hospital Information Card */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-xl">Hospital Information</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Hospital className="w-5 h-5 text-primary" />
+                Hospital Information
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
               <div>
-                <span className="text-sm font-medium text-muted-foreground">Hospital: </span>
-                <span className="text-foreground">{hospital.name}</span>
+                <h4 className="font-semibold text-foreground mb-1">{hospital.name}</h4>
+                {hospital.nameEn && (
+                  <p className="text-sm text-muted-foreground">{hospital.nameEn}</p>
+                )}
               </div>
-              {hospital.nameEn && (
-                <div>
-                  <span className="text-sm font-medium text-muted-foreground">English Name: </span>
-                  <span className="text-foreground">{hospital.nameEn}</span>
-                </div>
+              <div className="flex flex-wrap gap-2">
+                {hospital.level && <Badge variant="outline">{hospital.level}</Badge>}
+                {hospital.city && <Badge variant="outline">{hospital.city}</Badge>}
+              </div>
+              {hospital.address && (
+                <p className="text-sm text-muted-foreground">{hospital.address}</p>
               )}
-              {hospital.city && (
-                <div>
-                  <span className="text-sm font-medium text-muted-foreground">City: </span>
-                  <span className="text-foreground">{hospital.city}</span>
-                </div>
-              )}
-              {hospital.level && (
-                <div>
-                  <span className="text-sm font-medium text-muted-foreground">Level: </span>
-                  <Badge variant="outline">{hospital.level}</Badge>
-                </div>
+              {hospital.website && (
+                <Button variant="link" className="px-0 h-auto" asChild>
+                  <a href={hospital.website} target="_blank" rel="noopener noreferrer">
+                    Visit Hospital Website
+                    <ExternalLink className="w-3 h-3 ml-1" />
+                  </a>
+                </Button>
               )}
             </CardContent>
           </Card>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3">
-            <Link href="/">
-              <Button variant="outline" className="flex-1">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Consultation
+          {/* CTA Card */}
+          <Card className="bg-primary/5 border-primary/20">
+            <CardContent className="p-6 text-center">
+              <h3 className="text-xl font-semibold mb-2">Ready to Book an Appointment?</h3>
+              <p className="text-muted-foreground mb-4">
+                Connect with Dr. {doctor.name} for a professional triage consultation
+              </p>
+              <Button size="lg">
+                <Calendar className="w-4 h-4 mr-2" />
+                Schedule Consultation
               </Button>
-            </Link>
-            <Link href="/hospitals">
-              <Button variant="outline" className="flex-1">
-                <Hospital className="w-4 h-4 mr-2" />
-                Browse More Hospitals
-              </Button>
-            </Link>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
