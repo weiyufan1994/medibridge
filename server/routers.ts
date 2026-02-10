@@ -9,7 +9,7 @@ import { nanoid } from "nanoid";
 
 export const appRouter = router({
   system: systemRouter,
-  
+
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
@@ -26,18 +26,24 @@ export const appRouter = router({
      * Send a message and get AI response with doctor recommendations
      */
     sendMessage: publicProcedure
-      .input(z.object({
-        sessionId: z.string().optional(),
-        message: z.string(),
-        chatHistory: z.array(z.object({
-          role: z.enum(["user", "assistant"]),
-          content: z.string(),
-        })).optional(),
-      }))
+      .input(
+        z.object({
+          sessionId: z.string().optional(),
+          message: z.string(),
+          chatHistory: z
+            .array(
+              z.object({
+                role: z.enum(["user", "assistant"]),
+                content: z.string(),
+              })
+            )
+            .optional(),
+        })
+      )
       .mutation(async ({ input }) => {
         const sessionId = input.sessionId || nanoid();
         const chatHistory = input.chatHistory || [];
-        
+
         // Build conversation history
         const messages = [
           {
@@ -49,27 +55,30 @@ export const appRouter = router({
 3. Always mention both the doctor's name AND the hospital name in your recommendations
 4. After recommending doctors, encourage patients to book an appointment for further triage consultation
 5. Use phrases like: "I recommend Dr. [Name] at [Hospital Name]" or "You can book an appointment with Dr. [Name] for a detailed triage consultation"
+6. At the end of recommendation messages, include this exact CTA sentence: "consult the registered doctor in the specific department for more information. Check out if you need treatment in China and in which hospital, department and doctor. Get your time cost and billing estimations"
 
 IMPORTANT:
+- Prefer doctors with verified HaoDF links whenever possible
 - Be proactive - don't wait for patients to ask "where should I go?"
 - Always provide concrete doctor and hospital recommendations when you have sufficient information
 - Encourage booking appointments for professional triage services
 - Use a warm, professional tone
-- Do not provide medical diagnoses - focus on connecting patients with the right specialists`
+- Do not provide medical diagnoses - focus on connecting patients with the right specialists`,
           },
           ...chatHistory.map(msg => ({
             role: msg.role,
-            content: msg.content
+            content: msg.content,
           })),
           {
             role: "user" as const,
-            content: input.message
-          }
+            content: input.message,
+          },
         ];
 
         // Get AI response
         const aiResponse = await invokeLLM({ messages });
-        const assistantMessage = aiResponse.choices[0].message.content as string;
+        const assistantMessage = aiResponse.choices[0].message
+          .content as string;
 
         // Extract medical keywords using LLM
         const extractionResponse = await invokeLLM({
@@ -86,12 +95,12 @@ IMPORTANT:
 }
 
 Keywords should include: disease names, symptoms, specialty names, treatment methods, etc.
-readyForRecommendation should be true if you have basic symptom information (even after just 1-2 exchanges), so we can show doctor recommendations proactively.`
+readyForRecommendation should be true if you have basic symptom information (even after just 1-2 exchanges), so we can show doctor recommendations proactively.`,
             },
             {
               role: "user",
-              content: `Patient conversation history:\n${chatHistory.map(m => `${m.role}: ${m.content}`).join('\n')}\n\nLatest message: ${input.message}`
-            }
+              content: `Patient conversation history:\n${chatHistory.map(m => `${m.role}: ${m.content}`).join("\n")}\n\nLatest message: ${input.message}`,
+            },
           ],
           response_format: {
             type: "json_schema",
@@ -104,48 +113,59 @@ readyForRecommendation should be true if you have basic symptom information (eve
                   keywords: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Extracted medical keywords"
+                    description: "Extracted medical keywords",
                   },
                   symptoms: {
                     type: "string",
-                    description: "Symptom description"
+                    description: "Symptom description",
                   },
                   duration: {
                     type: "string",
-                    description: "Duration description"
+                    description: "Duration description",
                   },
                   age: {
                     type: ["number", "null"],
-                    description: "Patient age"
+                    description: "Patient age",
                   },
                   readyForRecommendation: {
                     type: "boolean",
-                    description: "Ready to recommend doctors"
-                  }
+                    description: "Ready to recommend doctors",
+                  },
                 },
-                required: ["keywords", "symptoms", "duration", "age", "readyForRecommendation"],
-                additionalProperties: false
-              }
-            }
-          }
+                required: [
+                  "keywords",
+                  "symptoms",
+                  "duration",
+                  "age",
+                  "readyForRecommendation",
+                ],
+                additionalProperties: false,
+              },
+            },
+          },
         });
 
-        const extraction = JSON.parse(extractionResponse.choices[0].message.content as string);
+        const extraction = JSON.parse(
+          extractionResponse.choices[0].message.content as string
+        );
 
         // Search doctors if ready
         let recommendedDoctors: any[] = [];
-        if (extraction.readyForRecommendation && extraction.keywords.length > 0) {
+        if (
+          extraction.readyForRecommendation &&
+          extraction.keywords.length > 0
+        ) {
           const searchResults = await db.searchDoctors(extraction.keywords, 10);
-          
+
           // Rank doctors using LLM
           if (searchResults.length > 0) {
             const doctorDescriptions = searchResults.map((r, idx) => ({
               id: r.doctor.id,
               index: idx,
               text: `${idx + 1}. ${r.doctor.name} - ${r.hospital.name} ${r.department.name}
-Title: ${r.doctor.title || 'Unknown'}
-Expertise: ${r.doctor.expertise?.substring(0, 200) || 'No information'}
-Recommendation Score: ${r.doctor.recommendationScore || 'N/A'}`
+Title: ${r.doctor.title || "Unknown"}
+Expertise: ${r.doctor.expertise?.substring(0, 200) || "No information"}
+Recommendation Score: ${r.doctor.recommendationScore || "N/A"}`,
             }));
 
             const rankingResponse = await invokeLLM({
@@ -161,16 +181,16 @@ Return JSON format:
       "reason": "recommendation reason"
     }
   ]
-}`
+}`,
                 },
                 {
                   role: "user",
                   content: `Patient needs: ${extraction.symptoms}
-Keywords: ${extraction.keywords.join(', ')}
+Keywords: ${extraction.keywords.join(", ")}
 
 Candidate doctors:
-${doctorDescriptions.map(d => d.text).join('\n\n')}`
-                }
+${doctorDescriptions.map(d => d.text).join("\n\n")}`,
+                },
               ],
               response_format: {
                 type: "json_schema",
@@ -186,21 +206,23 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
                           type: "object",
                           properties: {
                             doctorId: { type: "number" },
-                            reason: { type: "string" }
+                            reason: { type: "string" },
                           },
                           required: ["doctorId", "reason"],
-                          additionalProperties: false
-                        }
-                      }
+                          additionalProperties: false,
+                        },
+                      },
                     },
                     required: ["selectedDoctors"],
-                    additionalProperties: false
-                  }
-                }
-              }
+                    additionalProperties: false,
+                  },
+                },
+              },
             });
 
-            const ranking = JSON.parse(rankingResponse.choices[0].message.content as string);
+            const ranking = JSON.parse(
+              rankingResponse.choices[0].message.content as string
+            );
             recommendedDoctors = ranking.selectedDoctors;
           }
         }
@@ -209,7 +231,7 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
         const updatedHistory = [
           ...chatHistory,
           { role: "user" as const, content: input.message },
-          { role: "assistant" as const, content: assistantMessage }
+          { role: "assistant" as const, content: assistantMessage },
         ];
 
         await db.upsertPatientSession({
@@ -218,14 +240,17 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
           symptoms: extraction.symptoms,
           duration: extraction.duration,
           age: extraction.age,
-          recommendedDoctors: recommendedDoctors.length > 0 ? JSON.stringify(recommendedDoctors) : null,
+          recommendedDoctors:
+            recommendedDoctors.length > 0
+              ? JSON.stringify(recommendedDoctors)
+              : null,
         });
 
         return {
           sessionId,
           message: assistantMessage,
           recommendedDoctors,
-          extraction
+          extraction,
         };
       }),
 
@@ -233,9 +258,11 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
      * Get session history
      */
     getSession: publicProcedure
-      .input(z.object({
-        sessionId: z.string()
-      }))
+      .input(
+        z.object({
+          sessionId: z.string(),
+        })
+      )
       .query(async ({ input }) => {
         const session = await db.getPatientSession(input.sessionId);
         if (!session) {
@@ -245,9 +272,9 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
         return {
           ...session,
           chatHistory: JSON.parse(session.chatHistory as string),
-          recommendedDoctors: session.recommendedDoctors 
+          recommendedDoctors: session.recommendedDoctors
             ? JSON.parse(session.recommendedDoctors as string)
-            : []
+            : [],
         };
       }),
   }),
@@ -257,9 +284,11 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
      * Get doctor details by ID
      */
     getById: publicProcedure
-      .input(z.object({
-        id: z.number()
-      }))
+      .input(
+        z.object({
+          id: z.number(),
+        })
+      )
       .query(async ({ input }) => {
         return await db.getDoctorById(input.id);
       }),
@@ -268,22 +297,44 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
      * Search doctors by keywords
      */
     search: publicProcedure
-      .input(z.object({
-        keywords: z.array(z.string()),
-        limit: z.number().optional()
-      }))
+      .input(
+        z.object({
+          keywords: z.array(z.string()),
+          limit: z.number().optional(),
+        })
+      )
       .query(async ({ input }) => {
         return await db.searchDoctors(input.keywords, input.limit);
       }),
 
     /**
+     * Get 1-2 representative doctors per department for patient education
+     */
+    getDepartmentHighlights: publicProcedure
+      .input(
+        z
+          .object({
+            limitDepartments: z.number().optional(),
+            doctorsPerDepartment: z.number().optional(),
+          })
+          .optional()
+      )
+      .query(async ({ input }) => {
+        return await db.getDepartmentHighlights(
+          input?.limitDepartments ?? 12,
+          input?.doctorsPerDepartment ?? 2
+        );
+      }),
+    /**
      * Get doctors by department
      */
     getByDepartment: publicProcedure
-      .input(z.object({
-        departmentId: z.number(),
-        limit: z.number().optional()
-      }))
+      .input(
+        z.object({
+          departmentId: z.number(),
+          limit: z.number().optional(),
+        })
+      )
       .query(async ({ input }) => {
         return await db.getDoctorsByDepartment(input.departmentId, input.limit);
       }),
@@ -301,9 +352,11 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
      * Get departments by hospital
      */
     getDepartments: publicProcedure
-      .input(z.object({
-        hospitalId: z.number()
-      }))
+      .input(
+        z.object({
+          hospitalId: z.number(),
+        })
+      )
       .query(async ({ input }) => {
         return await db.getDepartmentsByHospital(input.hospitalId);
       }),

@@ -1,7 +1,15 @@
-import { eq, like, or, and, desc, sql } from "drizzle-orm";
+import { eq, like, or, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, doctors, hospitals, departments, patientSessions, InsertPatientSession } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import {
+  InsertUser,
+  users,
+  doctors,
+  hospitals,
+  departments,
+  patientSessions,
+  InsertPatientSession,
+} from "../drizzle/schema";
+import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -56,8 +64,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.role = user.role;
       updateSet.role = user.role;
     } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
+      values.role = "admin";
+      updateSet.role = "admin";
     }
 
     if (!values.lastSignedIn) {
@@ -84,7 +92,11 @@ export async function getUserByOpenId(openId: string) {
     return undefined;
   }
 
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, openId))
+    .limit(1);
 
   return result.length > 0 ? result[0] : undefined;
 }
@@ -116,10 +128,75 @@ export async function searchDoctors(keywords: string[], limit: number = 20) {
     .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
     .innerJoin(departments, eq(doctors.departmentId, departments.id))
     .where(or(...conditions))
-    .orderBy(desc(doctors.recommendationScore))
+    .orderBy(
+      desc(sql`case when ${doctors.haodafUrl} is null then 0 else 1 end`),
+      desc(doctors.recommendationScore)
+    )
     .limit(limit);
 
   return results;
+}
+
+/**
+ * Pick 1-2 representative doctors for each department so users can quickly
+ * understand what each department treats.
+ */
+export async function getDepartmentHighlights(
+  limitDepartments = 24,
+  doctorsPerDepartment = 2
+) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const candidateRows = await db
+    .select({
+      doctor: doctors,
+      hospital: hospitals,
+      department: departments,
+    })
+    .from(doctors)
+    .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
+    .innerJoin(departments, eq(doctors.departmentId, departments.id))
+    .orderBy(
+      departments.name,
+      desc(sql`case when ${doctors.haodafUrl} is null then 0 else 1 end`),
+      desc(doctors.recommendationScore),
+      doctors.id
+    )
+    .limit(2000);
+
+  const grouped = new Map<
+    number,
+    {
+      department: (typeof candidateRows)[number]["department"];
+      hospital: (typeof candidateRows)[number]["hospital"];
+      doctors: (typeof candidateRows)[number]["doctor"][];
+    }
+  >();
+
+  for (const row of candidateRows) {
+    const existing = grouped.get(row.department.id);
+    if (!existing) {
+      if (grouped.size >= limitDepartments) continue;
+
+      grouped.set(row.department.id, {
+        department: row.department,
+        hospital: row.hospital,
+        doctors: [row.doctor],
+      });
+      continue;
+    }
+
+    if (existing.doctors.length >= doctorsPerDepartment) {
+      continue;
+    }
+
+    existing.doctors.push(row.doctor);
+  }
+
+  return Array.from(grouped.values());
 }
 
 /**
@@ -177,7 +254,10 @@ export async function getDepartmentsByHospital(hospitalId: number) {
 /**
  * Get doctors by department ID
  */
-export async function getDoctorsByDepartment(departmentId: number, limit: number = 50) {
+export async function getDoctorsByDepartment(
+  departmentId: number,
+  limit: number = 50
+) {
   const db = await getDb();
   if (!db) {
     throw new Error("Database not available");
