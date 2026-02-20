@@ -1,11 +1,12 @@
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import { readdirSync } from "fs";
-import { join, dirname } from "path";
+import { readdirSync, statSync } from "fs";
+import { join, dirname, basename } from "path";
 import { fileURLToPath } from "url";
 import ExcelJS from "exceljs";
 import { hospitals, departments, doctors } from "../drizzle/schema.js";
 import { eq, and } from "drizzle-orm";
+import "dotenv/config";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -24,18 +25,18 @@ const hospitalMapping = {
   "上海市第九人民医院": { name: "上海市第九人民医院", nameEn: "Shanghai Ninth People's Hospital" },
 };
 
-// Column name mappings (handle variations)
+// 增强了对不同表头名称的兼容
 const columnMappings = {
-  hospital: ["医院", "hospital"],
-  department: ["科室", "department"],
-  name: ["姓名", "name", "医生姓名"],
-  title: ["职称", "title"],
-  specialty: ["专业方向", "specialty", "专长"],
-  expertise: ["专业擅长", "expertise", "擅长"],
-  satisfactionRate: ["主观疗效", "疗效满意度", "satisfaction"],
-  attitudeScore: ["态度满意度", "态度", "attitude"],
+  hospital: ["医院", "hospital", "所属医院", "机构"],
+  department: ["科室", "department", "所属科室", "挂号科室"],
+  name: ["姓名", "name", "医生姓名", "专家姓名", "大夫", "医师", "专家"],
+  title: ["职称", "title", "职务", "医生职称"],
+  specialty: ["专业方向", "specialty", "专长", "擅长领域", "擅长"],
+  expertise: ["专业擅长", "expertise", "疾病", "擅长疾病"],
+  satisfactionRate: ["主观疗效", "疗效满意度", "satisfaction", "疗效"],
+  attitudeScore: ["态度满意度", "态度", "attitude", "服务态度"],
   recommendationScore: ["病友推荐度", "推荐度", "recommendation"],
-  onlineConsultation: ["在线问诊", "online"],
+  onlineConsultation: ["在线问诊", "online", "问诊"],
   appointmentAvailable: ["预约挂号", "appointment", "挂号"],
 };
 
@@ -53,23 +54,21 @@ function findColumnIndex(headerRow, fieldMappings) {
 }
 
 function getColumnMapping(worksheet) {
-  // Try to find header row (usually row 1 or 2)
   let headerRow = [];
-  let headerRowNum = 1;
+  let headerRowNum = -1;
   
-  for (let rowNum = 1; rowNum <= 3; rowNum++) {
+  // 扩大搜索范围，扫描前10行寻找表头
+  for (let rowNum = 1; rowNum <= 10; rowNum++) {
     const row = worksheet.getRow(rowNum);
     const values = [];
     row.eachCell((cell, colNumber) => {
       values[colNumber - 1] = cell.value;
     });
     
-    // Check if this looks like a header row
-    const hasExpectedHeaders = values.some(v => 
-      String(v || "").includes("姓名") || 
-      String(v || "").includes("医院") ||
-      String(v || "").includes("科室")
-    );
+    const hasExpectedHeaders = values.some(v => {
+      const str = String(v || "").trim();
+      return str.includes("姓名") || str.includes("医院") || str.includes("科室") || str.includes("专家");
+    });
     
     if (hasExpectedHeaders) {
       headerRow = values;
@@ -78,9 +77,8 @@ function getColumnMapping(worksheet) {
     }
   }
   
-  if (headerRow.length === 0) {
-    console.warn("  Warning: Could not find header row, using default mapping");
-    return null;
+  if (headerRowNum === -1) {
+    return null; // 这个sheet没有有效表头
   }
   
   const mapping = {};
@@ -94,45 +92,63 @@ function getColumnMapping(worksheet) {
   return { mapping, headerRowNum };
 }
 
+function getAllXlsxFiles(dirPath, arrayOfFiles = []) {
+  try {
+    const files = readdirSync(dirPath);
+    for (const file of files) {
+      const fullPath = join(dirPath, file);
+      if (statSync(fullPath).isDirectory()) {
+        arrayOfFiles = getAllXlsxFiles(fullPath, arrayOfFiles);
+      } else {
+        if (file.endsWith(".xlsx") && !file.startsWith("~$")) {
+          arrayOfFiles.push(fullPath);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn(`Could not read directory ${dirPath}:`, err.message);
+  }
+  return arrayOfFiles;
+}
+
 async function importDoctors() {
   console.log("Starting doctor data import...");
 
-  const hospitalsDir = "/home/ubuntu/medibridge/医院";
-  const hospitalFolders = readdirSync(hospitalsDir);
+  const hospitalsDir = join(__dirname, "../data/hospitals");
+  const xlsxFiles = getAllXlsxFiles(hospitalsDir);
+
+  if (xlsxFiles.length === 0) {
+    console.log(`\n❌ 没有在 ${hospitalsDir} 找到任何 .xlsx 文件！`);
+    await connection.end();
+    return;
+  }
 
   let totalDoctors = 0;
   let totalDepartments = 0;
   let totalHospitals = 0;
 
-  for (const folder of hospitalFolders) {
-    const folderPath = join(hospitalsDir, folder);
-    const files = readdirSync(folderPath).filter(f => f.endsWith(".xlsx"));
+  for (const filePath of xlsxFiles) {
+    const fileName = basename(filePath);
+    console.log(`\nProcessing file: ${fileName}`);
 
-    if (files.length === 0) continue;
+    try {
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.readFile(filePath);
+      
+      const rows = [];
+      let fileDoctorsCount = 0;
 
-    console.log(`\nProcessing hospital folder: ${folder}`);
-
-    for (const file of files) {
-      const filePath = join(folderPath, file);
-      console.log(`  Reading file: ${file}`);
-
-      try {
-        const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.readFile(filePath);
-        const worksheet = workbook.worksheets[0];
-
+      // 🌟 核心升级：遍历这个 Excel 里的每一个 Sheet 🌟
+      for (const worksheet of workbook.worksheets) {
         const columnInfo = getColumnMapping(worksheet);
         if (!columnInfo) {
-          console.log(`  Skipping file (no valid headers found)`);
-          continue;
+          continue; // 如果这一页没有表头，就去检查下一页
         }
 
         const { mapping, headerRowNum } = columnInfo;
         
-        // Process data rows
-        const rows = [];
         worksheet.eachRow((row, rowNumber) => {
-          if (rowNumber <= headerRowNum) return; // Skip header rows
+          if (rowNumber <= headerRowNum) return;
 
           const getCellValue = (field) => {
             const idx = mapping[field];
@@ -155,114 +171,107 @@ async function importDoctors() {
             appointmentAvailable: getCellValue("appointmentAvailable"),
           };
 
-          // Validate required fields
           if (rowData.name && rowData.name.length > 0) {
             rows.push(rowData);
+            fileDoctorsCount++;
           }
         });
-
-        console.log(`  Found ${rows.length} doctors`);
-
-        // Group by hospital
-        const hospitalGroups = {};
-        for (const row of rows) {
-          // Use hospital from data or infer from folder name
-          let hospitalName = row.hospital || folder;
-          
-          // Try to match with known hospitals
-          for (const knownName of Object.keys(hospitalMapping)) {
-            if (hospitalName.includes(knownName) || knownName.includes(hospitalName) ||
-                folder.includes(knownName) || knownName.includes(folder)) {
-              hospitalName = knownName;
-              break;
-            }
-          }
-          
-          if (!hospitalGroups[hospitalName]) {
-            hospitalGroups[hospitalName] = [];
-          }
-          hospitalGroups[hospitalName].push(row);
-        }
-
-        // Insert data
-        for (const [hospitalName, doctorsList] of Object.entries(hospitalGroups)) {
-          const hospitalInfo = hospitalMapping[hospitalName] || { name: hospitalName, nameEn: null };
-          
-          // Check if hospital exists
-          const existingHospital = await db.select().from(hospitals).where(eq(hospitals.name, hospitalInfo.name)).limit(1);
-          let hospitalId;
-          
-          if (existingHospital.length > 0) {
-            hospitalId = existingHospital[0].id;
-          } else {
-            const result = await db.insert(hospitals).values({
-              name: hospitalInfo.name,
-              nameEn: hospitalInfo.nameEn,
-              city: '上海',
-              level: '三级甲等'
-            });
-            hospitalId = Number(result[0].insertId);
-            totalHospitals++;
-          }
-
-          // Group by department
-          const deptGroups = {};
-          for (const doc of doctorsList) {
-            const deptName = doc.department || "未分类";
-            if (!deptGroups[deptName]) {
-              deptGroups[deptName] = [];
-            }
-            deptGroups[deptName].push(doc);
-          }
-
-          // Insert departments and doctors
-          for (const [deptName, deptDoctors] of Object.entries(deptGroups)) {
-            // Check if department exists
-            const existingDept = await db.select().from(departments)
-              .where(and(
-                eq(departments.hospitalId, hospitalId),
-                eq(departments.name, deptName)
-              ))
-              .limit(1);
-            
-            let deptId;
-            if (existingDept.length > 0) {
-              deptId = existingDept[0].id;
-            } else {
-              const result = await db.insert(departments).values({
-                hospitalId: hospitalId,
-                name: deptName
-              });
-              deptId = Number(result[0].insertId);
-              totalDepartments++;
-            }
-
-            // Insert doctors
-            for (const doc of deptDoctors) {
-              const recScore = parseFloat(doc.recommendationScore) || null;
-              
-              await db.insert(doctors).values({
-                hospitalId: hospitalId,
-                departmentId: deptId,
-                name: doc.name,
-                title: doc.title || null,
-                specialty: doc.specialty || null,
-                expertise: doc.expertise || null,
-                satisfactionRate: doc.satisfactionRate || null,
-                attitudeScore: doc.attitudeScore || null,
-                recommendationScore: recScore,
-                onlineConsultation: doc.onlineConsultation || null,
-                appointmentAvailable: doc.appointmentAvailable || null
-              });
-
-              totalDoctors++;
-            }
-          }
-        }
-      } catch (error) {
-        console.error(`  Error processing file ${file}:`, error.message);
-        continue;
       }
+
+      console.log(`  Found ${fileDoctorsCount} doctors across all sheets`);
+      if (fileDoctorsCount === 0) continue;
+
+      const hospitalGroups = {};
+      for (const row of rows) {
+        let hospitalName = row.hospital || fileName.split('.')[0];
+        
+        for (const knownName of Object.keys(hospitalMapping)) {
+          if (hospitalName.includes(knownName) || knownName.includes(hospitalName) ||
+              fileName.includes(knownName) || knownName.includes(fileName)) {
+            hospitalName = knownName;
+            break;
+          }
+        }
+        
+        if (!hospitalGroups[hospitalName]) {
+          hospitalGroups[hospitalName] = [];
+        }
+        hospitalGroups[hospitalName].push(row);
+      }
+
+      // 插入数据的逻辑保持不变
+      for (const [hospitalName, doctorsList] of Object.entries(hospitalGroups)) {
+        const hospitalInfo = hospitalMapping[hospitalName] || { name: hospitalName, nameEn: null };
+        
+        const existingHospital = await db.select().from(hospitals).where(eq(hospitals.name, hospitalInfo.name)).limit(1);
+        let hospitalId;
+        
+        if (existingHospital.length > 0) {
+          hospitalId = existingHospital[0].id;
+        } else {
+          const result = await db.insert(hospitals).values({
+            name: hospitalInfo.name,
+            nameEn: hospitalInfo.nameEn,
+            city: '上海',
+            level: '三级甲等'
+          });
+          hospitalId = Number(result[0].insertId);
+          totalHospitals++;
+        }
+
+        const deptGroups = {};
+        for (const doc of doctorsList) {
+          const deptName = doc.department || "未分类";
+          if (!deptGroups[deptName]) {
+            deptGroups[deptName] = [];
+          }
+          deptGroups[deptName].push(doc);
+        }
+
+        for (const [deptName, deptDoctors] of Object.entries(deptGroups)) {
+          const existingDept = await db.select().from(departments)
+            .where(and(
+              eq(departments.hospitalId, hospitalId),
+              eq(departments.name, deptName)
+            ))
+            .limit(1);
+          
+          let deptId;
+          if (existingDept.length > 0) {
+            deptId = existingDept[0].id;
+          } else {
+            const result = await db.insert(departments).values({
+              hospitalId: hospitalId,
+              name: deptName
+            });
+            deptId = Number(result[0].insertId);
+            totalDepartments++;
+          }
+
+          for (const doc of deptDoctors) {
+            const recScore = parseFloat(doc.recommendationScore) || null;
+            
+            await db.insert(doctors).values({
+              hospitalId: hospitalId,
+              departmentId: deptId,
+              name: doc.name,
+              title: doc.title || null,
+              specialty: doc.specialty || null,
+              expertise: doc.expertise || null,
+              satisfactionRate: doc.satisfactionRate || null,
+              attitudeScore: doc.attitudeScore || null,
+              recommendationScore: recScore,
+              onlineConsultation: doc.onlineConsultation || null,
+              appointmentAvailable: doc.appointmentAvailable || null
+            });
+
+            totalDoctors++;
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`  Error processing file ${fileName}:`, error.message);
+      continue;
     }
   }
 
@@ -275,5 +284,4 @@ async function importDoctors() {
   await connection.end();
 }
 
-// Run import
 importDoctors().catch(console.error);
