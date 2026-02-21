@@ -4,52 +4,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Hospital, Stethoscope, Star, ThumbsUp, Calendar, ExternalLink, Globe } from "lucide-react";
+import { ArrowLeft, Hospital, Stethoscope, Star, ThumbsUp, Calendar, ExternalLink, Globe, RefreshCw } from "lucide-react";
 import { Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
-import { Streamdown } from "streamdown";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { getLocalizedField } from "@/lib/i18n";
 
 export default function DoctorDetail() {
   const [, params] = useRoute("/doctor/:id");
   const doctorId = params?.id ? parseInt(params.id) : 0;
-  const [translatedName, setTranslatedName] = useState<string>("");
-  const [translatedSpecialty, setTranslatedSpecialty] = useState<string>("");
-  const [translatedExpertise, setTranslatedExpertise] = useState<string>("");
-  const [isTranslating, setIsTranslating] = useState(false);
+  const { resolved } = useLanguage();
+  const utils = trpc.useUtils();
 
   const { data, isLoading, error } = trpc.doctors.getById.useQuery(
     { id: doctorId },
     { enabled: doctorId > 0 }
   );
-
-  // Auto-translate Chinese content when data loads
-  useEffect(() => {
-    if (data?.doctor) {
-      const { name, specialty, expertise } = data.doctor;
-      
-      // Check if content is in Chinese (contains Chinese characters)
-      const hasChinese = (text: string | null) => text && /[\u4e00-\u9fa5]/.test(text);
-      
-      if (hasChinese(name) || hasChinese(specialty) || hasChinese(expertise)) {
-        setIsTranslating(true);
-        
-        // Simulate translation - in production, call real translation API
-        setTimeout(() => {
-          if (hasChinese(name)) {
-            // Simple pinyin-like placeholder for name
-            setTranslatedName("Dr. " + (data.doctor.nameEn || name || ""));
-          }
-          if (hasChinese(specialty)) {
-            setTranslatedSpecialty("Medical Imaging (Nuclear Medicine)");
-          }
-          if (hasChinese(expertise)) {
-            setTranslatedExpertise("PET/CT clinical applications, neuroendocrine studies, nuclear medicine quality control, computer image processing");
-          }
-          setIsTranslating(false);
-        }, 500);
-      }
-    }
-  }, [data]);
 
   if (isLoading) {
     return (
@@ -77,6 +47,51 @@ export default function DoctorDetail() {
   }
 
   const { doctor, hospital, department } = data;
+  const doctorName = getLocalizedField({ lang: resolved, zh: doctor.name, en: doctor.nameEn });
+  const doctorTitle = getLocalizedField({ lang: resolved, zh: doctor.title, en: doctor.titleEn });
+  const doctorSpecialty = getLocalizedField({
+    lang: resolved,
+    zh: doctor.specialty,
+    en: doctor.specialtyEn,
+  });
+  const doctorExpertise = getLocalizedField({
+    lang: resolved,
+    zh: doctor.expertise,
+    en: doctor.expertiseEn,
+  });
+  const hospitalName = getLocalizedField({ lang: resolved, zh: hospital.name, en: hospital.nameEn });
+  const departmentName = getLocalizedField({
+    lang: resolved,
+    zh: department.name,
+    en: department.nameEn,
+  });
+  const hospitalCity = getLocalizedField({ lang: resolved, zh: hospital.city, en: hospital.cityEn });
+  const hospitalLevel = getLocalizedField({ lang: resolved, zh: hospital.level, en: hospital.levelEn });
+  const hospitalAddress = getLocalizedField({
+    lang: resolved,
+    zh: hospital.address,
+    en: hospital.addressEn,
+  });
+  const consultation = getLocalizedField({
+    lang: resolved,
+    zh: doctor.onlineConsultation,
+    en: doctor.onlineConsultationEn,
+  });
+  const appointment = getLocalizedField({
+    lang: resolved,
+    zh: doctor.appointmentAvailable,
+    en: doctor.appointmentAvailableEn,
+  });
+  const satisfaction = getLocalizedField({
+    lang: resolved,
+    zh: doctor.satisfactionRate,
+    en: doctor.satisfactionRateEn,
+  });
+  const attitude = getLocalizedField({
+    lang: resolved,
+    zh: doctor.attitudeScore,
+    en: doctor.attitudeScoreEn,
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-accent/20">
@@ -93,12 +108,23 @@ export default function DoctorDetail() {
                 <p className="text-sm text-muted-foreground">AI-Powered Medical Bridge to China</p>
               </div>
             </div>
-            <Link href="/">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Home
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => utils.doctors.getById.invalidate({ id: doctorId })}
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
               </Button>
-            </Link>
+              <LanguageSwitcher />
+              <Link href="/">
+                <Button variant="ghost" size="sm">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Home
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </header>
@@ -110,11 +136,8 @@ export default function DoctorDetail() {
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <CardTitle className="text-3xl mb-1">{doctor.name}</CardTitle>
-                  {translatedName && translatedName !== doctor.name && (
-                    <p className="text-xl text-muted-foreground mb-2">{translatedName}</p>
-                  )}
-                  <CardDescription className="text-lg">{doctor.title}</CardDescription>
+                  <CardTitle className="text-3xl mb-1">{doctorName}</CardTitle>
+                  <CardDescription className="text-lg">{doctorTitle}</CardDescription>
                 </div>
                 {doctor.recommendationScore && (
                   <div className="flex items-center gap-2 bg-secondary/10 px-4 py-2 rounded-lg">
@@ -126,9 +149,9 @@ export default function DoctorDetail() {
               <div className="flex flex-wrap gap-2 mt-4">
                 <Badge variant="outline" className="flex items-center gap-1">
                   <Hospital className="w-3 h-3" />
-                  {hospital.name}
+                  {hospitalName}
                 </Badge>
-                <Badge variant="outline">{department.name}</Badge>
+                <Badge variant="outline">{departmentName}</Badge>
               </div>
 
               {/* Action Buttons */}
@@ -164,19 +187,9 @@ export default function DoctorDetail() {
                     <Stethoscope className="w-5 h-5 text-primary" />
                     Specialty
                   </h3>
-                  {isTranslating ? (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-sm">Translating...</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-foreground font-medium">{doctor.specialty}</p>
-                      {translatedSpecialty && translatedSpecialty !== doctor.specialty && (
-                        <p className="text-muted-foreground italic">{translatedSpecialty}</p>
-                      )}
-                    </div>
-                  )}
+                  <div className="space-y-2">
+                    <p className="text-foreground font-medium">{doctorSpecialty}</p>
+                  </div>
                 </div>
               )}
 
@@ -186,19 +199,9 @@ export default function DoctorDetail() {
               {doctor.expertise && (
                 <div>
                   <h3 className="font-semibold text-foreground mb-2">Areas of Expertise</h3>
-                  {isTranslating ? (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-sm">Translating...</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-foreground font-medium">{doctor.expertise}</p>
-                      {translatedExpertise && translatedExpertise !== doctor.expertise && (
-                        <p className="text-muted-foreground italic">{translatedExpertise}</p>
-                      )}
-                    </div>
-                  )}
+                  <div className="space-y-2">
+                    <p className="text-foreground font-medium">{doctorExpertise}</p>
+                  </div>
                 </div>
               )}
 
@@ -214,7 +217,7 @@ export default function DoctorDetail() {
                         <ThumbsUp className="w-4 h-4 text-primary" />
                         <span className="text-sm text-muted-foreground">Satisfaction</span>
                       </div>
-                      <p className="text-lg font-semibold text-foreground">{doctor.satisfactionRate}</p>
+                      <p className="text-lg font-semibold text-foreground">{satisfaction}</p>
                     </div>
                   )}
                   {doctor.attitudeScore && (
@@ -223,7 +226,7 @@ export default function DoctorDetail() {
                         <Star className="w-4 h-4 text-primary" />
                         <span className="text-sm text-muted-foreground">Attitude</span>
                       </div>
-                      <p className="text-lg font-semibold text-foreground">{doctor.attitudeScore}</p>
+                      <p className="text-lg font-semibold text-foreground">{attitude}</p>
                     </div>
                   )}
                   {doctor.recommendationScore && (
@@ -246,12 +249,12 @@ export default function DoctorDetail() {
                 <div className="flex flex-wrap gap-2">
                   {doctor.onlineConsultation && (
                     <Badge variant="secondary" className="py-2 px-4">
-                      Online Consultation: {doctor.onlineConsultation}
+                      Online Consultation: {consultation}
                     </Badge>
                   )}
                   {doctor.appointmentAvailable && (
                     <Badge variant="secondary" className="py-2 px-4">
-                      Appointment: {doctor.appointmentAvailable}
+                      Appointment: {appointment}
                     </Badge>
                   )}
                 </div>
@@ -269,17 +272,14 @@ export default function DoctorDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <h4 className="font-semibold text-foreground mb-1">{hospital.name}</h4>
-                {hospital.nameEn && (
-                  <p className="text-sm text-muted-foreground">{hospital.nameEn}</p>
-                )}
+                <h4 className="font-semibold text-foreground mb-1">{hospitalName}</h4>
               </div>
               <div className="flex flex-wrap gap-2">
-                {hospital.level && <Badge variant="outline">{hospital.level}</Badge>}
-                {hospital.city && <Badge variant="outline">{hospital.city}</Badge>}
+                {hospital.level && <Badge variant="outline">{hospitalLevel}</Badge>}
+                {hospital.city && <Badge variant="outline">{hospitalCity}</Badge>}
               </div>
               {hospital.address && (
-                <p className="text-sm text-muted-foreground">{hospital.address}</p>
+                <p className="text-sm text-muted-foreground">{hospitalAddress}</p>
               )}
               {hospital.website && (
                 <Button variant="link" className="px-0 h-auto" asChild>
@@ -297,7 +297,7 @@ export default function DoctorDetail() {
             <CardContent className="p-6 text-center">
               <h3 className="text-xl font-semibold mb-2">Ready to Book an Appointment?</h3>
               <p className="text-muted-foreground mb-4">
-                Connect with Dr. {doctor.name} for a professional triage consultation
+                Connect with Dr. {doctorName} for a professional triage consultation
               </p>
               <Button size="lg">
                 <Calendar className="w-4 h-4 mr-2" />

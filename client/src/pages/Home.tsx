@@ -4,9 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Send, Stethoscope, Hospital, User, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Loader2, Send, Stethoscope, Hospital, User, ArrowRight, CheckCircle2, RefreshCw } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { Link } from "wouter";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { getLocalizedField } from "@/lib/i18n";
 
 interface Message {
   role: "user" | "assistant";
@@ -25,6 +28,8 @@ export default function Home() {
   const [recommendedDoctors, setRecommendedDoctors] = useState<RecommendedDoctor[]>([]);
   const [showChat, setShowChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { mode, reportInput } = useLanguage();
+  const utils = trpc.useUtils();
 
   const sendMessageMutation = trpc.chat.sendMessage.useMutation({
     onSuccess: (data) => {
@@ -48,6 +53,7 @@ export default function Home() {
 
   const handleSend = () => {
     if (!input.trim() || sendMessageMutation.isPending) return;
+    reportInput(input);
 
     if (!showChat) {
       setShowChat(true);
@@ -56,7 +62,8 @@ export default function Home() {
     sendMessageMutation.mutate({
       sessionId: sessionId || undefined,
       message: input,
-      chatHistory: messages
+      chatHistory: messages,
+      lang: mode,
     });
   };
 
@@ -68,6 +75,7 @@ export default function Home() {
   };
 
   const handleQuickStart = (query: string) => {
+    reportInput(query);
     setInput(query);
     setShowChat(true);
   };
@@ -94,6 +102,15 @@ export default function Home() {
                   Browse Hospitals
                 </Button>
               </Link>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => utils.doctors.getById.invalidate()}
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
+              <LanguageSwitcher />
             </div>
           </div>
         </div>
@@ -389,6 +406,7 @@ function DoctorRecommendationCard({
   rank: number;
 }) {
   const { data, isLoading } = trpc.doctors.getById.useQuery({ id: doctorId });
+  const { resolved } = useLanguage();
 
   if (isLoading) {
     return (
@@ -403,6 +421,26 @@ function DoctorRecommendationCard({
   if (!data) return null;
 
   const { doctor, hospital, department } = data;
+  const doctorName = getLocalizedField({
+    lang: resolved,
+    zh: doctor.name,
+    en: doctor.nameEn,
+  });
+  const doctorTitle = getLocalizedField({
+    lang: resolved,
+    zh: doctor.title,
+    en: doctor.titleEn,
+  });
+  const hospitalName = getLocalizedField({
+    lang: resolved,
+    zh: hospital.name,
+    en: hospital.nameEn,
+  });
+  const departmentName = getLocalizedField({
+    lang: resolved,
+    zh: department.name,
+    en: department.nameEn,
+  });
 
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -412,11 +450,11 @@ function DoctorRecommendationCard({
             <span className="text-sm font-bold text-primary">#{rank}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-foreground truncate">{doctor.name}</h4>
-            <p className="text-sm text-muted-foreground">{doctor.title}</p>
+            <h4 className="font-semibold text-foreground truncate">{doctorName}</h4>
+            <p className="text-sm text-muted-foreground">{doctorTitle}</p>
             <div className="mt-1 flex flex-wrap gap-1">
-              <Badge variant="outline" className="text-xs">{hospital.name}</Badge>
-              <Badge variant="outline" className="text-xs">{department.name}</Badge>
+              <Badge variant="outline" className="text-xs">{hospitalName}</Badge>
+              <Badge variant="outline" className="text-xs">{departmentName}</Badge>
             </div>
             {doctor.recommendationScore && (
               <div className="mt-2 flex items-center gap-1">

@@ -5,7 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Hospital, Stethoscope, Search, ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Hospital, Stethoscope, Search, ChevronRight, ChevronLeft, Loader2, RefreshCw } from "lucide-react";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { getLocalizedField, getSearchableText } from "@/lib/i18n";
 
 type ViewMode = "hospitals" | "departments" | "doctors";
 
@@ -14,6 +17,8 @@ export default function Hospitals() {
   const [selectedHospitalId, setSelectedHospitalId] = useState<number | null>(null);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const { resolved, reportInput } = useLanguage();
+  const utils = trpc.useUtils();
 
   const { data: hospitals, isLoading: hospitalsLoading } = trpc.hospitals.getAll.useQuery();
   
@@ -29,12 +34,24 @@ export default function Hospitals() {
 
   const selectedHospital = hospitals?.find(h => h.id === selectedHospitalId);
   const selectedDepartment = departments?.find(d => d.id === selectedDepartmentId);
+  const selectedHospitalName = selectedHospital
+    ? getLocalizedField({ lang: resolved, zh: selectedHospital.name, en: selectedHospital.nameEn })
+    : "";
+  const selectedDepartmentName = selectedDepartment
+    ? getLocalizedField({ lang: resolved, zh: selectedDepartment.name, en: selectedDepartment.nameEn })
+    : "";
 
-  const filteredDoctors = doctors?.filter(d =>
-    d.doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.doctor.expertise?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.doctor.specialty?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredDoctors = doctors?.filter(d => {
+    const name = resolved === "zh" ? d.doctor.name : d.doctor.nameEn || "";
+    const expertise = resolved === "zh" ? d.doctor.expertise : d.doctor.expertiseEn || "";
+    const specialty = resolved === "zh" ? d.doctor.specialty : d.doctor.specialtyEn || "";
+    const query = searchQuery.toLowerCase();
+    return (
+      getSearchableText(name).includes(query) ||
+      getSearchableText(expertise).includes(query) ||
+      getSearchableText(specialty).includes(query)
+    );
+  });
 
   const handleSelectHospital = (hospitalId: number) => {
     setSelectedHospitalId(hospitalId);
@@ -76,12 +93,27 @@ export default function Hospitals() {
                 <p className="text-sm text-muted-foreground">Browse Hospitals & Doctors</p>
               </div>
             </div>
-            <Link href="/">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Home
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  utils.hospitals.getAll.invalidate();
+                  utils.hospitals.getDepartments.invalidate();
+                  utils.doctors.getByDepartment.invalidate();
+                }}
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
               </Button>
-            </Link>
+              <LanguageSwitcher />
+              <Link href="/">
+                <Button variant="ghost" size="sm">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Home
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </header>
@@ -103,7 +135,7 @@ export default function Hospitals() {
                   onClick={handleBackToDepartments}
                   className={`hover:text-foreground transition-colors ${viewMode === "departments" ? "text-foreground font-medium" : ""}`}
                 >
-                  {selectedHospital?.name || "Departments"}
+                  {selectedHospitalName || "Departments"}
                 </button>
               </>
             )}
@@ -111,7 +143,7 @@ export default function Hospitals() {
               <>
                 <ChevronRight className="w-4 h-4" />
                 <span className="text-foreground font-medium">
-                  {selectedDepartment?.name || "Doctors"}
+                  {selectedDepartmentName || "Doctors"}
                 </span>
               </>
             )}
@@ -135,37 +167,51 @@ export default function Hospitals() {
                     <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
                   </div>
                 )}
-                {hospitals?.map((hospital) => (
-                  <button
-                    key={hospital.id}
-                    onClick={() => handleSelectHospital(hospital.id)}
-                    className="w-full text-left"
-                  >
-                    <Card className="hover:shadow-md transition-shadow hover:border-primary/50">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-foreground mb-1">
-                              {hospital.name}
-                            </h3>
-                            {hospital.nameEn && (
-                              <p className="text-sm text-muted-foreground mb-2">{hospital.nameEn}</p>
-                            )}
-                            <div className="flex flex-wrap gap-2">
-                              {hospital.level && (
-                                <Badge variant="outline">{hospital.level}</Badge>
-                              )}
-                              {hospital.city && (
-                                <Badge variant="secondary">{hospital.city}</Badge>
-                              )}
+                {hospitals?.map((hospital) => {
+                  const hospitalName = getLocalizedField({
+                    lang: resolved,
+                    zh: hospital.name,
+                    en: hospital.nameEn,
+                  });
+                  const hospitalCity = getLocalizedField({
+                    lang: resolved,
+                    zh: hospital.city,
+                    en: hospital.cityEn,
+                  });
+                  const hospitalLevel = getLocalizedField({
+                    lang: resolved,
+                    zh: hospital.level,
+                    en: hospital.levelEn,
+                  });
+                  return (
+                    <button
+                      key={hospital.id}
+                      onClick={() => handleSelectHospital(hospital.id)}
+                      className="w-full text-left"
+                    >
+                      <Card className="hover:shadow-md transition-shadow hover:border-primary/50">
+                        <CardContent className="p-6">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <h3 className="text-lg font-semibold text-foreground mb-1">
+                                {hospitalName}
+                              </h3>
+                              <div className="flex flex-wrap gap-2">
+                                {hospital.level && (
+                                  <Badge variant="outline">{hospitalLevel}</Badge>
+                                )}
+                                {hospital.city && (
+                                  <Badge variant="secondary">{hospitalCity}</Badge>
+                                )}
+                              </div>
                             </div>
+                            <ChevronRight className="w-6 h-6 text-muted-foreground flex-shrink-0 ml-4" />
                           </div>
-                          <ChevronRight className="w-6 h-6 text-muted-foreground flex-shrink-0 ml-4" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </button>
-                ))}
+                        </CardContent>
+                      </Card>
+                    </button>
+                  );
+                })}
               </CardContent>
             </Card>
           )}
@@ -181,7 +227,7 @@ export default function Hospitals() {
                       Select a Department
                     </CardTitle>
                     <CardDescription>
-                      {selectedHospital?.name}
+                      {selectedHospitalName}
                     </CardDescription>
                   </div>
                   <Button variant="ghost" size="sm" onClick={handleBackToHospitals}>
@@ -196,29 +242,33 @@ export default function Hospitals() {
                     <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
                   </div>
                 )}
-                {departments?.map((dept) => (
-                  <button
-                    key={dept.id}
-                    onClick={() => handleSelectDepartment(dept.id)}
-                    className="w-full text-left"
-                  >
-                    <Card className="hover:shadow-md transition-shadow hover:border-primary/50">
-                      <CardContent className="p-5">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-lg font-semibold text-foreground">
-                              {dept.name}
-                            </h3>
-                            {dept.nameEn && (
-                              <p className="text-sm text-muted-foreground mt-1">{dept.nameEn}</p>
-                            )}
+                {departments?.map((dept) => {
+                  const departmentName = getLocalizedField({
+                    lang: resolved,
+                    zh: dept.name,
+                    en: dept.nameEn,
+                  });
+                  return (
+                    <button
+                      key={dept.id}
+                      onClick={() => handleSelectDepartment(dept.id)}
+                      className="w-full text-left"
+                    >
+                      <Card className="hover:shadow-md transition-shadow hover:border-primary/50">
+                        <CardContent className="p-5">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="text-lg font-semibold text-foreground">
+                                {departmentName}
+                              </h3>
+                            </div>
+                            <ChevronRight className="w-6 h-6 text-muted-foreground flex-shrink-0 ml-4" />
                           </div>
-                          <ChevronRight className="w-6 h-6 text-muted-foreground flex-shrink-0 ml-4" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </button>
-                ))}
+                        </CardContent>
+                      </Card>
+                    </button>
+                  );
+                })}
               </CardContent>
             </Card>
           )}
@@ -231,7 +281,7 @@ export default function Hospitals() {
                   <div>
                     <CardTitle>Doctors</CardTitle>
                     <CardDescription>
-                      {selectedDepartment?.name} • {filteredDoctors?.length || 0} doctors
+                      {selectedDepartmentName} • {filteredDoctors?.length || 0} doctors
                     </CardDescription>
                   </div>
                   <Button variant="ghost" size="sm" onClick={handleBackToDepartments}>
@@ -244,7 +294,10 @@ export default function Hospitals() {
                   <Input
                     placeholder="Search by name or expertise..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      reportInput(e.target.value);
+                    }}
                     className="pl-9"
                   />
                 </div>
@@ -260,42 +313,64 @@ export default function Hospitals() {
                     <p className="text-sm">No doctors found</p>
                   </div>
                 )}
-                {filteredDoctors?.map(({ doctor }) => (
-                  <Card key={doctor.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-5">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-semibold text-lg text-foreground">{doctor.name}</h4>
-                            {doctor.recommendationScore && (
-                              <Badge variant="secondary" className="text-xs">
-                                ★ {doctor.recommendationScore}
-                              </Badge>
+                {filteredDoctors?.map(({ doctor }) => {
+                  const doctorName = getLocalizedField({
+                    lang: resolved,
+                    zh: doctor.name,
+                    en: doctor.nameEn,
+                  });
+                  const doctorTitle = getLocalizedField({
+                    lang: resolved,
+                    zh: doctor.title,
+                    en: doctor.titleEn,
+                  });
+                  const doctorSpecialty = getLocalizedField({
+                    lang: resolved,
+                    zh: doctor.specialty,
+                    en: doctor.specialtyEn,
+                  });
+                  const doctorExpertise = getLocalizedField({
+                    lang: resolved,
+                    zh: doctor.expertise,
+                    en: doctor.expertiseEn,
+                  });
+                  return (
+                    <Card key={doctor.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-semibold text-lg text-foreground">{doctorName}</h4>
+                              {doctor.recommendationScore && (
+                                <Badge variant="secondary" className="text-xs">
+                                  ★ {doctor.recommendationScore}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-3">{doctorTitle}</p>
+                            {doctor.specialty && (
+                              <p className="text-sm text-muted-foreground mb-2">
+                                <span className="font-medium">Specialty: </span>
+                                {doctorSpecialty}
+                              </p>
+                            )}
+                            {doctor.expertise && (
+                              <p className="text-sm text-muted-foreground line-clamp-3">
+                                <span className="font-medium">Expertise: </span>
+                                {doctorExpertise}
+                              </p>
                             )}
                           </div>
-                          <p className="text-sm text-muted-foreground mb-3">{doctor.title}</p>
-                          {doctor.specialty && (
-                            <p className="text-sm text-muted-foreground mb-2">
-                              <span className="font-medium">Specialty: </span>
-                              {doctor.specialty}
-                            </p>
-                          )}
-                          {doctor.expertise && (
-                            <p className="text-sm text-muted-foreground line-clamp-3">
-                              <span className="font-medium">Expertise: </span>
-                              {doctor.expertise}
-                            </p>
-                          )}
+                          <Link href={`/doctor/${doctor.id}`}>
+                            <Button size="sm">
+                              View Profile
+                            </Button>
+                          </Link>
                         </div>
-                        <Link href={`/doctor/${doctor.id}`}>
-                          <Button size="sm">
-                            View Profile
-                          </Button>
-                        </Link>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </CardContent>
             </Card>
           )}

@@ -92,21 +92,49 @@ export async function getUserByOpenId(openId: string) {
 /**
  * Search doctors by keywords in expertise, specialty, department, or hospital
  */
-export async function searchDoctors(keywords: string[], limit: number = 20) {
+type SearchLanguage = "en" | "zh";
+
+const buildSearchConditions = (keywords: string[], fields: Array<any>) => {
+  const cleaned = keywords.map(keyword => keyword.trim()).filter(Boolean);
+  return cleaned.flatMap(keyword => fields.map(field => like(field, `%${keyword}%`)));
+};
+
+export async function searchDoctors(
+  keywords: string[],
+  limit: number = 20,
+  options: { lang?: SearchLanguage; fallbackKeywords?: string[] } = {}
+) {
   const db = await getDb();
   if (!db) {
     throw new Error("Database not available");
   }
 
-  // Build search conditions
-  const conditions = keywords.flatMap(keyword => [
-    like(doctors.expertise, `%${keyword}%`),
-    like(doctors.specialty, `%${keyword}%`),
-    like(departments.name, `%${keyword}%`),
-    like(hospitals.name, `%${keyword}%`),
-  ]);
+  const lang = options.lang ?? "zh";
+  const primaryFields =
+    lang === "en"
+      ? [
+          doctors.nameEn,
+          doctors.titleEn,
+          doctors.specialtyEn,
+          doctors.expertiseEn,
+          departments.nameEn,
+          hospitals.nameEn,
+        ]
+      : [
+          doctors.name,
+          doctors.title,
+          doctors.specialty,
+          doctors.expertise,
+          departments.name,
+          hospitals.name,
+        ];
 
-  const results = await db
+  const primaryConditions = buildSearchConditions(keywords, primaryFields);
+  if (primaryConditions.length === 0) {
+    return [];
+  }
+
+  const primaryResults = await db
     .select({
       doctor: doctors,
       hospital: hospitals,
@@ -115,11 +143,51 @@ export async function searchDoctors(keywords: string[], limit: number = 20) {
     .from(doctors)
     .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
     .innerJoin(departments, eq(doctors.departmentId, departments.id))
-    .where(or(...conditions))
+    .where(or(...primaryConditions))
     .orderBy(desc(doctors.recommendationScore))
     .limit(limit);
 
-  return results;
+  if (lang !== "en" || !options.fallbackKeywords || options.fallbackKeywords.length === 0) {
+    return primaryResults;
+  }
+
+  const fallbackFields = [
+    doctors.name,
+    doctors.title,
+    doctors.specialty,
+    doctors.expertise,
+    departments.name,
+    hospitals.name,
+  ];
+  const fallbackConditions = buildSearchConditions(options.fallbackKeywords, fallbackFields);
+  if (fallbackConditions.length === 0) {
+    return primaryResults;
+  }
+
+  const fallbackResults = await db
+    .select({
+      doctor: doctors,
+      hospital: hospitals,
+      department: departments,
+    })
+    .from(doctors)
+    .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
+    .innerJoin(departments, eq(doctors.departmentId, departments.id))
+    .where(or(...fallbackConditions))
+    .orderBy(desc(doctors.recommendationScore))
+    .limit(limit);
+
+  const merged = new Map<number, (typeof primaryResults)[number]>();
+  for (const result of primaryResults) {
+    merged.set(result.doctor.id, result);
+  }
+  for (const result of fallbackResults) {
+    if (!merged.has(result.doctor.id)) {
+      merged.set(result.doctor.id, result);
+    }
+  }
+
+  return Array.from(merged.values()).slice(0, limit);
 }
 
 /**

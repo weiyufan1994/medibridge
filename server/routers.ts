@@ -33,16 +33,19 @@ export const appRouter = router({
           role: z.enum(["user", "assistant"]),
           content: z.string(),
         })).optional(),
+        lang: z.enum(["auto", "en", "zh"]).optional().default("auto"),
       }))
       .mutation(async ({ input }) => {
         const sessionId = input.sessionId || nanoid();
         const chatHistory = input.chatHistory || [];
-        
-        // Build conversation history
-        const messages = [
-          {
-            role: "system" as const,
-            content: `You are MediBridge's medical consultation assistant, helping North American patients find suitable doctors in Shanghai, China. Your tasks:
+        const detectLanguage = (text: string) =>
+          /[\u4e00-\u9fff]/.test(text) ? "zh" : "en";
+        const resolvedLang = input.lang === "auto" ? detectLanguage(input.message) : input.lang;
+        const isEnglish = resolvedLang === "en";
+        const placeholder = "Translation in progress";
+
+        const systemPrompt = isEnglish
+          ? `You are MediBridge's medical consultation assistant, helping North American patients find suitable doctors in Shanghai, China. Your tasks:
 
 1. Kindly ask about the patient's symptoms, duration, age, and medical history
 2. When you have enough information (after 1-2 exchanges), PROACTIVELY recommend specific doctors and hospitals
@@ -55,7 +58,28 @@ IMPORTANT:
 - Always provide concrete doctor and hospital recommendations when you have sufficient information
 - Encourage booking appointments for professional triage services
 - Use a warm, professional tone
-- Do not provide medical diagnoses - focus on connecting patients with the right specialists`
+- Do not provide medical diagnoses - focus on connecting patients with the right specialists
+- Respond only in English`
+          : `你是 MediBridge 的医疗咨询助手，帮助用户在上海找到合适的医生。你的任务：
+
+1. 友好询问症状、病程、年龄和既往史
+2. 在获得基本信息后（1-2 轮对话），主动推荐具体医生和医院
+3. 推荐时必须同时提到医生姓名和医院名称
+4. 推荐后鼓励用户预约进一步分诊咨询
+5. 使用类似：“我推荐 [医院] 的 [医生]” 的表述
+
+重要要求：
+- 主动推荐，不要等待用户主动提问
+- 有足够信息时必须给出具体医生/医院
+- 语气温和专业
+- 不给出诊断，仅做分诊匹配
+- 仅用中文回复`;
+        
+        // Build conversation history
+        const messages = [
+          {
+            role: "system" as const,
+            content: systemPrompt
           },
           ...chatHistory.map(msg => ({
             role: msg.role,
@@ -76,7 +100,8 @@ IMPORTANT:
           messages: [
             {
               role: "system",
-              content: `Extract medical keywords from patient conversation. Return JSON format:
+              content: isEnglish
+                ? `Extract medical keywords from patient conversation. Return JSON format:
 {
   "keywords": ["keyword1", "keyword2"],
   "symptoms": "symptom description",
@@ -85,8 +110,21 @@ IMPORTANT:
   "readyForRecommendation": true/false
 }
 
-Keywords should include: disease names, symptoms, specialty names, treatment methods, etc.
-readyForRecommendation should be true if you have basic symptom information (even after just 1-2 exchanges), so we can show doctor recommendations proactively.`
+Keywords should include disease names, symptoms, specialty names, treatment methods, etc.
+Return keywords in the same language as the input.
+readyForRecommendation should be true if you have basic symptom information (even after just 1-2 exchanges).`
+                : `从患者对话中提取医学关键词，返回 JSON：
+{
+  "keywords": ["keyword1", "keyword2"],
+  "symptoms": "症状描述",
+  "duration": "病程描述",
+  "age": age_number or null,
+  "readyForRecommendation": true/false
+}
+
+关键词应包括疾病、症状、科室名称、治疗方式等。
+关键词使用与输入一致的语言。
+若已获得基本症状信息（即使仅 1-2 轮），readyForRecommendation 应为 true。`
             },
             {
               role: "user",
@@ -135,24 +173,89 @@ readyForRecommendation should be true if you have basic symptom information (eve
         // Search doctors if ready
         let recommendedDoctors: any[] = [];
         if (extraction.readyForRecommendation && extraction.keywords.length > 0) {
-          const searchResults = await db.searchDoctors(extraction.keywords, 10);
+          let searchResults = await db.searchDoctors(extraction.keywords, 10, {
+            lang: isEnglish ? "en" : "zh",
+          });
+
+          if (isEnglish && searchResults.length < 3) {
+            const translationResponse = await invokeLLM({
+              messages: [
+                {
+                  role: "system",
+                  content:
+                    "Translate English medical keywords into concise Chinese equivalents. Return JSON only.",
+                },
+                {
+                  role: "user",
+                  content: JSON.stringify({ keywords: extraction.keywords }),
+                },
+              ],
+              response_format: {
+                type: "json_schema",
+                json_schema: {
+                  name: "keyword_translation",
+                  strict: true,
+                  schema: {
+                    type: "object",
+                    properties: {
+                      keywordsZh: {
+                        type: "array",
+                        items: { type: "string" },
+                      },
+                    },
+                    required: ["keywordsZh"],
+                    additionalProperties: false,
+                  },
+                },
+              },
+            });
+            const translated = JSON.parse(
+              translationResponse.choices[0].message.content as string
+            ) as { keywordsZh: string[] };
+
+            searchResults = await db.searchDoctors(extraction.keywords, 10, {
+              lang: "en",
+              fallbackKeywords: translated.keywordsZh,
+            });
+          }
           
           // Rank doctors using LLM
           if (searchResults.length > 0) {
             const doctorDescriptions = searchResults.map((r, idx) => ({
               id: r.doctor.id,
               index: idx,
-              text: `${idx + 1}. ${r.doctor.name} - ${r.hospital.name} ${r.department.name}
-Title: ${r.doctor.title || 'Unknown'}
-Expertise: ${r.doctor.expertise?.substring(0, 200) || 'No information'}
-Recommendation Score: ${r.doctor.recommendationScore || 'N/A'}`
+              text: `${idx + 1}. ${
+                isEnglish
+                  ? r.doctor.nameEn || placeholder
+                  : r.doctor.name
+              } - ${
+                isEnglish
+                  ? r.hospital.nameEn || placeholder
+                  : r.hospital.name
+              } ${
+                isEnglish
+                  ? r.department.nameEn || placeholder
+                  : r.department.name
+              }
+Title: ${
+                isEnglish
+                  ? r.doctor.titleEn || placeholder
+                  : r.doctor.title || (isEnglish ? placeholder : "未知")
+              }
+Expertise: ${
+                isEnglish
+                  ? r.doctor.expertiseEn?.substring(0, 200) || placeholder
+                  : r.doctor.expertise?.substring(0, 200) || "暂无信息"
+              }
+Recommendation Score: ${r.doctor.recommendationScore || "N/A"}`,
             }));
 
             const rankingResponse = await invokeLLM({
               messages: [
                 {
                   role: "system",
-                  content: `Based on patient needs, select the 3-5 most suitable doctors from candidates, ranked by relevance.
+                  content: isEnglish
+                    ? `Based on patient needs, select the 3-5 most suitable doctors from candidates, ranked by relevance.
 Return JSON format:
 {
   "selectedDoctors": [
@@ -161,7 +264,19 @@ Return JSON format:
       "reason": "recommendation reason"
     }
   ]
-}`
+}
+Respond only in English.`
+                    : `根据患者需求，从候选医生中选出 3-5 位最合适的，按相关度排序。
+返回 JSON：
+{
+  "selectedDoctors": [
+    {
+      "doctorId": doctor_id,
+      "reason": "推荐理由"
+    }
+  ]
+}
+仅用中文返回。`
                 },
                 {
                   role: "user",
@@ -270,10 +385,15 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
     search: publicProcedure
       .input(z.object({
         keywords: z.array(z.string()),
-        limit: z.number().optional()
+        limit: z.number().optional(),
+        lang: z.enum(["en", "zh"]).optional(),
+        fallbackKeywords: z.array(z.string()).optional(),
       }))
       .query(async ({ input }) => {
-        return await db.searchDoctors(input.keywords, input.limit);
+        return await db.searchDoctors(input.keywords, input.limit, {
+          lang: input.lang ?? "zh",
+          fallbackKeywords: input.fallbackKeywords,
+        });
       }),
 
     /**

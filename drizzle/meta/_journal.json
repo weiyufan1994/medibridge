@@ -43,6 +43,13 @@
       "when": 1770607325712,
       "tag": "0005_burly_wild_pack",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1771677544031,
+      "tag": "0006_bilingual_translation",
+      "breakpoints": true
     }
   ]
 }

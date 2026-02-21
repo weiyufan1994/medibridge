@@ -6,6 +6,64 @@
 
 **目标**：自动抓取6个顶级医院123个科室的医生详细信息
 
+## 双语展示与离线翻译
+
+平台支持 `auto | en | zh` 三种语言模式：
+- `auto` 默认跟随用户输入语言（检测 CJK 字符）
+- `en` 使用英文镜像字段，缺失时统一显示 "Translation in progress" 并允许手动刷新
+- `zh` 使用中文源字段
+
+### 初始化与迁移
+
+1. 运行迁移（新增英文镜像列与翻译状态字段）：
+
+```bash
+pnpm db:push
+```
+
+2. 灌库：
+
+```bash
+node scripts/import-doctors.mjs
+```
+
+### 触发离线翻译
+
+仅翻译医院与科室：
+
+```bash
+pnpm translate:bilingual --entities=hospitals,departments --batchSize=20 --concurrency=2 --rateLimitMs=200
+```
+
+全量翻译（含医生）：
+
+```bash
+pnpm translate:bilingual --entities=hospitals,departments,doctors --batchSize=20 --concurrency=2 --rateLimitMs=200
+```
+
+### 验证步骤
+
+1. 在页面右上角切换语言：`Auto / English / 中文`
+2. `zh` 模式下动态数据为中文
+3. `en` 模式下动态数据为英文或统一占位 "Translation in progress"，不出现中文
+4. 运行翻译脚本后，刷新页面（Header 的 Refresh 按钮）即可看到英文镜像更新
+
+### 模拟更新并验证覆盖
+
+更新中文字段后，记录会标记为 `pending`，再跑批处理即可覆盖英文镜像：
+
+```sql
+UPDATE doctors
+SET specialty = '更新后的中文内容', sourceHash = NULL, translationStatus = 'pending'
+WHERE id = 1;
+```
+
+然后运行：
+
+```bash
+pnpm translate:bilingual --entities=doctors --batchSize=10 --concurrency=1
+```
+
 **医院列表**：
 - 复旦大学附属中山医院（25个科室）
 - 瑞金医院（29个科室）

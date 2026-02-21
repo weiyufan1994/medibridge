@@ -7,9 +7,26 @@ import ExcelJS from "exceljs";
 import { hospitals, departments, doctors } from "../drizzle/schema.js";
 import { eq, and } from "drizzle-orm";
 import "dotenv/config";
+import { createHash } from "crypto";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+const normalizeValue = (value) => {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  return value;
+};
+
+const computeSourceHash = (payload) => {
+  const normalized = Object.fromEntries(
+    Object.entries(payload).map(([key, val]) => [key, normalizeValue(val)])
+  );
+  return createHash("sha256").update(JSON.stringify(normalized)).digest("hex");
+};
 
 // Database connection
 const connection = await mysql.createConnection(process.env.DATABASE_URL);
@@ -79,33 +96,33 @@ function getColumnMapping(worksheet) {
   
   if (headerRowNum === -1) {
     return null; // 这个sheet没有有效表头
-  }
-  
-  const mapping = {};
-  for (const [field, variations] of Object.entries(columnMappings)) {
-    const idx = findColumnIndex(headerRow, variations);
-    if (idx >= 0) {
-      mapping[field] = idx;
-    }
-  }
-  
-  return { mapping, headerRowNum };
-}
+          const hospitalSourceHash = computeSourceHash({
+            name: hospitalInfo.name,
+            city: "上海",
+            level: "三级甲等",
+            address: null,
+            description: null,
+          });
 
-function getAllXlsxFiles(dirPath, arrayOfFiles = []) {
-  try {
-    const files = readdirSync(dirPath);
-    for (const file of files) {
-      const fullPath = join(dirPath, file);
-      if (statSync(fullPath).isDirectory()) {
-        arrayOfFiles = getAllXlsxFiles(fullPath, arrayOfFiles);
-      } else {
+          if (existingHospital.length > 0) {
+            hospitalId = existingHospital[0].id;
+            if (existingHospital[0].sourceHash !== hospitalSourceHash) {
+              await db.update(hospitals)
+                .set({
+                  sourceHash: hospitalSourceHash,
+                  translationStatus: "pending",
+                  translatedAt: null,
+                  lastTranslationError: null,
+                })
+                .where(eq(hospitals.id, hospitalId));
+            }
+          } else {
         if (file.endsWith(".xlsx") && !file.startsWith("~$")) {
           arrayOfFiles.push(fullPath);
         }
       }
     }
-  } catch (err) {
+              sourceHash: hospitalSourceHash,
     console.warn(`Could not read directory ${dirPath}:`, err.message);
   }
   return arrayOfFiles;
@@ -208,12 +225,38 @@ async function importDoctors() {
         
         if (existingHospital.length > 0) {
           hospitalId = existingHospital[0].id;
+          if (!existingHospital[0].sourceHash) {
+            const sourceHash = computeSourceHash({
+              name: hospitalInfo.name,
+              city: "上海",
+              level: "三级甲等",
+              address: null,
+              description: null,
+            });
+            await db.update(hospitals)
+              .set({
+                sourceHash,
+                translationStatus: "pending",
+                translatedAt: null,
+                lastTranslationError: null,
+              })
+              .where(eq(hospitals.id, hospitalId));
+          }
         } else {
+          const sourceHash = computeSourceHash({
+            name: hospitalInfo.name,
+            city: "上海",
+            level: "三级甲等",
+            address: null,
+            description: null,
+          });
           const result = await db.insert(hospitals).values({
             name: hospitalInfo.name,
             nameEn: hospitalInfo.nameEn,
             city: '上海',
-            level: '三级甲等'
+            level: '三级甲等',
+            sourceHash,
+            translationStatus: "pending",
           });
           hospitalId = Number(result[0].insertId);
           totalHospitals++;
@@ -237,19 +280,46 @@ async function importDoctors() {
             .limit(1);
           
           let deptId;
-          if (existingDept.length > 0) {
-            deptId = existingDept[0].id;
-          } else {
-            const result = await db.insert(departments).values({
-              hospitalId: hospitalId,
-              name: deptName
+            const departmentSourceHash = computeSourceHash({
+              name: deptName,
+              description: null,
             });
+
+            if (existingDept.length > 0) {
+              deptId = existingDept[0].id;
+              if (existingDept[0].sourceHash !== departmentSourceHash) {
+                await db.update(departments)
+                  .set({
+                    sourceHash: departmentSourceHash,
+                    translationStatus: "pending",
+                    translatedAt: null,
+                    lastTranslationError: null,
+                  })
+                  .where(eq(departments.id, deptId));
+              }
+            } else {
+              const result = await db.insert(departments).values({
+                hospitalId: hospitalId,
+                name: deptName,
+                sourceHash: departmentSourceHash,
+                translationStatus: "pending",
+              });
             deptId = Number(result[0].insertId);
             totalDepartments++;
           }
 
           for (const doc of deptDoctors) {
             const recScore = parseFloat(doc.recommendationScore) || null;
+            const sourceHash = computeSourceHash({
+              name: doc.name,
+              title: doc.title,
+              specialty: doc.specialty,
+              expertise: doc.expertise,
+              onlineConsultation: doc.onlineConsultation,
+              appointmentAvailable: doc.appointmentAvailable,
+              satisfactionRate: doc.satisfactionRate,
+              attitudeScore: doc.attitudeScore,
+            });
             
             await db.insert(doctors).values({
               hospitalId: hospitalId,
@@ -262,7 +332,9 @@ async function importDoctors() {
               attitudeScore: doc.attitudeScore || null,
               recommendationScore: recScore,
               onlineConsultation: doc.onlineConsultation || null,
-              appointmentAvailable: doc.appointmentAvailable || null
+              appointmentAvailable: doc.appointmentAvailable || null,
+              sourceHash,
+              translationStatus: "pending",
             });
 
             totalDoctors++;
