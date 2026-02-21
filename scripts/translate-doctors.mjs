@@ -16,6 +16,7 @@ async function translateText(text) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        model: 'deepseek-ai/DeepSeek-V3',
         messages: [
           {
             role: 'system',
