@@ -50,6 +50,13 @@
       "when": 1771677544031,
       "tag": "0006_bilingual_translation",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1771754117778,
+      "tag": "0007_heavy_freak",
+      "breakpoints": true
     }
   ]
 }

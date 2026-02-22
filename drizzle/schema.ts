@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, float, json, index } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, float, json, index, uniqueIndex } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -83,6 +83,9 @@ export const doctors = mysqlTable("doctors", {
   title: varchar("title", { length: 100 }),
   titleEn: varchar("titleEn", { length: 100 }),
   specialty: text("specialty"),
+  experience: text("experience"),
+  description: text("description"),
+  imageUrl: varchar("imageUrl", { length: 500 }),
   specialtyEn: text("specialtyEn"),
   expertise: text("expertise"),
   expertiseEn: text("expertiseEn"),
@@ -108,6 +111,7 @@ export const doctors = mysqlTable("doctors", {
   hospitalIdx: index("hospitalIdx").on(table.hospitalId),
   departmentIdx: index("departmentIdx").on(table.departmentId),
   recommendationIdx: index("recommendationIdx").on(table.recommendationScore),
+  hospitalDepartmentNameUk: uniqueIndex("doctorHospitalDepartmentNameUk").on(table.hospitalId, table.departmentId, table.name),
 }));
 
 export type Doctor = typeof doctors.$inferSelect;
