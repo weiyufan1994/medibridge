@@ -1,24 +1,53 @@
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import { doctors, doctorEmbeddings, hospitals, departments } from "../drizzle/schema.js";
+import { doctors, doctorEmbeddings, hospitals, departments } from "../drizzle/schema.ts";
 import { eq } from "drizzle-orm";
 import axios from "axios";
+import "dotenv/config";
 
 // Database connection
 const connection = await mysql.createConnection(process.env.DATABASE_URL);
 const db = drizzle(connection);
 
 // LLM API configuration
-const LLM_API_URL = process.env.BUILT_IN_FORGE_API_URL;
-const LLM_API_KEY = process.env.BUILT_IN_FORGE_API_KEY;
+const LLM_API_URL =
+  process.env.BUILT_IN_FORGE_API_URL ||
+  process.env.FORGE_API_URL ||
+  process.env.OPENAI_BASE_URL ||
+  "";
+const LLM_API_KEY =
+  process.env.BUILT_IN_FORGE_API_KEY ||
+  process.env.FORGE_API_KEY ||
+  process.env.OPENAI_API_KEY ||
+  "";
+const EMBEDDING_MODEL =
+  process.env.LLM_EMBEDDING_MODEL ||
+  process.env.EMBEDDING_MODEL ||
+  "text-embedding-3-small";
+
+function assertVectorizeConfig() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is required for vectorization");
+  }
+  if (!LLM_API_URL) {
+    throw new Error(
+      "Embedding API URL is missing. Set BUILT_IN_FORGE_API_URL or FORGE_API_URL or OPENAI_BASE_URL"
+    );
+  }
+  if (!LLM_API_KEY) {
+    throw new Error(
+      "Embedding API key is missing. Set BUILT_IN_FORGE_API_KEY or FORGE_API_KEY or OPENAI_API_KEY"
+    );
+  }
+}
 
 async function generateEmbedding(text) {
   try {
     const response = await axios.post(
-      `${LLM_API_URL}/v1/embeddings`,
+      `${LLM_API_URL.replace(/\/$/, "")}/v1/embeddings`,
       {
         input: text,
-        model: "text-embedding-3-small"
+        model: EMBEDDING_MODEL
       },
       {
         headers: {
@@ -59,7 +88,9 @@ function buildDoctorText(doctor, hospital, department) {
 }
 
 async function vectorizeDoctors() {
+  assertVectorizeConfig();
   console.log("Starting doctor vectorization...");
+  console.log(`Embedding model: ${EMBEDDING_MODEL}`);
   
   // Get all doctors with hospital and department info
   const allDoctors = await db

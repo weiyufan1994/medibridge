@@ -40,9 +40,22 @@ export default function Home() {
         { role: "assistant", content: data.message }
       ]);
       setInput("");
-      
-      if (data.recommendedDoctors && data.recommendedDoctors.length > 0) {
-        setRecommendedDoctors(data.recommendedDoctors);
+
+      const normalizedRecommendations = (data.recommendedDoctors ?? [])
+        .map((item) => ({
+          doctorId: Number(item.doctorId),
+          reason: item.reason,
+        }))
+        .filter(
+          (item) =>
+            Number.isInteger(item.doctorId) &&
+            item.doctorId > 0 &&
+            typeof item.reason === "string" &&
+            item.reason.trim().length > 0
+        );
+
+      if (normalizedRecommendations.length > 0) {
+        setRecommendedDoctors(normalizedRecommendations);
       }
     }
   });
@@ -405,7 +418,10 @@ function DoctorRecommendationCard({
   reason: string;
   rank: number;
 }) {
-  const { data, isLoading } = trpc.doctors.getById.useQuery({ id: doctorId });
+  const { data, isLoading } = trpc.doctors.getById.useQuery(
+    { id: doctorId },
+    { enabled: Number.isInteger(doctorId) && doctorId > 0 }
+  );
   const { resolved } = useLanguage();
 
   if (isLoading) {
@@ -418,7 +434,26 @@ function DoctorRecommendationCard({
     );
   }
 
-  if (!data) return null;
+  if (!data) {
+    return (
+      <Card className="hover:shadow-md transition-shadow">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <span className="text-sm font-bold text-primary">#{rank}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="font-semibold text-foreground">Recommended Doctor</h4>
+              <p className="mt-2 text-xs text-muted-foreground">{reason}</p>
+              <p className="mt-2 text-[11px] text-muted-foreground/80">
+                Doctor ID: {doctorId}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const { doctor, hospital, department } = data;
   const doctorName = getLocalizedField({

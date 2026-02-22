@@ -214,6 +214,11 @@ const resolveApiUrl = () =>
     ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions`
     : "https://forge.manus.im/v1/chat/completions";
 
+const resolveEmbeddingsApiUrl = () =>
+  ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
+    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/embeddings`
+    : "https://forge.manus.im/v1/embeddings";
+
 const assertApiKey = () => {
   if (!ENV.forgeApiKey) {
     throw new Error(
@@ -282,7 +287,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   } = params;
 
   const payload: Record<string, unknown> = {
-    model: "deepseek-ai/DeepSeek-V3",
+    model: ENV.llmModel || "deepseek-ai/DeepSeek-V3",
     messages: messages.map(normalizeMessage),
   };
 
@@ -298,10 +303,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.tool_choice = normalizedToolChoice;
   }
 
-  payload.max_tokens = 4096
-  // payload.thinking = {
-  //   "budget_tokens": 128
-  // }
+  payload.max_tokens = 4096; // default max tokens, can be overridden by specific LLM models if needed
 
   const normalizedResponseFormat = normalizeResponseFormat({
     responseFormat,
@@ -331,4 +333,45 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   }
 
   return (await response.json()) as InvokeResult;
+}
+
+type EmbeddingResult = {
+  data?: Array<{ embedding?: number[] }>;
+};
+
+export async function createEmbedding(input: string): Promise<number[]> {
+  assertApiKey();
+
+  const cleanedInput = input.trim();
+  if (!cleanedInput) {
+    throw new Error("Embedding input cannot be empty");
+  }
+
+  const response = await fetch(resolveEmbeddingsApiUrl(), {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${ENV.forgeApiKey}`,
+    },
+    body: JSON.stringify({
+      model: ENV.llmEmbeddingModel,
+      input: cleanedInput,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Embedding create failed: ${response.status} ${response.statusText} – ${errorText}`
+    );
+  }
+
+  const payload = (await response.json()) as EmbeddingResult;
+  const embedding = payload.data?.[0]?.embedding;
+
+  if (!embedding || embedding.length === 0) {
+    throw new Error("Embedding response did not contain a valid vector");
+  }
+
+  return embedding;
 }

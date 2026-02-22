@@ -3,9 +3,80 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { invokeLLM } from "./_core/llm";
+import { createEmbedding, invokeLLM } from "./_core/llm";
 import * as db from "./db";
 import { nanoid } from "nanoid";
+
+const tokenizeForMatching = (input: string): string[] =>
+  input
+    .toLowerCase()
+    .split(/[\s,，。！？；;:：、\n\t()（）【】\[\]"'“”‘’]+/)
+    .map(token => token.trim())
+    .filter(token => token.length >= 2);
+
+const isDoctorRelevantToSymptoms = (
+  doctorResult: Awaited<ReturnType<typeof db.searchDoctors>>[number],
+  tokens: string[]
+) => {
+  if (tokens.length === 0) {
+    return true;
+  }
+
+  const haystack = [
+    doctorResult.department.name,
+    doctorResult.department.nameEn,
+    doctorResult.doctor.specialty,
+    doctorResult.doctor.specialtyEn,
+    doctorResult.doctor.expertise,
+    doctorResult.doctor.expertiseEn,
+  ]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join(" ")
+    .toLowerCase();
+
+  return tokens.some(token => haystack.includes(token));
+};
+
+type GroundedDoctorRecommendation = {
+  doctorId: number;
+  reason: string;
+  doctorName: string;
+  hospitalName: string;
+  departmentName: string;
+};
+
+const buildGroundedRecommendationMessage = (
+  isEnglish: boolean,
+  recommendations: GroundedDoctorRecommendation[]
+) => {
+  if (recommendations.length === 0) {
+    return isEnglish
+      ? "I currently do not have enough matched doctors in our database for your symptoms. Please provide a bit more detail, and I will continue narrowing down suitable specialists."
+      : "当前数据库中暂未匹配到足够合适的医生。请补充一些症状细节，我会继续为您筛选更合适的专科医生。";
+  }
+
+  if (isEnglish) {
+    const lines = recommendations.map(
+      (item, index) =>
+        `${index + 1}. I recommend Dr. ${item.doctorName} at ${item.hospitalName} (${item.departmentName}). Reason: ${item.reason}`
+    );
+    return [
+      "Based on your current symptoms, here are the most relevant doctors from our database:",
+      ...lines,
+      "If you'd like, I can help you compare these doctors and suggest which one to book first.",
+    ].join("\n");
+  }
+
+  const lines = recommendations.map(
+    (item, index) =>
+      `${index + 1}. 推荐 ${item.hospitalName}（${item.departmentName}）的 ${item.doctorName} 医生。理由：${item.reason}`
+  );
+  return [
+    "根据您当前的症状，以下是数据库中匹配度更高的医生：",
+    ...lines,
+    "如果您愿意，我可以继续帮您比较这些医生并建议优先预约顺序。",
+  ].join("\n");
+};
 
 export const appRouter = router({
   system: systemRouter,
@@ -59,6 +130,7 @@ IMPORTANT:
 - Encourage booking appointments for professional triage services
 - Use a warm, professional tone
 - Do not provide medical diagnoses - focus on connecting patients with the right specialists
+- Do not invent doctor names or hospital names that are not explicitly provided by the system
 - Respond only in English`
           : `你是 MediBridge 的医疗咨询助手，帮助用户在上海找到合适的医生。你的任务：
 
@@ -73,6 +145,7 @@ IMPORTANT:
 - 有足够信息时必须给出具体医生/医院
 - 语气温和专业
 - 不给出诊断，仅做分诊匹配
+- 不要编造系统未提供的医生或医院名称
 - 仅用中文回复`;
         
         // Build conversation history
@@ -93,7 +166,7 @@ IMPORTANT:
 
         // Get AI response
         const aiResponse = await invokeLLM({ messages });
-        const assistantMessage = aiResponse.choices[0].message.content as string;
+        let assistantMessage = aiResponse.choices[0].message.content as string;
 
         // Extract medical keywords using LLM
         const extractionResponse = await invokeLLM({
@@ -173,11 +246,29 @@ readyForRecommendation should be true if you have basic symptom information (eve
         // Search doctors if ready
         let recommendedDoctors: any[] = [];
         if (extraction.readyForRecommendation && extraction.keywords.length > 0) {
-          let searchResults = await db.searchDoctors(extraction.keywords, 10, {
+          type DoctorSearchResult = Awaited<ReturnType<typeof db.searchDoctors>>;
+
+          let vectorResults: DoctorSearchResult = [];
+          try {
+            const semanticQuery = [extraction.symptoms, ...extraction.keywords]
+              .filter((item: unknown): item is string =>
+                typeof item === "string" && item.trim().length > 0
+              )
+              .join("\n");
+
+            if (semanticQuery.length > 0) {
+              const queryEmbedding = await createEmbedding(semanticQuery);
+              vectorResults = await db.searchDoctorsByEmbedding(queryEmbedding, 10);
+            }
+          } catch (error) {
+            console.warn("[RAG] Vector search failed, falling back to keyword search:", error);
+          }
+
+          let keywordResults = await db.searchDoctors(extraction.keywords, 10, {
             lang: isEnglish ? "en" : "zh",
           });
 
-          if (isEnglish && searchResults.length < 3) {
+          if (isEnglish && keywordResults.length < 3) {
             const translationResponse = await invokeLLM({
               messages: [
                 {
@@ -213,15 +304,39 @@ readyForRecommendation should be true if you have basic symptom information (eve
               translationResponse.choices[0].message.content as string
             ) as { keywordsZh: string[] };
 
-            searchResults = await db.searchDoctors(extraction.keywords, 10, {
+            keywordResults = await db.searchDoctors(extraction.keywords, 10, {
               lang: "en",
               fallbackKeywords: translated.keywordsZh,
             });
           }
+
+          const mergedResults = new Map<number, DoctorSearchResult[number]>();
+          for (const result of vectorResults) {
+            mergedResults.set(result.doctor.id, result);
+          }
+          for (const result of keywordResults) {
+            if (!mergedResults.has(result.doctor.id)) {
+              mergedResults.set(result.doctor.id, result);
+            }
+          }
+
+          const searchResults = Array.from(mergedResults.values()).slice(0, 10);
+
+          const intentTokens = tokenizeForMatching(
+            [extraction.symptoms, ...(extraction.keywords ?? [])]
+              .filter((item: unknown): item is string =>
+                typeof item === "string" && item.trim().length > 0
+              )
+              .join(" ")
+          );
+
+          const relevantSearchResults = searchResults.filter(result =>
+            isDoctorRelevantToSymptoms(result, intentTokens)
+          );
           
           // Rank doctors using LLM
-          if (searchResults.length > 0) {
-            const doctorDescriptions = searchResults.map((r, idx) => ({
+          if (relevantSearchResults.length > 0) {
+            const doctorDescriptions = relevantSearchResults.map((r, idx) => ({
               id: r.doctor.id,
               index: idx,
               text: `${idx + 1}. ${
@@ -315,8 +430,85 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
               }
             });
 
-            const ranking = JSON.parse(rankingResponse.choices[0].message.content as string);
-            recommendedDoctors = ranking.selectedDoctors;
+            const ranking = JSON.parse(
+              rankingResponse.choices[0].message.content as string
+            ) as {
+              selectedDoctors?: Array<{ doctorId: number | string; reason?: string }>;
+            };
+
+            const candidateDoctorIds = new Set(
+              relevantSearchResults.map(result => result.doctor.id)
+            );
+
+            const validatedRecommendations = (ranking.selectedDoctors ?? [])
+              .map(item => ({
+                doctorId: Number(item.doctorId),
+                reason:
+                  typeof item.reason === "string" && item.reason.trim().length > 0
+                    ? item.reason.trim()
+                    : isEnglish
+                      ? "Recommended based on your symptoms and medical needs."
+                      : "根据您的症状与就诊需求推荐。",
+              }))
+              .filter(
+                item =>
+                  Number.isInteger(item.doctorId) &&
+                  item.doctorId > 0 &&
+                  candidateDoctorIds.has(item.doctorId)
+              );
+
+            if (validatedRecommendations.length > 0) {
+              recommendedDoctors = validatedRecommendations.slice(0, 5);
+            } else {
+              recommendedDoctors = relevantSearchResults.slice(0, 3).map(result => ({
+                doctorId: result.doctor.id,
+                reason: isEnglish
+                  ? "Recommended from relevant specialists matched to your symptoms."
+                  : "基于症状匹配到的相关专科医生推荐。",
+              }));
+            }
+          } else if (searchResults.length > 0) {
+            assistantMessage += isEnglish
+              ? "\n\nI could not find specialists in our current database that clearly match your symptom focus yet. Please share more details or try a related department keyword."
+              : "\n\n当前数据库中暂未检索到与您症状明确匹配的专科医生。您可以补充更多症状细节，或尝试提供更具体的科室关键词。";
+          }
+
+          if (recommendedDoctors.length > 0) {
+            const searchResultById = new Map(
+              relevantSearchResults.map(result => [result.doctor.id, result])
+            );
+
+            const groundedRecommendations = recommendedDoctors
+              .map(item => {
+                const matched = searchResultById.get(item.doctorId);
+                if (!matched) return null;
+                return {
+                  doctorId: matched.doctor.id,
+                  reason: item.reason,
+                  doctorName: isEnglish
+                    ? matched.doctor.nameEn || matched.doctor.name
+                    : matched.doctor.name,
+                  hospitalName: isEnglish
+                    ? matched.hospital.nameEn || matched.hospital.name
+                    : matched.hospital.name,
+                  departmentName: isEnglish
+                    ? matched.department.nameEn || matched.department.name
+                    : matched.department.name,
+                } satisfies GroundedDoctorRecommendation;
+              })
+              .filter(
+                (
+                  item
+                ): item is GroundedDoctorRecommendation =>
+                  item !== null
+              );
+
+            if (groundedRecommendations.length > 0) {
+              assistantMessage = buildGroundedRecommendationMessage(
+                isEnglish,
+                groundedRecommendations
+              );
+            }
           }
         }
 
