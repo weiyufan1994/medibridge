@@ -12,16 +12,38 @@ const DEFAULT_RATE_LIMIT_MS = 200;
 const DEFAULT_MAX_RETRIES = 3;
 const PROVIDER_NAME = "forge/gemini-2.5-flash";
 
+const SOURCE_EMPTY_MARKERS = new Set([
+  "（页面未显示）",
+  "(页面未显示)",
+  "页面未显示",
+  "暂无统计",
+  "暂无",
+  "无",
+  "未知",
+  "N/A",
+  "NA",
+  "n/a",
+  "-",
+  "--",
+]);
+
 const createTranslationDb = (pool: mysql.Pool) => drizzle(pool);
 type TranslationDb = ReturnType<typeof createTranslationDb>;
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+const normalizeSourceText = (value: string | null | undefined) => {
+  if (value === undefined || value === null) return null;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  if (SOURCE_EMPTY_MARKERS.has(trimmed)) return null;
+  return trimmed;
+};
+
 const normalizeValue = (value: unknown) => {
   if (value === undefined || value === null) return null;
   if (typeof value === "string") {
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
+    return normalizeSourceText(value);
   }
   return value;
 };
@@ -65,6 +87,154 @@ const parseArgs = () => {
     rateLimitMs: Number(config.rateLimitMs || DEFAULT_RATE_LIMIT_MS),
     maxRetries: Number(config.maxRetries || DEFAULT_MAX_RETRIES),
   };
+};
+
+const reconcileInconsistentDoneRows = async (
+  pool: mysql.Pool,
+  entities: string[]
+) => {
+  const updates: Array<{ entity: string; affectedRows: number }> = [];
+
+  if (entities.includes("hospitals")) {
+    const [result] = await pool.query(
+      `
+      UPDATE hospitals
+      SET translationStatus = 'pending', translatedAt = NULL, lastTranslationError = 'Requeued: incomplete English fields'
+      WHERE translationStatus = 'done'
+        AND (
+          (name IS NOT NULL AND TRIM(name) <> '' AND (nameEn IS NULL OR TRIM(nameEn) = '' OR nameEn REGEXP '[一-龥]'))
+          OR (city IS NOT NULL AND TRIM(city) <> '' AND (cityEn IS NULL OR TRIM(cityEn) = '' OR cityEn REGEXP '[一-龥]'))
+          OR (level IS NOT NULL AND TRIM(level) <> '' AND (levelEn IS NULL OR TRIM(levelEn) = '' OR levelEn REGEXP '[一-龥]'))
+          OR (address IS NOT NULL AND TRIM(address) <> '' AND (addressEn IS NULL OR TRIM(addressEn) = '' OR addressEn REGEXP '[一-龥]'))
+          OR (description IS NOT NULL AND TRIM(description) <> '' AND (descriptionEn IS NULL OR TRIM(descriptionEn) = '' OR descriptionEn REGEXP '[一-龥]'))
+        )
+      `
+    );
+    updates.push({
+      entity: "hospitals",
+      affectedRows: Number((result as mysql.ResultSetHeader).affectedRows ?? 0),
+    });
+  }
+
+  if (entities.includes("departments")) {
+    const [result] = await pool.query(
+      `
+      UPDATE departments
+      SET translationStatus = 'pending', translatedAt = NULL, lastTranslationError = 'Requeued: incomplete English fields'
+      WHERE translationStatus = 'done'
+        AND (
+          (name IS NOT NULL AND TRIM(name) <> '' AND (nameEn IS NULL OR TRIM(nameEn) = '' OR nameEn REGEXP '[一-龥]'))
+          OR (description IS NOT NULL AND TRIM(description) <> '' AND (descriptionEn IS NULL OR TRIM(descriptionEn) = '' OR descriptionEn REGEXP '[一-龥]'))
+        )
+      `
+    );
+    updates.push({
+      entity: "departments",
+      affectedRows: Number((result as mysql.ResultSetHeader).affectedRows ?? 0),
+    });
+  }
+
+  if (entities.includes("doctors")) {
+    const [result] = await pool.query(
+      `
+      UPDATE doctors
+      SET translationStatus = 'pending', translatedAt = NULL, lastTranslationError = 'Requeued: incomplete English fields'
+      WHERE translationStatus = 'done'
+        AND (
+          (name IS NOT NULL AND TRIM(name) <> '' AND (nameEn IS NULL OR TRIM(nameEn) = '' OR nameEn REGEXP '[一-龥]'))
+          OR (title IS NOT NULL AND TRIM(title) <> '' AND (titleEn IS NULL OR TRIM(titleEn) = '' OR titleEn REGEXP '[一-龥]'))
+          OR (specialty IS NOT NULL AND TRIM(specialty) <> '' AND (specialtyEn IS NULL OR TRIM(specialtyEn) = '' OR specialtyEn REGEXP '[一-龥]'))
+          OR (expertise IS NOT NULL AND TRIM(expertise) <> '' AND (expertiseEn IS NULL OR TRIM(expertiseEn) = '' OR expertiseEn REGEXP '[一-龥]'))
+          OR (onlineConsultation IS NOT NULL AND TRIM(onlineConsultation) <> '' AND (onlineConsultationEn IS NULL OR TRIM(onlineConsultationEn) = '' OR onlineConsultationEn REGEXP '[一-龥]'))
+          OR (appointmentAvailable IS NOT NULL AND TRIM(appointmentAvailable) <> '' AND (appointmentAvailableEn IS NULL OR TRIM(appointmentAvailableEn) = '' OR appointmentAvailableEn REGEXP '[一-龥]'))
+          OR (satisfactionRate IS NOT NULL AND TRIM(satisfactionRate) <> '' AND (satisfactionRateEn IS NULL OR TRIM(satisfactionRateEn) = '' OR satisfactionRateEn REGEXP '[一-龥]'))
+          OR (attitudeScore IS NOT NULL AND TRIM(attitudeScore) <> '' AND (attitudeScoreEn IS NULL OR TRIM(attitudeScoreEn) = '' OR attitudeScoreEn REGEXP '[一-龥]'))
+        )
+      `
+    );
+    updates.push({
+      entity: "doctors",
+      affectedRows: Number((result as mysql.ResultSetHeader).affectedRows ?? 0),
+    });
+  }
+
+  for (const update of updates) {
+    console.log(`[Precheck] ${update.entity}: requeued ${update.affectedRows} inconsistent done rows`);
+  }
+};
+
+type EntityRunStats = {
+  entity: "hospitals" | "departments" | "doctors";
+  batches: number;
+  scanned: number;
+  attempted: number;
+  skippedUpToDate: number;
+  done: number;
+  pending: number;
+  failed: number;
+  errorCounts: Map<string, number>;
+};
+
+const createEntityRunStats = (
+  entity: EntityRunStats["entity"]
+): EntityRunStats => ({
+  entity,
+  batches: 0,
+  scanned: 0,
+  attempted: 0,
+  skippedUpToDate: 0,
+  done: 0,
+  pending: 0,
+  failed: 0,
+  errorCounts: new Map<string, number>(),
+});
+
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
+
+const recordFailure = (stats: EntityRunStats, error: unknown) => {
+  stats.failed += 1;
+  const message = getErrorMessage(error).trim().slice(0, 280) || "Unknown error";
+  stats.errorCounts.set(message, (stats.errorCounts.get(message) ?? 0) + 1);
+};
+
+const printEntitySummary = (stats: EntityRunStats) => {
+  console.log(`\n[Summary:${stats.entity}] batches=${stats.batches}, scanned=${stats.scanned}, attempted=${stats.attempted}, done=${stats.done}, pending=${stats.pending}, failed=${stats.failed}, skippedUpToDate=${stats.skippedUpToDate}`);
+
+  if (stats.errorCounts.size > 0) {
+    const topErrors = Array.from(stats.errorCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+    console.log(`[Summary:${stats.entity}] Top failure reasons:`);
+    for (const [message, count] of topErrors) {
+      console.log(`  - x${count}: ${message}`);
+    }
+  }
+};
+
+const printRunSummary = (statsList: EntityRunStats[]) => {
+  console.log("\n========== Translation Run Summary ==========");
+  for (const stats of statsList) {
+    console.log(
+      `- ${stats.entity}: done=${stats.done}, pending=${stats.pending}, failed=${stats.failed}, attempted=${stats.attempted}, scanned=${stats.scanned}`
+    );
+  }
+
+  const totals = statsList.reduce(
+    (acc, stats) => {
+      acc.done += stats.done;
+      acc.pending += stats.pending;
+      acc.failed += stats.failed;
+      acc.attempted += stats.attempted;
+      acc.scanned += stats.scanned;
+      return acc;
+    },
+    { done: 0, pending: 0, failed: 0, attempted: 0, scanned: 0 }
+  );
+
+  console.log(
+    `Total: done=${totals.done}, pending=${totals.pending}, failed=${totals.failed}, attempted=${totals.attempted}, scanned=${totals.scanned}`
+  );
 };
 
 const withRetry = async <T>(fn: () => Promise<T>, maxRetries: number) => {
@@ -268,10 +438,13 @@ const createWorkerPool = async <T>(
   await Promise.all(workers);
 };
 
-const translateHospitals = async (db: TranslationDb, config: ReturnType<typeof parseArgs>) => {
+const translateHospitals = async (
+  db: TranslationDb,
+  config: ReturnType<typeof parseArgs>
+): Promise<EntityRunStats> => {
   console.log("\n[Translate] Hospitals");
+  const stats = createEntityRunStats("hospitals");
   let cursor = 0;
-  let scanned = 0;
   while (true) {
     const rows = await db
       .select()
@@ -294,9 +467,10 @@ const translateHospitals = async (db: TranslationDb, config: ReturnType<typeof p
       break;
     }
 
+    stats.batches += 1;
     cursor = rows[rows.length - 1].id;
-    scanned += rows.length;
-    console.log(`[Hospitals] processing batch size=${rows.length}, scanned=${scanned}, cursor=${cursor}`);
+    stats.scanned += rows.length;
+    console.log(`[Hospitals] processing batch size=${rows.length}, scanned=${stats.scanned}, cursor=${cursor}`);
 
     await createWorkerPool(rows, config.concurrency, async (row) => {
       const sourceHash = computeSourceHash({
@@ -308,7 +482,12 @@ const translateHospitals = async (db: TranslationDb, config: ReturnType<typeof p
       });
 
       const isDone = row.translationStatus === "done" && row.sourceHash === sourceHash;
-      if (isDone) return;
+      if (isDone) {
+        stats.skippedUpToDate += 1;
+        return;
+      }
+
+      stats.attempted += 1;
 
       if (row.sourceHash !== sourceHash) {
         await db
@@ -362,27 +541,37 @@ const translateHospitals = async (db: TranslationDb, config: ReturnType<typeof p
           })
           .where(eq(hospitals.id, row.id));
 
+        if (isComplete) {
+          stats.done += 1;
+        } else {
+          stats.pending += 1;
+        }
+
         await delay(config.rateLimitMs);
       } catch (error) {
+        recordFailure(stats, error);
         await db
           .update(hospitals)
           .set({
             translationStatus: "failed",
-            lastTranslationError: String(error),
+            lastTranslationError: getErrorMessage(error),
           })
           .where(eq(hospitals.id, row.id));
       }
     });
   }
+
+  printEntitySummary(stats);
+  return stats;
 };
 
 const translateDepartments = async (
   db: TranslationDb,
   config: ReturnType<typeof parseArgs>
-) => {
+): Promise<EntityRunStats> => {
   console.log("\n[Translate] Departments");
+  const stats = createEntityRunStats("departments");
   let cursor = 0;
-  let scanned = 0;
   while (true) {
     const rows = await db
       .select()
@@ -405,9 +594,10 @@ const translateDepartments = async (
       break;
     }
 
+    stats.batches += 1;
     cursor = rows[rows.length - 1].id;
-    scanned += rows.length;
-    console.log(`[Departments] processing batch size=${rows.length}, scanned=${scanned}, cursor=${cursor}`);
+    stats.scanned += rows.length;
+    console.log(`[Departments] processing batch size=${rows.length}, scanned=${stats.scanned}, cursor=${cursor}`);
 
     await createWorkerPool(rows, config.concurrency, async (row) => {
       const sourceHash = computeSourceHash({
@@ -416,7 +606,12 @@ const translateDepartments = async (
       });
 
       const isDone = row.translationStatus === "done" && row.sourceHash === sourceHash;
-      if (isDone) return;
+      if (isDone) {
+        stats.skippedUpToDate += 1;
+        return;
+      }
+
+      stats.attempted += 1;
 
       if (row.sourceHash !== sourceHash) {
         await db
@@ -456,24 +651,37 @@ const translateDepartments = async (
           })
           .where(eq(departments.id, row.id));
 
+        if (isComplete) {
+          stats.done += 1;
+        } else {
+          stats.pending += 1;
+        }
+
         await delay(config.rateLimitMs);
       } catch (error) {
+        recordFailure(stats, error);
         await db
           .update(departments)
           .set({
             translationStatus: "failed",
-            lastTranslationError: String(error),
+            lastTranslationError: getErrorMessage(error),
           })
           .where(eq(departments.id, row.id));
       }
     });
   }
+
+  printEntitySummary(stats);
+  return stats;
 };
 
-const translateDoctors = async (db: TranslationDb, config: ReturnType<typeof parseArgs>) => {
+const translateDoctors = async (
+  db: TranslationDb,
+  config: ReturnType<typeof parseArgs>
+): Promise<EntityRunStats> => {
   console.log("\n[Translate] Doctors");
+  const stats = createEntityRunStats("doctors");
   let cursor = 0;
-  let scanned = 0;
   while (true) {
     const rows = await db
       .select()
@@ -496,24 +704,39 @@ const translateDoctors = async (db: TranslationDb, config: ReturnType<typeof par
       break;
     }
 
+    stats.batches += 1;
     cursor = rows[rows.length - 1].id;
-    scanned += rows.length;
-    console.log(`[Doctors] processing batch size=${rows.length}, scanned=${scanned}, cursor=${cursor}`);
+    stats.scanned += rows.length;
+    console.log(`[Doctors] processing batch size=${rows.length}, scanned=${stats.scanned}, cursor=${cursor}`);
 
     await createWorkerPool(rows, config.concurrency, async (row) => {
+      const sourceName = normalizeSourceText(row.name);
+      const sourceTitle = normalizeSourceText(row.title);
+      const sourceSpecialty = normalizeSourceText(row.specialty);
+      const sourceExpertise = normalizeSourceText(row.expertise);
+      const sourceOnlineConsultation = normalizeSourceText(row.onlineConsultation);
+      const sourceAppointmentAvailable = normalizeSourceText(row.appointmentAvailable);
+      const sourceSatisfactionRate = normalizeSourceText(row.satisfactionRate);
+      const sourceAttitudeScore = normalizeSourceText(row.attitudeScore);
+
       const sourceHash = computeSourceHash({
-        name: row.name,
-        title: row.title,
-        specialty: row.specialty,
-        expertise: row.expertise,
-        onlineConsultation: row.onlineConsultation,
-        appointmentAvailable: row.appointmentAvailable,
-        satisfactionRate: row.satisfactionRate,
-        attitudeScore: row.attitudeScore,
+        name: sourceName,
+        title: sourceTitle,
+        specialty: sourceSpecialty,
+        expertise: sourceExpertise,
+        onlineConsultation: sourceOnlineConsultation,
+        appointmentAvailable: sourceAppointmentAvailable,
+        satisfactionRate: sourceSatisfactionRate,
+        attitudeScore: sourceAttitudeScore,
       });
 
       const isDone = row.translationStatus === "done" && row.sourceHash === sourceHash;
-      if (isDone) return;
+      if (isDone) {
+        stats.skippedUpToDate += 1;
+        return;
+      }
+
+      stats.attempted += 1;
 
       if (row.sourceHash !== sourceHash) {
         await db
@@ -531,14 +754,14 @@ const translateDoctors = async (db: TranslationDb, config: ReturnType<typeof par
         const translated = await withRetry(
           () =>
             translateDoctor({
-              name: row.name,
-              title: row.title,
-              specialty: row.specialty,
-              expertise: row.expertise,
-              onlineConsultation: row.onlineConsultation,
-              appointmentAvailable: row.appointmentAvailable,
-              satisfactionRate: row.satisfactionRate,
-              attitudeScore: row.attitudeScore,
+              name: sourceName || row.name,
+              title: sourceTitle,
+              specialty: sourceSpecialty,
+              expertise: sourceExpertise,
+              onlineConsultation: sourceOnlineConsultation,
+              appointmentAvailable: sourceAppointmentAvailable,
+              satisfactionRate: sourceSatisfactionRate,
+              attitudeScore: sourceAttitudeScore,
             }),
           config.maxRetries
         );
@@ -562,13 +785,13 @@ const translateDoctors = async (db: TranslationDb, config: ReturnType<typeof par
         const attitudeScoreEn = pickEnglish(row.attitudeScoreEn, translated.attitudeScoreEn);
         const isComplete =
           isFilled(nameEn) &&
-          (!row.title || isFilled(titleEn)) &&
-          (!row.specialty || isFilled(specialtyEn)) &&
-          (!row.expertise || isFilled(expertiseEn)) &&
-          (!row.onlineConsultation || isFilled(onlineConsultationEn)) &&
-          (!row.appointmentAvailable || isFilled(appointmentAvailableEn)) &&
-          (!row.satisfactionRate || isFilled(satisfactionRateEn)) &&
-          (!row.attitudeScore || isFilled(attitudeScoreEn));
+          (!sourceTitle || isFilled(titleEn)) &&
+          (!sourceSpecialty || isFilled(specialtyEn)) &&
+          (!sourceExpertise || isFilled(expertiseEn)) &&
+          (!sourceOnlineConsultation || isFilled(onlineConsultationEn)) &&
+          (!sourceAppointmentAvailable || isFilled(appointmentAvailableEn)) &&
+          (!sourceSatisfactionRate || isFilled(satisfactionRateEn)) &&
+          (!sourceAttitudeScore || isFilled(attitudeScoreEn));
 
         await db
           .update(doctors)
@@ -588,36 +811,64 @@ const translateDoctors = async (db: TranslationDb, config: ReturnType<typeof par
           })
           .where(eq(doctors.id, row.id));
 
+        if (isComplete) {
+          stats.done += 1;
+        } else {
+          stats.pending += 1;
+        }
+
         await delay(config.rateLimitMs);
       } catch (error) {
+        recordFailure(stats, error);
         await db
           .update(doctors)
           .set({
             translationStatus: "failed",
-            lastTranslationError: String(error),
+            lastTranslationError: getErrorMessage(error),
           })
           .where(eq(doctors.id, row.id));
       }
     });
   }
+
+  printEntitySummary(stats);
+  return stats;
 };
 
 const run = async () => {
   const config = parseArgs();
   const pool = mysql.createPool(process.env.DATABASE_URL ?? "");
   const db = createTranslationDb(pool);
+  const runStats: EntityRunStats[] = [];
 
-  if (config.entities.includes("hospitals")) {
-    await translateHospitals(db, config);
-  }
-  if (config.entities.includes("departments")) {
-    await translateDepartments(db, config);
-  }
-  if (config.entities.includes("doctors")) {
-    await translateDoctors(db, config);
-  }
+  try {
+    await reconcileInconsistentDoneRows(pool, config.entities);
 
-  await pool.end();
+    if (config.entities.includes("hospitals")) {
+      runStats.push(await translateHospitals(db, config));
+    }
+    if (config.entities.includes("departments")) {
+      runStats.push(await translateDepartments(db, config));
+    }
+    if (config.entities.includes("doctors")) {
+      runStats.push(await translateDoctors(db, config));
+    }
+
+    printRunSummary(runStats);
+
+    const failedTotal = runStats.reduce((total, stats) => total + stats.failed, 0);
+    const pendingTotal = runStats.reduce((total, stats) => total + stats.pending, 0);
+    if (failedTotal > 0) {
+      console.error(`\n❌ Translation finished with ${failedTotal} failed records. Check summary above for failure reasons.`);
+      process.exitCode = 2;
+    } else if (pendingTotal > 0) {
+      console.warn(`\n⚠️ Translation finished with ${pendingTotal} pending records (incomplete English fields). Placeholder text may still appear until these records are completed.`);
+    } else {
+      console.log("\n✅ Translation finished with all processed records complete.");
+    }
+  } finally {
+    await pool.end();
+  }
 };
 
 run().catch(error => {
