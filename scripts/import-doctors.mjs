@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import { readdirSync, statSync } from "fs";
-import { join, dirname, basename } from "path";
+import { readdirSync, statSync, existsSync, readFileSync } from "fs";
+import { join, dirname, basename, relative, sep } from "path";
 import { fileURLToPath } from "url";
 import ExcelJS from "exceljs";
 import { hospitals, departments, doctors } from "../drizzle/schema.ts";
@@ -134,7 +134,11 @@ function getAllXlsxFiles(dirPath, arrayOfFiles = []) {
       continue;
     }
 
-    if (file.endsWith(".xlsx") && !file.startsWith("~$")) {
+    if (
+      file.endsWith(".xlsx") &&
+      !file.startsWith("~$") &&
+      file.includes("医生信息")
+    ) {
       arrayOfFiles.push(fullPath);
     }
   }
@@ -142,11 +146,51 @@ function getAllXlsxFiles(dirPath, arrayOfFiles = []) {
   return arrayOfFiles;
 }
 
+function parseHospitalFromPath(hospitalsDir, filePath) {
+  const rel = relative(hospitalsDir, filePath);
+  const parts = rel.split(sep).filter(Boolean);
+  return parts.length >= 2 ? parts[0].trim() : null;
+}
+
+function parseDepartmentFromFileName(fileName) {
+  const base = fileName.replace(/\.xlsx$/i, "").trim();
+  const suffix = "_医生信息";
+  if (base.endsWith(suffix)) {
+    return base.slice(0, -suffix.length).trim();
+  }
+  return base;
+}
+
+function loadDeptUrlMap(jsonPath) {
+  const map = new Map();
+  if (!existsSync(jsonPath)) {
+    console.warn(`Department index not found: ${jsonPath}`);
+    return map;
+  }
+
+  const raw = readFileSync(jsonPath, "utf-8");
+  const arr = JSON.parse(raw);
+  if (!Array.isArray(arr)) {
+    console.warn(`Department index is not an array: ${jsonPath}`);
+    return map;
+  }
+
+  for (const x of arr) {
+    if (!x?.hospital || !x?.department || !x?.url) continue;
+    map.set(`${x.hospital}||${x.department}`, x.url);
+  }
+  return map;
+}
+
 async function importDoctors() {
   console.log("Starting doctor data import...");
 
   const hospitalsDir = join(__dirname, "../data/hospitals");
+  const deptIndexPath = join(__dirname, "../data/departments/all_departments.json");
+  const deptUrlMap = loadDeptUrlMap(deptIndexPath);
   const xlsxFiles = getAllXlsxFiles(hospitalsDir);
+
+  console.log("Loaded department urls:", deptUrlMap.size);
 
   if (xlsxFiles.length === 0) {
     console.log(`\n❌ 没有在 ${hospitalsDir} 找到任何 .xlsx 文件！`);
@@ -160,6 +204,9 @@ async function importDoctors() {
 
   for (const filePath of xlsxFiles) {
     const fileName = basename(filePath);
+    const hospitalFromFolder = parseHospitalFromPath(hospitalsDir, filePath);
+    const departmentFromFile = parseDepartmentFromFileName(fileName);
+
     console.log(`\nProcessing file: ${fileName}`);
 
     try {
@@ -188,8 +235,8 @@ async function importDoctors() {
           };
 
           const rowData = {
-            hospital: getCellValue("hospital"),
-            department: getCellValue("department"),
+            hospital: hospitalFromFolder || getCellValue("hospital") || "",
+            department: departmentFromFile || getCellValue("department") || "",
             name: getCellValue("name"),
             title: getCellValue("title"),
             specialty: getCellValue("specialty"),
@@ -216,7 +263,7 @@ async function importDoctors() {
 
       const hospitalGroups = {};
       for (const row of rows) {
-        let hospitalName = row.hospital || fileName.split(".")[0];
+        let hospitalName = row.hospital || hospitalFromFolder || fileName.split(".")[0];
 
         for (const knownName of Object.keys(hospitalMapping)) {
           if (
@@ -284,7 +331,7 @@ async function importDoctors() {
 
         const deptGroups = {};
         for (const doc of doctorsList) {
-          const deptName = doc.department || "未分类";
+          const deptName = doc.department || departmentFromFile || "未分类";
           if (!deptGroups[deptName]) {
             deptGroups[deptName] = [];
           }
@@ -292,6 +339,8 @@ async function importDoctors() {
         }
 
         for (const [deptName, deptDoctors] of Object.entries(deptGroups)) {
+          const deptUrl = deptUrlMap.get(`${hospitalInfo.name}||${deptName}`) || null;
+
           const departmentSourceHash = computeSourceHash({
             name: deptName,
             description: null,
@@ -307,6 +356,11 @@ async function importDoctors() {
 
           if (existingDept.length > 0) {
             deptId = existingDept[0].id;
+
+            if (!existingDept[0].url && deptUrl) {
+              await db.update(departments).set({ url: deptUrl }).where(eq(departments.id, deptId));
+            }
+
             if (existingDept[0].sourceHash !== departmentSourceHash) {
               await db
                 .update(departments)
@@ -322,6 +376,7 @@ async function importDoctors() {
             const result = await db.insert(departments).values({
               hospitalId,
               name: deptName,
+              url: deptUrl,
               sourceHash: departmentSourceHash,
               translationStatus: "pending",
             });

@@ -57,6 +57,7 @@ export const departments = mysqlTable("departments", {
   nameEn: varchar("nameEn", { length: 255 }),
   description: text("description"),
   descriptionEn: text("descriptionEn"),
+  url: varchar("url", { length: 1024 }),   
   sourceHash: varchar("sourceHash", { length: 64 }),
   translationStatus: mysqlEnum("translationStatus", ["pending", "done", "failed"]).default("pending"),
   translatedAt: timestamp("translatedAt"),
