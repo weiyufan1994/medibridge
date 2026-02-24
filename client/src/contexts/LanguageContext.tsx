@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useState } from "react";
 
-export type LanguageMode = "auto" | "en" | "zh";
+export type LanguageMode = "en" | "zh";
 export type ResolvedLanguage = "en" | "zh";
 
 interface LanguageContextValue {
@@ -12,44 +12,23 @@ interface LanguageContextValue {
 
 const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
 
-const detectLanguage = (text: string): ResolvedLanguage =>
-  /[\u4e00-\u9fff]/.test(text) ? "zh" : "en";
-
-const detectFromNavigator = (): ResolvedLanguage => {
-  if (typeof navigator === "undefined") return "en";
-  return navigator.language?.toLowerCase().startsWith("zh") ? "zh" : "en";
-};
-
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [mode, setModeState] = useState<LanguageMode>(() => {
     const stored = localStorage.getItem("languageMode");
-    if (stored === "en" || stored === "zh" || stored === "auto") {
+    if (stored === "en" || stored === "zh") {
       return stored;
     }
-    return "auto";
+    return "en";
   });
-  const [detected, setDetected] = useState<ResolvedLanguage>(() => detectFromNavigator());
 
   const setMode = (next: LanguageMode) => {
     setModeState(next);
     localStorage.setItem("languageMode", next);
   };
 
-  const reportInput = (text: string) => {
-    if (!text) return;
-    setDetected(detectLanguage(text));
-  };
-
-  const resolved = useMemo<ResolvedLanguage>(
-    () => (mode === "auto" ? detected : mode),
-    [mode, detected]
-  );
-
-  useEffect(() => {
-    if (mode === "auto") {
-      setDetected(prev => prev ?? detectFromNavigator());
-    }
-  }, [mode]);
+  // Kept for compatibility with existing callers.
+  const reportInput = (_text: string) => {};
+  const resolved: ResolvedLanguage = mode;
 
   return (
     <LanguageContext.Provider value={{ mode, resolved, setMode, reportInput }}>

@@ -14,6 +14,182 @@ const tokenizeForMatching = (input: string): string[] =>
     .map(token => token.trim())
     .filter(token => token.length >= 2);
 
+const STOP_TOKENS = new Set([
+  "with",
+  "without",
+  "about",
+  "around",
+  "little",
+  "mild",
+  "bit",
+  "days",
+  "day",
+  "degree",
+  "degrees",
+  "celsius",
+  "symptom",
+  "symptoms",
+  "getting",
+  "have",
+  "has",
+  "had",
+  "and",
+  "the",
+  "for",
+  "发热",
+  "低烧",
+  "症状",
+  "感觉",
+  "有点",
+  "大概",
+  "今天",
+  "昨天",
+]);
+
+const normalizeIntentTokens = (tokens: string[]) =>
+  tokens.filter(token => !STOP_TOKENS.has(token));
+
+type DepartmentIntent = {
+  id: string;
+  symptomKeywords: string[];
+  departmentKeywords: string[];
+};
+
+const DEPARTMENT_INTENTS: DepartmentIntent[] = [
+  {
+    id: "digestive",
+    symptomKeywords: [
+      "stomachache",
+      "stomach",
+      "gastric",
+      "gastro",
+      "abdomen",
+      "abdominal",
+      "belly",
+      "digestive",
+      "nausea",
+      "vomit",
+      "vomiting",
+      "diarrhea",
+      "diarrhoea",
+      "constipation",
+      "indigestion",
+      "胃",
+      "腹痛",
+      "肚子",
+      "消化",
+      "恶心",
+      "呕吐",
+      "腹泻",
+      "便秘",
+      "反酸",
+      "烧心",
+    ],
+    departmentKeywords: ["消化", "胃肠", "gastro", "digestive", "gastroenterology"],
+  },
+  {
+    id: "respiratory",
+    symptomKeywords: [
+      "cough",
+      "phlegm",
+      "sputum",
+      "wheeze",
+      "asthma",
+      "shortness",
+      "breath",
+      "dyspnea",
+      "咳嗽",
+      "咳痰",
+      "气短",
+      "喘",
+      "呼吸困难",
+      "哮喘",
+    ],
+    departmentKeywords: ["呼吸", "肺", "respiratory", "pulmonary"],
+  },
+];
+
+const detectIntentDepartments = (text: string): DepartmentIntent[] => {
+  const lowered = text.toLowerCase();
+  return DEPARTMENT_INTENTS.filter(intent =>
+    intent.symptomKeywords.some(keyword => lowered.includes(keyword.toLowerCase()))
+  );
+};
+
+const GENERAL_DEPARTMENT_KEYWORDS = [
+  "全科",
+  "综合",
+  "内科",
+  "general",
+  "internal medicine",
+  "family medicine",
+];
+
+const isGeneralDepartment = (
+  doctorResult: Awaited<ReturnType<typeof db.searchDoctors>>[number]
+) => {
+  const departmentText = [
+    doctorResult.department.name,
+    doctorResult.department.nameEn,
+    doctorResult.doctor.specialty,
+    doctorResult.doctor.specialtyEn,
+  ]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join(" ")
+    .toLowerCase();
+
+  return GENERAL_DEPARTMENT_KEYWORDS.some(keyword =>
+    departmentText.includes(keyword.toLowerCase())
+  );
+};
+
+const scoreDoctorRelevance = (
+  doctorResult: Awaited<ReturnType<typeof db.searchDoctors>>[number],
+  tokens: string[],
+  intents: DepartmentIntent[]
+) => {
+  const coreText = [
+    doctorResult.department.name,
+    doctorResult.department.nameEn,
+    doctorResult.doctor.specialty,
+    doctorResult.doctor.specialtyEn,
+  ]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join(" ")
+    .toLowerCase();
+
+  const fullText = [
+    coreText,
+    doctorResult.doctor.expertise,
+    doctorResult.doctor.expertiseEn,
+  ]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join(" ")
+    .toLowerCase();
+
+  let score = 0;
+
+  const tokenMatchesCore = tokens.filter(token => coreText.includes(token)).length;
+  const tokenMatchesFull = tokens.filter(token => fullText.includes(token)).length;
+  score += tokenMatchesCore * 2 + tokenMatchesFull;
+
+  for (const intent of intents) {
+    const matchesCore = intent.departmentKeywords.some(keyword =>
+      coreText.includes(keyword.toLowerCase())
+    );
+    const matchesFull = intent.departmentKeywords.some(keyword =>
+      fullText.includes(keyword.toLowerCase())
+    );
+    if (matchesCore) {
+      score += 6;
+    } else if (matchesFull) {
+      score += 3;
+    }
+  }
+
+  return score;
+};
+
 const isDoctorRelevantToSymptoms = (
   doctorResult: Awaited<ReturnType<typeof db.searchDoctors>>[number],
   tokens: string[]
@@ -45,7 +221,7 @@ type GroundedDoctorRecommendation = {
   departmentName: string;
 };
 
-const buildGroundedRecommendationMessage = (
+const buildGroundedRecommendationMessageTemplate = (
   isEnglish: boolean,
   recommendations: GroundedDoctorRecommendation[]
 ) => {
@@ -58,24 +234,122 @@ const buildGroundedRecommendationMessage = (
   if (isEnglish) {
     const lines = recommendations.map(
       (item, index) =>
-        `${index + 1}. I recommend Dr. ${item.doctorName} at ${item.hospitalName} (${item.departmentName}). Reason: ${item.reason}`
+        `${index + 1}. Dr. ${item.doctorName} - ${item.hospitalName} (${item.departmentName})\nReason: ${item.reason}`
     );
     return [
-      "Based on your current symptoms, here are the most relevant doctors from our database:",
+      "Thanks for sharing these details. Based on your current symptoms, I found these doctors in our database:",
       ...lines,
-      "If you'd like, I can help you compare these doctors and suggest which one to book first.",
+      "If you want, I can help you decide which one to book first.",
     ].join("\n");
   }
 
   const lines = recommendations.map(
     (item, index) =>
-      `${index + 1}. 推荐 ${item.hospitalName}（${item.departmentName}）的 ${item.doctorName} 医生。理由：${item.reason}`
+      `${index + 1}. ${item.doctorName} 医生 - ${item.hospitalName}（${item.departmentName}）\n推荐理由：${item.reason}`
   );
   return [
-    "根据您当前的症状，以下是数据库中匹配度更高的医生：",
+    "收到。根据您目前描述的症状，我在数据库里筛到以下更匹配的医生：",
     ...lines,
-    "如果您愿意，我可以继续帮您比较这些医生并建议优先预约顺序。",
+    "如果您愿意，我可以继续帮您比较这几位医生，并给出优先预约建议。",
   ].join("\n");
+};
+
+const buildGroundedRecommendationMessage = async (
+  isEnglish: boolean,
+  symptoms: string,
+  recommendations: GroundedDoctorRecommendation[]
+) => {
+  if (recommendations.length === 0) {
+    return buildGroundedRecommendationMessageTemplate(isEnglish, recommendations);
+  }
+
+  try {
+    const response = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content: isEnglish
+            ? `You are a medical triage assistant. Write a natural, empathetic chat reply.
+Requirements:
+1) Use ONLY the doctors/hospitals/departments provided in input JSON. Do not add or change any names.
+2) Keep conversational flow like a normal AI assistant, not rigid bullet templates.
+3) Briefly connect symptoms to why these doctors fit.
+4) End with one concise next-step question.
+5) Respond only in English.`
+            : `你是医疗分诊助手。请写一段自然、有同理心的对话回复。
+要求：
+1）只能使用输入 JSON 里给出的医生/医院/科室，不得新增或改名；
+2）语气像正常 AI 对话，不要僵硬模板；
+3）简要解释这些医生与症状的匹配原因；
+4）结尾给一个简洁的下一步追问；
+5）仅用中文回复。`,
+        },
+        {
+          role: "user",
+          content: JSON.stringify(
+            {
+              symptoms,
+              recommendations,
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    });
+
+    const text = (response.choices[0].message.content as string | undefined)?.trim();
+    if (text && text.length > 0) {
+      return text;
+    }
+  } catch (error) {
+    console.warn("[Chat] Failed to generate natural grounded response, falling back:", error);
+  }
+
+  return buildGroundedRecommendationMessageTemplate(isEnglish, recommendations);
+};
+
+const buildNoMatchFollowupMessage = (isEnglish: boolean) =>
+  isEnglish
+    ? [
+        "I don't have enough clearly matched doctors in our current database yet.",
+        "To narrow it down accurately, could you share:",
+        "1) where the discomfort is most obvious,",
+        "2) whether you have nausea/vomiting/diarrhea or cough/phlegm/chest pain,",
+        "3) whether symptoms worsen after meals, activity, or at night?",
+        "Once you add these details, I can give a more precise recommendation.",
+      ].join("\n")
+    : [
+        "目前数据库里还没有足够明确匹配的医生结果。",
+        "为了更准确筛选，请再补充三点：",
+        "1）不适最明显的部位；",
+        "2）是否伴随恶心/呕吐/腹泻，或咳嗽/咳痰/胸痛；",
+        "3）症状是否在饭后、活动后或夜间加重。",
+        "您补充后，我会马上给出更精准的推荐。",
+      ].join("\n");
+
+const buildMatchedReason = (
+  isEnglish: boolean,
+  result: Awaited<ReturnType<typeof db.searchDoctors>>[number]
+) => {
+  const departmentName = isEnglish
+    ? result.department.nameEn || result.department.name
+    : result.department.name;
+  const rawExpertise = isEnglish
+    ? result.doctor.expertiseEn || result.doctor.expertise || ""
+    : result.doctor.expertise || result.doctor.expertiseEn || "";
+  const expertise = rawExpertise.replace(/\s+/g, " ").trim();
+  const expertiseSnippet = expertise.length > 0 ? expertise.slice(0, 60) : "";
+
+  if (expertiseSnippet.length > 0) {
+    return isEnglish
+      ? `Your symptoms are closer to ${departmentName}. This doctor's expertise includes: ${expertiseSnippet}${expertise.length > 60 ? "..." : ""}`
+      : `您的症状更接近${departmentName}就诊方向，该医生擅长：${expertiseSnippet}${expertise.length > 60 ? "..." : ""}`;
+  }
+
+  return isEnglish
+    ? `Your symptoms are aligned with ${departmentName}, so this doctor is a better fit for first consultation.`
+    : `您的症状与${departmentName}方向更匹配，建议优先由该方向医生先评估。`;
 };
 
 export const appRouter = router({
@@ -164,7 +438,7 @@ IMPORTANT:
           }
         ];
 
-        // Get AI response
+        // Get AI response (used for follow-up questioning / non-recommendation turns)
         const aiResponse = await invokeLLM({ messages });
         let assistantMessage = aiResponse.choices[0].message.content as string;
 
@@ -180,6 +454,7 @@ IMPORTANT:
   "symptoms": "symptom description",
   "duration": "duration description",
   "age": age_number or null,
+  "urgency": "low" | "medium" | "high",
   "readyForRecommendation": true/false
 }
 
@@ -192,6 +467,7 @@ readyForRecommendation should be true if you have basic symptom information (eve
   "symptoms": "症状描述",
   "duration": "病程描述",
   "age": age_number or null,
+  "urgency": "low" | "medium" | "high",
   "readyForRecommendation": true/false
 }
 
@@ -229,12 +505,17 @@ readyForRecommendation should be true if you have basic symptom information (eve
                     type: ["number", "null"],
                     description: "Patient age"
                   },
+                  urgency: {
+                    type: "string",
+                    enum: ["low", "medium", "high"],
+                    description: "Triage urgency level"
+                  },
                   readyForRecommendation: {
                     type: "boolean",
                     description: "Ready to recommend doctors"
                   }
                 },
-                required: ["keywords", "symptoms", "duration", "age", "readyForRecommendation"],
+                required: ["keywords", "symptoms", "duration", "age", "urgency", "readyForRecommendation"],
                 additionalProperties: false
               }
             }
@@ -322,18 +603,41 @@ readyForRecommendation should be true if you have basic symptom information (eve
 
           const searchResults = Array.from(mergedResults.values()).slice(0, 10);
 
-          const intentTokens = tokenizeForMatching(
+          const intentTokens = normalizeIntentTokens(
+            tokenizeForMatching(
+              [extraction.symptoms, ...(extraction.keywords ?? [])]
+                .filter((item: unknown): item is string =>
+                  typeof item === "string" && item.trim().length > 0
+                )
+                .join(" ")
+            )
+          );
+          const intentDepartments = detectIntentDepartments(
             [extraction.symptoms, ...(extraction.keywords ?? [])]
               .filter((item: unknown): item is string =>
                 typeof item === "string" && item.trim().length > 0
               )
               .join(" ")
           );
+          const scoredSearchResults = searchResults
+            .map(result => ({
+              result,
+              score: scoreDoctorRelevance(result, intentTokens, intentDepartments),
+            }))
+            .filter(item =>
+              intentDepartments.length > 0 ? item.score >= 3 : item.score > 0
+            )
+            .sort((left, right) => {
+              if (right.score !== left.score) {
+                return right.score - left.score;
+              }
+              return (
+                (right.result.doctor.recommendationScore ?? 0) -
+                (left.result.doctor.recommendationScore ?? 0)
+              );
+            });
+          const relevantSearchResults = scoredSearchResults.map(item => item.result);
 
-          const relevantSearchResults = searchResults.filter(result =>
-            isDoctorRelevantToSymptoms(result, intentTokens)
-          );
-          
           // Rank doctors using LLM
           if (relevantSearchResults.length > 0) {
             const doctorDescriptions = relevantSearchResults.map((r, idx) => ({
@@ -462,15 +766,26 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
             } else {
               recommendedDoctors = relevantSearchResults.slice(0, 3).map(result => ({
                 doctorId: result.doctor.id,
-                reason: isEnglish
-                  ? "Recommended from relevant specialists matched to your symptoms."
-                  : "基于症状匹配到的相关专科医生推荐。",
+                reason: buildMatchedReason(isEnglish, result),
               }));
             }
           } else if (searchResults.length > 0) {
-            assistantMessage += isEnglish
-              ? "\n\nI could not find specialists in our current database that clearly match your symptom focus yet. Please share more details or try a related department keyword."
-              : "\n\n当前数据库中暂未检索到与您症状明确匹配的专科医生。您可以补充更多症状细节，或尝试提供更具体的科室关键词。";
+            const fallbackDoctors = searchResults
+              .filter(result => isGeneralDepartment(result))
+              .slice(0, 3);
+
+            if (fallbackDoctors.length > 0) {
+              recommendedDoctors = fallbackDoctors.map(result => ({
+                doctorId: result.doctor.id,
+                reason: isEnglish
+                  ? "No exact specialty match found yet. This is a safer fallback for first triage."
+                  : "目前尚无完全匹配专科，先由更综合的门诊方向进行初步分诊更稳妥。",
+              }));
+            } else {
+              assistantMessage = isEnglish
+                ? "I could not find specialists in our current database that clearly match your symptom focus yet. Please share more details or try a related department keyword."
+                : "当前数据库中暂未检索到与您症状明确匹配的专科医生。您可以补充更多症状细节，或尝试提供更具体的科室关键词。";
+            }
           }
 
           if (recommendedDoctors.length > 0) {
@@ -504,11 +819,18 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
               );
 
             if (groundedRecommendations.length > 0) {
-              assistantMessage = buildGroundedRecommendationMessage(
+              assistantMessage = await buildGroundedRecommendationMessage(
                 isEnglish,
+                extraction.symptoms,
                 groundedRecommendations
               );
             }
+          }
+
+          // Avoid any hallucinated doctor/hospital names when recommendation flow is active.
+          // If no grounded doctors are available, return a strict database-only fallback message.
+          if (recommendedDoctors.length === 0) {
+            assistantMessage = buildNoMatchFollowupMessage(isEnglish);
           }
         }
 

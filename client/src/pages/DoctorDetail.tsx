@@ -1,4 +1,4 @@
-import { useRoute, Link } from "wouter";
+import { useRoute, Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,9 +12,18 @@ import { getLocalizedField } from "@/lib/i18n";
 
 export default function DoctorDetail() {
   const [, params] = useRoute("/doctor/:id");
+  const [, setLocation] = useLocation();
   const doctorId = params?.id ? parseInt(params.id) : 0;
   const { resolved } = useLanguage();
   const utils = trpc.useUtils();
+
+  const handleGoBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    setLocation("/hospitals");
+  };
 
   const { data, isLoading, error } = trpc.doctors.getById.useQuery(
     { id: doctorId },
@@ -109,6 +118,10 @@ export default function DoctorDetail() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={handleGoBack}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -120,7 +133,6 @@ export default function DoctorDetail() {
               <LanguageSwitcher />
               <Link href="/">
                 <Button variant="ghost" size="sm">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Home
                 </Button>
               </Link>
