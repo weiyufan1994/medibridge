@@ -57,6 +57,27 @@
       "when": 1771754117778,
       "tag": "0007_heavy_freak",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1772352000000,
+      "tag": "0008_appointment_magic_link",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1772363257108,
+      "tag": "0009_dapper_tarantula",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1772370266487,
+      "tag": "0010_famous_ink",
+      "breakpoints": true
     }
   ]
 }

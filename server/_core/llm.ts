@@ -107,6 +107,12 @@ export interface TriageResponse {
   reply: string;
   summary?: string;
   keywords?: string[];
+  extraction?: {
+    symptoms: string;
+    duration: string;
+    age: number | null;
+    urgency: "low" | "medium" | "high";
+  };
 }
 
 export type TriageLang = "en" | "zh";
@@ -377,8 +383,19 @@ const TRIAGE_JSON_SCHEMA: JsonSchema = {
             maxItems: 5,
             items: { type: "string", minLength: 2, maxLength: 40 },
           },
+          extraction: {
+            type: "object",
+            properties: {
+              symptoms: { type: "string", minLength: 2, maxLength: 300 },
+              duration: { type: "string", minLength: 1, maxLength: 120 },
+              age: { type: ["number", "null"] },
+              urgency: { type: "string", enum: ["low", "medium", "high"] },
+            },
+            required: ["symptoms", "duration", "age", "urgency"],
+            additionalProperties: false,
+          },
         },
-        required: ["isComplete", "reply", "summary", "keywords"],
+        required: ["isComplete", "reply", "summary", "keywords", "extraction"],
         additionalProperties: false,
       },
     ],
@@ -396,6 +413,11 @@ const TRIAGE_SYSTEM_PROMPT_ZH = `你是 MediBridge 的专业分诊护士（Triag
    - reply 为简短结束语，告知将推荐医生；
    - summary 为结构化摘要（可读文本，分号分隔），最多 8 条核心信息；
    - keywords 提供 3-5 个用于检索医生的关键词（症状/疾病/科室混合，简洁具体），必须至少包含 1 个科室/专科词。
+   - extraction 为结构化字段：
+     symptoms（主要症状描述，简洁）、
+     duration（病程，如“3天/2周/间歇性半年”）、
+     age（数字或 null）、
+     urgency（low/medium/high）。
 5) 禁止输出 Markdown、代码块或额外字段；必须只返回 JSON。`;
 
 const TRIAGE_SYSTEM_PROMPT_EN = `You are MediBridge's professional triage nurse.
@@ -409,6 +431,11 @@ Behavior requirements:
    - reply: concise closing line that you are ready to recommend doctors;
    - summary: structured triage summary in readable text, separated by semicolons, MAX 8 key items only;
    - keywords: 3-5 concise keywords for doctor matching (mix of symptom/disease/department), MUST include at least one department/specialty term.
+   - extraction: structured fields:
+     symptoms (concise main complaint),
+     duration (e.g. "3 days", "2 weeks", "intermittent for 6 months"),
+     age (number or null),
+     urgency (low/medium/high).
 5) Return JSON only. No markdown, no code block, no extra keys.`;
 
 const TRIAGE_FALLBACK_REPLY_ZH =
@@ -448,6 +475,31 @@ const parseTriageResponse = (rawContent: string): TriageResponse | null => {
       if (keywords) {
         response.keywords = keywords;
       }
+      if (obj.extraction && typeof obj.extraction === "object") {
+        const extraction = obj.extraction as Record<string, unknown>;
+        const ageValue =
+          typeof extraction.age === "number" && Number.isFinite(extraction.age)
+            ? extraction.age
+            : null;
+        const urgencyValue =
+          extraction.urgency === "low" ||
+          extraction.urgency === "medium" ||
+          extraction.urgency === "high"
+            ? extraction.urgency
+            : "medium";
+        response.extraction = {
+          symptoms:
+            typeof extraction.symptoms === "string" && extraction.symptoms.trim().length > 0
+              ? extraction.symptoms.trim().slice(0, 300)
+              : response.summary ?? "",
+          duration:
+            typeof extraction.duration === "string" && extraction.duration.trim().length > 0
+              ? extraction.duration.trim().slice(0, 120)
+              : langSafeFallbackDuration(rawContent),
+          age: ageValue,
+          urgency: urgencyValue,
+        };
+      }
     }
 
     return response;
@@ -465,6 +517,14 @@ const parseTriageResponse = (rawContent: string): TriageResponse | null => {
       return null;
     }
   }
+};
+
+const langSafeFallbackDuration = (raw: string) => {
+  const normalized = raw.toLowerCase();
+  if (normalized.includes("day") || normalized.includes("week") || normalized.includes("month")) {
+    return "as reported";
+  }
+  return "unspecified";
 };
 
 const extractAssistantText = (

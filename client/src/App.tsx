@@ -9,12 +9,16 @@ import Home from "./pages/Home";
 import DoctorDetail from "./pages/DoctorDetail";
 import Hospitals from "./pages/Hospitals";
 import AITriagePage from "./pages/AITriage";
+import AppointmentAccessPage from "./pages/AppointmentAccess";
+import VisitRoomPage from "./pages/VisitRoom";
 
 function Router() {
   return (
     <Switch>
       <Route path={"/"} component={Home} />
       <Route path={"/triage"} component={AITriagePage} />
+      <Route path={"/appointment/:id"} component={AppointmentAccessPage} />
+      <Route path={"/visit/:id"} component={VisitRoomPage} />
       <Route path={"/doctor/:id"} component={DoctorDetail} />
       <Route path={"/hospitals"} component={Hospitals} />
       <Route path={"/404"} component={NotFound} />

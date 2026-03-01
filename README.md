@@ -6,9 +6,31 @@
 
 **目标**：自动抓取6个顶级医院123个科室的医生详细信息
 
+## 预约魔法链接与线上会诊（MVP）
+
+- 创建预约会生成两条链接：
+- `patientLink`：用于患者访问 `/appointment/:id` 与 `/visit/:id`
+- `doctorLink`：用于医生访问 `/visit/:id` 并发送医生消息
+- 开发环境 `appointments.create` 返回：
+- `devLink`（patientLink）和 `devDoctorLink`（doctorLink）
+
+### 本地调试医生链接
+
+1. 调用 `appointments.create`
+2. 从返回值复制 `devDoctorLink`
+3. 在另一个浏览器窗口打开 `devDoctorLink`
+4. 验证医生侧发送消息落库为 `senderType=doctor`
+
+注意：
+
+- 数据库仅保存 token hash，不保存明文 token
+- `resendLink` 只重置患者 token，不影响医生 token
+- 医生链接明文只在创建返回时可见，后续丢失需重新签发
+
 ## 双语展示与离线翻译
 
 平台支持 `auto | en | zh` 三种语言模式：
+
 - `auto` 默认跟随用户输入语言（检测 CJK 字符）
 - `en` 使用英文镜像字段，缺失时统一显示 "Translation in progress" 并允许手动刷新
 - `zh` 使用中文源字段
@@ -65,6 +87,7 @@ pnpm translate:bilingual --entities=doctors --batchSize=10 --concurrency=1
 ```
 
 **医院列表**：
+
 - 复旦大学附属中山医院（25个科室）
 - 瑞金医院（29个科室）
 - 华山医院（22个科室）
@@ -73,6 +96,7 @@ pnpm translate:bilingual --entities=doctors --batchSize=10 --concurrency=1
 - 复旦大学附属肿瘤医院（9个科室）
 
 **数据字段**（14个）：
+
 1. 医院
 2. 科室
 3. 姓名
@@ -116,6 +140,7 @@ python3 scripts/track_progress.py
 ```
 
 输出示例：
+
 ```
 总科室数: 123
 已完成: 1
@@ -138,12 +163,14 @@ python3 scripts/track_progress.py
 **执行方式**：每日定时任务（凌晨2点）
 
 **抓取策略**：
+
 - 一次只抓取一个科室
 - 科室内医生按10个为一组并行抓取
 - 跳过无个人简介的医生
 - 遇到验证码立即停止并保存数据
 
 **数据质量**：
+
 - 基本字段：100%完整
 - 专业字段：95%完整
 - 学术字段：85%完整
@@ -153,6 +180,7 @@ python3 scripts/track_progress.py
 ### 3. 验证码处理
 
 遇到验证码时系统会：
+
 1. 立即停止抓取
 2. 保存已抓取的数据到Excel
 3. 推送到GitHub
@@ -165,6 +193,7 @@ python3 scripts/track_progress.py
 技能位置：`/home/ubuntu/skills/haodf-doctor-scraper/SKILL.md`
 
 **关键特性**：
+
 - 14个标准化字段
 - 自动处理缺失数据
 - 增量保存进度
@@ -179,6 +208,7 @@ python3 scripts/track_progress.py
 **示例**：`中山医院_呼吸科_医生信息_20260211.xlsx`
 
 **格式**：
+
 - 每行一位医生
 - 14列对应14个字段
 - 包含完整的可追溯URL
@@ -212,11 +242,13 @@ python3 scripts/track_progress.py
 **浏览器自动化**：使用用户的浏览器会话，避免登录问题
 
 **反爬虫策略**：
+
 - 温和的抓取速度（每个科室3-5分钟）
 - 使用真实浏览器而非脚本
 - 遇到验证码立即停止
 
 **数据可靠性**：
+
 - 每个医生包含原始URL
 - 增量保存防止数据丢失
 - 质量验证报告
@@ -228,6 +260,7 @@ python3 scripts/track_progress.py
 如果需要立即执行一次抓取（不等到凌晨2点）：
 
 对Manus说：
+
 > "执行好大夫医生信息抓取任务"
 
 ### 查看进度
@@ -240,6 +273,7 @@ python3 scripts/track_progress.py
 ### 查看数据
 
 所有抓取的Excel文件在：
+
 ```
 data/hospitals/{医院}_{科室}_医生信息_{日期}.xlsx
 ```
@@ -247,6 +281,7 @@ data/hospitals/{医院}_{科室}_医生信息_{日期}.xlsx
 ### 更新科室列表
 
 如果需要添加新的医院或科室：
+
 1. 在 `data/hospitals/` 目录上传新的科室列表Excel
 2. 运行进度跟踪脚本更新 `all_departments.json`
 

@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { Link } from "wouter";
 import { Loader2, Send, Sparkles, Stethoscope } from "lucide-react";
 import { trpc } from "@/lib/trpc";
@@ -6,7 +12,13 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { getLocalizedField } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -18,6 +30,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 type ChatRole = "user" | "assistant";
 
@@ -31,6 +45,12 @@ type TriageResult = {
   reply: string;
   summary?: string;
   keywords?: string[];
+  extraction?: {
+    symptoms: string;
+    duration: string;
+    age: number | null;
+    urgency: "low" | "medium" | "high";
+  };
 };
 
 type AITriageChatProps = {
@@ -41,8 +61,19 @@ type AITriageChatProps = {
   }) => void;
 };
 
+type AppointmentType = "online_chat" | "video_call" | "in_person";
+
 const DISCLAIMER_KEY = "medibridge_disclaimer_accepted_v1";
 const TRIAGE_SESSION_KEY = "medibridge_triage_chat_v2";
+const createTriageSessionId = () => {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+  return `triage_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+};
 
 const getInitialAssistantMessage = (lang: "en" | "zh"): ChatMessage => ({
   role: "assistant",
@@ -52,6 +83,9 @@ const getInitialAssistantMessage = (lang: "en" | "zh"): ChatMessage => ({
       : "Hi, I am your triage nurse. Please share your main symptoms and how long they have lasted.",
 });
 
+const detectTriageLanguage = (text: string): "en" | "zh" =>
+  /[\u4e00-\u9fff]/.test(text) ? "zh" : "en";
+
 const TEXT = {
   en: {
     title: "AI Triage Consultation",
@@ -59,7 +93,8 @@ const TEXT = {
       "The triage nurse collects key details first, then generates a summary and doctor recommendations.",
     placeholder: "Describe your symptoms, duration, and medical history...",
     typing: "AI is reviewing your triage details...",
-    requestError: "Triage service is temporarily unavailable. Please try again shortly.",
+    requestError:
+      "Triage service is temporarily unavailable. Please try again shortly.",
     fallbackReply:
       "Sorry, the triage service is busy right now. Please try again in a moment.",
     completed: "Triage is complete. Summary and recommendations are ready.",
@@ -69,7 +104,8 @@ const TEXT = {
     doctorTitle: "Recommended Doctors",
     doctorDesc: "Top 3-5 doctors matched by extracted keywords",
     searching: "Matching doctors...",
-    noDoctor: "No doctors matched yet. Try adding more specific symptom details.",
+    noDoctor:
+      "No doctors matched yet. Try adding more specific symptom details.",
     noBio: "No profile details available yet.",
     viewProfile: "View Profile",
     chooseBook: "Choose & Book",
@@ -86,6 +122,21 @@ const TEXT = {
     understand: "I Understand",
     rating: "Rating",
     doctorFallback: "Recommended Doctor",
+    bookingTitle: "Book Appointment",
+    bookingDesc:
+      "Provide email and preferred time to receive a secure magic link.",
+    bookingEmail: "Email",
+    bookingTime: "Scheduled Time",
+    bookingType: "Appointment Type",
+    bookingTypeOnline: "Online Chat",
+    bookingTypeVideo: "Video Call",
+    bookingTypeInPerson: "In Person",
+    bookingCancel: "Cancel",
+    bookingConfirm: "Create Booking",
+    bookingCreating: "Creating...",
+    bookingInvalid: "Please complete email and time.",
+    bookingSuccess: "Booking created. Opening your magic link.",
+    bookingFailed: "Failed to create booking. Please try again.",
   },
   zh: {
     title: "AI 预诊分诊",
@@ -110,11 +161,26 @@ const TEXT = {
     disclaimerTitle: "医疗免责声明",
     disclaimerDesc: "AI 建议仅用于分诊与医生匹配，不构成医疗诊断。",
     disclaimerLine1: "请勿在对话中发送高敏感身份信息（证件号/护照号等）。",
-    disclaimerLine2: "如出现胸痛、呼吸困难、中风征象、大出血等急症，请立即联系当地急救服务。",
+    disclaimerLine2:
+      "如出现胸痛、呼吸困难、中风征象、大出血等急症，请立即联系当地急救服务。",
     cancel: "取消",
     understand: "我已知悉",
     rating: "评分",
     doctorFallback: "推荐医生",
+    bookingTitle: "创建预约",
+    bookingDesc: "填写邮箱与预约时间，系统将发送安全魔法链接。",
+    bookingEmail: "邮箱",
+    bookingTime: "预约时间",
+    bookingType: "预约类型",
+    bookingTypeOnline: "在线图文",
+    bookingTypeVideo: "视频问诊",
+    bookingTypeInPerson: "线下面诊",
+    bookingCancel: "取消",
+    bookingConfirm: "创建预约",
+    bookingCreating: "创建中...",
+    bookingInvalid: "请完整填写邮箱和预约时间。",
+    bookingSuccess: "预约创建成功，正在打开魔法链接。",
+    bookingFailed: "预约创建失败，请稍后重试。",
   },
 } as const;
 
@@ -127,6 +193,9 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
   ]);
   const [input, setInput] = useState("");
   const [triageResult, setTriageResult] = useState<TriageResult | null>(null);
+  const [triageSessionId, setTriageSessionId] = useState<string>(
+    createTriageSessionId
+  );
   const [requestError, setRequestError] = useState<string | null>(null);
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
   const [disclaimerAccepted, setDisclaimerAccepted] = useState<boolean>(() => {
@@ -134,18 +203,40 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
     return localStorage.getItem(DISCLAIMER_KEY) === "1";
   });
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [bookingDoctorId, setBookingDoctorId] = useState<number | null>(null);
+  const [bookingEmail, setBookingEmail] = useState("");
+  const [bookingScheduledAt, setBookingScheduledAt] = useState("");
+  const [bookingType, setBookingType] = useState<AppointmentType>("video_call");
   const listEndRef = useRef<HTMLDivElement>(null);
 
   const chatTriageMutation = trpc.ai.chatTriage.useMutation();
+  const createAppointmentMutation = trpc.appointments.create.useMutation({
+    onSuccess: result => {
+      toast.success(t.bookingSuccess);
+      setBookingOpen(false);
+      if (result.devLink && typeof window !== "undefined") {
+        window.location.href = result.devLink;
+      }
+    },
+    onError: error => {
+      toast.error(error.message || t.bookingFailed);
+    },
+  });
   const recommendationKeywords = useMemo(
-    () => (triageResult?.isComplete ? triageResult.keywords ?? [] : []),
+    () => (triageResult?.isComplete ? (triageResult.keywords ?? []) : []),
     [triageResult]
   );
 
   const recommendQuery = trpc.doctors.recommend.useQuery(
-    { keywords: recommendationKeywords, summary: triageResult?.summary, limit: 5 },
     {
-      enabled: triageResult?.isComplete === true && recommendationKeywords.length > 0,
+      keywords: recommendationKeywords,
+      summary: triageResult?.summary,
+      limit: 5,
+    },
+    {
+      enabled:
+        triageResult?.isComplete === true && recommendationKeywords.length > 0,
       retry: 1,
     }
   );
@@ -159,12 +250,19 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
         messages?: ChatMessage[];
         triageResult?: TriageResult | null;
         input?: string;
+        triageSessionId?: string;
       };
       if (Array.isArray(parsed.messages) && parsed.messages.length > 0) {
         setMessages(parsed.messages);
       }
       if (typeof parsed.input === "string") {
         setInput(parsed.input);
+      }
+      if (
+        typeof parsed.triageSessionId === "string" &&
+        parsed.triageSessionId.trim().length > 0
+      ) {
+        setTriageSessionId(parsed.triageSessionId);
       }
       if (parsed.triageResult && typeof parsed.triageResult === "object") {
         setTriageResult(parsed.triageResult);
@@ -182,9 +280,10 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
         messages,
         triageResult,
         input,
+        triageSessionId,
       })
     );
-  }, [messages, triageResult, input]);
+  }, [messages, triageResult, input, triageSessionId]);
 
   const pushAssistantMessage = (content: string) => {
     setMessages(prev => [...prev, { role: "assistant", content }]);
@@ -197,6 +296,7 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
     setMessages([getInitialAssistantMessage(resolved)]);
     setInput("");
     setTriageResult(null);
+    setTriageSessionId(createTriageSessionId());
     setRequestError(null);
     setPendingMessage(null);
     if (typeof window !== "undefined") {
@@ -222,15 +322,17 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
     });
 
     try {
+      const inputLang = detectTriageLanguage(content);
+      const inputText = TEXT[inputLang];
       const result = await chatTriageMutation.mutateAsync({
         messages: nextMessages,
-        lang: mode,
+        lang: inputLang,
       });
 
       const safeReply =
         typeof result.reply === "string" && result.reply.trim().length > 0
           ? result.reply.trim()
-          : t.fallbackReply;
+          : inputText.fallbackReply;
 
       pushAssistantMessage(safeReply);
       setTriageResult({
@@ -241,13 +343,34 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
             ? result.summary.trim()
             : undefined,
         keywords: Array.isArray(result.keywords)
-          ? result.keywords.filter(item => typeof item === "string" && item.trim().length > 0)
+          ? result.keywords.filter(
+              item => typeof item === "string" && item.trim().length > 0
+            )
           : undefined,
+        extraction:
+          result.extraction &&
+          typeof result.extraction === "object" &&
+          typeof result.extraction.symptoms === "string" &&
+          typeof result.extraction.duration === "string" &&
+          (result.extraction.urgency === "low" ||
+            result.extraction.urgency === "medium" ||
+            result.extraction.urgency === "high")
+            ? {
+                symptoms: result.extraction.symptoms,
+                duration: result.extraction.duration,
+                age:
+                  typeof result.extraction.age === "number"
+                    ? result.extraction.age
+                    : null,
+                urgency: result.extraction.urgency,
+              }
+            : undefined,
       });
     } catch (error) {
       console.error("[AITriageChat] chatTriage error:", error);
-      setRequestError(t.requestError);
-      pushAssistantMessage(t.fallbackReply);
+      const inputLang = detectTriageLanguage(content);
+      setRequestError(TEXT[inputLang].requestError);
+      pushAssistantMessage(TEXT[inputLang].fallbackReply);
     }
   };
 
@@ -282,6 +405,37 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
       event.preventDefault();
       void handleSend();
     }
+  };
+
+  const openBookingDialog = (doctorId: number) => {
+    const defaultDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const localIso = new Date(
+      defaultDate.getTime() - defaultDate.getTimezoneOffset() * 60000
+    )
+      .toISOString()
+      .slice(0, 16);
+    setBookingDoctorId(doctorId);
+    setBookingScheduledAt(localIso);
+    setBookingOpen(true);
+  };
+
+  const handleCreateBooking = async () => {
+    if (
+      !bookingDoctorId ||
+      !bookingEmail.trim() ||
+      !bookingScheduledAt.trim()
+    ) {
+      toast.error(t.bookingInvalid);
+      return;
+    }
+
+    await createAppointmentMutation.mutateAsync({
+      doctorId: bookingDoctorId,
+      appointmentType: bookingType,
+      scheduledAt: new Date(bookingScheduledAt).toISOString(),
+      email: bookingEmail.trim(),
+      sessionId: triageSessionId,
+    });
   };
 
   return (
@@ -330,7 +484,9 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                           : "bg-sky-50 text-slate-700"
                       }`}
                     >
-                      <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                      <p className="whitespace-pre-wrap leading-relaxed">
+                        {message.content}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -357,12 +513,18 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                   onChange={event => setInput(event.target.value)}
                   onKeyDown={handleInputKeyDown}
                   placeholder={t.placeholder}
-                  disabled={chatTriageMutation.isPending || triageResult?.isComplete}
+                  disabled={
+                    chatTriageMutation.isPending || triageResult?.isComplete
+                  }
                   className="border-sky-200 focus-visible:ring-sky-400"
                 />
                 <Button
                   onClick={() => void handleSend()}
-                  disabled={!input.trim() || chatTriageMutation.isPending || triageResult?.isComplete}
+                  disabled={
+                    !input.trim() ||
+                    chatTriageMutation.isPending ||
+                    triageResult?.isComplete
+                  }
                   className="bg-sky-600 hover:bg-sky-700"
                 >
                   {chatTriageMutation.isPending ? (
@@ -393,7 +555,9 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
         <div className="space-y-4">
           <Card className="border-emerald-100 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-emerald-800">{t.summaryTitle}</CardTitle>
+              <CardTitle className="text-emerald-800">
+                {t.summaryTitle}
+              </CardTitle>
               <CardDescription>{t.summaryDesc}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm text-slate-700">
@@ -436,7 +600,9 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
 
                   {!recommendQuery.isFetching &&
                     triageResult?.isComplete &&
-                    recommendQuery.data?.length === 0 && <p className="text-sm text-slate-500">{t.noDoctor}</p>}
+                    recommendQuery.data?.length === 0 && (
+                      <p className="text-sm text-slate-500">{t.noDoctor}</p>
+                    )}
 
                   {triageResult?.isComplete &&
                     (recommendQuery.data ?? []).map(item => {
@@ -467,20 +633,45 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                         en: item.doctor.expertiseEn || item.doctor.specialtyEn,
                         placeholder: t.noBio,
                       });
-                      const whatsappNumberRaw = import.meta.env.VITE_WHATSAPP_NUMBER as string | undefined;
-                      const whatsappNumber = (whatsappNumberRaw || "").replace(/[^\d]/g, "");
+                      const whatsappNumberRaw = import.meta.env
+                        .VITE_WHATSAPP_NUMBER as string | undefined;
+                      const whatsappNumber = (whatsappNumberRaw || "").replace(
+                        /[^\d]/g,
+                        ""
+                      );
                       const summary = triageResult?.summary?.trim() || "";
+                      const extraction = triageResult?.extraction;
+                      const bookingCode = triageSessionId
+                        .slice(-6)
+                        .toUpperCase();
+                      const reason =
+                        typeof item.reason === "string" &&
+                        item.reason.trim().length > 0
+                          ? item.reason.trim()
+                          : resolved === "zh"
+                            ? "基于分诊信息推荐"
+                            : "Recommended based on triage details";
                       const bookingMessage =
                         resolved === "zh"
                           ? [
                               `你好，我想预约 ${doctorName} 医生。`,
                               `分诊摘要：${summary || "已在 AI 对话中提供症状描述"}`,
+                              `症状：${extraction?.symptoms || "已在分诊中描述"}`,
+                              `病程：${extraction?.duration || "未明确"}`,
+                              `紧急度：${extraction?.urgency || "medium"}`,
                               `推荐科室：${departmentName}`,
+                              `推荐理由：${reason}`,
+                              `会话编号：#${bookingCode}`,
                             ].join("\n")
                           : [
                               `Hello, I would like to book an appointment with Dr. ${doctorName}.`,
                               `AI triage summary: ${summary || "Symptom details shared in AI chat."}`,
+                              `Symptoms: ${extraction?.symptoms || "Shared in triage chat"}`,
+                              `Duration: ${extraction?.duration || "Unspecified"}`,
+                              `Urgency: ${extraction?.urgency || "medium"}`,
                               `Recommended department: ${departmentName}`,
+                              `Reason: ${reason}`,
+                              `Session code: #${bookingCode}`,
                             ].join("\n");
                       const whatsappUrl = whatsappNumber
                         ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(bookingMessage)}`
@@ -491,12 +682,21 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                           <CardContent className="space-y-3 p-4">
                             <div className="flex items-start gap-3">
                               <Avatar className="h-10 w-10">
-                                <AvatarImage src={item.doctor.imageUrl ?? undefined} alt={doctorName} />
-                                <AvatarFallback>{doctorName.slice(0, 1)}</AvatarFallback>
+                                <AvatarImage
+                                  src={item.doctor.imageUrl ?? undefined}
+                                  alt={doctorName}
+                                />
+                                <AvatarFallback>
+                                  {doctorName.slice(0, 1)}
+                                </AvatarFallback>
                               </Avatar>
                               <div className="min-w-0 flex-1">
-                                <p className="truncate font-semibold text-slate-900">{doctorName}</p>
-                                <p className="text-xs text-slate-500">{doctorTitle}</p>
+                                <p className="truncate font-semibold text-slate-900">
+                                  {doctorName}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  {doctorTitle}
+                                </p>
                                 <div className="mt-1 flex flex-wrap gap-1">
                                   <Badge variant="outline" className="text-xs">
                                     {hospitalName}
@@ -513,20 +713,26 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                                     </span>
                                   </div>
                                 )}
+                                <p className="mt-2 line-clamp-2 text-xs text-slate-600">
+                                  {reason}
+                                </p>
                               </div>
                             </div>
-                            <p className="line-clamp-3 text-xs leading-relaxed text-slate-600">{bio}</p>
+                            <p className="line-clamp-3 text-xs leading-relaxed text-slate-600">
+                              {bio}
+                            </p>
                             <div className="flex flex-wrap items-center gap-2">
                               <Button
                                 size="sm"
                                 className="bg-emerald-600 hover:bg-emerald-700"
-                                onClick={() =>
+                                onClick={() => {
                                   onSelectDoctor?.({
                                     doctorId: item.doctor.id,
                                     summary: triageResult?.summary || "",
                                     keywords: triageResult?.keywords ?? [],
-                                  })
-                                }
+                                  });
+                                  openBookingDialog(item.doctor.id);
+                                }}
                               >
                                 {t.chooseBook}
                               </Button>
@@ -536,7 +742,11 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                                 </Button>
                               </Link>
                               <Button size="sm" variant="outline" asChild>
-                                <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
+                                <a
+                                  href={whatsappUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
                                   {t.whatsapp}
                                 </a>
                               </Button>
@@ -566,7 +776,67 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
             <Button variant="outline" onClick={() => setDisclaimerOpen(false)}>
               {t.cancel}
             </Button>
-            <Button onClick={() => void handleAcceptDisclaimer()}>{t.understand}</Button>
+            <Button onClick={() => void handleAcceptDisclaimer()}>
+              {t.understand}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.bookingTitle}</DialogTitle>
+            <DialogDescription>{t.bookingDesc}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="booking-email">{t.bookingEmail}</Label>
+              <Input
+                id="booking-email"
+                type="email"
+                value={bookingEmail}
+                onChange={event => setBookingEmail(event.target.value)}
+                placeholder="you@example.com"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="booking-time">{t.bookingTime}</Label>
+              <Input
+                id="booking-time"
+                type="datetime-local"
+                value={bookingScheduledAt}
+                onChange={event => setBookingScheduledAt(event.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="booking-type">{t.bookingType}</Label>
+              <select
+                id="booking-type"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={bookingType}
+                onChange={event =>
+                  setBookingType(event.target.value as AppointmentType)
+                }
+              >
+                <option value="online_chat">{t.bookingTypeOnline}</option>
+                <option value="video_call">{t.bookingTypeVideo}</option>
+                <option value="in_person">{t.bookingTypeInPerson}</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBookingOpen(false)}>
+              {t.bookingCancel}
+            </Button>
+            <Button
+              onClick={() => void handleCreateBooking()}
+              disabled={createAppointmentMutation.isPending}
+            >
+              {createAppointmentMutation.isPending
+                ? t.bookingCreating
+                : t.bookingConfirm}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

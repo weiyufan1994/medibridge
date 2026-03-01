@@ -6,6 +6,8 @@ import { z } from "zod";
 import { createEmbedding, invokeLLM, processTriageChat } from "./_core/llm";
 import * as db from "./db";
 import { nanoid } from "nanoid";
+import { appointmentsRouter } from "./appointmentsRouter";
+import { visitRouter } from "./visitRouter";
 
 const tokenizeForMatching = (input: string): string[] =>
   input
@@ -85,7 +87,13 @@ const DEPARTMENT_INTENTS: DepartmentIntent[] = [
       "反酸",
       "烧心",
     ],
-    departmentKeywords: ["消化", "胃肠", "gastro", "digestive", "gastroenterology"],
+    departmentKeywords: [
+      "消化",
+      "胃肠",
+      "gastro",
+      "digestive",
+      "gastroenterology",
+    ],
   },
   {
     id: "respiratory",
@@ -112,7 +120,9 @@ const DEPARTMENT_INTENTS: DepartmentIntent[] = [
 const detectIntentDepartments = (text: string): DepartmentIntent[] => {
   const lowered = text.toLowerCase();
   return DEPARTMENT_INTENTS.filter(intent =>
-    intent.symptomKeywords.some(keyword => lowered.includes(keyword.toLowerCase()))
+    intent.symptomKeywords.some(keyword =>
+      lowered.includes(keyword.toLowerCase())
+    )
   );
 };
 
@@ -134,7 +144,10 @@ const isGeneralDepartment = (
     doctorResult.doctor.specialty,
     doctorResult.doctor.specialtyEn,
   ]
-    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .filter(
+      (value): value is string =>
+        typeof value === "string" && value.trim().length > 0
+    )
     .join(" ")
     .toLowerCase();
 
@@ -154,7 +167,10 @@ const scoreDoctorRelevance = (
     doctorResult.doctor.specialty,
     doctorResult.doctor.specialtyEn,
   ]
-    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .filter(
+      (value): value is string =>
+        typeof value === "string" && value.trim().length > 0
+    )
     .join(" ")
     .toLowerCase();
 
@@ -163,14 +179,21 @@ const scoreDoctorRelevance = (
     doctorResult.doctor.expertise,
     doctorResult.doctor.expertiseEn,
   ]
-    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .filter(
+      (value): value is string =>
+        typeof value === "string" && value.trim().length > 0
+    )
     .join(" ")
     .toLowerCase();
 
   let score = 0;
 
-  const tokenMatchesCore = tokens.filter(token => coreText.includes(token)).length;
-  const tokenMatchesFull = tokens.filter(token => fullText.includes(token)).length;
+  const tokenMatchesCore = tokens.filter(token =>
+    coreText.includes(token)
+  ).length;
+  const tokenMatchesFull = tokens.filter(token =>
+    fullText.includes(token)
+  ).length;
   score += tokenMatchesCore * 2 + tokenMatchesFull;
 
   for (const intent of intents) {
@@ -206,7 +229,10 @@ const isDoctorRelevantToSymptoms = (
     doctorResult.doctor.expertise,
     doctorResult.doctor.expertiseEn,
   ]
-    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .filter(
+      (value): value is string =>
+        typeof value === "string" && value.trim().length > 0
+    )
     .join(" ")
     .toLowerCase();
 
@@ -260,7 +286,10 @@ const buildGroundedRecommendationMessage = async (
   recommendations: GroundedDoctorRecommendation[]
 ) => {
   if (recommendations.length === 0) {
-    return buildGroundedRecommendationMessageTemplate(isEnglish, recommendations);
+    return buildGroundedRecommendationMessageTemplate(
+      isEnglish,
+      recommendations
+    );
   }
 
   try {
@@ -298,12 +327,17 @@ Requirements:
       ],
     });
 
-    const text = (response.choices[0].message.content as string | undefined)?.trim();
+    const text = (
+      response.choices[0].message.content as string | undefined
+    )?.trim();
     if (text && text.length > 0) {
       return text;
     }
   } catch (error) {
-    console.warn("[Chat] Failed to generate natural grounded response, falling back:", error);
+    console.warn(
+      "[Chat] Failed to generate natural grounded response, falling back:",
+      error
+    );
   }
 
   return buildGroundedRecommendationMessageTemplate(isEnglish, recommendations);
@@ -352,6 +386,19 @@ const buildMatchedReason = (
     : `您的症状与${departmentName}方向更匹配，建议优先由该方向医生先评估。`;
 };
 
+const detectTriageLanguage = (
+  messages: Array<{ role: string; content: string }>
+): "en" | "zh" => {
+  const lastUserMessage = [...messages]
+    .reverse()
+    .find(
+      message => message.role === "user" && message.content.trim().length > 0
+    );
+  const sample =
+    lastUserMessage?.content ?? messages[messages.length - 1]?.content ?? "";
+  return /[\u4e00-\u9fff]/.test(sample) ? "zh" : "en";
+};
+
 export const appRouter = router({
   system: systemRouter,
 
@@ -372,25 +419,29 @@ export const appRouter = router({
               })
             )
             .min(1),
-          lang: z.enum(["en", "zh"]).optional().default("en"),
+          lang: z.enum(["auto", "en", "zh"]).optional().default("auto"),
         })
       )
       .mutation(async ({ input }) => {
+        const resolvedLang =
+          input.lang === "auto"
+            ? detectTriageLanguage(input.messages)
+            : input.lang;
         try {
-          return await processTriageChat(input.messages, input.lang);
+          return await processTriageChat(input.messages, resolvedLang);
         } catch (error) {
           console.error("[AI] chatTriage failed:", error);
           return {
             isComplete: false,
             reply:
-              input.lang === "zh"
+              resolvedLang === "zh"
                 ? "我正在整理你的信息。请补充主要症状持续了多久、是否有既往病史或正在用药。"
                 : "I am organizing your triage details. Please share symptom duration, medical history, and current medications.",
           };
         }
       }),
   }),
-  
+
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
@@ -407,21 +458,28 @@ export const appRouter = router({
      * Send a message and get AI response with doctor recommendations
      */
     sendMessage: publicProcedure
-      .input(z.object({
-        sessionId: z.string().optional(),
-        message: z.string(),
-        chatHistory: z.array(z.object({
-          role: z.enum(["user", "assistant"]),
-          content: z.string(),
-        })).optional(),
-        lang: z.enum(["auto", "en", "zh"]).optional().default("auto"),
-      }))
+      .input(
+        z.object({
+          sessionId: z.string().optional(),
+          message: z.string(),
+          chatHistory: z
+            .array(
+              z.object({
+                role: z.enum(["user", "assistant"]),
+                content: z.string(),
+              })
+            )
+            .optional(),
+          lang: z.enum(["auto", "en", "zh"]).optional().default("auto"),
+        })
+      )
       .mutation(async ({ input }) => {
         const sessionId = input.sessionId || nanoid();
         const chatHistory = input.chatHistory || [];
         const detectLanguage = (text: string) =>
           /[\u4e00-\u9fff]/.test(text) ? "zh" : "en";
-        const resolvedLang = input.lang === "auto" ? detectLanguage(input.message) : input.lang;
+        const resolvedLang =
+          input.lang === "auto" ? detectLanguage(input.message) : input.lang;
         const isEnglish = resolvedLang === "en";
         const placeholder = "Translation in progress";
 
@@ -457,21 +515,21 @@ IMPORTANT:
 - 不给出诊断，仅做分诊匹配
 - 不要编造系统未提供的医生或医院名称
 - 仅用中文回复`;
-        
+
         // Build conversation history
         const messages = [
           {
             role: "system" as const,
-            content: systemPrompt
+            content: systemPrompt,
           },
           ...chatHistory.map(msg => ({
             role: msg.role,
-            content: msg.content
+            content: msg.content,
           })),
           {
             role: "user" as const,
-            content: input.message
-          }
+            content: input.message,
+          },
         ];
 
         // Get AI response (used for follow-up questioning / non-recommendation turns)
@@ -509,12 +567,12 @@ readyForRecommendation should be true if you have basic symptom information (eve
 
 关键词应包括疾病、症状、科室名称、治疗方式等。
 关键词使用与输入一致的语言。
-若已获得基本症状信息（即使仅 1-2 轮），readyForRecommendation 应为 true。`
+若已获得基本症状信息（即使仅 1-2 轮），readyForRecommendation 应为 true。`,
             },
             {
               role: "user",
-              content: `Patient conversation history:\n${chatHistory.map(m => `${m.role}: ${m.content}`).join('\n')}\n\nLatest message: ${input.message}`
-            }
+              content: `Patient conversation history:\n${chatHistory.map(m => `${m.role}: ${m.content}`).join("\n")}\n\nLatest message: ${input.message}`,
+            },
           ],
           response_format: {
             type: "json_schema",
@@ -527,58 +585,79 @@ readyForRecommendation should be true if you have basic symptom information (eve
                   keywords: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Extracted medical keywords"
+                    description: "Extracted medical keywords",
                   },
                   symptoms: {
                     type: "string",
-                    description: "Symptom description"
+                    description: "Symptom description",
                   },
                   duration: {
                     type: "string",
-                    description: "Duration description"
+                    description: "Duration description",
                   },
                   age: {
                     type: ["number", "null"],
-                    description: "Patient age"
+                    description: "Patient age",
                   },
                   urgency: {
                     type: "string",
                     enum: ["low", "medium", "high"],
-                    description: "Triage urgency level"
+                    description: "Triage urgency level",
                   },
                   readyForRecommendation: {
                     type: "boolean",
-                    description: "Ready to recommend doctors"
-                  }
+                    description: "Ready to recommend doctors",
+                  },
                 },
-                required: ["keywords", "symptoms", "duration", "age", "urgency", "readyForRecommendation"],
-                additionalProperties: false
-              }
-            }
-          }
+                required: [
+                  "keywords",
+                  "symptoms",
+                  "duration",
+                  "age",
+                  "urgency",
+                  "readyForRecommendation",
+                ],
+                additionalProperties: false,
+              },
+            },
+          },
         });
 
-        const extraction = JSON.parse(extractionResponse.choices[0].message.content as string);
+        const extraction = JSON.parse(
+          extractionResponse.choices[0].message.content as string
+        );
 
         // Search doctors if ready
         let recommendedDoctors: any[] = [];
-        if (extraction.readyForRecommendation && extraction.keywords.length > 0) {
-          type DoctorSearchResult = Awaited<ReturnType<typeof db.searchDoctors>>;
+        if (
+          extraction.readyForRecommendation &&
+          extraction.keywords.length > 0
+        ) {
+          type DoctorSearchResult = Awaited<
+            ReturnType<typeof db.searchDoctors>
+          >;
 
           let vectorResults: DoctorSearchResult = [];
           try {
             const semanticQuery = [extraction.symptoms, ...extraction.keywords]
-              .filter((item: unknown): item is string =>
-                typeof item === "string" && item.trim().length > 0
+              .filter(
+                (item: unknown): item is string =>
+                  typeof item === "string" && item.trim().length > 0
               )
               .join("\n");
 
             if (semanticQuery.length > 0) {
               const queryEmbedding = await createEmbedding(semanticQuery);
-              vectorResults = await db.searchDoctorsByEmbedding(queryEmbedding, 10);
+              vectorResults = await db.searchDoctorsByEmbedding(
+                queryEmbedding,
+                10
+              );
             }
           } catch (error) {
-            console.warn("[RAG] Vector search failed, falling back to keyword search:", error);
+            console.warn(
+              "[RAG] Vector search failed, falling back to keyword search:",
+              error
+            );
           }
 
           let keywordResults = await db.searchDoctors(extraction.keywords, 10, {
@@ -642,23 +721,29 @@ readyForRecommendation should be true if you have basic symptom information (eve
           const intentTokens = normalizeIntentTokens(
             tokenizeForMatching(
               [extraction.symptoms, ...(extraction.keywords ?? [])]
-                .filter((item: unknown): item is string =>
-                  typeof item === "string" && item.trim().length > 0
+                .filter(
+                  (item: unknown): item is string =>
+                    typeof item === "string" && item.trim().length > 0
                 )
                 .join(" ")
             )
           );
           const intentDepartments = detectIntentDepartments(
             [extraction.symptoms, ...(extraction.keywords ?? [])]
-              .filter((item: unknown): item is string =>
-                typeof item === "string" && item.trim().length > 0
+              .filter(
+                (item: unknown): item is string =>
+                  typeof item === "string" && item.trim().length > 0
               )
               .join(" ")
           );
           const scoredSearchResults = searchResults
             .map(result => ({
               result,
-              score: scoreDoctorRelevance(result, intentTokens, intentDepartments),
+              score: scoreDoctorRelevance(
+                result,
+                intentTokens,
+                intentDepartments
+              ),
             }))
             .filter(item =>
               intentDepartments.length > 0 ? item.score >= 3 : item.score > 0
@@ -672,7 +757,9 @@ readyForRecommendation should be true if you have basic symptom information (eve
                 (left.result.doctor.recommendationScore ?? 0)
               );
             });
-          const relevantSearchResults = scoredSearchResults.map(item => item.result);
+          const relevantSearchResults = scoredSearchResults.map(
+            item => item.result
+          );
 
           // Rank doctors using LLM
           if (relevantSearchResults.length > 0) {
@@ -680,13 +767,9 @@ readyForRecommendation should be true if you have basic symptom information (eve
               id: r.doctor.id,
               index: idx,
               text: `${idx + 1}. ${
-                isEnglish
-                  ? r.doctor.nameEn || placeholder
-                  : r.doctor.name
+                isEnglish ? r.doctor.nameEn || placeholder : r.doctor.name
               } - ${
-                isEnglish
-                  ? r.hospital.nameEn || placeholder
-                  : r.hospital.name
+                isEnglish ? r.hospital.nameEn || placeholder : r.hospital.name
               } ${
                 isEnglish
                   ? r.department.nameEn || placeholder
@@ -731,16 +814,16 @@ Respond only in English.`
     }
   ]
 }
-仅用中文返回。`
+仅用中文返回。`,
                 },
                 {
                   role: "user",
                   content: `Patient needs: ${extraction.symptoms}
-Keywords: ${extraction.keywords.join(', ')}
+Keywords: ${extraction.keywords.join(", ")}
 
 Candidate doctors:
-${doctorDescriptions.map(d => d.text).join('\n\n')}`
-                }
+${doctorDescriptions.map(d => d.text).join("\n\n")}`,
+                },
               ],
               response_format: {
                 type: "json_schema",
@@ -756,24 +839,27 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
                           type: "object",
                           properties: {
                             doctorId: { type: "number" },
-                            reason: { type: "string" }
+                            reason: { type: "string" },
                           },
                           required: ["doctorId", "reason"],
-                          additionalProperties: false
-                        }
-                      }
+                          additionalProperties: false,
+                        },
+                      },
                     },
                     required: ["selectedDoctors"],
-                    additionalProperties: false
-                  }
-                }
-              }
+                    additionalProperties: false,
+                  },
+                },
+              },
             });
 
             const ranking = JSON.parse(
               rankingResponse.choices[0].message.content as string
             ) as {
-              selectedDoctors?: Array<{ doctorId: number | string; reason?: string }>;
+              selectedDoctors?: Array<{
+                doctorId: number | string;
+                reason?: string;
+              }>;
             };
 
             const candidateDoctorIds = new Set(
@@ -784,7 +870,8 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
               .map(item => ({
                 doctorId: Number(item.doctorId),
                 reason:
-                  typeof item.reason === "string" && item.reason.trim().length > 0
+                  typeof item.reason === "string" &&
+                  item.reason.trim().length > 0
                     ? item.reason.trim()
                     : isEnglish
                       ? "Recommended based on your symptoms and medical needs."
@@ -800,10 +887,12 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
             if (validatedRecommendations.length > 0) {
               recommendedDoctors = validatedRecommendations.slice(0, 5);
             } else {
-              recommendedDoctors = relevantSearchResults.slice(0, 3).map(result => ({
-                doctorId: result.doctor.id,
-                reason: buildMatchedReason(isEnglish, result),
-              }));
+              recommendedDoctors = relevantSearchResults
+                .slice(0, 3)
+                .map(result => ({
+                  doctorId: result.doctor.id,
+                  reason: buildMatchedReason(isEnglish, result),
+                }));
             }
           } else if (searchResults.length > 0) {
             const fallbackDoctors = searchResults
@@ -848,10 +937,7 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
                 } satisfies GroundedDoctorRecommendation;
               })
               .filter(
-                (
-                  item
-                ): item is GroundedDoctorRecommendation =>
-                  item !== null
+                (item): item is GroundedDoctorRecommendation => item !== null
               );
 
             if (groundedRecommendations.length > 0) {
@@ -874,7 +960,7 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
         const updatedHistory = [
           ...chatHistory,
           { role: "user" as const, content: input.message },
-          { role: "assistant" as const, content: assistantMessage }
+          { role: "assistant" as const, content: assistantMessage },
         ];
 
         await db.upsertPatientSession({
@@ -883,14 +969,17 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
           symptoms: extraction.symptoms,
           duration: extraction.duration,
           age: extraction.age,
-          recommendedDoctors: recommendedDoctors.length > 0 ? JSON.stringify(recommendedDoctors) : null,
+          recommendedDoctors:
+            recommendedDoctors.length > 0
+              ? JSON.stringify(recommendedDoctors)
+              : null,
         });
 
         return {
           sessionId,
           message: assistantMessage,
           recommendedDoctors,
-          extraction
+          extraction,
         };
       }),
 
@@ -898,9 +987,11 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
      * Get session history
      */
     getSession: publicProcedure
-      .input(z.object({
-        sessionId: z.string()
-      }))
+      .input(
+        z.object({
+          sessionId: z.string(),
+        })
+      )
       .query(async ({ input }) => {
         const session = await db.getPatientSession(input.sessionId);
         if (!session) {
@@ -910,9 +1001,9 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
         return {
           ...session,
           chatHistory: JSON.parse(session.chatHistory as string),
-          recommendedDoctors: session.recommendedDoctors 
+          recommendedDoctors: session.recommendedDoctors
             ? JSON.parse(session.recommendedDoctors as string)
-            : []
+            : [],
         };
       }),
   }),
@@ -922,9 +1013,11 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
      * Get doctor details by ID
      */
     getById: publicProcedure
-      .input(z.object({
-        id: z.number()
-      }))
+      .input(
+        z.object({
+          id: z.number(),
+        })
+      )
       .query(async ({ input }) => {
         return await db.getDoctorById(input.id);
       }),
@@ -933,12 +1026,14 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
      * Search doctors by keywords
      */
     search: publicProcedure
-      .input(z.object({
-        keywords: z.array(z.string()),
-        limit: z.number().optional(),
-        lang: z.enum(["en", "zh"]).optional(),
-        fallbackKeywords: z.array(z.string()).optional(),
-      }))
+      .input(
+        z.object({
+          keywords: z.array(z.string()),
+          limit: z.number().optional(),
+          lang: z.enum(["en", "zh"]).optional(),
+          fallbackKeywords: z.array(z.string()).optional(),
+        })
+      )
       .query(async ({ input }) => {
         return await db.searchDoctors(input.keywords, input.limit, {
           lang: input.lang ?? "zh",
@@ -974,8 +1069,8 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
 
         try {
           const looksEnglish =
-            normalizedKeywords.filter(keyword => /[a-zA-Z]/.test(keyword)).length >=
-            Math.ceil(normalizedKeywords.length / 2);
+            normalizedKeywords.filter(keyword => /[a-zA-Z]/.test(keyword))
+              .length >= Math.ceil(normalizedKeywords.length / 2);
 
           let translatedZhKeywords: string[] = [];
           if (looksEnglish) {
@@ -1017,7 +1112,8 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
 
               const translated = JSON.parse(
                 (() => {
-                  const content = translationResponse.choices[0].message.content;
+                  const content =
+                    translationResponse.choices[0].message.content;
                   if (typeof content === "string") {
                     return content;
                   }
@@ -1050,8 +1146,14 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
             }),
           ]);
 
-          let vectorResults: Awaited<ReturnType<typeof db.searchDoctorsByEmbedding>> = [];
-          const semanticQuery = [input.summary ?? "", ...normalizedKeywords, ...translatedZhKeywords]
+          let vectorResults: Awaited<
+            ReturnType<typeof db.searchDoctorsByEmbedding>
+          > = [];
+          const semanticQuery = [
+            input.summary ?? "",
+            ...normalizedKeywords,
+            ...translatedZhKeywords,
+          ]
             .map(value => value.trim())
             .filter(value => value.length > 0)
             .join("\n");
@@ -1059,7 +1161,10 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
           if (semanticQuery.length > 0) {
             try {
               const queryEmbedding = await createEmbedding(semanticQuery);
-              vectorResults = await db.searchDoctorsByEmbedding(queryEmbedding, 20);
+              vectorResults = await db.searchDoctorsByEmbedding(
+                queryEmbedding,
+                20
+              );
             } catch (error) {
               console.warn("[Doctors] vector retrieval failed:", error);
             }
@@ -1091,14 +1196,56 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
               result.hospital.name,
               result.hospital.nameEn,
             ]
-              .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+              .filter(
+                (value): value is string =>
+                  typeof value === "string" && value.trim().length > 0
+              )
               .join(" ")
               .toLowerCase();
 
             return keywordPool.reduce(
-              (count, keyword) => (searchableText.includes(keyword) ? count + 1 : count),
+              (count, keyword) =>
+                searchableText.includes(keyword) ? count + 1 : count,
               0
             );
+          };
+
+          const buildRecommendationReason = (result: DoctorResult) => {
+            const searchableText = [
+              result.doctor.specialty,
+              result.doctor.specialtyEn,
+              result.doctor.expertise,
+              result.doctor.expertiseEn,
+              result.department.name,
+              result.department.nameEn,
+              result.hospital.name,
+              result.hospital.nameEn,
+            ]
+              .filter(
+                (value): value is string =>
+                  typeof value === "string" && value.trim().length > 0
+              )
+              .join(" ")
+              .toLowerCase();
+
+            const matchedKeywords = keywordPool
+              .filter(keyword => searchableText.includes(keyword))
+              .slice(0, 3);
+
+            const departmentName =
+              result.department.nameEn?.trim() || result.department.name.trim();
+
+            if (looksEnglish) {
+              if (matchedKeywords.length > 0) {
+                return `Matched ${matchedKeywords.join(", ")} with ${departmentName}.`;
+              }
+              return `Relevant specialist in ${departmentName} for your triage profile.`;
+            }
+
+            if (matchedKeywords.length > 0) {
+              return `与关键词 ${matchedKeywords.join("、")} 匹配，建议就诊 ${result.department.name}。`;
+            }
+            return `该医生所在科室（${result.department.name}）与分诊信息相关。`;
           };
 
           const upsertScore = (result: DoctorResult, baseScore: number) => {
@@ -1129,7 +1276,10 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
                 (left.result.doctor.recommendationScore ?? 0)
               );
             })
-            .map(item => item.result)
+            .map(item => ({
+              ...item.result,
+              reason: buildRecommendationReason(item.result),
+            }))
             .slice(0, limit);
         } catch (error) {
           console.error("[Doctors] recommend failed:", error);
@@ -1141,10 +1291,12 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
      * Get doctors by department
      */
     getByDepartment: publicProcedure
-      .input(z.object({
-        departmentId: z.number(),
-        limit: z.number().optional()
-      }))
+      .input(
+        z.object({
+          departmentId: z.number(),
+          limit: z.number().optional(),
+        })
+      )
       .query(async ({ input }) => {
         return await db.getDoctorsByDepartment(input.departmentId, input.limit);
       }),
@@ -1162,13 +1314,18 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
      * Get departments by hospital
      */
     getDepartments: publicProcedure
-      .input(z.object({
-        hospitalId: z.number()
-      }))
+      .input(
+        z.object({
+          hospitalId: z.number(),
+        })
+      )
       .query(async ({ input }) => {
         return await db.getDepartmentsByHospital(input.hospitalId);
       }),
   }),
+
+  appointments: appointmentsRouter,
+  visit: visitRouter,
 });
 
 export type AppRouter = typeof appRouter;
