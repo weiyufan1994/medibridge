@@ -23,7 +23,6 @@ export default defineConfig({
   },
   server: {
     host: true,
-    // 删除了 Manus 专属的 allowedHosts 域名
     fs: {
       strict: true,
       deny: ["**/.*"],

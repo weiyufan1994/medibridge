@@ -3,7 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { createEmbedding, invokeLLM } from "./_core/llm";
+import { createEmbedding, invokeLLM, processTriageChat } from "./_core/llm";
 import * as db from "./db";
 import { nanoid } from "nanoid";
 
@@ -354,6 +354,42 @@ const buildMatchedReason = (
 
 export const appRouter = router({
   system: systemRouter,
+
+  ai: router({
+    /**
+     * Structured triage chat endpoint for phase-1 flow.
+     * Returns strict JSON so frontend can safely branch between
+     * follow-up questions and recommendation steps.
+     */
+    chatTriage: publicProcedure
+      .input(
+        z.object({
+          messages: z
+            .array(
+              z.object({
+                role: z.string(),
+                content: z.string(),
+              })
+            )
+            .min(1),
+          lang: z.enum(["en", "zh"]).optional().default("en"),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          return await processTriageChat(input.messages, input.lang);
+        } catch (error) {
+          console.error("[AI] chatTriage failed:", error);
+          return {
+            isComplete: false,
+            reply:
+              input.lang === "zh"
+                ? "我正在整理你的信息。请补充主要症状持续了多久、是否有既往病史或正在用药。"
+                : "I am organizing your triage details. Please share symptom duration, medical history, and current medications.",
+          };
+        }
+      }),
+  }),
   
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
@@ -908,6 +944,197 @@ ${doctorDescriptions.map(d => d.text).join('\n\n')}`
           lang: input.lang ?? "zh",
           fallbackKeywords: input.fallbackKeywords,
         });
+      }),
+
+    /**
+     * Recommend top matched doctors by triage keywords.
+     * Uses fuzzy keyword search across doctor/department/hospital fields.
+     */
+    recommend: publicProcedure
+      .input(
+        z.object({
+          keywords: z.array(z.string()).min(1),
+          summary: z.string().optional(),
+          limit: z.number().min(1).max(5).optional(),
+        })
+      )
+      .query(async ({ input }) => {
+        const limit = input.limit ?? 5;
+        const normalizedKeywords = Array.from(
+          new Set(
+            input.keywords
+              .map(keyword => keyword.trim())
+              .filter(keyword => keyword.length > 0)
+          )
+        ).slice(0, 8);
+
+        if (normalizedKeywords.length === 0) {
+          return [];
+        }
+
+        try {
+          const looksEnglish =
+            normalizedKeywords.filter(keyword => /[a-zA-Z]/.test(keyword)).length >=
+            Math.ceil(normalizedKeywords.length / 2);
+
+          let translatedZhKeywords: string[] = [];
+          if (looksEnglish) {
+            try {
+              const translationResponse = await invokeLLM({
+                messages: [
+                  {
+                    role: "system",
+                    content:
+                      "Translate English symptom/department keywords into concise Chinese clinical search keywords. Return JSON only.",
+                  },
+                  {
+                    role: "user",
+                    content: JSON.stringify({
+                      keywords: normalizedKeywords,
+                    }),
+                  },
+                ],
+                response_format: {
+                  type: "json_schema",
+                  json_schema: {
+                    name: "keyword_translation",
+                    strict: true,
+                    schema: {
+                      type: "object",
+                      properties: {
+                        keywordsZh: {
+                          type: "array",
+                          items: { type: "string" },
+                        },
+                      },
+                      required: ["keywordsZh"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                max_tokens: 300,
+              });
+
+              const translated = JSON.parse(
+                (() => {
+                  const content = translationResponse.choices[0].message.content;
+                  if (typeof content === "string") {
+                    return content;
+                  }
+                  return content
+                    .filter(part => part.type === "text")
+                    .map(part => part.text)
+                    .join("\n");
+                })()
+              ) as { keywordsZh?: string[] };
+
+              translatedZhKeywords = (translated.keywordsZh ?? [])
+                .map(keyword => keyword.trim())
+                .filter(keyword => keyword.length > 0)
+                .slice(0, 8);
+            } catch (error) {
+              console.warn("[Doctors] keyword translation failed:", error);
+            }
+          }
+
+          const zhQueryKeywords = Array.from(
+            new Set([...normalizedKeywords, ...translatedZhKeywords])
+          ).slice(0, 10);
+          const enQueryKeywords = normalizedKeywords.slice(0, 10);
+
+          const [zhResults, enResults] = await Promise.all([
+            db.searchDoctors(zhQueryKeywords, 20, { lang: "zh" }),
+            db.searchDoctors(enQueryKeywords, 20, {
+              lang: "en",
+              fallbackKeywords: translatedZhKeywords,
+            }),
+          ]);
+
+          let vectorResults: Awaited<ReturnType<typeof db.searchDoctorsByEmbedding>> = [];
+          const semanticQuery = [input.summary ?? "", ...normalizedKeywords, ...translatedZhKeywords]
+            .map(value => value.trim())
+            .filter(value => value.length > 0)
+            .join("\n");
+
+          if (semanticQuery.length > 0) {
+            try {
+              const queryEmbedding = await createEmbedding(semanticQuery);
+              vectorResults = await db.searchDoctorsByEmbedding(queryEmbedding, 20);
+            } catch (error) {
+              console.warn("[Doctors] vector retrieval failed:", error);
+            }
+          }
+
+          type DoctorResult = (typeof zhResults)[number];
+          const scored = new Map<
+            number,
+            {
+              result: DoctorResult;
+              hybridScore: number;
+            }
+          >();
+
+          const keywordPool = Array.from(
+            new Set([...normalizedKeywords, ...translatedZhKeywords])
+          ).map(keyword => keyword.toLowerCase());
+
+          const scoreKeywordHits = (result: DoctorResult) => {
+            const searchableText = [
+              result.doctor.name,
+              result.doctor.nameEn,
+              result.doctor.specialty,
+              result.doctor.specialtyEn,
+              result.doctor.expertise,
+              result.doctor.expertiseEn,
+              result.department.name,
+              result.department.nameEn,
+              result.hospital.name,
+              result.hospital.nameEn,
+            ]
+              .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+              .join(" ")
+              .toLowerCase();
+
+            return keywordPool.reduce(
+              (count, keyword) => (searchableText.includes(keyword) ? count + 1 : count),
+              0
+            );
+          };
+
+          const upsertScore = (result: DoctorResult, baseScore: number) => {
+            const keywordHitScore = scoreKeywordHits(result) * 2;
+            const recScoreBonus = (result.doctor.recommendationScore ?? 0) / 20;
+            const total = baseScore + keywordHitScore + recScoreBonus;
+            const existing = scored.get(result.doctor.id);
+
+            if (!existing) {
+              scored.set(result.doctor.id, { result, hybridScore: total });
+              return;
+            }
+
+            existing.hybridScore += total;
+          };
+
+          zhResults.forEach(result => upsertScore(result, 3));
+          enResults.forEach(result => upsertScore(result, 3));
+          vectorResults.forEach(result => upsertScore(result, 5));
+
+          return Array.from(scored.values())
+            .sort((left, right) => {
+              if (right.hybridScore !== left.hybridScore) {
+                return right.hybridScore - left.hybridScore;
+              }
+              return (
+                (right.result.doctor.recommendationScore ?? 0) -
+                (left.result.doctor.recommendationScore ?? 0)
+              );
+            })
+            .map(item => item.result)
+            .slice(0, limit);
+        } catch (error) {
+          console.error("[Doctors] recommend failed:", error);
+          return [];
+        }
       }),
 
     /**

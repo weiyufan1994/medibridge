@@ -12,9 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Send, Stethoscope, Hospital, User, ArrowRight, CheckCircle2, RefreshCw, ArrowLeft } from "lucide-react";
+import { Loader2, Send, Stethoscope, Hospital, User, ArrowRight, CheckCircle2, ArrowLeft } from "lucide-react";
 import { Streamdown } from "streamdown";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getLocalizedField } from "@/lib/i18n";
@@ -40,6 +40,7 @@ const DISCLAIMER_KEY = "medibridge_disclaimer_accepted_v1";
 const CHAT_SESSION_KEY = "medibridge_ai_chat_session_v1";
 
 export default function Home() {
+  const [, setLocation] = useLocation();
   const [sessionId, setSessionId] = useState<string>("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -51,10 +52,8 @@ export default function Home() {
     if (typeof window === "undefined") return false;
     return localStorage.getItem(DISCLAIMER_KEY) === "1";
   });
-  const [pendingQuickStart, setPendingQuickStart] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { mode, reportInput } = useLanguage();
-  const utils = trpc.useUtils();
 
   const sendMessageMutation = trpc.chat.sendMessage.useMutation({
     onSuccess: (data) => {
@@ -149,6 +148,10 @@ export default function Home() {
     }
   };
 
+  const goToTriagePage = () => {
+    setLocation("/triage");
+  };
+
   const ensureDisclaimerAccepted = (onAccepted: () => void) => {
     if (disclaimerAccepted) {
       onAccepted();
@@ -161,12 +164,7 @@ export default function Home() {
     setDisclaimerAccepted(true);
     localStorage.setItem(DISCLAIMER_KEY, "1");
     setDisclaimerOpen(false);
-    if (pendingQuickStart) {
-      enterChat(pendingQuickStart);
-      setPendingQuickStart(null);
-      return;
-    }
-    enterChat();
+    goToTriagePage();
   };
 
   const handleSend = () => {
@@ -193,21 +191,19 @@ export default function Home() {
     }
   };
 
-  const handleQuickStart = (query: string) => {
+  const handleQuickStart = () => {
     if (disclaimerAccepted) {
-      enterChat(query);
+      goToTriagePage();
       return;
     }
-    setPendingQuickStart(query);
     setDisclaimerOpen(true);
   };
 
   const handleStartConsultation = () => {
     if (disclaimerAccepted) {
-      enterChat();
+      goToTriagePage();
       return;
     }
-    setPendingQuickStart(null);
     setDisclaimerOpen(true);
   };
 
@@ -243,14 +239,6 @@ export default function Home() {
                   Browse Hospitals
                 </Button>
               </Link>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => utils.doctors.getById.invalidate()}
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Refresh
-              </Button>
               <LanguageSwitcher />
             </div>
           </div>
@@ -375,28 +363,28 @@ export default function Home() {
                 <Badge 
                   variant="secondary" 
                   className="cursor-pointer hover:bg-secondary/80 py-2 px-4 text-sm"
-                  onClick={() => handleQuickStart("I have persistent chest pain and shortness of breath")}
+                  onClick={handleQuickStart}
                 >
                   Heart Problems
                 </Badge>
                 <Badge 
                   variant="secondary" 
                   className="cursor-pointer hover:bg-secondary/80 py-2 px-4 text-sm"
-                  onClick={() => handleQuickStart("I need a cancer screening and consultation")}
+                  onClick={handleQuickStart}
                 >
                   Cancer Screening
                 </Badge>
                 <Badge 
                   variant="secondary" 
                   className="cursor-pointer hover:bg-secondary/80 py-2 px-4 text-sm"
-                  onClick={() => handleQuickStart("I have chronic knee pain when walking")}
+                  onClick={handleQuickStart}
                 >
                   Joint Pain
                 </Badge>
                 <Badge 
                   variant="secondary" 
                   className="cursor-pointer hover:bg-secondary/80 py-2 px-4 text-sm"
-                  onClick={() => handleQuickStart("I need a neurological consultation")}
+                  onClick={handleQuickStart}
                 >
                   Neurological Issues
                 </Badge>

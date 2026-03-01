@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Hospital, Stethoscope, Star, ThumbsUp, Calendar, ExternalLink, Globe, RefreshCw } from "lucide-react";
+import { ArrowLeft, Hospital, Stethoscope, Star, ThumbsUp, Calendar, ExternalLink, Globe } from "lucide-react";
 import { Loader2 } from "lucide-react";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -15,7 +15,6 @@ export default function DoctorDetail() {
   const [, setLocation] = useLocation();
   const doctorId = params?.id ? parseInt(params.id) : 0;
   const { resolved } = useLanguage();
-  const utils = trpc.useUtils();
 
   const handleGoBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
@@ -121,14 +120,6 @@ export default function DoctorDetail() {
               <Button variant="ghost" size="sm" onClick={handleGoBack}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => utils.doctors.getById.invalidate({ id: doctorId })}
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Refresh
               </Button>
               <LanguageSwitcher />
               <Link href="/">

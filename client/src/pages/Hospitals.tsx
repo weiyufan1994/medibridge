@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Hospital, Stethoscope, Search, ChevronRight, ChevronLeft, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Hospital, Stethoscope, Search, ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getLocalizedField, getSearchableText } from "@/lib/i18n";
@@ -18,7 +18,6 @@ export default function Hospitals() {
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const { resolved, reportInput } = useLanguage();
-  const utils = trpc.useUtils();
 
   const { data: hospitals, isLoading: hospitalsLoading } = trpc.hospitals.getAll.useQuery();
   
@@ -94,18 +93,6 @@ export default function Hospitals() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  utils.hospitals.getAll.invalidate();
-                  utils.hospitals.getDepartments.invalidate();
-                  utils.doctors.getByDepartment.invalidate();
-                }}
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Refresh
-              </Button>
               <LanguageSwitcher />
               <Link href="/">
                 <Button variant="ghost" size="sm">

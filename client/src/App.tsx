@@ -8,11 +8,13 @@ import { LanguageProvider } from "./contexts/LanguageContext";
 import Home from "./pages/Home";
 import DoctorDetail from "./pages/DoctorDetail";
 import Hospitals from "./pages/Hospitals";
+import AITriagePage from "./pages/AITriage";
 
 function Router() {
   return (
     <Switch>
       <Route path={"/"} component={Home} />
+      <Route path={"/triage"} component={AITriagePage} />
       <Route path={"/doctor/:id"} component={DoctorDetail} />
       <Route path={"/hospitals"} component={Hospitals} />
       <Route path={"/404"} component={NotFound} />
