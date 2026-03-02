@@ -1,18 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import { useRoute } from "wouter";
 import { Loader2, Stethoscope } from "lucide-react";
-import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getLocalizedField } from "@/lib/i18n";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ChatComposer } from "./ChatComposer";
-import { MessageBubble, type VisitMessageItem } from "./MessageBubble";
+import { VisitMessagesList } from "@/features/visit/components/VisitMessagesList";
+import { useVisits } from "@/features/visit/hooks/useVisits";
+import { getVisitCopy } from "@/features/visit/copy";
 
 function parseTokenFromLocation(): string {
   if (typeof window === "undefined") {
@@ -21,35 +20,8 @@ function parseTokenFromLocation(): string {
   return new URLSearchParams(window.location.search).get("t")?.trim() || "";
 }
 
-function getClientMsgId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
 function toDate(value: Date | string): Date {
   return value instanceof Date ? value : new Date(value);
-}
-
-function mergeMessages(
-  existing: VisitMessageItem[],
-  incoming: VisitMessageItem[]
-): VisitMessageItem[] {
-  const merged = new Map<number, VisitMessageItem>();
-  for (const message of existing) {
-    merged.set(message.id, message);
-  }
-  for (const message of incoming) {
-    merged.set(message.id, {
-      ...message,
-      createdAt: toDate(message.createdAt),
-    });
-  }
-  return Array.from(merged.values()).sort((a, b) => {
-    const timeDiff = a.createdAt.getTime() - b.createdAt.getTime();
-    if (timeDiff !== 0) {
-      return timeDiff;
-    }
-    return a.id - b.id;
-  });
 }
 
 function getAppointmentTypeLabel(
@@ -75,19 +47,14 @@ function isInSession(
 
 export default function VisitRoomPage() {
   const { resolved } = useLanguage();
+  const t = getVisitCopy(resolved);
   const [, params] = useRoute<{ id: string }>("/visit/:id");
   const appointmentId = Number(params?.id ?? NaN);
   const token = parseTokenFromLocation();
   const validInput =
     Number.isInteger(appointmentId) && appointmentId > 0 && token.length >= 16;
 
-  const [messages, setMessages] = useState<VisitMessageItem[]>([]);
-  const [content, setContent] = useState("");
-  const [isReconnecting, setIsReconnecting] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const shouldAutoScrollRef = useRef(true);
-  const lastMessageRef = useRef<VisitMessageItem | null>(null);
-  const utils = trpc.useUtils();
 
   const accessInput = useMemo(
     () => ({
@@ -110,155 +77,27 @@ export default function VisitRoomPage() {
     }
   );
 
-  const messagesQuery = trpc.visit.getMessagesByToken.useQuery(
-    { ...accessInput, limit: 50 },
-    {
-      enabled: validInput,
-      retry: 0,
-    }
-  );
-
-  const sendMutation = trpc.visit.sendMessageByToken.useMutation();
-
-  const getViewport = () => {
-    if (!scrollContainerRef.current) return null;
-    return scrollContainerRef.current.querySelector(
-      "[data-slot='scroll-area-viewport']"
-    ) as HTMLDivElement | null;
-  };
-
-  const isNearBottom = () => {
-    const viewport = getViewport();
-    if (!viewport) return true;
-    const remaining =
-      viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-    return remaining < 140;
-  };
-
-  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
-    const viewport = getViewport();
-    if (!viewport) return;
-    viewport.scrollTo({ top: viewport.scrollHeight, behavior });
-  };
-
-  useEffect(() => {
-    if (!messagesQuery.data) {
-      return;
-    }
-
-    const initialMessages = messagesQuery.data.messages.map(message => ({
-      ...message,
-      createdAt: toDate(message.createdAt),
-    }));
-
-    setMessages(initialMessages);
-    shouldAutoScrollRef.current = true;
-    requestAnimationFrame(() => scrollToBottom("auto"));
-  }, [messagesQuery.data]);
-
-  useEffect(() => {
-    lastMessageRef.current =
-      messages.length > 0 ? messages[messages.length - 1] : null;
-
-    if (shouldAutoScrollRef.current) {
-      requestAnimationFrame(() => scrollToBottom("smooth"));
-    }
-  }, [messages]);
-
-  useEffect(() => {
-    const viewport = getViewport();
-    if (!viewport) {
-      return;
-    }
-
-    const handleScroll = () => {
-      shouldAutoScrollRef.current = isNearBottom();
-    };
-
-    viewport.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      viewport.removeEventListener("scroll", handleScroll);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!validInput || !messagesQuery.data) {
-      return;
-    }
-
-    const interval = window.setInterval(async () => {
-      const lastMessage = lastMessageRef.current;
-      try {
-        const result = await utils.visit.pollNewMessagesByToken.fetch({
-          ...accessInput,
-          afterCreatedAt: lastMessage?.createdAt,
-          afterId: lastMessage?.id,
-          limit: 100,
-        });
-
-        if (result.messages.length > 0) {
-          const nearBottomBeforeUpdate = isNearBottom();
-          shouldAutoScrollRef.current = nearBottomBeforeUpdate;
-          setMessages(prev => mergeMessages(prev, result.messages));
-        }
-
-        setIsReconnecting(false);
-      } catch {
-        setIsReconnecting(true);
-      }
-    }, 2500);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [
+  const {
+    content,
+    isReconnecting,
+    messages,
+    messagesQuery,
+    sendMutation,
+    setContent,
+    handleSend,
+    showInitialSkeleton,
+  } = useVisits({
     accessInput,
-    messagesQuery.data,
-    utils.visit.pollNewMessagesByToken,
-    validInput,
-  ]);
-
-  async function handleSend() {
-    const nextContent = content.trim();
-    if (!nextContent || sendMutation.isPending) {
-      return;
-    }
-
-    try {
-      const clientMsgId = getClientMsgId();
-      const result = await sendMutation.mutateAsync({
-        ...accessInput,
-        content: nextContent,
-        clientMsgId,
-      });
-
-      shouldAutoScrollRef.current = true;
-      setMessages(prev =>
-        mergeMessages(prev, [
-          {
-            id: result.id,
-            senderType: result.senderType,
-            content: nextContent,
-            createdAt: toDate(result.createdAt),
-            clientMsgId,
-          },
-        ])
-      );
-      setContent("");
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to send message. Please retry.";
-      toast.error(message);
-    }
-  }
+    enabled: validInput,
+    scrollContainerRef,
+    resolved,
+  });
 
   if (!validInput) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
         <Card className="rounded-2xl border-slate-200 p-6 text-sm text-slate-600">
-          Missing or invalid token.
+          {t.invalidToken}
         </Card>
       </main>
     );
@@ -276,7 +115,7 @@ export default function VisitRoomPage() {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
         <Card className="rounded-2xl border-slate-200 p-6 text-sm text-slate-600">
-          {appointmentQuery.error?.message || "Appointment not found."}
+          {appointmentQuery.error?.message || t.appointmentNotFound}
         </Card>
       </main>
     );
@@ -310,8 +149,6 @@ export default function VisitRoomPage() {
       timeStyle: "short",
     }) || "TBD";
   const inSession = isInSession(scheduledAt, appointment.status);
-
-  const showInitialSkeleton = messagesQuery.isLoading && messages.length === 0;
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
@@ -373,64 +210,17 @@ export default function VisitRoomPage() {
               <p className="text-xs text-slate-500">{scheduledTimeText}</p>
             </div>
           </div>
-          <p className="mt-2 text-xs text-slate-400">聊天记录保留 7 天</p>
+          <p className="mt-2 text-xs text-slate-400">{t.historyRetentionNote}</p>
         </header>
 
         <Separator />
 
-        <section className="min-h-0 flex-1">
-          <div ref={scrollContainerRef} className="h-full">
-            <ScrollArea className="h-full">
-              <div className="p-5">
-                {showInitialSkeleton ? (
-                  <div className="space-y-3">
-                    <div className="flex justify-start">
-                      <Skeleton className="h-14 w-[68%] rounded-2xl" />
-                    </div>
-                    <div className="flex justify-start">
-                      <Skeleton className="h-12 w-[54%] rounded-2xl" />
-                    </div>
-                    <div className="flex justify-end">
-                      <Skeleton className="h-12 w-[60%] rounded-2xl" />
-                    </div>
-                    <div className="flex justify-end">
-                      <Skeleton className="h-10 w-[45%] rounded-2xl" />
-                    </div>
-                    <div className="flex justify-start">
-                      <Skeleton className="h-12 w-[63%] rounded-2xl" />
-                    </div>
-                    <div className="flex justify-center">
-                      <Skeleton className="h-6 w-40 rounded-full" />
-                    </div>
-                  </div>
-                ) : messages.length === 0 ? (
-                  <div className="pt-6 text-center text-sm text-slate-500">
-                    No messages yet. Start your consultation below.
-                  </div>
-                ) : (
-                  messages.map((message, index) => {
-                    const previous = messages[index - 1];
-                    const next = messages[index + 1];
-                    const compactWithPrev = Boolean(
-                      previous && previous.senderType === message.senderType
-                    );
-                    const showTimestamp =
-                      !next || next.senderType !== message.senderType;
-
-                    return (
-                      <MessageBubble
-                        key={message.id}
-                        message={message}
-                        compactWithPrev={compactWithPrev}
-                        showTimestamp={showTimestamp}
-                      />
-                    );
-                  })
-                )}
-              </div>
-            </ScrollArea>
-          </div>
-        </section>
+        <VisitMessagesList
+          showInitialSkeleton={showInitialSkeleton}
+          messages={messages}
+          scrollContainerRef={scrollContainerRef}
+          emptyStateText={t.noMessages}
+        />
 
         <Separator />
 
@@ -441,16 +231,8 @@ export default function VisitRoomPage() {
             onSend={() => void handleSend()}
             disabled={sendMutation.isPending}
             isSending={sendMutation.isPending}
-            placeholder={
-              resolved === "zh"
-                ? "输入消息，描述你的问题..."
-                : "Type your message and describe your concern..."
-            }
-            hint={
-              resolved === "zh"
-                ? "Enter 发送，Shift+Enter 换行"
-                : "Enter to send, Shift+Enter for new line"
-            }
+            placeholder={t.composerPlaceholder}
+            hint={t.composerHint}
           />
         </footer>
       </Card>

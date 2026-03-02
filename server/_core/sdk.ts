@@ -5,7 +5,7 @@ import { parse as parseCookieHeader } from "cookie";
 import type { Request } from "express";
 import { SignJWT, jwtVerify } from "jose";
 import type { User } from "../../drizzle/schema";
-import * as db from "../db";
+import * as authRepo from "../modules/auth/repo";
 import { ENV } from "./env";
 import type {
   ExchangeTokenRequest,
@@ -23,6 +23,8 @@ export type SessionPayload = {
   appId: string;
   name: string;
 };
+
+const LOCAL_SESSION_APP_ID = "medibridge-local";
 
 const EXCHANGE_TOKEN_PATH = `/webdev.v1.WebDevAuthPublicService/ExchangeToken`;
 const GET_USER_INFO_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfo`;
@@ -156,6 +158,11 @@ class SDKServer {
 
   private getSessionSecret() {
     const secret = ENV.cookieSecret;
+    if (!secret || secret.trim().length === 0) {
+      throw new Error(
+        "[Auth] JWT_SECRET is missing. Set JWT_SECRET in your .env before using OTP login."
+      );
+    }
     return new TextEncoder().encode(secret);
   }
 
@@ -168,11 +175,20 @@ class SDKServer {
     openId: string,
     options: { expiresInMs?: number; name?: string } = {}
   ): Promise<string> {
+    const normalizedAppId =
+      typeof ENV.appId === "string" && ENV.appId.trim().length > 0
+        ? ENV.appId.trim()
+        : LOCAL_SESSION_APP_ID;
+    const normalizedName =
+      typeof options.name === "string" && options.name.trim().length > 0
+        ? options.name.trim()
+        : openId;
+
     return this.signSession(
       {
         openId,
-        appId: ENV.appId,
-        name: options.name || "",
+        appId: normalizedAppId,
+        name: normalizedName,
       },
       options
     );
@@ -212,19 +228,20 @@ class SDKServer {
       });
       const { openId, appId, name } = payload as Record<string, unknown>;
 
-      if (
-        !isNonEmptyString(openId) ||
-        !isNonEmptyString(appId) ||
-        !isNonEmptyString(name)
-      ) {
+      if (!isNonEmptyString(openId)) {
         console.warn("[Auth] Session payload missing required fields");
         return null;
       }
 
+      const normalizedAppId = isNonEmptyString(appId)
+        ? appId
+        : LOCAL_SESSION_APP_ID;
+      const normalizedName = isNonEmptyString(name) ? name : openId;
+
       return {
         openId,
-        appId,
-        name,
+        appId: normalizedAppId,
+        name: normalizedName,
       };
     } catch (error) {
       console.warn("[Auth] Session verification failed", String(error));
@@ -268,20 +285,20 @@ class SDKServer {
 
     const sessionUserId = session.openId;
     const signedInAt = new Date();
-    let user = await db.getUserByOpenId(sessionUserId);
+    let user = await authRepo.getUserByOpenId(sessionUserId);
 
     // If user not in DB, sync from OAuth server automatically
     if (!user) {
       try {
         const userInfo = await this.getUserInfoWithJwt(sessionCookie ?? "");
-        await db.upsertUser({
+        await authRepo.upsertUser({
           openId: userInfo.openId,
           name: userInfo.name || null,
           email: userInfo.email ?? null,
           loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
           lastSignedIn: signedInAt,
         });
-        user = await db.getUserByOpenId(userInfo.openId);
+        user = await authRepo.getUserByOpenId(userInfo.openId);
       } catch (error) {
         console.error("[Auth] Failed to sync user from OAuth:", error);
         throw ForbiddenError("Failed to sync user info");
@@ -292,7 +309,7 @@ class SDKServer {
       throw ForbiddenError("User not found");
     }
 
-    await db.upsertUser({
+    await authRepo.upsertUser({
       openId: user.openId,
       lastSignedIn: signedInAt,
     });

@@ -1,4 +1,4 @@
-import AITriageChat from "@/components/AITriageChat";
+import AITriageChat from "@/features/triage/components/AITriageChat";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { ArrowLeft, Hospital, Stethoscope } from "lucide-react";

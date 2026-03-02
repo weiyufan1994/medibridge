@@ -1,17 +1,63 @@
-import { getLoginUrl } from "@/const";
+import { getOrCreateDeviceId } from "@/features/auth/deviceId";
 import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 
 type UseAuthOptions = {
   redirectOnUnauthenticated?: boolean;
   redirectPath?: string;
 };
 
+type AuthUiState = {
+  isLoginModalOpen: boolean;
+};
+
+let authUiState: AuthUiState = {
+  isLoginModalOpen: false,
+};
+
+const authUiListeners = new Set<() => void>();
+
+function emitAuthUiChange() {
+  authUiListeners.forEach(listener => listener());
+}
+
+function setLoginModalOpen(nextOpen: boolean) {
+  if (authUiState.isLoginModalOpen === nextOpen) {
+    return;
+  }
+
+  authUiState = {
+    ...authUiState,
+    isLoginModalOpen: nextOpen,
+  };
+  emitAuthUiChange();
+}
+
+function subscribeAuthUi(listener: () => void) {
+  authUiListeners.add(listener);
+  return () => {
+    authUiListeners.delete(listener);
+  };
+}
+
+function getAuthUiSnapshot() {
+  return authUiState;
+}
+
 export function useAuth(options?: UseAuthOptions) {
-  const { redirectOnUnauthenticated = false, redirectPath = getLoginUrl() } =
+  const { redirectOnUnauthenticated = false, redirectPath = "/" } =
     options ?? {};
   const utils = trpc.useUtils();
+  const authUi = useSyncExternalStore(
+    subscribeAuthUi,
+    getAuthUiSnapshot,
+    getAuthUiSnapshot
+  );
+
+  useEffect(() => {
+    getOrCreateDeviceId();
+  }, []);
 
   const meQuery = trpc.auth.me.useQuery(undefined, {
     retry: false,
@@ -48,9 +94,10 @@ export function useAuth(options?: UseAuthOptions) {
     );
     return {
       user: meQuery.data ?? null,
+      isGuest: meQuery.data?.isGuest === 1,
       loading: meQuery.isLoading || logoutMutation.isPending,
       error: meQuery.error ?? logoutMutation.error ?? null,
-      isAuthenticated: Boolean(meQuery.data),
+      isAuthenticated: Boolean(meQuery.data && meQuery.data.isGuest !== 1),
     };
   }, [
     meQuery.data,
@@ -78,6 +125,9 @@ export function useAuth(options?: UseAuthOptions) {
 
   return {
     ...state,
+    isLoginModalOpen: authUi.isLoginModalOpen,
+    openLoginModal: () => setLoginModalOpen(true),
+    closeLoginModal: () => setLoginModalOpen(false),
     refresh: () => meQuery.refetch(),
     logout,
   };

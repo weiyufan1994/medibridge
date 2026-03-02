@@ -1,6 +1,59 @@
-import { describe, expect, it } from "vitest";
-import { appRouter } from "./routers";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
+
+const mockDoctors = [
+  {
+    id: 1,
+    name: "张医生",
+  },
+  {
+    id: 2,
+    name: "李医生",
+  },
+];
+
+const mockHospitals = [
+  {
+    id: 10,
+    name: "示例医院",
+  },
+];
+
+const mockDepartments = [
+  {
+    id: 100,
+    hospitalId: 10,
+    name: "心内科",
+  },
+];
+
+vi.mock("./modules/doctors/repo", () => {
+  return {
+    searchDoctors: vi.fn(async () => [
+      {
+        doctor: mockDoctors[0],
+        hospital: mockHospitals[0],
+        department: mockDepartments[0],
+      },
+    ]),
+    getDoctorById: vi.fn(async (id: number) => {
+      if (id === 999999) return null;
+      return {
+        doctor: mockDoctors[0],
+        hospital: mockHospitals[0],
+        department: mockDepartments[0],
+      };
+    }),
+    getAllHospitals: vi.fn(async () => mockHospitals),
+    getDepartmentsByHospital: vi.fn(async (hospitalId: number) =>
+      mockDepartments.filter(item => item.hospitalId === hospitalId)
+    ),
+    getDoctorsByDepartment: vi.fn(async () => []),
+    searchDoctorsByEmbedding: vi.fn(async () => []),
+  };
+});
+
+import { appRouter } from "./routers";
 
 function createTestContext(): TrpcContext {
   return {
@@ -14,6 +67,10 @@ function createTestContext(): TrpcContext {
 }
 
 describe("doctors router", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("should search doctors by keywords", async () => {
     const ctx = createTestContext();
     const caller = appRouter.createCaller(ctx);

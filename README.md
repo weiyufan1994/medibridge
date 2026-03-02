@@ -1,295 +1,138 @@
-# MediBridge - 医疗数据采集系统
+# MediBridge SaaS Platform
 
-自动化采集好大夫在线医生信息的智能系统。
+MediBridge is a Node.js + React SaaS platform for AI triage, doctor discovery, appointment booking, and visit messaging.
 
-## 项目概览
+This README is the single handover document for onboarding, architecture understanding, and core business constraints.
 
-**目标**：自动抓取6个顶级医院123个科室的医生详细信息
+## Tech Stack
+- Frontend: React 19, Vite, TypeScript, TanStack Query, tRPC client
+- Backend: Express, tRPC server, TypeScript
+- Database: MySQL + Drizzle ORM
+- Auth: Progressive Profiling (Guest shadow account + passwordless OTP + Magic Link)
 
-## 预约魔法链接与线上会诊（MVP）
-
-- 创建预约会生成两条链接：
-- `patientLink`：用于患者访问 `/appointment/:id` 与 `/visit/:id`
-- `doctorLink`：用于医生访问 `/visit/:id` 并发送医生消息
-- 开发环境 `appointments.create` 返回：
-- `devLink`（patientLink）和 `devDoctorLink`（doctorLink）
-
-### 本地调试医生链接
-
-1. 调用 `appointments.create`
-2. 从返回值复制 `devDoctorLink`
-3. 在另一个浏览器窗口打开 `devDoctorLink`
-4. 验证医生侧发送消息落库为 `senderType=doctor`
-
-注意：
-
-- 数据库仅保存 token hash，不保存明文 token
-- `resendLink` 只重置患者 token，不影响医生 token
-- 医生链接明文只在创建返回时可见，后续丢失需重新签发
-
-## 双语展示与离线翻译
-
-平台支持 `auto | en | zh` 三种语言模式：
-
-- `auto` 默认跟随用户输入语言（检测 CJK 字符）
-- `en` 使用英文镜像字段，缺失时统一显示 "Translation in progress" 并允许手动刷新
-- `zh` 使用中文源字段
-
-### 初始化与迁移
-
-1. 运行迁移（新增英文镜像列与翻译状态字段）：
-
+## Quick Start
+1. Install dependencies
+```bash
+pnpm install
+```
+2. Run DB migrations
 ```bash
 pnpm db:push
 ```
-
-2. 灌库：
-
+3. Start dev server
 ```bash
-node scripts/import-doctors.mjs
+pnpm dev
 ```
-
-### 触发离线翻译
-
-仅翻译医院与科室：
-
+4. Type check
 ```bash
-pnpm translate:bilingual --entities=hospitals,departments --batchSize=20 --concurrency=2 --rateLimitMs=200
+pnpm check
 ```
-
-全量翻译（含医生）：
-
+5. Run tests
 ```bash
-pnpm translate:bilingual --entities=hospitals,departments,doctors --batchSize=20 --concurrency=2 --rateLimitMs=200
+pnpm test
 ```
 
-### 验证步骤
-
-1. 在页面右上角切换语言：`Auto / English / 中文`
-2. `zh` 模式下动态数据为中文
-3. `en` 模式下动态数据为英文或统一占位 "Translation in progress"，不出现中文
-4. 运行翻译脚本后，刷新页面（Header 的 Refresh 按钮）即可看到英文镜像更新
-
-### 模拟更新并验证覆盖
-
-更新中文字段后，记录会标记为 `pending`，再跑批处理即可覆盖英文镜像：
-
-```sql
-UPDATE doctors
-SET specialty = '更新后的中文内容', sourceHash = NULL, translationStatus = 'pending'
-WHERE id = 1;
-```
-
-然后运行：
-
-```bash
-pnpm translate:bilingual --entities=doctors --batchSize=10 --concurrency=1
-```
-
-**医院列表**：
-
-- 复旦大学附属中山医院（25个科室）
-- 瑞金医院（29个科室）
-- 华山医院（22个科室）
-- 上海市第九人民医院（22个科室）
-- 上海市第六人民医院（16个科室）
-- 复旦大学附属肿瘤医院（9个科室）
-
-**数据字段**（14个）：
-
-1. 医院
-2. 科室
-3. 姓名
-4. 职称
-5. 专业方向
-6. 专业擅长
-7. 个人简介
-8. 社会任职
-9. 科研成果
-10. 治疗经验
-11. 疗效满意度
-12. 态度满意度
-13. 病友推荐度
-14. 医生介绍页URL
-
-## 目录结构
-
-```
-medibridge/
-├── data/
-│   ├── departments/
-│   │   ├── all_departments.json      # 所有123个科室的列表
-│   │   └── progress.json              # 抓取进度日志
-│   └── hospitals/
-│       ├── {医院}.xlsx                # 科室列表（用户上传）
-│       └── {医院}_{科室}_医生信息_{日期}.xlsx  # 抓取结果
-├── scripts/
-│   ├── daily_scrape.md               # 每日抓取任务流程文档
-│   └── track_progress.py             # 进度跟踪脚本
-└── README.md                         # 本文件
-```
-
-## 核心功能
-
-### 1. 进度跟踪系统
-
-自动检查已抓取和未抓取的科室：
-
-```bash
-python3 scripts/track_progress.py
-```
-
-输出示例：
-
-```
-总科室数: 123
-已完成: 1
-剩余: 122
-进度: 0.81%
-
-按医院统计:
-  中山医院: 1/25
-  瑞金医院: 0/29
-  ...
-
-下一个待抓取科室:
-  医院: 上海市第九人民医院
-  科室: 口腔科
-  URL: https://www.haodf.com/hospital/422/keshi/9597922647.html
-```
-
-### 2. 自动化抓取
-
-**执行方式**：每日定时任务（凌晨2点）
-
-**抓取策略**：
-
-- 一次只抓取一个科室
-- 科室内医生按10个为一组并行抓取
-- 跳过无个人简介的医生
-- 遇到验证码立即停止并保存数据
-
-**数据质量**：
-
-- 基本字段：100%完整
-- 专业字段：95%完整
-- 学术字段：85%完整
-- 治疗经验：30-50%完整
-- 评分字段：100%完整
-
-### 3. 验证码处理
-
-遇到验证码时系统会：
-
-1. 立即停止抓取
-2. 保存已抓取的数据到Excel
-3. 推送到GitHub
-4. 通知用户
-
-## 使用技能
-
-系统使用 `haodf-doctor-scraper` 技能进行数据抓取。
-
-技能位置：`/home/ubuntu/skills/haodf-doctor-scraper/SKILL.md`
-
-**关键特性**：
-
-- 14个标准化字段
-- 自动处理缺失数据
-- 增量保存进度
-- 质量验证报告
-
-## 数据输出
-
-每个科室生成一个Excel文件：
-
-**文件名**：`{医院}_{科室}_医生信息_{日期}.xlsx`
-
-**示例**：`中山医院_呼吸科_医生信息_20260211.xlsx`
-
-**格式**：
-
-- 每行一位医生
-- 14列对应14个字段
-- 包含完整的可追溯URL
-
-## 执行流程
-
-1. **检查进度** → 获取下一个待抓取科室
-2. **访问科室页面** → 滚动到底部加载所有医生
-3. **提取医生列表** → 保存到临时文件
-4. **分组并行抓取** → 每10个医生一组
-5. **生成Excel** → 使用技能提供的脚本
-6. **推送GitHub** → 立即保存数据
-7. **更新进度** → 记录完成状态
-8. **继续或停止** → 根据是否遇到验证码
-
-## 当前进度
-
-- **总科室**：123个
-- **已完成**：1个（中山医院呼吸科）
-- **剩余**：122个
-- **进度**：0.81%
-
-## 下次执行
-
-**时间**：每天凌晨2点（北京时间）
-
-**预计完成**：6-10天（取决于验证码出现频率）
-
-## 技术细节
-
-**浏览器自动化**：使用用户的浏览器会话，避免登录问题
-
-**反爬虫策略**：
-
-- 温和的抓取速度（每个科室3-5分钟）
-- 使用真实浏览器而非脚本
-- 遇到验证码立即停止
-
-**数据可靠性**：
-
-- 每个医生包含原始URL
-- 增量保存防止数据丢失
-- 质量验证报告
-
-## 维护说明
-
-### 手动触发抓取
-
-如果需要立即执行一次抓取（不等到凌晨2点）：
-
-对Manus说：
-
-> "执行好大夫医生信息抓取任务"
-
-### 查看进度
-
-```bash
-cd /home/ubuntu/medibridge
-python3 scripts/track_progress.py
-```
-
-### 查看数据
-
-所有抓取的Excel文件在：
-
-```
-data/hospitals/{医院}_{科室}_医生信息_{日期}.xlsx
-```
-
-### 更新科室列表
-
-如果需要添加新的医院或科室：
-
-1. 在 `data/hospitals/` 目录上传新的科室列表Excel
-2. 运行进度跟踪脚本更新 `all_departments.json`
-
-## 联系方式
-
-项目维护者：weiyufan1994
-GitHub：https://github.com/weiyufan1994/medibridge
-
-## 许可证
-
-本项目仅用于医疗数据研究，请遵守好大夫在线的使用条款。
+## Project Map
+
+### Frontend Domain Structure (`client/src/features/*`)
+- `features/auth`: passwordless auth UX, OTP login modal, auth hooks, deviceId handling
+- `features/triage`: AI triage chat flow, session lifecycle, doctor recommendation UI
+- `features/hospitals`: hospitals/doctor browsing and detail experiences
+- `features/appointment`: appointment creation and token-based access flows
+- `features/visit`: real-time visit room message UI
+
+### Backend Domain Structure (`server/modules/*`)
+- `modules/auth`: user repository, guest/formal user resolution, merge utilities
+- `modules/ai`: triage service and AI session/message repository layer
+- `modules/appointments`: appointment persistence and magic-link related DB operations
+- `modules/visit`: visit/patient-session and appointment message persistence
+- `modules/chat`: chat-oriented business composition
+- `modules/doctors`: doctor search and recommendation repositories
+- `modules/hospitals`: hospital and department query repositories
+
+### API Layer (`server/routers/*`)
+- `routers/auth.ts`: OTP request, OTP verify + merge, magic-link verify, logout
+- `routers/ai.ts`: triage session creation, message sending, triage orchestration endpoints
+- `routers/doctors.ts`, `routers/hospitals.ts`, `routers/chat.ts`: discovery and conversational routes
+- `appointmentsRouter.ts` (mounted in `routers/index.ts`): booking and link-based appointment ops
+- `visitRouter.ts` (mounted in `routers/index.ts`): visit room message operations
+
+### Infrastructure
+- `server/_core/*`: tRPC bootstrap, context, env, SDK, cookie/session, mailer, LLM adapter
+- `drizzle/schema.ts`: source of truth for schema
+- `drizzle/*.sql` + `drizzle/meta/*`: migration and snapshots
+- `shared/*`: cross-runtime constants and shared types
+
+## Account & Access Architecture (Progressive Profiling)
+
+### Identity Ladder
+1. `Guest` (shadow account)
+- Created/resolved by `x-device-id`
+- `users.isGuest = 1`
+- Can start product usage immediately without explicit login
+
+2. `Free` (formal account)
+- Passwordless login via email OTP
+- `users.isGuest = 0`, `role = free`
+- Activated when user verifies email
+
+3. `Pro`
+- Paid tier with unlimited AI triage sessions
+- `role = pro`
+
+### Authentication Rules
+- No password field in DB or UI
+- Formal auth paths:
+  - OTP verification login
+  - Magic-link verification login
+- Guest access is allowed through shadow identity bootstrap in request context
+
+### Data Merge Principle (Critical Asset Rule)
+When guest user upgrades to formal user (OTP or magic-link verification), all guest-owned assets must be re-bound to the formal `userId`:
+- Appointments
+- Visit-related records
+- AI triage records (session/message ownership through session user)
+
+This merge guarantees no user asset loss during account upgrade.
+
+## Billing Model (Hybrid Packaging)
+
+### Core Design
+Quota is charged by **Session**, with a **Message-count fallback guard** inside each session.
+
+### Session Quota Rules
+- Guest: lifetime max `1` free AI triage session
+- Free: max `1` free AI triage session per day
+- Pro: unlimited sessions
+
+### Message Guardrail Rules
+- Every session has a hard cap: `<= 20` messages total
+- Once the session reaches the cap:
+  - Do not call LLM anymore
+  - Persist a predefined assistant closing message
+  - Mark session as `completed`
+  - Frontend disables input and highlights doctor-booking entry
+
+### Why This Model
+- Session-level quota controls monetization and daily entitlement
+- Message-level cap controls per-session compute risk
+- Combined model balances user experience, cost containment, and conversion to paid consultation
+
+## Current Core Data Model (Relevant Tables)
+- `users`: identity, guest/formal status, role, device/email mapping
+- `ai_chat_sessions`: one complete triage consultation unit
+- `ai_chat_messages`: per-message records inside a session
+- `appointments`: booking and access token lifecycle
+- `appointment_messages`: visit-room conversation records
+
+## Operational Notes
+- Any schema change must be followed by migration generation/apply (`pnpm db:push`)
+- Auth and billing constraints are business-critical and must be covered by tests before release
+- Do not reintroduce password-based authentication paths
+
+## Release Safety Checklist
+- `pnpm check` passes
+- `pnpm test` passes
+- Guest -> Free merge flow manually verified
+- Session quota + message cap behavior manually verified
+- Magic-link login flow manually verified

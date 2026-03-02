@@ -1,7 +1,7 @@
-import { and, asc, desc, eq, gt, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { appointmentMessages } from "../drizzle/schema";
+import * as visitRepo from "./modules/visit/repo";
 import { validateAppointmentToken } from "./appointmentsRouter";
 import { publicProcedure, router } from "./_core/trpc";
 
@@ -57,20 +57,15 @@ export const visitRouter = router({
       })
     )
     .query(async ({ input }) => {
-      const { db, appointment } = await validateAppointmentToken(
+      const { appointment } = await validateAppointmentToken(
         input.appointmentId,
         input.token
       );
 
-      const recentMessages = await db
-        .select()
-        .from(appointmentMessages)
-        .where(eq(appointmentMessages.appointmentId, appointment.id))
-        .orderBy(
-          desc(appointmentMessages.createdAt),
-          desc(appointmentMessages.id)
-        )
-        .limit(input.limit);
+      const recentMessages = await visitRepo.getRecentMessages(
+        appointment.id,
+        input.limit
+      );
 
       return {
         messages: normalizeMessages(recentMessages.reverse()),
@@ -87,40 +82,30 @@ export const visitRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const { db, appointment, role } = await validateAppointmentToken(
+      const { appointment, role } = await validateAppointmentToken(
         input.appointmentId,
         input.token
       );
 
       if (input.clientMsgId) {
-        const existing = await db
-          .select({
-            id: appointmentMessages.id,
-            senderType: appointmentMessages.senderType,
-            createdAt: appointmentMessages.createdAt,
-          })
-          .from(appointmentMessages)
-          .where(
-            and(
-              eq(appointmentMessages.appointmentId, appointment.id),
-              eq(appointmentMessages.clientMsgId, input.clientMsgId)
-            )
-          )
-          .limit(1);
+        const existing = await visitRepo.getMessageByClientMsgId(
+          appointment.id,
+          input.clientMsgId
+        );
 
-        if (existing.length > 0) {
-          return existing[0];
+        if (existing) {
+          return existing;
         }
       }
 
       const createdAt = new Date();
       const senderType = role === "doctor" ? "doctor" : "patient";
-      const insertResult = await db.insert(appointmentMessages).values({
+      const insertResult = await visitRepo.createMessage({
         appointmentId: appointment.id,
         senderType,
         content: input.content,
-        clientMsgId: input.clientMsgId ?? null,
         createdAt,
+        clientMsgId: input.clientMsgId,
       });
 
       const insertId = Number(
@@ -138,25 +123,15 @@ export const visitRouter = router({
         };
       }
 
-      const latestRows = await db
-        .select({
-          id: appointmentMessages.id,
-          senderType: appointmentMessages.senderType,
-          createdAt: appointmentMessages.createdAt,
-        })
-        .from(appointmentMessages)
-        .where(eq(appointmentMessages.appointmentId, appointment.id))
-        .orderBy(desc(appointmentMessages.id))
-        .limit(1);
-
-      if (latestRows.length === 0) {
+      const latest = await visitRepo.getLatestMessage(appointment.id);
+      if (!latest) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to resolve inserted message",
         });
       }
 
-      return latestRows[0];
+      return latest;
     }),
 
   pollNewMessagesByToken: publicProcedure
@@ -167,7 +142,7 @@ export const visitRouter = router({
       })
     )
     .query(async ({ input }) => {
-      const { db, appointment } = await validateAppointmentToken(
+      const { appointment } = await validateAppointmentToken(
         input.appointmentId,
         input.token
       );
@@ -176,34 +151,12 @@ export const visitRouter = router({
         return { messages: [] };
       }
 
-      const filters = [eq(appointmentMessages.appointmentId, appointment.id)];
-      if (input.afterCreatedAt && input.afterId) {
-        const createdAtOrIdFilter = or(
-          gt(appointmentMessages.createdAt, input.afterCreatedAt),
-          and(
-            eq(appointmentMessages.createdAt, input.afterCreatedAt),
-            gt(appointmentMessages.id, input.afterId)
-          )
-        );
-        if (!createdAtOrIdFilter) {
-          return { messages: [] };
-        }
-        filters.push(createdAtOrIdFilter);
-      } else if (input.afterCreatedAt) {
-        filters.push(gt(appointmentMessages.createdAt, input.afterCreatedAt));
-      } else if (input.afterId) {
-        filters.push(gt(appointmentMessages.id, input.afterId));
-      }
-
-      const newMessages = await db
-        .select()
-        .from(appointmentMessages)
-        .where(and(...filters))
-        .orderBy(
-          asc(appointmentMessages.createdAt),
-          asc(appointmentMessages.id)
-        )
-        .limit(input.limit);
+      const newMessages = await visitRepo.pollMessages({
+        appointmentId: appointment.id,
+        afterCreatedAt: input.afterCreatedAt,
+        afterId: input.afterId,
+        limit: input.limit,
+      });
 
       return {
         messages: normalizeMessages(newMessages),

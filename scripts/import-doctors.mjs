@@ -154,10 +154,8 @@ function parseHospitalFromPath(hospitalsDir, filePath) {
 
 function parseDepartmentFromFileName(fileName) {
   const base = fileName.replace(/\.xlsx$/i, "").trim();
-  const suffix = "_医生信息";
-  if (base.endsWith(suffix)) {
-    return base.slice(0, -suffix.length).trim();
-  }
+  const match = base.match(/^(.*)_医生信息(?:_\d{8})?$/);
+  if (match?.[1]) return match[1].trim();
   return base;
 }
 

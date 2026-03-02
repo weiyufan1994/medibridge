@@ -78,6 +78,20 @@
       "when": 1772370266487,
       "tag": "0010_famous_ink",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1772461550317,
+      "tag": "0011_thick_otto_octavius",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1772464918027,
+      "tag": "0012_wet_skullbuster",
+      "breakpoints": true
     }
   ]
 }

@@ -13,11 +13,15 @@ import {
 } from "@/components/ui/dialog";
 import { Stethoscope, Hospital, ArrowRight, CheckCircle2 } from "lucide-react";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const DISCLAIMER_KEY = "medibridge_disclaimer_accepted_v1";
 
 export default function Home() {
   const [, setLocation] = useLocation();
+  const { isAuthenticated, openLoginModal, logout } = useAuth();
+  const { resolved } = useLanguage();
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
   const [disclaimerAccepted, setDisclaimerAccepted] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -51,6 +55,10 @@ export default function Home() {
     setDisclaimerOpen(true);
   };
 
+  const loginCta = resolved === "zh" ? "登录/注册" : "Sign in / Register";
+  const dashboardCta = resolved === "zh" ? "个人中心" : "Dashboard";
+  const logoutCta = resolved === "zh" ? "退出登录" : "Sign out";
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-accent/20">
       <header className="sticky top-0 z-10 border-b bg-card/80 backdrop-blur-sm">
@@ -66,6 +74,22 @@ export default function Home() {
               </div>
             </div>
             <div className="flex gap-2">
+              {!isAuthenticated ? (
+                <Button variant="outline" size="sm" onClick={openLoginModal}>
+                  {loginCta}
+                </Button>
+              ) : (
+                <>
+                  <Link href="/dashboard">
+                    <Button variant="outline" size="sm">
+                      {dashboardCta}
+                    </Button>
+                  </Link>
+                  <Button variant="ghost" size="sm" onClick={() => void logout()}>
+                    {logoutCta}
+                  </Button>
+                </>
+              )}
               <Link href="/hospitals">
                 <Button variant="ghost" size="sm">
                   <Hospital className="mr-2 h-4 w-4" />

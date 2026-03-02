@@ -1,15 +1,14 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { appointments } from "../drizzle/schema";
-import { getDb } from "./db";
+import * as appointmentsRepo from "./modules/appointments/repo";
 import { sendMagicLinkEmail } from "./_core/mailer";
 import {
   generateToken,
   hashToken,
   verifyToken,
 } from "./_core/appointmentToken";
-import { publicProcedure, router } from "./_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import type { TrpcContext } from "./_core/context";
 
 const APPOINTMENT_TYPE_VALUES = [
@@ -87,6 +86,10 @@ const resendOutputSchema = z.object({
   ok: z.literal(true),
   devLink: z.string().url().optional(),
 });
+const listMineInputSchema = z.object({
+  limit: z.number().int().min(1).max(100).optional().default(20),
+});
+const listMineOutputSchema = z.array(appointmentPublicSchema);
 
 const CONSULTATION_DURATION_MINUTES = 60;
 const TOKEN_RESEND_COOLDOWN_MS = 60_000;
@@ -129,17 +132,6 @@ function buildVisitUrl(
   return `${baseUrl}/visit/${appointmentId}?t=${encodeURIComponent(token)}`;
 }
 
-async function ensureDbConnection() {
-  const db = await getDb();
-  if (!db) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Database not available",
-    });
-  }
-  return db;
-}
-
 function toPublicAppointment(appointment: typeof appointments.$inferSelect) {
   return {
     id: appointment.id,
@@ -156,28 +148,22 @@ function toPublicAppointment(appointment: typeof appointments.$inferSelect) {
 }
 
 async function getAppointmentByIdOrThrow(appointmentId: number) {
-  const db = await ensureDbConnection();
-  const rows = await db
-    .select()
-    .from(appointments)
-    .where(eq(appointments.id, appointmentId))
-    .limit(1);
-
-  if (rows.length === 0) {
+  const appointment = await appointmentsRepo.getAppointmentById(appointmentId);
+  if (!appointment) {
     throw new TRPCError({
       code: "NOT_FOUND",
       message: "Appointment not found",
     });
   }
 
-  return { db, appointment: rows[0] };
+  return appointment;
 }
 
 export async function validateAppointmentToken(
   appointmentId: number,
   token: string
 ) {
-  const { db, appointment } = await getAppointmentByIdOrThrow(appointmentId);
+  const appointment = await getAppointmentByIdOrThrow(appointmentId);
   const now = Date.now();
   const isPatientToken = verifyToken(token, appointment.accessTokenHash);
   const isDoctorToken =
@@ -201,13 +187,11 @@ export async function validateAppointmentToken(
     }
 
     const touchedAt = new Date();
-    await db
-      .update(appointments)
-      .set({ lastAccessAt: touchedAt })
-      .where(eq(appointments.id, appointment.id));
+    await appointmentsRepo.updateAppointmentById(appointment.id, {
+      lastAccessAt: touchedAt,
+    });
 
     return {
-      db,
       role: "patient" as const,
       appointment: {
         ...appointment,
@@ -232,13 +216,11 @@ export async function validateAppointmentToken(
     }
 
     const touchedAt = new Date();
-    await db
-      .update(appointments)
-      .set({ doctorLastAccessAt: touchedAt })
-      .where(eq(appointments.id, appointment.id));
+    await appointmentsRepo.updateAppointmentById(appointment.id, {
+      doctorLastAccessAt: touchedAt,
+    });
 
     return {
-      db,
       role: "doctor" as const,
       appointment: {
         ...appointment,
@@ -281,57 +263,50 @@ async function resolveInsertedAppointmentId(
     return directInsertId;
   }
 
-  const db = await ensureDbConnection();
-  const rows = await db
-    .select({ id: appointments.id })
-    .from(appointments)
-    .where(
-      and(
-        eq(appointments.doctorId, fallbackLookup.doctorId),
-        eq(appointments.email, fallbackLookup.email),
-        eq(appointments.scheduledAt, fallbackLookup.scheduledAt)
-      )
-    )
-    .orderBy(desc(appointments.id))
-    .limit(1);
+  const resolvedId =
+    await appointmentsRepo.findLatestAppointmentIdByLookup(fallbackLookup);
 
-  if (rows.length === 0) {
+  if (!resolvedId) {
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
       message: "Failed to resolve appointment ID after creation",
     });
   }
 
-  return rows[0].id;
+  return resolvedId;
 }
 
 export const appointmentsRouter = router({
+  listMine: protectedProcedure
+    .input(listMineInputSchema)
+    .output(listMineOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const appointments = await appointmentsRepo.listAppointmentsByUserScope({
+        userId: ctx.user.id,
+        email: ctx.user.email,
+        limit: input.limit,
+      });
+      return appointments.map(toPublicAppointment);
+    }),
   create: publicProcedure
     .input(createInputSchema)
     .output(createOutputSchema)
     .mutation(async ({ input, ctx }) => {
-      const db = await ensureDbConnection();
-
       const patientToken = generateToken();
       const patientTokenHash = hashToken(patientToken);
       const doctorToken = generateToken();
       const doctorTokenHash = hashToken(doctorToken);
       const accessTokenExpiresAt = computeDefaultTokenExpiry(input.scheduledAt);
 
-      const insertResult = await db.insert(appointments).values({
+      const insertResult = await appointmentsRepo.createAppointment({
         doctorId: input.doctorId,
         appointmentType: input.appointmentType,
         scheduledAt: input.scheduledAt,
-        status: "confirmed",
         sessionId: input.sessionId,
         email: input.email,
         accessTokenHash: patientTokenHash,
         doctorTokenHash,
         accessTokenExpiresAt,
-        accessTokenRevokedAt: null,
-        doctorTokenRevokedAt: null,
-        lastAccessAt: null,
-        doctorLastAccessAt: null,
       });
 
       const appointmentId = await resolveInsertedAppointmentId(insertResult, {
@@ -374,7 +349,7 @@ export const appointmentsRouter = router({
     .input(rescheduleInputSchema)
     .output(appointmentPublicSchema)
     .mutation(async ({ input }) => {
-      const { db, appointment, role } = await validateAppointmentToken(
+      const { appointment, role } = await validateAppointmentToken(
         input.appointmentId,
         input.token
       );
@@ -383,24 +358,22 @@ export const appointmentsRouter = router({
         input.newScheduledAt
       );
 
-      await db
-        .update(appointments)
-        .set({
-          scheduledAt: input.newScheduledAt,
-          status:
-            appointment.status === "cancelled" ? "cancelled" : "rescheduled",
-          accessTokenExpiresAt: nextAccessTokenExpiresAt,
-          updatedAt: new Date(),
-        })
-        .where(eq(appointments.id, appointment.id));
+      await appointmentsRepo.updateAppointmentById(appointment.id, {
+        scheduledAt: input.newScheduledAt,
+        status: appointment.status === "cancelled" ? "cancelled" : "rescheduled",
+        accessTokenExpiresAt: nextAccessTokenExpiresAt,
+        updatedAt: new Date(),
+      });
 
-      const rows = await db
-        .select()
-        .from(appointments)
-        .where(eq(appointments.id, appointment.id))
-        .limit(1);
+      const updated = await appointmentsRepo.getAppointmentById(appointment.id);
+      if (!updated) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Appointment disappeared after reschedule",
+        });
+      }
 
-      return toPublicAppointment(rows[0]);
+      return toPublicAppointment(updated);
     }),
 
   joinInfoByToken: publicProcedure
@@ -437,9 +410,7 @@ export const appointmentsRouter = router({
         });
       }
 
-      const { db, appointment } = await getAppointmentByIdOrThrow(
-        input.appointmentId
-      );
+      const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
       if (appointment.email.toLowerCase() !== input.email) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
@@ -454,15 +425,12 @@ export const appointmentsRouter = router({
         appointment.scheduledAt ?? new Date()
       );
 
-      await db
-        .update(appointments)
-        .set({
-          accessTokenHash: tokenHash,
-          accessTokenExpiresAt,
-          accessTokenRevokedAt: null,
-          updatedAt: new Date(),
-        })
-        .where(eq(appointments.id, appointment.id));
+      await appointmentsRepo.updateAppointmentById(appointment.id, {
+        accessTokenHash: tokenHash,
+        accessTokenExpiresAt,
+        accessTokenRevokedAt: null,
+        updatedAt: new Date(),
+      });
 
       const baseUrl = getBaseUrl(ctx);
       const link = buildAppointmentMagicLink(baseUrl, appointment.id, token);
