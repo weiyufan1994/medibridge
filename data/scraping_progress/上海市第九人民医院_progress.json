@@ -1,7 +1,7 @@
 {
   "hospital_name": "上海市第九人民医院",
   "total_depts": 22,
-  "completed_depts": 14,
+  "completed_depts": 15,
   "departments": [
     {
       "dept_name": "口腔科",
@@ -132,11 +132,11 @@
     {
       "dept_name": "耳鼻咽喉头颈外科",
       "url": "https://www.haodf.com/hospital/422/keshi/1295.html",
-      "status": "pending",
-      "doctors_scraped": 0,
-      "doctors_total": 0,
-      "last_updated": null,
-      "output_file": null
+      "status": "completed",
+      "doctors_scraped": 40,
+      "doctors_total": 40,
+      "last_updated": "2026-03-03",
+      "output_file": "上海市第九人民医院_耳鼻咽喉头颈外科.xlsx"
     },
     {
       "dept_name": "口腔外科",
