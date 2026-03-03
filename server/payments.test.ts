@@ -7,7 +7,7 @@ vi.mock("./modules/appointments/repo", () => ({
   getAppointmentById: vi.fn(),
   getAppointmentByStripeSessionId: vi.fn(),
   tryMarkPaidByStripeSessionId: vi.fn(),
-  trySetAppointmentAccessTokensIfEmpty: vi.fn(),
+  createAppointmentTokenIfMissing: vi.fn(),
   insertStatusEvent: vi.fn(),
 }));
 
@@ -87,7 +87,7 @@ describe("payments router", () => {
     });
   });
 
-  it("settleStripePaymentBySessionId is idempotent for repeated calls", async () => {
+  it("settleStripePaymentBySessionId remains idempotent across 5 webhook replays", async () => {
     vi.mocked(appointmentsRepo.tryMarkPaidByStripeSessionId)
       .mockResolvedValueOnce(1 as never)
       .mockResolvedValue(0 as never);
@@ -98,9 +98,6 @@ describe("payments router", () => {
       email: "user@example.com",
       scheduledAt: new Date("2026-03-03T10:00:00.000Z"),
     } as never);
-    vi.mocked(appointmentsRepo.trySetAppointmentAccessTokensIfEmpty).mockResolvedValue(
-      1 as never
-    );
     vi.mocked(generateToken)
       .mockReturnValueOnce("patient-token")
       .mockReturnValueOnce("doctor-token");
@@ -113,7 +110,7 @@ describe("payments router", () => {
       eventId: "evt_1",
     });
     const repeated = await Promise.all(
-      Array.from({ length: 4 }).map(() =>
+      Array.from({ length: 5 }).map(() =>
         settleStripePaymentBySessionId({
           stripeSessionId: "cs_test_idempotent_1",
           source: "webhook",
@@ -129,8 +126,24 @@ describe("payments router", () => {
     expect(repeated.every(entry => entry.patientLink === null)).toBe(true);
     expect(repeated.every(entry => entry.doctorLink === null)).toBe(true);
 
-    expect(appointmentsRepo.tryMarkPaidByStripeSessionId).toHaveBeenCalledTimes(5);
-    expect(appointmentsRepo.trySetAppointmentAccessTokensIfEmpty).toHaveBeenCalledTimes(1);
+    expect(appointmentsRepo.tryMarkPaidByStripeSessionId).toHaveBeenCalledTimes(6);
+    expect(appointmentsRepo.createAppointmentTokenIfMissing).toHaveBeenCalledTimes(2);
+    expect(appointmentsRepo.createAppointmentTokenIfMissing).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        appointmentId: 9527,
+        role: "patient",
+        tokenHash: "hash:patient-token",
+      })
+    );
+    expect(appointmentsRepo.createAppointmentTokenIfMissing).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        appointmentId: 9527,
+        role: "doctor",
+        tokenHash: "hash:doctor-token",
+      })
+    );
     expect(appointmentsRepo.insertStatusEvent).toHaveBeenCalledTimes(1);
     expect(sendMagicLinkEmail).toHaveBeenCalledTimes(1);
     expect(generateToken).toHaveBeenCalledTimes(2);
@@ -156,7 +169,7 @@ describe("payments router", () => {
       code: "PRECONDITION_FAILED",
       message: "Appointment is not in settleable payment state",
     });
-    expect(appointmentsRepo.trySetAppointmentAccessTokensIfEmpty).not.toHaveBeenCalled();
+    expect(appointmentsRepo.createAppointmentTokenIfMissing).not.toHaveBeenCalled();
     expect(appointmentsRepo.insertStatusEvent).not.toHaveBeenCalled();
     expect(sendMagicLinkEmail).not.toHaveBeenCalled();
   });

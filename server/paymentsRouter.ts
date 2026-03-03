@@ -184,26 +184,23 @@ export async function settleStripePaymentBySessionId(input: {
   const patientToken = generateToken();
   const patientTokenHash = hashToken(patientToken);
   const doctorToken = generateToken();
-  const doctorTokenHash = hashToken(doctorToken);
+  const doctorLinkHash = hashToken(doctorToken);
   const accessTokenExpiresAt = computeDefaultTokenExpiry(
     appointment.scheduledAt ?? new Date()
   );
 
-  const tokenRows = await appointmentsRepo.trySetAppointmentAccessTokensIfEmpty({
+  await appointmentsRepo.createAppointmentTokenIfMissing({
     appointmentId: appointment.id,
-    accessTokenHash: patientTokenHash,
-    doctorTokenHash,
-    accessTokenExpiresAt,
+    role: "patient",
+    tokenHash: patientTokenHash,
+    expiresAt: accessTokenExpiresAt,
   });
-
-  if (tokenRows === 0) {
-    return {
-      appointment,
-      alreadySettled: true,
-      patientLink: null,
-      doctorLink: null,
-    };
-  }
+  await appointmentsRepo.createAppointmentTokenIfMissing({
+    appointmentId: appointment.id,
+    role: "doctor",
+    tokenHash: doctorLinkHash,
+    expiresAt: accessTokenExpiresAt,
+  });
 
   await appointmentsRepo.insertStatusEvent({
     appointmentId: appointment.id,

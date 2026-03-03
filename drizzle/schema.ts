@@ -298,11 +298,6 @@ export const appointments = mysqlTable(
     currency: varchar("currency", { length: 8 }).notNull().default("usd"),
     paidAt: timestamp("paidAt"),
     email: varchar("email", { length: 320 }).notNull(),
-    accessTokenHash: varchar("accessTokenHash", { length: 128 }),
-    doctorTokenHash: varchar("doctorTokenHash", { length: 128 }),
-    accessTokenExpiresAt: timestamp("accessTokenExpiresAt"),
-    accessTokenRevokedAt: timestamp("accessTokenRevokedAt"),
-    doctorTokenRevokedAt: timestamp("doctorTokenRevokedAt"),
     lastAccessAt: timestamp("lastAccessAt"),
     doctorLastAccessAt: timestamp("doctorLastAccessAt"),
     notes: text("notes"),
@@ -318,12 +313,41 @@ export const appointments = mysqlTable(
     stripeSessionIdUk: uniqueIndex("appointmentsStripeSessionIdUk").on(
       table.stripeSessionId
     ),
-    doctorTokenHashIdx: index("doctorTokenHashIdx").on(table.doctorTokenHash),
   })
 );
 
 export type Appointment = typeof appointments.$inferSelect;
 export type InsertAppointment = typeof appointments.$inferInsert;
+
+export const appointmentTokens = mysqlTable(
+  "appointmentTokens",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    appointmentId: int("appointmentId")
+      .notNull()
+      .references(() => appointments.id, { onDelete: "cascade" }),
+    role: mysqlEnum("role", ["patient", "doctor"]).notNull(),
+    tokenHash: varchar("tokenHash", { length: 128 }).notNull(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    revokedAt: timestamp("revokedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    appointmentRoleIdx: index("appointmentTokensAppointmentRoleIdx").on(
+      table.appointmentId,
+      table.role
+    ),
+    appointmentExpiryIdx: index("appointmentTokensAppointmentExpiryIdx").on(
+      table.appointmentId,
+      table.expiresAt
+    ),
+    tokenHashIdx: index("appointmentTokensTokenHashIdx").on(table.tokenHash),
+  })
+);
+
+export type AppointmentToken = typeof appointmentTokens.$inferSelect;
+export type InsertAppointmentToken = typeof appointmentTokens.$inferInsert;
 
 /**
  * Appointment messages table - stores visit chat messages.

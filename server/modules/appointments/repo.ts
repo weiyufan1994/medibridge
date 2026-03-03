@@ -1,5 +1,6 @@
-import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import {
+  appointmentTokens,
   appointmentStatusEvents,
   appointments,
   type InsertAppointment,
@@ -23,6 +24,9 @@ export type PaymentStatus =
   | "failed"
   | "expired"
   | "refunded";
+
+export type AppointmentTokenRole = "patient" | "doctor";
+const ACTIVE_TOKEN_LIMIT_PER_ROLE = 5;
 
 export async function getAppointmentById(appointmentId: number) {
   const db = await getDb();
@@ -76,19 +80,225 @@ export async function getCheckoutResultByStripeSessionId(stripeSessionId: string
   return rows[0] ?? null;
 }
 
-export async function getAppointmentByAccessTokenHash(accessTokenHash: string) {
+export async function listActiveAppointmentTokens(input: {
+  appointmentId: number;
+  now?: Date;
+}) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const now = input.now ?? new Date();
+  return db
+    .select({
+      id: appointmentTokens.id,
+      appointmentId: appointmentTokens.appointmentId,
+      role: appointmentTokens.role,
+      tokenHash: appointmentTokens.tokenHash,
+      expiresAt: appointmentTokens.expiresAt,
+      revokedAt: appointmentTokens.revokedAt,
+    })
+    .from(appointmentTokens)
+    .where(
+      and(
+        eq(appointmentTokens.appointmentId, input.appointmentId),
+        isNull(appointmentTokens.revokedAt),
+        gt(appointmentTokens.expiresAt, now)
+      )
+    );
+}
+
+export async function getActiveAppointmentTokenByHash(input: {
+  tokenHash: string;
+  role?: AppointmentTokenRole;
+  now?: Date;
+}) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const now = input.now ?? new Date();
+  const whereClause = input.role
+    ? and(
+        eq(appointmentTokens.tokenHash, input.tokenHash),
+        eq(appointmentTokens.role, input.role),
+        isNull(appointmentTokens.revokedAt),
+        gt(appointmentTokens.expiresAt, now)
+      )
+    : and(
+        eq(appointmentTokens.tokenHash, input.tokenHash),
+        isNull(appointmentTokens.revokedAt),
+        gt(appointmentTokens.expiresAt, now)
+      );
+
+  const rows = await db
+    .select({
+      id: appointmentTokens.id,
+      appointmentId: appointmentTokens.appointmentId,
+      role: appointmentTokens.role,
+      tokenHash: appointmentTokens.tokenHash,
+      expiresAt: appointmentTokens.expiresAt,
+      revokedAt: appointmentTokens.revokedAt,
+    })
+    .from(appointmentTokens)
+    .where(whereClause)
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+export async function getLatestAppointmentTokenIssuedAt(input: {
+  appointmentId: number;
+  role: AppointmentTokenRole;
+}) {
   const db = await getDb();
   if (!db) {
     throw new Error("Database not available");
   }
 
   const rows = await db
-    .select()
-    .from(appointments)
-    .where(eq(appointments.accessTokenHash, accessTokenHash))
+    .select({
+      createdAt: appointmentTokens.createdAt,
+    })
+    .from(appointmentTokens)
+    .where(
+      and(
+        eq(appointmentTokens.appointmentId, input.appointmentId),
+        eq(appointmentTokens.role, input.role)
+      )
+    )
+    .orderBy(desc(appointmentTokens.createdAt), desc(appointmentTokens.id))
     .limit(1);
 
-  return rows[0] ?? null;
+  return rows[0]?.createdAt ?? null;
+}
+
+export async function updateActiveAppointmentTokenExpiry(input: {
+  appointmentId: number;
+  expiresAt: Date;
+}) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const now = new Date();
+  await db
+    .update(appointmentTokens)
+    .set({
+      expiresAt: input.expiresAt,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(appointmentTokens.appointmentId, input.appointmentId),
+        isNull(appointmentTokens.revokedAt),
+        gt(appointmentTokens.expiresAt, now)
+      )
+    );
+}
+
+export async function createAppointmentTokenIfMissing(input: {
+  appointmentId: number;
+  role: AppointmentTokenRole;
+  tokenHash: string;
+  expiresAt: Date;
+  revokedAt?: Date | null;
+}) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const existing = await db
+    .select({ id: appointmentTokens.id })
+    .from(appointmentTokens)
+    .where(
+      and(
+        eq(appointmentTokens.appointmentId, input.appointmentId),
+        eq(appointmentTokens.role, input.role),
+        eq(appointmentTokens.tokenHash, input.tokenHash)
+      )
+    )
+    .limit(1);
+
+  if (existing[0]) {
+    await revokeOldActiveTokensBeyondLimit({
+      db,
+      appointmentId: input.appointmentId,
+      role: input.role,
+    });
+    return;
+  }
+
+  await db.insert(appointmentTokens).values({
+    appointmentId: input.appointmentId,
+    role: input.role,
+    tokenHash: input.tokenHash,
+    expiresAt: input.expiresAt,
+    revokedAt: input.revokedAt ?? null,
+  });
+
+  await revokeOldActiveTokensBeyondLimit({
+    db,
+    appointmentId: input.appointmentId,
+    role: input.role,
+  });
+}
+
+async function revokeOldActiveTokensBeyondLimit(input: {
+  db: Awaited<ReturnType<typeof getDb>>;
+  appointmentId: number;
+  role: AppointmentTokenRole;
+}) {
+  const db = input.db;
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const now = new Date();
+  const activeRows = await db
+    .select({
+      id: appointmentTokens.id,
+      createdAt: appointmentTokens.createdAt,
+    })
+    .from(appointmentTokens)
+    .where(
+      and(
+        eq(appointmentTokens.appointmentId, input.appointmentId),
+        eq(appointmentTokens.role, input.role),
+        isNull(appointmentTokens.revokedAt),
+        gt(appointmentTokens.expiresAt, now)
+      )
+    )
+    .orderBy(desc(appointmentTokens.createdAt), desc(appointmentTokens.id));
+
+  if (activeRows.length <= ACTIVE_TOKEN_LIMIT_PER_ROLE) {
+    return;
+  }
+
+  const revokeIds = activeRows
+    .slice(ACTIVE_TOKEN_LIMIT_PER_ROLE)
+    .map(row => row.id);
+
+  if (revokeIds.length === 0) {
+    return;
+  }
+
+  await db
+    .update(appointmentTokens)
+    .set({
+      revokedAt: now,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        inArray(appointmentTokens.id, revokeIds),
+        isNull(appointmentTokens.revokedAt)
+      )
+    );
 }
 
 export async function createAppointmentDraft(input: {
@@ -119,11 +329,6 @@ export async function createAppointmentDraft(input: {
     email: input.email,
     userId: input.userId ?? null,
     sessionId: input.sessionId,
-    accessTokenHash: null,
-    doctorTokenHash: null,
-    accessTokenExpiresAt: null,
-    accessTokenRevokedAt: null,
-    doctorTokenRevokedAt: null,
     lastAccessAt: null,
     doctorLastAccessAt: null,
   });
@@ -156,26 +361,6 @@ export async function markAppointmentPendingPayment(input: {
   });
 }
 
-export async function markAppointmentPaid(input: {
-  appointmentId: number;
-  accessTokenHash: string;
-  doctorTokenHash: string;
-  accessTokenExpiresAt: Date;
-  paidAt?: Date;
-}) {
-  return updateAppointmentById(input.appointmentId, {
-    paymentStatus: "paid",
-    status: "paid",
-    paidAt: input.paidAt ?? new Date(),
-    accessTokenHash: input.accessTokenHash,
-    doctorTokenHash: input.doctorTokenHash,
-    accessTokenExpiresAt: input.accessTokenExpiresAt,
-    accessTokenRevokedAt: null,
-    doctorTokenRevokedAt: null,
-    updatedAt: new Date(),
-  });
-}
-
 export async function tryMarkPaidByStripeSessionId(input: {
   stripeSessionId: string;
   paidAt?: Date;
@@ -204,41 +389,6 @@ export async function tryMarkPaidByStripeSessionId(input: {
 
   return Number((result as { affectedRows?: number }).affectedRows ?? 0);
 }
-
-export async function trySetAppointmentAccessTokensIfEmpty(input: {
-  appointmentId: number;
-  accessTokenHash: string;
-  doctorTokenHash: string;
-  accessTokenExpiresAt: Date;
-}) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  const result = await db
-    .update(appointments)
-    .set({
-      accessTokenHash: input.accessTokenHash,
-      doctorTokenHash: input.doctorTokenHash,
-      accessTokenExpiresAt: input.accessTokenExpiresAt,
-      accessTokenRevokedAt: null,
-      doctorTokenRevokedAt: null,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(appointments.id, input.appointmentId),
-        eq(appointments.paymentStatus, "paid"),
-        eq(appointments.status, "paid"),
-        isNull(appointments.accessTokenHash),
-        isNull(appointments.doctorTokenHash)
-      )
-    );
-
-  return Number((result as { affectedRows?: number }).affectedRows ?? 0);
-}
-
 export async function findLatestAppointmentIdByLookup(lookup: {
   doctorId: number;
   email: string;

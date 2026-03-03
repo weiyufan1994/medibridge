@@ -14,8 +14,6 @@ import type { TrpcContext } from "./_core/context";
 import { createStripeCheckoutSession } from "./modules/payments/stripe";
 import { invokeLLM } from "./_core/llm";
 import {
-  clearCachedPatientAccessToken,
-  getCachedPatientAccessToken,
   setCachedPatientAccessToken,
 } from "./modules/appointments/tokenCache";
 
@@ -154,8 +152,6 @@ const listMineOutputSchema = z.array(appointmentPublicSchema);
 const CONSULTATION_DURATION_MINUTES = 60;
 const TOKEN_RESEND_COOLDOWN_MS = 60_000;
 const RESEND_ALLOWED_STATUS = new Set<string>(["paid", "confirmed", "in_session"]);
-const resendRateLimitByAppointmentId = new Map<number, number>();
-const resendDoctorRateLimitByAppointmentId = new Map<number, number>();
 const triageSummaryTranslationCache = new Map<string, string>();
 
 function getPricingByAppointmentType(
@@ -204,19 +200,6 @@ function buildVisitUrl(
   token: string
 ): string {
   return `${baseUrl}/visit/${appointmentId}?t=${encodeURIComponent(token)}`;
-}
-
-function hasActivePatientToken(appointment: {
-  accessTokenHash: string | null;
-  accessTokenExpiresAt: Date | null;
-  accessTokenRevokedAt: Date | null;
-}) {
-  return Boolean(
-    appointment.accessTokenHash &&
-      appointment.accessTokenExpiresAt &&
-      appointment.accessTokenExpiresAt.getTime() > Date.now() &&
-      !appointment.accessTokenRevokedAt
-  );
 }
 
 function getPublicUrlBase(): string {
@@ -369,48 +352,35 @@ export async function validateAppointmentToken(
   action: VisitAccessAction = "join_room"
 ) {
   const appointment = await getAppointmentByIdOrThrow(appointmentId);
-  const now = Date.now();
-  const isPatientToken =
-    typeof appointment.accessTokenHash === "string" &&
-    appointment.accessTokenHash.length > 0 &&
-    verifyToken(token, appointment.accessTokenHash);
-  const isDoctorToken =
-    typeof appointment.doctorTokenHash === "string" &&
-    appointment.doctorTokenHash.length > 0 &&
-    verifyToken(token, appointment.doctorTokenHash);
+  const now = new Date();
+  const activeTokens = await appointmentsRepo.listActiveAppointmentTokens({
+    appointmentId,
+    now,
+  });
+  const patientHashes = activeTokens
+    .filter(tokenRow => tokenRow.role === "patient")
+    .map(tokenRow => tokenRow.tokenHash);
+  const doctorHashes = activeTokens
+    .filter(tokenRow => tokenRow.role === "doctor")
+    .map(tokenRow => tokenRow.tokenHash);
 
-  if (!isPatientToken && !isDoctorToken) {
+  const isPatientToken = patientHashes.some(tokenHash =>
+    verifyToken(token, tokenHash)
+  );
+  const isDoctorToken = doctorHashes.some(tokenHash =>
+    verifyToken(token, tokenHash)
+  );
+
+  let resolvedRole: "patient" | "doctor" | null = isPatientToken
+    ? "patient"
+    : isDoctorToken
+      ? "doctor"
+      : null;
+
+  if (!resolvedRole) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
       message: "Invalid magic link token",
-    });
-  }
-
-  if (!appointment.accessTokenExpiresAt) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Magic link not issued yet",
-    });
-  }
-
-  if (appointment.accessTokenExpiresAt.getTime() <= now) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Magic link has expired",
-    });
-  }
-
-  if (isPatientToken && appointment.accessTokenRevokedAt) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Magic link has been revoked",
-    });
-  }
-
-  if (isDoctorToken && appointment.doctorTokenRevokedAt) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Doctor magic link has been revoked",
     });
   }
 
@@ -422,7 +392,7 @@ export async function validateAppointmentToken(
 
   const touchedAt = new Date();
 
-  if (isPatientToken) {
+  if (resolvedRole === "patient") {
     await appointmentsRepo.updateAppointmentById(appointment.id, {
       lastAccessAt: touchedAt,
     });
@@ -456,6 +426,29 @@ function assertPatientRole(role: "patient" | "doctor") {
       message: "This action requires a patient magic link",
     });
   }
+}
+
+async function assertResendCooldown(input: {
+  appointmentId: number;
+  role: appointmentsRepo.AppointmentTokenRole;
+}) {
+  const latestIssuedAt = await appointmentsRepo.getLatestAppointmentTokenIssuedAt({
+    appointmentId: input.appointmentId,
+    role: input.role,
+  });
+  if (!latestIssuedAt) {
+    return;
+  }
+
+  const elapsedMs = Date.now() - latestIssuedAt.getTime();
+  if (elapsedMs >= TOKEN_RESEND_COOLDOWN_MS) {
+    return;
+  }
+
+  throw new TRPCError({
+    code: "TOO_MANY_REQUESTS",
+    message: "Please wait at least 60 seconds before resending again",
+  });
 }
 
 async function resolveInsertedAppointmentId(
@@ -641,8 +634,11 @@ export const appointmentsRouter = router({
           appointment.status === "completed" || appointment.status === "refunded"
             ? appointment.status
             : "confirmed",
-        accessTokenExpiresAt: nextAccessTokenExpiresAt,
         updatedAt: new Date(),
+      });
+      await appointmentsRepo.updateActiveAppointmentTokenExpiry({
+        appointmentId: appointment.id,
+        expiresAt: nextAccessTokenExpiresAt,
       });
 
       const updated = await appointmentsRepo.getAppointmentById(appointment.id);
@@ -685,16 +681,6 @@ export const appointmentsRouter = router({
     .input(resendLinkInputSchema)
     .output(resendOutputSchema)
     .mutation(async ({ input, ctx }) => {
-      const lastResentAt = resendRateLimitByAppointmentId.get(
-        input.appointmentId
-      );
-      if (lastResentAt && Date.now() - lastResentAt < TOKEN_RESEND_COOLDOWN_MS) {
-        throw new TRPCError({
-          code: "TOO_MANY_REQUESTS",
-          message: "Please wait at least 1 minute before resending again",
-        });
-      }
-
       const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
 
       if (appointment.status === "expired") {
@@ -725,29 +711,12 @@ export const appointmentsRouter = router({
         });
       }
 
+      await assertResendCooldown({
+        appointmentId: appointment.id,
+        role: "patient",
+      });
+
       const baseUrl = getBaseUrl(ctx);
-      const activeToken = hasActivePatientToken(appointment);
-      if (activeToken) {
-        const cached = getCachedPatientAccessToken(appointment.id);
-        if (!cached || !verifyToken(cached.token, appointment.accessTokenHash!)) {
-          throw new TRPCError({
-            code: "PRECONDITION_FAILED",
-            message:
-              "An active link already exists and cannot be reissued without rotation",
-          });
-        }
-
-        resendRateLimitByAppointmentId.set(input.appointmentId, Date.now());
-        const link = buildAppointmentMagicLink(baseUrl, appointment.id, cached.token);
-        await sendMagicLinkEmail(appointment.email, link);
-
-        return {
-          ok: true as const,
-          devLink: process.env.NODE_ENV === "development" ? link : undefined,
-        };
-      }
-
-      resendRateLimitByAppointmentId.set(input.appointmentId, Date.now());
 
       const token = generateToken();
       const tokenHash = hashToken(token);
@@ -755,12 +724,11 @@ export const appointmentsRouter = router({
         appointment.scheduledAt ?? new Date()
       );
 
-      clearCachedPatientAccessToken(appointment.id);
-      await appointmentsRepo.updateAppointmentById(appointment.id, {
-        accessTokenHash: tokenHash,
-        accessTokenExpiresAt,
-        accessTokenRevokedAt: null,
-        updatedAt: new Date(),
+      await appointmentsRepo.createAppointmentTokenIfMissing({
+        appointmentId: appointment.id,
+        role: "patient",
+        tokenHash,
+        expiresAt: accessTokenExpiresAt,
       });
 
       setCachedPatientAccessToken(appointment.id, token, accessTokenExpiresAt);
@@ -784,16 +752,6 @@ export const appointmentsRouter = router({
         });
       }
 
-      const lastResentAt = resendDoctorRateLimitByAppointmentId.get(
-        input.appointmentId
-      );
-      if (lastResentAt && Date.now() - lastResentAt < TOKEN_RESEND_COOLDOWN_MS) {
-        throw new TRPCError({
-          code: "TOO_MANY_REQUESTS",
-          message: "Please wait at least 1 minute before resending again",
-        });
-      }
-
       const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
       if (appointment.email.toLowerCase() !== input.email) {
         throw new TRPCError({
@@ -809,19 +767,22 @@ export const appointmentsRouter = router({
         });
       }
 
-      resendDoctorRateLimitByAppointmentId.set(input.appointmentId, Date.now());
+      await assertResendCooldown({
+        appointmentId: appointment.id,
+        role: "doctor",
+      });
 
       const doctorToken = generateToken();
-      const doctorTokenHash = hashToken(doctorToken);
+      const doctorLinkHash = hashToken(doctorToken);
       const accessTokenExpiresAt = computeDefaultTokenExpiry(
         appointment.scheduledAt ?? new Date()
       );
 
-      await appointmentsRepo.updateAppointmentById(appointment.id, {
-        doctorTokenHash,
-        doctorTokenRevokedAt: null,
-        accessTokenExpiresAt,
-        updatedAt: new Date(),
+      await appointmentsRepo.createAppointmentTokenIfMissing({
+        appointmentId: appointment.id,
+        role: "doctor",
+        tokenHash: doctorLinkHash,
+        expiresAt: accessTokenExpiresAt,
       });
 
       const baseUrl = getBaseUrl(ctx);

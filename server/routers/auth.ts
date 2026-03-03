@@ -2,7 +2,8 @@ import { COOKIE_NAME } from "@shared/const";
 import { TRPCError } from "@trpc/server";
 import crypto from "crypto";
 import { z } from "zod";
-import { hashToken, verifyToken } from "../_core/appointmentToken";
+import { validateAppointmentToken } from "../appointmentsRouter";
+import { hashToken } from "../_core/appointmentToken";
 import { getSessionCookieOptions } from "../_core/cookies";
 import { sdk } from "../_core/sdk";
 import { publicProcedure, router } from "../_core/trpc";
@@ -167,43 +168,31 @@ export const authRouter = router({
     .input(verifyMagicLinkInputSchema)
     .mutation(async ({ input, ctx }) => {
       const parsedToken = parseMagicToken(input.token);
-      let appointment = input.appointmentId
-        ? await appointmentsRepo.getAppointmentById(input.appointmentId)
-        : await appointmentsRepo.getAppointmentByAccessTokenHash(
-            hashToken(parsedToken)
-          );
+      const tokenHash = hashToken(parsedToken);
+      let targetAppointmentId = input.appointmentId;
+      if (!targetAppointmentId) {
+        const tokenRow = await appointmentsRepo.getActiveAppointmentTokenByHash({
+          tokenHash,
+          role: "patient",
+        });
+        if (!tokenRow) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Invalid magic link token",
+          });
+        }
+        targetAppointmentId = tokenRow.appointmentId;
+      }
 
-      if (!appointment) {
+      const { appointment, role } = await validateAppointmentToken(
+        targetAppointmentId,
+        parsedToken,
+        "join_room"
+      );
+      if (role !== "patient") {
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "Invalid magic link token",
-        });
-      }
-
-      if (
-        !appointment.accessTokenHash ||
-        !verifyToken(parsedToken, appointment.accessTokenHash)
-      ) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "Invalid magic link token",
-        });
-      }
-
-      if (appointment.accessTokenRevokedAt) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Magic link has been revoked",
-        });
-      }
-
-      if (
-        !appointment.accessTokenExpiresAt ||
-        appointment.accessTokenExpiresAt.getTime() <= Date.now()
-      ) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Magic link has expired",
         });
       }
 
@@ -249,7 +238,7 @@ export const authRouter = router({
         lastAccessAt: new Date(),
       });
 
-      appointment =
+      const refreshedAppointment =
         (await appointmentsRepo.getAppointmentById(appointment.id)) ?? appointment;
 
       await setSessionCookieByUser(ctx, targetUser);
@@ -257,7 +246,7 @@ export const authRouter = router({
       return {
         success: true,
         userId: targetUser.id,
-        appointmentId: appointment.id,
+        appointmentId: refreshedAppointment.id,
       } as const;
     }),
   logout: publicProcedure.mutation(({ ctx }) => {

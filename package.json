@@ -11,6 +11,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
+    "tokens:backfill-legacy": "tsx scripts/backfill-legacy-appointment-tokens.ts",
     "import:doctors": "tsx scripts/import-doctors.mjs",
     "vectorize:doctors": "tsx scripts/vectorize-doctors.mjs",
     "translate:bilingual": "tsx -r dotenv/config scripts/translate-bilingual.ts"

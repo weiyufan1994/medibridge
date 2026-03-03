@@ -1,8 +1,8 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "16ff325a-26a0-4497-b940-962c4b448a21",
-  "prevId": "ca6058e0-e420-42dc-a492-3a1574677061",
+  "id": "312d81ba-387a-46bf-ac2b-3a2d03f44077",
+  "prevId": "16ff325a-26a0-4497-b940-962c4b448a21",
   "tables": {
     "ai_chat_messages": {
       "name": "ai_chat_messages",
@@ -441,6 +441,120 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
+    "appointmentTokens": {
+      "name": "appointmentTokens",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "appointmentId": {
+          "name": "appointmentId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "role": {
+          "name": "role",
+          "type": "enum('patient','doctor')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tokenHash": {
+          "name": "tokenHash",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expiresAt": {
+          "name": "expiresAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "revokedAt": {
+          "name": "revokedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "onUpdate": true,
+          "default": "(now())"
+        }
+      },
+      "indexes": {
+        "appointmentTokensAppointmentRoleIdx": {
+          "name": "appointmentTokensAppointmentRoleIdx",
+          "columns": [
+            "appointmentId",
+            "role"
+          ],
+          "isUnique": false
+        },
+        "appointmentTokensAppointmentExpiryIdx": {
+          "name": "appointmentTokensAppointmentExpiryIdx",
+          "columns": [
+            "appointmentId",
+            "expiresAt"
+          ],
+          "isUnique": false
+        },
+        "appointmentTokensTokenHashIdx": {
+          "name": "appointmentTokensTokenHashIdx",
+          "columns": [
+            "tokenHash"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "appointmentTokens_appointmentId_appointments_id_fk": {
+          "name": "appointmentTokens_appointmentId_appointments_id_fk",
+          "tableFrom": "appointmentTokens",
+          "tableTo": "appointments",
+          "columnsFrom": [
+            "appointmentId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "appointmentTokens_id": {
+          "name": "appointmentTokens_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
     "appointments": {
       "name": "appointments",
       "columns": {
@@ -546,41 +660,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "accessTokenHash": {
-          "name": "accessTokenHash",
-          "type": "varchar(128)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "doctorTokenHash": {
-          "name": "doctorTokenHash",
-          "type": "varchar(128)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "accessTokenExpiresAt": {
-          "name": "accessTokenExpiresAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "accessTokenRevokedAt": {
-          "name": "accessTokenRevokedAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "doctorTokenRevokedAt": {
-          "name": "doctorTokenRevokedAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "lastAccessAt": {
           "name": "lastAccessAt",
           "type": "timestamp",
@@ -662,13 +741,6 @@
             "stripeSessionId"
           ],
           "isUnique": true
-        },
-        "doctorTokenHashIdx": {
-          "name": "doctorTokenHashIdx",
-          "columns": [
-            "doctorTokenHash"
-          ],
-          "isUnique": false
         }
       },
       "foreignKeys": {

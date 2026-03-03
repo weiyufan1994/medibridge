@@ -7,6 +7,9 @@ vi.mock("./modules/appointments/repo", () => ({
   markAppointmentPendingPayment: vi.fn(),
   insertStatusEvent: vi.fn(),
   getAppointmentById: vi.fn(),
+  getLatestAppointmentTokenIssuedAt: vi.fn(),
+  listActiveAppointmentTokens: vi.fn(),
+  createAppointmentTokenIfMissing: vi.fn(),
   updateAppointmentById: vi.fn(),
 }));
 vi.mock("./_core/mailer", () => ({
@@ -26,8 +29,7 @@ import * as aiRepo from "./modules/ai/repo";
 import { createStripeCheckoutSession } from "./modules/payments/stripe";
 import { sendMagicLinkEmail } from "./_core/mailer";
 import { hashToken } from "./_core/appointmentToken";
-import { setCachedPatientAccessToken } from "./modules/appointments/tokenCache";
-import { appointmentsRouter } from "./appointmentsRouter";
+import { appointmentsRouter, validateAppointmentToken } from "./appointmentsRouter";
 
 function createTestContext(): TrpcContext {
   return {
@@ -60,6 +62,15 @@ describe("appointments router", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.NODE_ENV = "development";
+    vi.mocked(appointmentsRepo.createAppointmentTokenIfMissing).mockResolvedValue(
+      undefined as never
+    );
+    vi.mocked(appointmentsRepo.getLatestAppointmentTokenIssuedAt).mockResolvedValue(
+      null as never
+    );
+    vi.mocked(appointmentsRepo.listActiveAppointmentTokens).mockResolvedValue(
+      [] as never
+    );
 
     vi.mocked(aiRepo.getAiChatSessionById).mockResolvedValue({
       id: 99,
@@ -238,9 +249,7 @@ describe("appointments router", () => {
   });
 
   it("resendLink succeeds for paid appointment and returns usable link", async () => {
-    const token = "paid_token_for_resend_1234567890";
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    setCachedPatientAccessToken(202, token, expiresAt);
 
     vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue({
       id: 202,
@@ -256,7 +265,7 @@ describe("appointments router", () => {
       email: "user@example.com",
       sessionId: null,
       userId: 1,
-      accessTokenHash: hashToken(token),
+      accessTokenHash: "legacy_hash_patient",
       doctorTokenHash: "hash_doctor",
       accessTokenExpiresAt: expiresAt,
       accessTokenRevokedAt: null,
@@ -275,11 +284,161 @@ describe("appointments router", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(result.devLink).toContain(`/appointment/202?t=${encodeURIComponent(token)}`);
+    expect(result.devLink).toContain("/appointment/202?t=");
     expect(sendMagicLinkEmail).toHaveBeenCalledTimes(1);
     expect(sendMagicLinkEmail).toHaveBeenCalledWith(
       "user@example.com",
-      expect.stringContaining(`/appointment/202?t=${encodeURIComponent(token)}`)
+      expect.stringContaining("/appointment/202?t=")
+    );
+    expect(appointmentsRepo.createAppointmentTokenIfMissing).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appointmentId: 202,
+        role: "patient",
+        tokenHash: expect.any(String),
+      })
     );
   });
+
+  it("resendLink rejects when another patient token was issued within 60 seconds", async () => {
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue({
+      id: 203,
+      doctorId: 11,
+      triageSessionId: 99,
+      appointmentType: "video_call",
+      scheduledAt: new Date("2026-03-03T09:00:00.000Z"),
+      status: "paid",
+      paymentStatus: "paid",
+      amount: 4900,
+      currency: "usd",
+      paidAt: new Date("2026-03-03T08:00:00.000Z"),
+      email: "user@example.com",
+      sessionId: null,
+      userId: 1,
+      accessTokenHash: "legacy_hash_patient",
+      doctorTokenHash: "hash_doctor",
+      accessTokenExpiresAt: expiresAt,
+      accessTokenRevokedAt: null,
+      doctorTokenRevokedAt: null,
+      lastAccessAt: null,
+      doctorLastAccessAt: null,
+      stripeSessionId: "cs_paid",
+      createdAt: new Date("2026-03-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+    } as never);
+    vi.mocked(appointmentsRepo.getLatestAppointmentTokenIssuedAt).mockResolvedValue(
+      new Date(Date.now() - 30_000) as never
+    );
+
+    const caller = appointmentsRouter.createCaller(createTestContext());
+
+    await expect(
+      caller.resendLink({
+        appointmentId: 203,
+      })
+    ).rejects.toThrow("Please wait at least 60 seconds before resending again");
+    expect(sendMagicLinkEmail).not.toHaveBeenCalled();
+    expect(appointmentsRepo.createAppointmentTokenIfMissing).not.toHaveBeenCalled();
+  });
+
+  it("resendLink allows resend again after 60 seconds", async () => {
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue({
+      id: 204,
+      doctorId: 11,
+      triageSessionId: 99,
+      appointmentType: "video_call",
+      scheduledAt: new Date("2026-03-03T09:00:00.000Z"),
+      status: "paid",
+      paymentStatus: "paid",
+      amount: 4900,
+      currency: "usd",
+      paidAt: new Date("2026-03-03T08:00:00.000Z"),
+      email: "user@example.com",
+      sessionId: null,
+      userId: 1,
+      accessTokenHash: "legacy_hash_patient",
+      doctorTokenHash: "hash_doctor",
+      accessTokenExpiresAt: expiresAt,
+      accessTokenRevokedAt: null,
+      doctorTokenRevokedAt: null,
+      lastAccessAt: null,
+      doctorLastAccessAt: null,
+      stripeSessionId: "cs_paid",
+      createdAt: new Date("2026-03-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+    } as never);
+    vi.mocked(appointmentsRepo.getLatestAppointmentTokenIssuedAt).mockResolvedValue(
+      new Date(Date.now() - 61_000) as never
+    );
+    vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined as never);
+
+    const caller = appointmentsRouter.createCaller(createTestContext());
+    const result = await caller.resendLink({
+      appointmentId: 204,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(sendMagicLinkEmail).toHaveBeenCalledTimes(1);
+    expect(appointmentsRepo.createAppointmentTokenIfMissing).toHaveBeenCalledTimes(1);
+  });
+
+  it("validateAppointmentToken accepts multiple active patient tokens in parallel", async () => {
+    const token1 = "patient_token_1_1234567890";
+    const token2 = "patient_token_2_1234567890";
+    const token1Hash = hashToken(token1);
+    const token2Hash = hashToken(token2);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue({
+      id: 303,
+      doctorId: 11,
+      triageSessionId: 99,
+      appointmentType: "video_call",
+      scheduledAt: new Date("2026-03-03T09:00:00.000Z"),
+      status: "paid",
+      paymentStatus: "paid",
+      amount: 4900,
+      currency: "usd",
+      paidAt: new Date("2026-03-03T08:00:00.000Z"),
+      email: "user@example.com",
+      sessionId: null,
+      userId: 1,
+      accessTokenHash: null,
+      doctorTokenHash: null,
+      accessTokenExpiresAt: expiresAt,
+      accessTokenRevokedAt: null,
+      doctorTokenRevokedAt: null,
+      lastAccessAt: null,
+      doctorLastAccessAt: null,
+      stripeSessionId: "cs_paid",
+      createdAt: new Date("2026-03-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+    } as never);
+    vi.mocked(appointmentsRepo.listActiveAppointmentTokens).mockResolvedValue([
+      {
+        id: 1,
+        appointmentId: 303,
+        role: "patient",
+        tokenHash: token1Hash,
+        expiresAt,
+        revokedAt: null,
+      },
+      {
+        id: 2,
+        appointmentId: 303,
+        role: "patient",
+        tokenHash: token2Hash,
+        expiresAt,
+        revokedAt: null,
+      },
+    ] as never);
+
+    const hitToken2 = await validateAppointmentToken(303, token2, "join_room");
+    const hitToken1 = await validateAppointmentToken(303, token1, "join_room");
+
+    expect(hitToken2.role).toBe("patient");
+    expect(hitToken1.role).toBe("patient");
+    expect(appointmentsRepo.createAppointmentTokenIfMissing).not.toHaveBeenCalled();
+  });
+
 });

@@ -29,6 +29,13 @@ vi.mock("./modules/auth/repo", () => ({
 
 vi.mock("./modules/appointments/repo", () => ({
   bindAppointmentsToUserByEmail: vi.fn(),
+  getActiveAppointmentTokenByHash: vi.fn(),
+  getAppointmentById: vi.fn(),
+  updateAppointmentById: vi.fn(),
+}));
+
+vi.mock("./appointmentsRouter", () => ({
+  validateAppointmentToken: vi.fn(),
 }));
 
 vi.mock("./_core/sdk", () => ({
