@@ -180,7 +180,10 @@ export const authRouter = router({
         });
       }
 
-      if (!verifyToken(parsedToken, appointment.accessTokenHash)) {
+      if (
+        !appointment.accessTokenHash ||
+        !verifyToken(parsedToken, appointment.accessTokenHash)
+      ) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "Invalid magic link token",
@@ -194,7 +197,10 @@ export const authRouter = router({
         });
       }
 
-      if (appointment.accessTokenExpiresAt.getTime() <= Date.now()) {
+      if (
+        !appointment.accessTokenExpiresAt ||
+        appointment.accessTokenExpiresAt.getTime() <= Date.now()
+      ) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Magic link has expired",

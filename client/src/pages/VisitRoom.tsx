@@ -14,6 +14,80 @@ import { VisitMessagesList } from "@/features/visit/components/VisitMessagesList
 import { useVisits } from "@/features/visit/hooks/useVisits";
 import { getVisitCopy } from "@/features/visit/copy";
 
+const TRIAGE_SUMMARY_LABEL_MAP = {
+  complaint: { zh: "主诉", en: "Chief complaint" },
+  duration: { zh: "持续时间", en: "Duration" },
+  trigger: { zh: "诱因", en: "Trigger" },
+  severity: { zh: "严重程度", en: "Severity" },
+  impact: { zh: "对日常活动影响", en: "Impact on daily activities" },
+  history: { zh: "既往史", en: "Medical history" },
+  medications: { zh: "用药史", en: "Medication history" },
+  allergies: { zh: "过敏史", en: "Allergy history" },
+  age: { zh: "年龄段", en: "Age group" },
+  otherSymptoms: { zh: "其他症状", en: "Other symptoms" },
+} as const;
+
+const TRIAGE_SUMMARY_LABEL_ALIASES: Record<string, keyof typeof TRIAGE_SUMMARY_LABEL_MAP> = {
+  "chief complaint": "complaint",
+  complaint: "complaint",
+  "main complaint": "complaint",
+  主诉: "complaint",
+  duration: "duration",
+  持续时间: "duration",
+  trigger: "trigger",
+  triggers: "trigger",
+  诱因: "trigger",
+  severity: "severity",
+  严重程度: "severity",
+  "impact on daily activities": "impact",
+  "daily activity impact": "impact",
+  "activity impact": "impact",
+  "对日常活动影响": "impact",
+  "medical history": "history",
+  history: "history",
+  既往史: "history",
+  "medication history": "medications",
+  medications: "medications",
+  meds: "medications",
+  用药史: "medications",
+  "allergy history": "allergies",
+  allergies: "allergies",
+  过敏史: "allergies",
+  age: "age",
+  "age group": "age",
+  年龄段: "age",
+  "other symptoms": "otherSymptoms",
+  "associated symptoms": "otherSymptoms",
+  其他症状: "otherSymptoms",
+} as const;
+
+function localizeTriageSummary(summary: string, lang: "en" | "zh"): string {
+  const normalized = summary
+    .split(/[;；]/)
+    .map(part => part.trim())
+    .filter(Boolean)
+    .map(part => {
+      const match = part.match(/^([^:：]+)\s*[:：]\s*(.+)$/);
+      if (!match) {
+        return part;
+      }
+
+      const rawLabel = match[1].trim();
+      const value = match[2].trim();
+      const aliasKey =
+        TRIAGE_SUMMARY_LABEL_ALIASES[rawLabel.toLowerCase()] ??
+        TRIAGE_SUMMARY_LABEL_ALIASES[rawLabel];
+      if (!aliasKey) {
+        return part;
+      }
+
+      const localizedLabel = TRIAGE_SUMMARY_LABEL_MAP[aliasKey][lang];
+      return `${localizedLabel}: ${value}`;
+    });
+
+  return normalized.join(lang === "zh" ? "； " : "; ");
+}
+
 function parseTokenFromLocation(): string {
   if (typeof window === "undefined") {
     return "";
@@ -35,10 +109,21 @@ function getAppointmentTypeLabel(
 
 function isInSession(
   scheduledAt: Date | null,
-  status: "pending" | "confirmed" | "rescheduled" | "completed" | "cancelled"
+  status:
+    | "draft"
+    | "pending_payment"
+    | "paid"
+    | "confirmed"
+    | "in_session"
+    | "completed"
+    | "expired"
+    | "refunded"
 ) {
-  if (status === "completed" || status === "cancelled") {
+  if (status === "completed" || status === "expired" || status === "refunded") {
     return false;
+  }
+  if (status === "in_session") {
+    return true;
   }
   if (!scheduledAt) {
     return false;
@@ -73,8 +158,9 @@ export default function VisitRoomPage() {
     () => ({
       appointmentId: validInput ? appointmentId : 1,
       token: validInput ? token : "invalid-token-000",
+      lang: resolved,
     }),
-    [appointmentId, token, validInput]
+    [appointmentId, token, validInput, resolved]
   );
 
   const appointmentQuery = trpc.appointments.getByToken.useQuery(accessInput, {
@@ -95,8 +181,11 @@ export default function VisitRoomPage() {
     isReconnecting,
     messages,
     messagesQuery,
+    hasMoreHistory,
+    isLoadingOlder,
     sendMutation,
     setContent,
+    loadOlderMessages,
     handleSend,
     showInitialSkeleton,
   } = useVisits({
@@ -184,6 +273,8 @@ export default function VisitRoomPage() {
     viewerRole === "doctor"
       ? `${resolved === "zh" ? "患者摘要" : "Patient context"} · ${patientIdentity}`
       : `${departmentName} · ${appointmentType}`;
+  const triageSummary = appointment.triageSummary?.trim() ?? "";
+  const localizedTriageSummary = localizeTriageSummary(triageSummary, resolved);
 
   return (
     <AppLayout title={pageTitle}>
@@ -234,9 +325,16 @@ export default function VisitRoomPage() {
                 <p className="text-xs text-slate-500">{scheduledTimeText}</p>
               </div>
             </div>
-            <p className="mt-2 text-xs text-slate-400">
-              {t.historyRetentionNote}
-            </p>
+            {triageSummary.length > 0 ? (
+              <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-medium text-slate-700">
+                  {resolved === "zh" ? "AI 分诊摘要" : "AI Triage Summary"}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                  {localizedTriageSummary}
+                </p>
+              </div>
+            ) : null}
           </header>
 
           <Separator />
@@ -244,6 +342,9 @@ export default function VisitRoomPage() {
           <VisitMessagesList
             showInitialSkeleton={showInitialSkeleton}
             messages={messages}
+            hasMoreHistory={hasMoreHistory}
+            isLoadingOlder={isLoadingOlder}
+            onLoadOlder={() => void loadOlderMessages()}
             scrollContainerRef={scrollContainerRef}
             emptyStateText={t.noMessages}
           />

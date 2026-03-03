@@ -51,6 +51,10 @@ describe("visit router", () => {
         appointmentId: 9001,
         senderType: "doctor",
         content: "请补充症状",
+        originalContent: "请补充症状",
+        translatedContent: "请补充症状",
+        sourceLanguage: "zh",
+        targetLanguage: "zh",
         clientMsgId: null,
         createdAt: newer,
       },
@@ -59,6 +63,10 @@ describe("visit router", () => {
         appointmentId: 9001,
         senderType: "patient",
         content: "我发烧了",
+        originalContent: "我发烧了",
+        translatedContent: "我发烧了",
+        sourceLanguage: "zh",
+        targetLanguage: "zh",
         clientMsgId: "c1",
         createdAt: older,
       },
@@ -73,7 +81,8 @@ describe("visit router", () => {
 
     expect(validateAppointmentToken).toHaveBeenCalledWith(
       9001,
-      "patient_token_1234567890"
+      "patient_token_1234567890",
+      "read_history"
     );
     expect(visitRepo.getRecentMessages).toHaveBeenCalledWith(9001, 50);
     expect(result.messages).toEqual([
@@ -81,6 +90,10 @@ describe("visit router", () => {
         id: 1,
         senderType: "patient",
         content: "我发烧了",
+        originalContent: "我发烧了",
+        translatedContent: "我发烧了",
+        sourceLanguage: "zh",
+        targetLanguage: "zh",
         createdAt: older,
         clientMsgId: "c1",
       },
@@ -88,6 +101,10 @@ describe("visit router", () => {
         id: 2,
         senderType: "doctor",
         content: "请补充症状",
+        originalContent: "请补充症状",
+        translatedContent: "请补充症状",
+        sourceLanguage: "zh",
+        targetLanguage: "zh",
         createdAt: newer,
         clientMsgId: null,
       },

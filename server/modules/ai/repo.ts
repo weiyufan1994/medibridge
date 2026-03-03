@@ -8,10 +8,10 @@ export async function createAiChatSession(userId: number) {
     throw new Error("Database not available");
   }
 
-  const insertResult = await db.insert(aiChatSessions).values({
-    userId,
-    status: "active",
-  });
+  // Use explicit column list to stay compatible with partially migrated schemas.
+  const insertResult = await db.execute(
+    sql`insert into ai_chat_sessions (userId, status) values (${userId}, ${"active"})`
+  );
 
   const directInsertId = Number(
     (insertResult as { insertId?: number })?.insertId ??
@@ -166,4 +166,25 @@ export async function updateAiChatSessionStatus(
       updatedAt: new Date(),
     })
     .where(eq(aiChatSessions.id, sessionId));
+}
+
+export async function setAiChatSessionSummaryIfEmpty(
+  sessionId: number,
+  summary: string
+) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  await db
+    .update(aiChatSessions)
+    .set({
+      summary,
+      summaryGeneratedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(eq(aiChatSessions.id, sessionId), sql`${aiChatSessions.summary} is null`)
+    );
 }

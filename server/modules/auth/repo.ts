@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import {
+  aiChatSessions,
   appointmentMessages,
   appointments,
   InsertUser,
@@ -270,4 +271,9 @@ export async function mergeGuestDataIntoFormalUser(input: {
     .update(appointmentMessages)
     .set({ userId: input.formalUserId })
     .where(eq(appointmentMessages.userId, input.guestUserId));
+
+  await db
+    .update(aiChatSessions)
+    .set({ userId: input.formalUserId })
+    .where(eq(aiChatSessions.userId, input.guestUserId));
 }

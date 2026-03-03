@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useRoute } from "wouter";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -13,6 +13,16 @@ function parseTokenFromLocation(): string {
     return "";
   }
   return new URLSearchParams(window.location.search).get("t")?.trim() || "";
+}
+
+function parseMockStripeSessionIdFromLocation(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return (
+    new URLSearchParams(window.location.search).get("mockStripeSessionId")?.trim() ||
+    ""
+  );
 }
 
 function toDate(value: Date | string | null): Date | null {
@@ -42,7 +52,9 @@ export default function AppointmentAccessPage() {
   const pageTitle = "预约确认 / Appointment";
   const appointmentId = Number(params?.id ?? NaN);
   const token = parseTokenFromLocation();
-  const validInput = Number.isInteger(appointmentId) && appointmentId > 0 && token.length >= 16;
+  const mockStripeSessionId = parseMockStripeSessionIdFromLocation();
+  const validAppointmentId = Number.isInteger(appointmentId) && appointmentId > 0;
+  const validInput = validAppointmentId && token.length >= 16;
 
   const queryInput = useMemo(
     () => ({
@@ -55,6 +67,16 @@ export default function AppointmentAccessPage() {
   const appointmentQuery = trpc.appointments.getByToken.useQuery(queryInput, {
     enabled: validInput,
     retry: 0,
+  });
+  const confirmMockCheckoutMutation = trpc.payments.confirmMockCheckout.useMutation({
+    onSuccess: result => {
+      if (result.devPatientLink && typeof window !== "undefined") {
+        window.location.href = result.devPatientLink;
+      }
+    },
+    onError: error => {
+      toast.error(error.message || "Failed to confirm mock payment.");
+    },
   });
 
   const [newScheduledAt, setNewScheduledAt] = useState("");
@@ -87,6 +109,18 @@ export default function AppointmentAccessPage() {
       toast.error(error.message || "Failed to resend link.");
     },
   });
+  const resendDoctorMutation = trpc.appointments.resendDoctorLink.useMutation({
+    onSuccess: result => {
+      if (result.devDoctorLink) {
+        toast.success(`Doctor link generated: ${result.devDoctorLink}`);
+      } else {
+        toast.success("Doctor magic link re-generated.");
+      }
+    },
+    onError: error => {
+      toast.error(error.message || "Failed to resend doctor link.");
+    },
+  });
 
   const handleJoin = async () => {
     try {
@@ -105,6 +139,26 @@ export default function AppointmentAccessPage() {
     }
   };
 
+  useEffect(() => {
+    if (!validAppointmentId) {
+      return;
+    }
+    if (!mockStripeSessionId) {
+      return;
+    }
+    if (confirmMockCheckoutMutation.isPending || confirmMockCheckoutMutation.isSuccess) {
+      return;
+    }
+
+    void confirmMockCheckoutMutation.mutateAsync({
+      stripeSessionId: mockStripeSessionId,
+    });
+  }, [
+    validAppointmentId,
+    mockStripeSessionId,
+    confirmMockCheckoutMutation,
+  ]);
+
   if (!validInput) {
     return (
       <AppLayout title={pageTitle}>
@@ -114,7 +168,14 @@ export default function AppointmentAccessPage() {
               <CardTitle>Invalid appointment link</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm text-slate-600">
-              <p>Missing or invalid appointment id/token in URL.</p>
+              {mockStripeSessionId ? (
+                <p>
+                  Payment is being confirmed. Please wait for redirect to your
+                  visit link.
+                </p>
+              ) : (
+                <p>Missing or invalid appointment id/token in URL.</p>
+              )}
               <Link href="/triage">
                 <Button variant="outline">Go to AI triage</Button>
               </Link>
@@ -167,8 +228,10 @@ export default function AppointmentAccessPage() {
             <p>Doctor ID: {appointment.doctorId}</p>
             <p>Type: {appointment.appointmentType}</p>
             <p>Status: {appointment.status}</p>
+            <p>Payment: {appointment.paymentStatus}</p>
             <p>Email: {appointment.email}</p>
             <p>Session ID: {appointment.sessionId || "-"}</p>
+            <p>Triage Session ID: {appointment.triageSessionId}</p>
             <p>Scheduled At: {scheduledAt ? scheduledAt.toLocaleString() : "-"}</p>
           </CardContent>
         </Card>
@@ -212,6 +275,22 @@ export default function AppointmentAccessPage() {
               >
                 {resendMutation.isPending ? "Sending..." : "Resend Link"}
               </Button>
+              {import.meta.env.DEV && (
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    void resendDoctorMutation.mutateAsync({
+                      appointmentId,
+                      email: appointment.email,
+                    })
+                  }
+                  disabled={resendDoctorMutation.isPending}
+                >
+                  {resendDoctorMutation.isPending
+                    ? "Generating..."
+                    : "Resend Doctor Link"}
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 onClick={() => void handleJoin()}

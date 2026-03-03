@@ -4,6 +4,7 @@ import { ChevronLeft, Hospital, Stethoscope } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getHomeCopy } from "@/features/home/copy";
 import { Button } from "@/components/ui/button";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 
@@ -21,7 +22,8 @@ export default function AppLayout({
   children,
 }: AppLayoutProps) {
   const [, setLocation] = useLocation();
-  const { mode, setMode } = useLanguage();
+  const { resolved } = useLanguage();
+  const homeCopy = getHomeCopy(resolved);
   const utils = trpc.useUtils();
 
   const meQuery = trpc.auth.me.useQuery(undefined, {
@@ -81,10 +83,14 @@ export default function AppLayout({
       utils.auth.me.setData(undefined, null);
       await utils.auth.me.invalidate();
       setLocation("/");
-      toast.success("已退出登录");
+      toast.success(resolved === "zh" ? "已退出登录" : "Signed out");
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Logout failed, please retry."
+        error instanceof Error
+          ? error.message
+          : resolved === "zh"
+            ? "退出失败，请重试。"
+            : "Logout failed, please retry."
       );
     }
   };
@@ -114,7 +120,7 @@ export default function AppLayout({
                 MediBridge
               </p>
               <p className="text-sm text-muted-foreground">
-                AI-Powered Medical Bridge to China
+                {homeCopy.brandSubtitle}
               </p>
             </div>
           </div>
@@ -128,7 +134,7 @@ export default function AppLayout({
                   size="sm"
                   onClick={() => setLocation("/dashboard")}
                 >
-                  个人中心
+                  {homeCopy.dashboard}
                 </Button>
                 <Button
                   type="button"
@@ -136,7 +142,7 @@ export default function AppLayout({
                   size="sm"
                   onClick={() => void handleLogout()}
                 >
-                  退出登录
+                  {homeCopy.logout}
                 </Button>
               </>
             ) : null}
@@ -150,7 +156,7 @@ export default function AppLayout({
               onClick={() => setLocation("/hospitals")}
             >
               <Hospital className="mr-2 h-4 w-4" />
-              Browse Hospitals
+              {homeCopy.browseHospitals}
             </Button>
             <LanguageSwitcher />
           </div>

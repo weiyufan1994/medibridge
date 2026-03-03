@@ -1,4 +1,5 @@
 import type { RefObject } from "react";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VisitMessageBubble } from "@/features/visit/components/VisitMessageBubble";
@@ -7,6 +8,9 @@ import type { VisitMessageItem } from "@/features/visit/types";
 type VisitMessagesListProps = {
   showInitialSkeleton: boolean;
   messages: VisitMessageItem[];
+  hasMoreHistory: boolean;
+  isLoadingOlder: boolean;
+  onLoadOlder: () => void;
   scrollContainerRef: RefObject<HTMLDivElement | null>;
   emptyStateText: string;
 };
@@ -14,6 +18,9 @@ type VisitMessagesListProps = {
 export function VisitMessagesList({
   showInitialSkeleton,
   messages,
+  hasMoreHistory,
+  isLoadingOlder,
+  onLoadOlder,
   scrollContainerRef,
   emptyStateText,
 }: VisitMessagesListProps) {
@@ -22,6 +29,19 @@ export function VisitMessagesList({
       <div ref={scrollContainerRef} className="h-full">
         <ScrollArea className="h-full">
           <div className="p-5">
+            {hasMoreHistory ? (
+              <div className="mb-3 flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isLoadingOlder}
+                  onClick={onLoadOlder}
+                >
+                  {isLoadingOlder ? "Loading..." : "Load earlier messages"}
+                </Button>
+              </div>
+            ) : null}
             {showInitialSkeleton ? (
               <div className="space-y-3">
                 <div className="flex justify-start">

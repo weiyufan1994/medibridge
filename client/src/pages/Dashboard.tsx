@@ -52,6 +52,10 @@ export default function DashboardPage() {
       id: item.id,
       senderType: "system",
       content: `#${item.id} · ${toAppointmentTypeLabel(item.appointmentType)} · ${item.status} · ${formatDateTime(item.scheduledAt)}`,
+      originalContent: `#${item.id} · ${toAppointmentTypeLabel(item.appointmentType)} · ${item.status} · ${formatDateTime(item.scheduledAt)}`,
+      translatedContent: `#${item.id} · ${toAppointmentTypeLabel(item.appointmentType)} · ${item.status} · ${formatDateTime(item.scheduledAt)}`,
+      sourceLanguage: "auto",
+      targetLanguage: "auto",
       createdAt: item.createdAt,
       clientMsgId: null,
     }));

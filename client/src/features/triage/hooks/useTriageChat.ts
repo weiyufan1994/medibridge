@@ -47,6 +47,11 @@ const getInitialAssistantMessage = (lang: "en" | "zh"): ChatMessage => {
 const detectTriageLanguage = (text: string): "en" | "zh" =>
   /[\u4e00-\u9fff]/.test(text) ? "zh" : "en";
 
+const isSessionAccessDeniedError = (error: TRPCClientError<any>) =>
+  error.data?.code === "FORBIDDEN" &&
+  typeof error.message === "string" &&
+  error.message.includes("not allowed to access this triage session");
+
 export function useTriageChat({
   resolved,
   reportInput,
@@ -177,18 +182,20 @@ export function useTriageChat({
         activeSessionId = String(created.sessionId);
         setTriageSessionId(activeSessionId);
       } catch (error) {
-        if (
-          error instanceof TRPCClientError &&
-          error.data?.code === "FORBIDDEN"
-        ) {
+        if (error instanceof TRPCClientError) {
           const message = error.message || "无法创建问诊会话";
           setRequestError(message);
-          if (message.includes("游客试用额度已尽")) {
-            setQuotaMessage(message);
-            setQuotaDialogOpen(true);
-          } else {
-            toast.error(message);
+          if (error.data?.code === "FORBIDDEN") {
+            if (message.includes("游客试用额度已尽")) {
+              setQuotaMessage(message);
+              setQuotaDialogOpen(true);
+            } else {
+              toast.error(message);
+            }
+            return;
           }
+
+          toast.error(message);
           return;
         }
         throw error;
@@ -216,11 +223,29 @@ export function useTriageChat({
     try {
       const inputLang = detectTriageLanguage(content);
       const inputText = getTriageCopy(inputLang);
-      const result = await sendMessageMutation.mutateAsync({
-        sessionId: numericSessionId,
-        content,
-        lang: inputLang,
-      });
+      let result: Awaited<ReturnType<typeof sendMessageMutation.mutateAsync>>;
+
+      try {
+        result = await sendMessageMutation.mutateAsync({
+          sessionId: numericSessionId,
+          content,
+          lang: inputLang,
+        });
+      } catch (error) {
+        if (error instanceof TRPCClientError && isSessionAccessDeniedError(error)) {
+          const recreated = await createSessionMutation.mutateAsync();
+          const refreshedSessionId = String(recreated.sessionId);
+          setTriageSessionId(refreshedSessionId);
+          result = await sendMessageMutation.mutateAsync({
+            sessionId: Number(refreshedSessionId),
+            content,
+            lang: inputLang,
+          });
+        } else {
+          throw error;
+        }
+      }
+
       const normalizedResult = result as {
         isComplete: boolean;
         reply: string;
@@ -282,6 +307,13 @@ export function useTriageChat({
       console.error("[AITriageChat] sendMessage error:", error);
       const inputLang = detectTriageLanguage(content);
       const inputText = getTriageCopy(inputLang);
+      if (error instanceof TRPCClientError) {
+        const message = error.message || inputText.requestError;
+        setRequestError(message);
+        toast.error(message);
+        return;
+      }
+
       setRequestError(inputText.requestError);
       pushAssistantMessage(inputText.fallbackReply);
     }

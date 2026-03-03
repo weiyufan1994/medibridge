@@ -57,6 +57,9 @@ export function useVisits({
   const [messages, setMessages] = useState<VisitMessageItem[]>([]);
   const [content, setContent] = useState("");
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [olderCursor, setOlderCursor] = useState<string | null>(null);
+  const [hasMoreHistory, setHasMoreHistory] = useState(false);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const shouldAutoScrollRef = useRef(true);
   const lastMessageRef = useRef<VisitMessageItem | null>(null);
   const utils = trpc.useUtils();
@@ -103,6 +106,8 @@ export function useVisits({
     }));
 
     setMessages(initialMessages);
+    setOlderCursor(messagesQuery.data.nextCursor ?? null);
+    setHasMoreHistory(messagesQuery.data.hasMore);
     shouldAutoScrollRef.current = true;
     requestAnimationFrame(() => scrollToBottom("auto"));
   }, [messagesQuery.data]);
@@ -175,6 +180,8 @@ export function useVisits({
       const result = await sendMutation.mutateAsync({
         ...accessInput,
         content: nextContent,
+        sourceLanguage: resolved,
+        targetLanguage: resolved,
         clientMsgId,
       });
 
@@ -185,6 +192,10 @@ export function useVisits({
             id: result.id,
             senderType: result.senderType,
             content: nextContent,
+            originalContent: nextContent,
+            translatedContent: nextContent,
+            sourceLanguage: resolved,
+            targetLanguage: resolved,
             createdAt: toDate(result.createdAt),
             clientMsgId,
           },
@@ -200,6 +211,31 @@ export function useVisits({
     }
   }
 
+  async function loadOlderMessages() {
+    if (!olderCursor || isLoadingOlder) {
+      return;
+    }
+
+    setIsLoadingOlder(true);
+    try {
+      const result = await utils.visit.getMessagesByToken.fetch({
+        ...accessInput,
+        beforeCursor: olderCursor,
+        limit: 50,
+      });
+      if (result.messages.length > 0) {
+        setMessages(prev => mergeMessages(result.messages, prev));
+      }
+      setOlderCursor(result.nextCursor);
+      setHasMoreHistory(result.hasMore);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t.sendFailed;
+      toast.error(message);
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  }
+
   const showInitialSkeleton = messagesQuery.isLoading && messages.length === 0;
 
   return {
@@ -207,8 +243,11 @@ export function useVisits({
     isReconnecting,
     messages,
     messagesQuery,
+    hasMoreHistory,
+    isLoadingOlder,
     sendMutation,
     setContent,
+    loadOlderMessages,
     handleSend,
     showInitialSkeleton,
   };

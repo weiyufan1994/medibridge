@@ -205,6 +205,12 @@ export const aiRouter = router({
 
       if (triageResult.isComplete) {
         await aiRepo.updateAiChatSessionStatus(session.id, "completed");
+        if (triageResult.summary && triageResult.summary.trim().length > 0) {
+          await aiRepo.setAiChatSessionSummaryIfEmpty(
+            session.id,
+            triageResult.summary.trim()
+          );
+        }
       }
 
       return {

@@ -78,36 +78,9 @@ export function useAppointmentForm({
   const createAppointmentMutation = trpc.appointments.create.useMutation({
     onSuccess: async result => {
       toast.success(t.bookingSuccess);
-
-      if (typeof window !== "undefined" && result.devDoctorLink) {
-        const doctorLink = result.devDoctorLink;
-        const copiedTip =
-          resolved === "zh"
-            ? "医生会诊链接已复制到剪贴板（开发环境）。"
-            : "Doctor visit link copied to clipboard (development mode).";
-        const fallbackTip =
-          resolved === "zh"
-            ? "医生会诊链接已输出到控制台（开发环境）。"
-            : "Doctor visit link printed in console (development mode).";
-
-        try {
-          if (window.isSecureContext && navigator.clipboard?.writeText) {
-            await navigator.clipboard.writeText(doctorLink);
-            toast.message(copiedTip);
-          } else {
-            toast.message(fallbackTip);
-          }
-        } catch {
-          toast.message(fallbackTip);
-        }
-
-        console.info("[Appointment][DEV] Patient link:", result.devLink);
-        console.info("[Appointment][DEV] Doctor link:", doctorLink);
-      }
-
       onBooked();
-      if (result.devLink && typeof window !== "undefined") {
-        window.location.href = result.devLink;
+      if (typeof window !== "undefined") {
+        window.location.href = result.checkoutUrl;
       }
     },
     onError: error => {
@@ -154,6 +127,16 @@ export function useAppointmentForm({
     }
     const normalizedSessionId =
       sessionId.trim().length > 0 ? sessionId.trim() : undefined;
+    const triageSessionId = Number(normalizedSessionId ?? NaN);
+
+    if (!Number.isInteger(triageSessionId) || triageSessionId <= 0) {
+      toast.error(
+        resolved === "zh"
+          ? "请先完成 AI 分诊后再预约医生。"
+          : "Please complete AI triage before booking a doctor."
+      );
+      return;
+    }
 
     if (requiresOtpFlow) {
       if (bookingOtpCode.trim().length !== 6) {
@@ -186,6 +169,7 @@ export function useAppointmentForm({
 
         await createAppointmentMutation.mutateAsync({
           doctorId,
+          triageSessionId,
           appointmentType: bookingType,
           scheduledAt: new Date(bookingScheduledAt).toISOString(),
           email: createEmail,
@@ -198,6 +182,7 @@ export function useAppointmentForm({
     }
     await createAppointmentMutation.mutateAsync({
       doctorId,
+      triageSessionId,
       appointmentType: bookingType,
       scheduledAt: new Date(bookingScheduledAt).toISOString(),
       email: createEmail,

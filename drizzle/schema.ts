@@ -215,6 +215,8 @@ export const aiChatSessions = mysqlTable(
     status: mysqlEnum("status", ["active", "completed"])
       .default("active")
       .notNull(),
+    summary: text("summary"),
+    summaryGeneratedAt: timestamp("summaryGeneratedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
@@ -258,6 +260,9 @@ export const appointments = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     sessionId: varchar("sessionId", { length: 64 }),
+    triageSessionId: int("triageSessionId")
+      .notNull()
+      .references(() => aiChatSessions.id, { onDelete: "restrict" }),
     userId: int("userId").references(() => users.id, { onDelete: "set null" }),
     doctorId: int("doctorId").notNull(),
     appointmentType: mysqlEnum("appointmentType", [
@@ -267,18 +272,35 @@ export const appointments = mysqlTable(
     ]).notNull(),
     scheduledAt: timestamp("scheduledAt"),
     status: mysqlEnum("status", [
-      "pending",
+      "draft",
+      "pending_payment",
+      "paid",
       "confirmed",
-      "rescheduled",
+      "in_session",
       "completed",
-      "cancelled",
+      "expired",
+      "refunded",
     ])
-      .default("pending")
+      .default("draft")
       .notNull(),
+    paymentStatus: mysqlEnum("paymentStatus", [
+      "unpaid",
+      "pending",
+      "paid",
+      "failed",
+      "expired",
+      "refunded",
+    ])
+      .default("unpaid")
+      .notNull(),
+    stripeSessionId: varchar("stripeSessionId", { length: 255 }),
+    amount: int("amount").notNull().default(1),
+    currency: varchar("currency", { length: 8 }).notNull().default("usd"),
+    paidAt: timestamp("paidAt"),
     email: varchar("email", { length: 320 }).notNull(),
-    accessTokenHash: varchar("accessTokenHash", { length: 128 }).notNull(),
+    accessTokenHash: varchar("accessTokenHash", { length: 128 }),
     doctorTokenHash: varchar("doctorTokenHash", { length: 128 }),
-    accessTokenExpiresAt: timestamp("accessTokenExpiresAt").notNull(),
+    accessTokenExpiresAt: timestamp("accessTokenExpiresAt"),
     accessTokenRevokedAt: timestamp("accessTokenRevokedAt"),
     doctorTokenRevokedAt: timestamp("doctorTokenRevokedAt"),
     lastAccessAt: timestamp("lastAccessAt"),
@@ -291,7 +313,11 @@ export const appointments = mysqlTable(
     doctorIdx: index("doctorIdx").on(table.doctorId),
     userIdx: index("userIdx").on(table.userId),
     sessionIdx: index("sessionIdx").on(table.sessionId),
+    triageSessionIdx: index("triageSessionIdx").on(table.triageSessionId),
     emailIdx: index("emailIdx").on(table.email),
+    stripeSessionIdUk: uniqueIndex("appointmentsStripeSessionIdUk").on(
+      table.stripeSessionId
+    ),
     doctorTokenHashIdx: index("doctorTokenHashIdx").on(table.doctorTokenHash),
   })
 );
@@ -314,6 +340,11 @@ export const appointmentMessages = mysqlTable(
       "system",
     ]).notNull(),
     content: text("content").notNull(),
+    originalContent: text("originalContent"),
+    translatedContent: text("translatedContent"),
+    sourceLanguage: varchar("sourceLanguage", { length: 8 }),
+    targetLanguage: varchar("targetLanguage", { length: 8 }),
+    translationProvider: varchar("translationProvider", { length: 64 }),
     clientMsgId: varchar("clientMsgId", { length: 128 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
@@ -331,3 +362,41 @@ export const appointmentMessages = mysqlTable(
 
 export type AppointmentMessage = typeof appointmentMessages.$inferSelect;
 export type InsertAppointmentMessage = typeof appointmentMessages.$inferInsert;
+
+/**
+ * Appointment status event log table - tracks all critical status transitions.
+ */
+export const appointmentStatusEvents = mysqlTable(
+  "appointment_status_events",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    appointmentId: int("appointmentId")
+      .notNull()
+      .references(() => appointments.id, { onDelete: "cascade" }),
+    fromStatus: varchar("fromStatus", { length: 64 }),
+    toStatus: varchar("toStatus", { length: 64 }).notNull(),
+    operatorType: mysqlEnum("operatorType", [
+      "system",
+      "patient",
+      "doctor",
+      "admin",
+      "webhook",
+    ]).notNull(),
+    operatorId: int("operatorId"),
+    reason: text("reason"),
+    payloadJson: json("payloadJson"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    appointmentIdx: index("appointmentStatusEventsAppointmentIdx").on(
+      table.appointmentId
+    ),
+    createdAtIdx: index("appointmentStatusEventsCreatedAtIdx").on(
+      table.createdAt
+    ),
+  })
+);
+
+export type AppointmentStatusEvent = typeof appointmentStatusEvents.$inferSelect;
+export type InsertAppointmentStatusEvent =
+  typeof appointmentStatusEvents.$inferInsert;

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { VisitMessageItem } from "@/features/visit/types";
 
@@ -12,6 +13,8 @@ export function VisitMessageBubble({
   showTimestamp,
   compactWithPrev,
 }: VisitMessageBubbleProps) {
+  const [showOriginal, setShowOriginal] = useState(false);
+
   if (message.senderType === "system") {
     return (
       <div
@@ -32,6 +35,12 @@ export function VisitMessageBubble({
   const timestampClass = isPatient
     ? "text-right text-[11px] text-slate-500"
     : "text-left text-[11px] text-slate-500";
+  const canToggleOriginal =
+    message.originalContent.trim().length > 0 &&
+    message.originalContent !== message.translatedContent;
+  const displayContent = showOriginal
+    ? message.originalContent
+    : message.translatedContent || message.content;
 
   return (
     <div
@@ -44,8 +53,20 @@ export function VisitMessageBubble({
             bubbleClass
           )}
         >
-          <p className="whitespace-pre-wrap break-words">{message.content}</p>
+          <p className="whitespace-pre-wrap break-words">{displayContent}</p>
         </div>
+        {canToggleOriginal ? (
+          <button
+            type="button"
+            className={cn(
+              "mt-1 text-[11px] underline underline-offset-2",
+              isPatient ? "text-right text-slate-500" : "text-left text-slate-500"
+            )}
+            onClick={() => setShowOriginal(current => !current)}
+          >
+            {showOriginal ? "Show translation" : "Show original"}
+          </button>
+        ) : null}
         {showTimestamp ? (
           <p className={cn("mt-1", timestampClass)}>
             {message.createdAt.toLocaleTimeString([], {

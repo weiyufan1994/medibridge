@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, lt, or } from "drizzle-orm";
 import {
   appointmentMessages,
   InsertPatientSession,
@@ -94,8 +94,14 @@ export async function getMessageByClientMsgId(
 
 export async function createMessage(input: {
   appointmentId: number;
+  userId?: number | null;
   senderType: "patient" | "doctor";
   content: string;
+  originalContent: string;
+  translatedContent: string;
+  sourceLanguage: string;
+  targetLanguage: string;
+  translationProvider?: string | null;
   clientMsgId?: string;
   createdAt: Date;
 }) {
@@ -106,11 +112,47 @@ export async function createMessage(input: {
 
   return db.insert(appointmentMessages).values({
     appointmentId: input.appointmentId,
+    userId: input.userId ?? null,
     senderType: input.senderType,
     content: input.content,
+    originalContent: input.originalContent,
+    translatedContent: input.translatedContent,
+    sourceLanguage: input.sourceLanguage,
+    targetLanguage: input.targetLanguage,
+    translationProvider: input.translationProvider ?? null,
     clientMsgId: input.clientMsgId ?? null,
     createdAt: input.createdAt,
   });
+}
+
+export async function getMessagesBeforeCursor(input: {
+  appointmentId: number;
+  beforeCreatedAt: Date;
+  beforeId: number;
+  limit: number;
+}) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  return db
+    .select()
+    .from(appointmentMessages)
+    .where(
+      and(
+        eq(appointmentMessages.appointmentId, input.appointmentId),
+        or(
+          lt(appointmentMessages.createdAt, input.beforeCreatedAt),
+          and(
+            eq(appointmentMessages.createdAt, input.beforeCreatedAt),
+            lt(appointmentMessages.id, input.beforeId)
+          )
+        )
+      )
+    )
+    .orderBy(desc(appointmentMessages.createdAt), desc(appointmentMessages.id))
+    .limit(input.limit);
 }
 
 export async function getLatestMessage(appointmentId: number) {
