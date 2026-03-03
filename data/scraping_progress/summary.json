@@ -1,12 +1,12 @@
 {
-  "last_updated": "2026-03-03 00:00:00",
+  "last_updated": "2026-03-03",
   "total_hospitals": 6,
   "total_depts": 123,
-  "completed_depts": 10,
+  "completed_depts": 11,
   "hospitals": {
     "上海市第九人民医院": {
       "total_depts": 22,
-      "completed_depts": 9
+      "completed_depts": 10
     },
     "中山医院": {
       "total_depts": 25,
