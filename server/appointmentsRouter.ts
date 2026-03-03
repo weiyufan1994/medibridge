@@ -71,13 +71,28 @@ const appointmentPublicSchema = z.object({
   lastAccessAt: z.date().nullable(),
 });
 
+const appointmentParticipantSchema = z.object({
+  role: z.enum(["patient", "doctor"]),
+  patient: z.object({
+    email: z.string().email(),
+    sessionId: z.string().nullable(),
+  }),
+  doctor: z.object({
+    id: z.number().int().positive(),
+  }),
+});
+
+const appointmentAccessOutputSchema = appointmentPublicSchema.extend({
+  ...appointmentParticipantSchema.shape,
+});
+
 const createOutputSchema = z.object({
   appointmentId: z.number().int().positive(),
   devLink: z.string().url().optional(),
   devDoctorLink: z.string().url().optional(),
 });
 
-const joinInfoOutputSchema = z.object({
+const joinInfoOutputSchema = appointmentParticipantSchema.extend({
   appointmentId: z.number().int().positive(),
   joinUrl: z.string().url(),
 });
@@ -130,6 +145,20 @@ function buildVisitUrl(
   token: string
 ): string {
   return `${baseUrl}/visit/${appointmentId}?t=${encodeURIComponent(token)}`;
+}
+
+function getPublicUrlBase(): string {
+  const configuredPublicUrl = process.env.PUBLIC_URL?.trim();
+  return (configuredPublicUrl || "http://localhost:5173").replace(/\/$/, "");
+}
+
+function buildVisitDebugUrl(
+  baseUrl: string,
+  appointmentId: number,
+  token: string
+): string {
+  const encodedToken = encodeURIComponent(token);
+  return `${baseUrl}/visit/${appointmentId}?t=${encodedToken}&token=${encodedToken}`;
 }
 
 function toPublicAppointment(appointment: typeof appointments.$inferSelect) {
@@ -292,6 +321,14 @@ export const appointmentsRouter = router({
     .input(createInputSchema)
     .output(createOutputSchema)
     .mutation(async ({ input, ctx }) => {
+      const currentUserEmail = ctx.user?.email?.trim().toLowerCase();
+      if (!currentUserEmail || currentUserEmail !== input.email) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "请先验证您的邮箱以确认身份",
+        });
+      }
+
       const patientToken = generateToken();
       const patientTokenHash = hashToken(patientToken);
       const doctorToken = generateToken();
@@ -323,6 +360,34 @@ export const appointmentsRouter = router({
       );
       const doctorLink = buildVisitUrl(baseUrl, appointmentId, doctorToken);
 
+      // TODO: 未来在此接入向医生发送包含专属链接的短信/邮件通知 API。
+      if (process.env.NODE_ENV !== "production") {
+        const publicUrlBase = getPublicUrlBase();
+        const patientUrl = buildVisitDebugUrl(
+          publicUrlBase,
+          appointmentId,
+          patientToken
+        );
+        const doctorUrl = buildVisitDebugUrl(
+          publicUrlBase,
+          appointmentId,
+          doctorToken
+        );
+
+        console.log(
+          [
+            "",
+            "============================================================",
+            "=== MediBridge Local Visit Entry Links =====================",
+            `【医生端】${doctorUrl}`,
+            "医生端请复制到浏览器的无痕模式打开以避免 Cookie 冲突",
+            `【患者端】${patientUrl}`,
+            "============================================================",
+            "",
+          ].join("\n")
+        );
+      }
+
       await sendMagicLinkEmail(input.email, patientLink);
 
       return {
@@ -336,13 +401,23 @@ export const appointmentsRouter = router({
 
   getByToken: publicProcedure
     .input(accessInputSchema)
-    .output(appointmentPublicSchema)
+    .output(appointmentAccessOutputSchema)
     .query(async ({ input }) => {
-      const { appointment } = await validateAppointmentToken(
+      const { appointment, role } = await validateAppointmentToken(
         input.appointmentId,
         input.token
       );
-      return toPublicAppointment(appointment);
+      return {
+        ...toPublicAppointment(appointment),
+        role,
+        patient: {
+          email: appointment.email,
+          sessionId: appointment.sessionId,
+        },
+        doctor: {
+          id: appointment.doctorId,
+        },
+      };
     }),
 
   rescheduleByToken: publicProcedure
@@ -384,12 +459,19 @@ export const appointmentsRouter = router({
         input.appointmentId,
         input.token
       );
-      assertPatientRole(role);
       const baseUrl = getBaseUrl(ctx);
 
       return {
         appointmentId: appointment.id,
         joinUrl: buildVisitUrl(baseUrl, appointment.id, input.token),
+        role,
+        patient: {
+          email: appointment.email,
+          sessionId: appointment.sessionId,
+        },
+        doctor: {
+          id: appointment.doctorId,
+        },
       };
     }),
 

@@ -15,6 +15,7 @@ import { Stethoscope, Hospital, ArrowRight, CheckCircle2 } from "lucide-react";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getHomeCopy } from "@/features/home/copy";
 
 const DISCLAIMER_KEY = "medibridge_disclaimer_accepted_v1";
 
@@ -22,6 +23,7 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const { isAuthenticated, openLoginModal, logout } = useAuth();
   const { resolved } = useLanguage();
+  const t = getHomeCopy(resolved);
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
   const [disclaimerAccepted, setDisclaimerAccepted] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -55,10 +57,6 @@ export default function Home() {
     setDisclaimerOpen(true);
   };
 
-  const loginCta = resolved === "zh" ? "登录/注册" : "Sign in / Register";
-  const dashboardCta = resolved === "zh" ? "个人中心" : "Dashboard";
-  const logoutCta = resolved === "zh" ? "退出登录" : "Sign out";
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-accent/20">
       <header className="sticky top-0 z-10 border-b bg-card/80 backdrop-blur-sm">
@@ -70,30 +68,30 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-foreground">MediBridge</h1>
-                <p className="text-sm text-muted-foreground">AI-Powered Medical Bridge to China</p>
+                <p className="text-sm text-muted-foreground">{t.brandSubtitle}</p>
               </div>
             </div>
             <div className="flex gap-2">
               {!isAuthenticated ? (
                 <Button variant="outline" size="sm" onClick={openLoginModal}>
-                  {loginCta}
+                  {t.login}
                 </Button>
               ) : (
                 <>
                   <Link href="/dashboard">
                     <Button variant="outline" size="sm">
-                      {dashboardCta}
+                      {t.dashboard}
                     </Button>
                   </Link>
                   <Button variant="ghost" size="sm" onClick={() => void logout()}>
-                    {logoutCta}
+                    {t.logout}
                   </Button>
                 </>
               )}
               <Link href="/hospitals">
                 <Button variant="ghost" size="sm">
                   <Hospital className="mr-2 h-4 w-4" />
-                  Browse Hospitals
+                  {t.browseHospitals}
                 </Button>
               </Link>
               <LanguageSwitcher />
@@ -108,22 +106,18 @@ export default function Home() {
             <div className="mb-6 inline-flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
               <Stethoscope className="h-10 w-10 text-primary" />
             </div>
-            <h2 className="mb-4 text-4xl font-bold text-foreground md:text-5xl">
-              Connect with Top Chinese Medical Experts
-            </h2>
+            <h2 className="mb-4 text-4xl font-bold text-foreground md:text-5xl">{t.heroTitle}</h2>
             <p className="mx-auto mb-8 max-w-3xl text-xl text-muted-foreground">
-              MediBridge uses AI to match you with the best doctors and specialists from
-              Shanghai&apos;s premier hospitals. Get expert medical opinions and treatment options in
-              China.
+              {t.heroDescription}
             </p>
             <div className="flex flex-col justify-center gap-4 sm:flex-row">
               <Button size="lg" className="px-8 text-lg" onClick={handleStartConsultation}>
-                Start Consultation
+                {t.startConsultation}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <Link href="/hospitals">
                 <Button size="lg" variant="outline" className="px-8 text-lg">
-                  Browse Hospitals
+                  {t.browseHospitals}
                 </Button>
               </Link>
             </div>
@@ -135,13 +129,10 @@ export default function Home() {
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
                   <CheckCircle2 className="h-6 w-6 text-primary" />
                 </div>
-                <CardTitle>AI-Powered Matching</CardTitle>
+                <CardTitle>{t.feature1Title}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">
-                  Our intelligent system analyzes your symptoms and medical needs to recommend the
-                  most suitable specialists.
-                </p>
+                <p className="text-muted-foreground">{t.feature1Description}</p>
               </CardContent>
             </Card>
 
@@ -150,14 +141,9 @@ export default function Home() {
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
                   <Hospital className="h-6 w-6 text-primary" />
                 </div>
-                <CardTitle>Top Hospitals</CardTitle>
+                <CardTitle>{t.feature2Title}</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Access over 1,100 doctors from 6 prestigious Grade-A tertiary hospitals in
-                  Shanghai.
-                </p>
-              </CardContent>
+              <CardContent><p className="text-muted-foreground">{t.feature2Description}</p></CardContent>
             </Card>
 
             <Card>
@@ -165,80 +151,69 @@ export default function Home() {
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
                   <Stethoscope className="h-6 w-6 text-primary" />
                 </div>
-                <CardTitle>Expert Specialists</CardTitle>
+                <CardTitle>{t.feature3Title}</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Connect with highly-rated specialists across cardiology, oncology, orthopedics,
-                  and more.
-                </p>
-              </CardContent>
+              <CardContent><p className="text-muted-foreground">{t.feature3Description}</p></CardContent>
             </Card>
           </div>
 
           <div className="rounded-lg border bg-card p-8">
-            <h3 className="mb-8 text-center text-2xl font-bold">How It Works</h3>
+            <h3 className="mb-8 text-center text-2xl font-bold">{t.howItWorks}</h3>
             <div className="grid gap-8 md:grid-cols-3">
               <div className="text-center">
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
                   1
                 </div>
-                <h4 className="mb-2 font-semibold">Describe Your Condition</h4>
-                <p className="text-sm text-muted-foreground">
-                  Chat with our AI assistant about your symptoms and medical history
-                </p>
+                <h4 className="mb-2 font-semibold">{t.step1Title}</h4>
+                <p className="text-sm text-muted-foreground">{t.step1Description}</p>
               </div>
               <div className="text-center">
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
                   2
                 </div>
-                <h4 className="mb-2 font-semibold">Get Recommendations</h4>
-                <p className="text-sm text-muted-foreground">
-                  Receive personalized doctor recommendations based on your needs
-                </p>
+                <h4 className="mb-2 font-semibold">{t.step2Title}</h4>
+                <p className="text-sm text-muted-foreground">{t.step2Description}</p>
               </div>
               <div className="text-center">
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
                   3
                 </div>
-                <h4 className="mb-2 font-semibold">Connect with Doctors</h4>
-                <p className="text-sm text-muted-foreground">
-                  View detailed profiles and connect with your chosen specialists
-                </p>
+                <h4 className="mb-2 font-semibold">{t.step3Title}</h4>
+                <p className="text-sm text-muted-foreground">{t.step3Description}</p>
               </div>
             </div>
           </div>
 
           <div className="mt-12 text-center">
-            <p className="mb-4 text-muted-foreground">Try asking about:</p>
+            <p className="mb-4 text-muted-foreground">{t.tryAsking}</p>
             <div className="flex flex-wrap justify-center gap-3">
               <Badge
                 variant="secondary"
                 className="cursor-pointer px-4 py-2 text-sm hover:bg-secondary/80"
                 onClick={handleQuickStart}
               >
-                Heart Problems
+                {t.tag1}
               </Badge>
               <Badge
                 variant="secondary"
                 className="cursor-pointer px-4 py-2 text-sm hover:bg-secondary/80"
                 onClick={handleQuickStart}
               >
-                Cancer Screening
+                {t.tag2}
               </Badge>
               <Badge
                 variant="secondary"
                 className="cursor-pointer px-4 py-2 text-sm hover:bg-secondary/80"
                 onClick={handleQuickStart}
               >
-                Joint Pain
+                {t.tag3}
               </Badge>
               <Badge
                 variant="secondary"
                 className="cursor-pointer px-4 py-2 text-sm hover:bg-secondary/80"
                 onClick={handleQuickStart}
               >
-                Neurological Issues
+                {t.tag4}
               </Badge>
             </div>
           </div>
@@ -248,24 +223,18 @@ export default function Home() {
       <Dialog open={disclaimerOpen} onOpenChange={setDisclaimerOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Medical Disclaimer</DialogTitle>
-            <DialogDescription>
-              AI recommendations are only for triage and doctor matching. They are not a diagnosis
-              and do not replace professional medical care.
-            </DialogDescription>
+            <DialogTitle>{t.disclaimerTitle}</DialogTitle>
+            <DialogDescription>{t.disclaimerDescription}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2 text-sm text-muted-foreground">
-            <p>Do not share highly sensitive identity details (ID/passport numbers) in chat.</p>
-            <p>
-              If you have severe chest pain, breathing distress, stroke signs, heavy bleeding, or
-              other emergencies, call local emergency services immediately.
-            </p>
+            <p>{t.disclaimerLine1}</p>
+            <p>{t.disclaimerLine2}</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDisclaimerOpen(false)}>
-              Cancel
+              {t.cancel}
             </Button>
-            <Button onClick={handleAcceptDisclaimer}>I Understand</Button>
+            <Button onClick={handleAcceptDisclaimer}>{t.understand}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

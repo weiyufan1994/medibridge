@@ -6,6 +6,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import AppLayout from "@/components/layout/AppLayout";
 
 function parseTokenFromLocation(): string {
   if (typeof window === "undefined") {
@@ -38,6 +39,7 @@ function toDateTimeInputValue(value: Date | string | null): string {
 export default function AppointmentAccessPage() {
   const [, setLocation] = useLocation();
   const [, params] = useRoute<{ id: string }>("/appointment/:id");
+  const pageTitle = "预约确认 / Appointment";
   const appointmentId = Number(params?.id ?? NaN);
   const token = parseTokenFromLocation();
   const validInput = Number.isInteger(appointmentId) && appointmentId > 0 && token.length >= 16;
@@ -105,42 +107,48 @@ export default function AppointmentAccessPage() {
 
   if (!validInput) {
     return (
-      <main className="mx-auto max-w-2xl p-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Invalid appointment link</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-slate-600">
-            <p>Missing or invalid appointment id/token in URL.</p>
-            <Link href="/triage">
-              <Button variant="outline">Go to AI triage</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </main>
+      <AppLayout title={pageTitle}>
+        <div className="mx-auto max-w-2xl py-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Invalid appointment link</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-slate-600">
+              <p>Missing or invalid appointment id/token in URL.</p>
+              <Link href="/triage">
+                <Button variant="outline">Go to AI triage</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </AppLayout>
     );
   }
 
   if (appointmentQuery.isLoading) {
     return (
-      <main className="mx-auto flex max-w-2xl items-center justify-center p-8">
-        <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
-      </main>
+      <AppLayout title={pageTitle}>
+        <div className="mx-auto flex max-w-2xl items-center justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
+        </div>
+      </AppLayout>
     );
   }
 
   if (appointmentQuery.error || !appointmentQuery.data) {
     return (
-      <main className="mx-auto max-w-2xl p-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Link unavailable</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-slate-600">
-            <p>{appointmentQuery.error?.message || "Appointment not found."}</p>
-          </CardContent>
-        </Card>
-      </main>
+      <AppLayout title={pageTitle}>
+        <div className="mx-auto max-w-2xl py-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Link unavailable</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-slate-600">
+              <p>{appointmentQuery.error?.message || "Appointment not found."}</p>
+            </CardContent>
+          </Card>
+        </div>
+      </AppLayout>
     );
   }
 
@@ -148,71 +156,73 @@ export default function AppointmentAccessPage() {
   const scheduledAt = toDate(appointment.scheduledAt);
 
   return (
-    <main className="mx-auto max-w-2xl space-y-4 p-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Appointment Detail</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm text-slate-700">
-          <p>Appointment ID: {appointment.id}</p>
-          <p>Doctor ID: {appointment.doctorId}</p>
-          <p>Type: {appointment.appointmentType}</p>
-          <p>Status: {appointment.status}</p>
-          <p>Email: {appointment.email}</p>
-          <p>Session ID: {appointment.sessionId || "-"}</p>
-          <p>Scheduled At: {scheduledAt ? scheduledAt.toLocaleString() : "-"}</p>
-        </CardContent>
-      </Card>
+    <AppLayout title={pageTitle}>
+      <div className="mx-auto max-w-2xl space-y-4 py-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Appointment Detail</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-slate-700">
+            <p>Appointment ID: {appointment.id}</p>
+            <p>Doctor ID: {appointment.doctorId}</p>
+            <p>Type: {appointment.appointmentType}</p>
+            <p>Status: {appointment.status}</p>
+            <p>Email: {appointment.email}</p>
+            <p>Session ID: {appointment.sessionId || "-"}</p>
+            <p>Scheduled At: {scheduledAt ? scheduledAt.toLocaleString() : "-"}</p>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Manage Appointment</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Input
-            type="datetime-local"
-            value={newScheduledAt || toDateTimeInputValue(appointment.scheduledAt)}
-            onChange={event => setNewScheduledAt(event.target.value)}
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button
-              onClick={() => {
-                if (!newScheduledAt) {
-                  toast.error("Please choose a new date/time.");
-                  return;
+        <Card>
+          <CardHeader>
+            <CardTitle>Manage Appointment</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Input
+              type="datetime-local"
+              value={newScheduledAt || toDateTimeInputValue(appointment.scheduledAt)}
+              onChange={event => setNewScheduledAt(event.target.value)}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => {
+                  if (!newScheduledAt) {
+                    toast.error("Please choose a new date/time.");
+                    return;
+                  }
+                  void rescheduleMutation.mutateAsync({
+                    appointmentId,
+                    token,
+                    newScheduledAt: new Date(newScheduledAt).toISOString(),
+                  });
+                }}
+                disabled={rescheduleMutation.isPending}
+              >
+                {rescheduleMutation.isPending ? "Rescheduling..." : "Reschedule"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  void resendMutation.mutateAsync({
+                    appointmentId,
+                    email: appointment.email,
+                  })
                 }
-                void rescheduleMutation.mutateAsync({
-                  appointmentId,
-                  token,
-                  newScheduledAt: new Date(newScheduledAt).toISOString(),
-                });
-              }}
-              disabled={rescheduleMutation.isPending}
-            >
-              {rescheduleMutation.isPending ? "Rescheduling..." : "Reschedule"}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() =>
-                void resendMutation.mutateAsync({
-                  appointmentId,
-                  email: appointment.email,
-                })
-              }
-              disabled={resendMutation.isPending}
-            >
-              {resendMutation.isPending ? "Sending..." : "Resend Link"}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => void handleJoin()}
-              disabled={isJoining}
-            >
-              {isJoining ? "Preparing..." : "Enter Visit Room"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </main>
+                disabled={resendMutation.isPending}
+              >
+                {resendMutation.isPending ? "Sending..." : "Resend Link"}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => void handleJoin()}
+                disabled={isJoining}
+              >
+                {isJoining ? "Preparing..." : "Enter Visit Room"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </AppLayout>
   );
 }

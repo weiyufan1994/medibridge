@@ -16,7 +16,8 @@ vi.mock("./_core/appointmentToken", () => ({
   generateToken: vi
     .fn()
     .mockReturnValueOnce("patient_token_1234567890")
-    .mockReturnValueOnce("doctor_token_1234567890"),
+    .mockReturnValueOnce("doctor_token_1234567890")
+    .mockReturnValue("token_default"),
   hashToken: vi.fn((token: string) => `hash:${token}`),
   verifyToken: vi.fn(),
 }));
@@ -27,7 +28,21 @@ import { appointmentsRouter } from "./appointmentsRouter";
 
 function createTestContext(): TrpcContext {
   return {
-    user: null,
+    user: {
+      id: 1,
+      openId: "guest_openid",
+      name: null,
+      email: "user@example.com",
+      isGuest: 1,
+      deviceId: "device_1",
+      loginMethod: "guest",
+      role: "free",
+      createdAt: new Date("2026-03-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+      lastSignedIn: new Date("2026-03-01T00:00:00.000Z"),
+    },
+    userId: 1,
+    deviceId: "device_1",
     req: {
       protocol: "https",
       headers: { host: "medibridge.test" },
@@ -98,11 +113,37 @@ describe("appointments router", () => {
     expect(sendMagicLinkEmail).not.toHaveBeenCalled();
   });
 
+  it("create rejects when current user email is missing or mismatched", async () => {
+    const ctx = createTestContext();
+    ctx.user = {
+      ...ctx.user!,
+      email: "another@example.com",
+    };
+    const caller = appointmentsRouter.createCaller(ctx);
+
+    await expect(
+      caller.create({
+        doctorId: 11,
+        appointmentType: "video_call",
+        scheduledAt: new Date("2026-03-03T09:00:00.000Z"),
+        email: "user@example.com",
+      })
+    ).rejects.toThrow("请先验证您的邮箱以确认身份");
+
+    expect(appointmentsRepo.createAppointment).not.toHaveBeenCalled();
+    expect(sendMagicLinkEmail).not.toHaveBeenCalled();
+  });
+
   it("create resolves insert id via fallback lookup when insertId missing", async () => {
     vi.mocked(appointmentsRepo.createAppointment).mockResolvedValue({} as never);
     vi.mocked(appointmentsRepo.findLatestAppointmentIdByLookup).mockResolvedValue(456 as never);
 
-    const caller = appointmentsRouter.createCaller(createTestContext());
+    const ctx = createTestContext();
+    ctx.user = {
+      ...ctx.user!,
+      email: "fallback@example.com",
+    };
+    const caller = appointmentsRouter.createCaller(ctx);
     const scheduledAt = new Date("2026-03-03T10:00:00.000Z");
     const result = await caller.create({
       doctorId: 22,
@@ -119,4 +160,29 @@ describe("appointments router", () => {
     });
     expect(result.appointmentId).toBe(456);
   });
+
+  it("create keeps token links silent in production", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.PUBLIC_URL = "https://app.medibridge.test";
+    vi.mocked(appointmentsRepo.createAppointment).mockResolvedValue({
+      insertId: 789,
+    } as unknown as never);
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const caller = appointmentsRouter.createCaller(createTestContext());
+    const result = await caller.create({
+      doctorId: 11,
+      appointmentType: "video_call",
+      scheduledAt: new Date("2026-03-03T09:00:00.000Z"),
+      email: "user@example.com",
+    });
+
+    expect(logSpy).not.toHaveBeenCalled();
+    expect(result.devLink).toBeUndefined();
+    expect(result.devDoctorLink).toBeUndefined();
+
+    logSpy.mockRestore();
+    delete process.env.PUBLIC_URL;
+  });
+
 });

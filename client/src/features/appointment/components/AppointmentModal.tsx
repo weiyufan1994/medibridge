@@ -1,5 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -33,12 +38,20 @@ export function AppointmentModal({
   const t = getAppointmentCopy(resolved);
   const {
     bookingEmail,
+    bookingOtpCode,
+    isLoggedInWithEmail,
+    otpRequested,
+    otpCooldownSeconds,
+    requestOtpMutation,
+    canRequestOtp,
+    isSubmitting,
     bookingScheduledAt,
     bookingType,
-    createAppointmentMutation,
     setBookingEmail,
+    setBookingOtpCode,
     setBookingScheduledAt,
     setBookingType,
+    handleRequestOtp,
     handleCreateBooking,
   } = useAppointmentForm({
     doctorId,
@@ -56,16 +69,62 @@ export function AppointmentModal({
           <DialogDescription>{t.bookingDesc}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="booking-email">{t.bookingEmail}</Label>
-            <Input
-              id="booking-email"
-              type="email"
-              value={bookingEmail}
-              onChange={event => setBookingEmail(event.target.value)}
-              placeholder={t.bookingEmailPlaceholder}
-            />
-          </div>
+          {!isLoggedInWithEmail ? (
+            <>
+              <div className="space-y-1">
+                <Label htmlFor="booking-email">{t.bookingEmail}</Label>
+                <Input
+                  id="booking-email"
+                  type="email"
+                  value={bookingEmail}
+                  onChange={event => setBookingEmail(event.target.value)}
+                  placeholder={t.bookingEmailPlaceholder}
+                  disabled={isSubmitting}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-2 w-full"
+                  onClick={() => void handleRequestOtp()}
+                  disabled={!canRequestOtp}
+                >
+                  {requestOtpMutation.isPending
+                    ? t.bookingSendingOtp
+                    : otpCooldownSeconds > 0
+                      ? t.bookingOtpCooldown.replace(
+                          "{seconds}",
+                          String(otpCooldownSeconds)
+                        )
+                      : otpRequested
+                        ? t.bookingResendOtp
+                        : t.bookingSendOtp}
+                </Button>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="booking-otp">{t.bookingOtpLabel}</Label>
+                <InputOTP
+                  id="booking-otp"
+                  maxLength={6}
+                  value={bookingOtpCode}
+                  onChange={setBookingOtpCode}
+                  containerClassName="justify-start"
+                >
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+            </>
+          ) : (
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              {t.bookingEmail}: {bookingEmail}
+            </div>
+          )}
           <div className="space-y-1">
             <Label htmlFor="booking-time">{t.bookingTime}</Label>
             <Input
@@ -73,6 +132,7 @@ export function AppointmentModal({
               type="datetime-local"
               value={bookingScheduledAt}
               onChange={event => setBookingScheduledAt(event.target.value)}
+              disabled={isSubmitting}
             />
           </div>
           <div className="space-y-1">
@@ -84,6 +144,7 @@ export function AppointmentModal({
               onChange={event =>
                 setBookingType(event.target.value as AppointmentType)
               }
+              disabled={isSubmitting}
             >
               <option value="online_chat">{t.bookingTypeOnline}</option>
               <option value="video_call">{t.bookingTypeVideo}</option>
@@ -92,14 +153,18 @@ export function AppointmentModal({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+          >
             {t.bookingCancel}
           </Button>
           <Button
             onClick={() => void handleCreateBooking()}
-            disabled={createAppointmentMutation.isPending}
+            disabled={isSubmitting}
           >
-            {createAppointmentMutation.isPending
+            {isSubmitting
               ? t.bookingCreating
               : t.bookingConfirm}
           </Button>

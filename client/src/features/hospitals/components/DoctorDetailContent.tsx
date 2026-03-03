@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Hospital, Stethoscope, Star, ThumbsUp, Calendar, ExternalLink, Globe } from "lucide-react";
 import { getLocalizedField } from "@/lib/i18n";
+import { AppointmentModal } from "@/features/appointment/components/AppointmentModal";
 
 type Lang = "zh" | "en";
 
@@ -59,6 +61,7 @@ type Props = {
 
 export function DoctorDetailContent({ data, resolved }: Props) {
   const { doctor, hospital, department } = data;
+  const [bookingOpen, setBookingOpen] = useState(false);
   const doctorName = getLocalizedField({ lang: resolved, zh: doctor.name, en: doctor.nameEn });
   const doctorTitle = getLocalizedField({ lang: resolved, zh: doctor.title, en: doctor.titleEn });
   const doctorSpecialty = getLocalizedField({
@@ -130,7 +133,11 @@ export function DoctorDetailContent({ data, resolved }: Props) {
           </div>
 
           <div className="flex flex-wrap gap-3 mt-6">
-            <Button size="lg" className="flex-1 sm:flex-none">
+            <Button
+              size="lg"
+              className="flex-1 sm:flex-none"
+              onClick={() => setBookingOpen(true)}
+            >
               <Calendar className="w-4 h-4 mr-2" />
               Book Appointment
             </Button>
@@ -273,6 +280,14 @@ export function DoctorDetailContent({ data, resolved }: Props) {
           </Button>
         </CardContent>
       </Card>
+
+      <AppointmentModal
+        open={bookingOpen}
+        onOpenChange={setBookingOpen}
+        doctorId={doctor.id}
+        sessionId=""
+        resolved={resolved}
+      />
     </div>
   );
 }
