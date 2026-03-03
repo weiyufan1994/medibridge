@@ -1,7 +1,7 @@
 {
   "hospital_name": "上海市第九人民医院",
   "total_depts": 22,
-  "completed_depts": 8,
+  "completed_depts": 9,
   "departments": [
     {
       "dept_name": "口腔科",
@@ -78,11 +78,11 @@
     {
       "dept_name": "口腔粘膜病科",
       "url": "https://www.haodf.com/hospital/422/keshi/1466.html",
-      "status": "pending",
-      "doctors_scraped": 0,
-      "doctors_total": 0,
-      "last_updated": null,
-      "output_file": null
+      "status": "completed",
+      "doctors_scraped": 15,
+      "doctors_total": 15,
+      "last_updated": "2026-03-03",
+      "output_file": "上海市第九人民医院_口腔粘膜病科_医生信息_20260302.xlsx"
     },
     {
       "dept_name": "口腔种植科",
