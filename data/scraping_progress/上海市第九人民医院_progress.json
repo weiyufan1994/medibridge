@@ -1,7 +1,7 @@
 {
   "hospital_name": "上海市第九人民医院",
   "total_depts": 22,
-  "completed_depts": 11,
+  "completed_depts": 12,
   "departments": [
     {
       "dept_name": "口腔科",
@@ -105,11 +105,11 @@
     {
       "dept_name": "激光美容科",
       "url": "https://www.haodf.com/hospital/422/keshi/5662985156.html",
-      "status": "pending",
-      "doctors_scraped": 0,
-      "doctors_total": 0,
-      "last_updated": null,
-      "output_file": null
+      "status": "completed",
+      "doctors_scraped": 25,
+      "doctors_total": 25,
+      "last_updated": "2026-03-03",
+      "output_file": "上海市第九人民医院_激光美容科.xlsx"
     },
     {
       "dept_name": "口腔颅颌面科",
