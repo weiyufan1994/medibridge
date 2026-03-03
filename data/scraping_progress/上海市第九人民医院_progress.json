@@ -1,0 +1,205 @@
+{
+  "hospital_name": "上海市第九人民医院",
+  "total_depts": 22,
+  "completed_depts": 7,
+  "departments": [
+    {
+      "dept_name": "口腔科",
+      "url": "https://www.haodf.com/hospital/422/keshi/9597922647.html",
+      "status": "completed",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": "2026-03-02",
+      "output_file": null
+    },
+    {
+      "dept_name": "牙周病科",
+      "url": "https://www.haodf.com/hospital/422/keshi/1459.html",
+      "status": "completed",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": "2026-03-02",
+      "output_file": null
+    },
+    {
+      "dept_name": "口腔预防科",
+      "url": "https://www.haodf.com/hospital/422/keshi/1461.html",
+      "status": "completed",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": "2026-03-02",
+      "output_file": null
+    },
+    {
+      "dept_name": "口腔特需科",
+      "url": "https://www.haodf.com/hospital/422/keshi/8208.html",
+      "status": "completed",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": "2026-03-02",
+      "output_file": null
+    },
+    {
+      "dept_name": "儿童口腔科",
+      "url": "https://www.haodf.com/hospital/422/keshi/3824465390.html",
+      "status": "completed",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": "2026-03-02",
+      "output_file": null
+    },
+    {
+      "dept_name": "牙体牙髓科",
+      "url": "https://www.haodf.com/hospital/422/keshi/1483.html",
+      "status": "completed",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": "2026-03-02",
+      "output_file": null
+    },
+    {
+      "dept_name": "康复医学科",
+      "url": "https://www.haodf.com/hospital/422/keshi/107539.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "口腔粘膜病科",
+      "url": "https://www.haodf.com/hospital/422/keshi/1466.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "口腔种植科",
+      "url": "https://www.haodf.com/hospital/422/keshi/4146.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "口腔综合科",
+      "url": "https://www.haodf.com/hospital/422/keshi/4179.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "激光美容科",
+      "url": "https://www.haodf.com/hospital/422/keshi/5662985156.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "口腔颅颌面科",
+      "url": "https://www.haodf.com/hospital/422/keshi/9597803365.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "口腔修复科",
+      "url": "https://www.haodf.com/hospital/422/keshi/3525.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "耳鼻咽喉头颈外科",
+      "url": "https://www.haodf.com/hospital/422/keshi/1295.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "口腔正畸科",
+      "url": "https://www.haodf.com/hospital/422/keshi/1866703903.html",
+      "status": "completed",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": "2026-03-02",
+      "output_file": null
+    },
+    {
+      "dept_name": "口腔外科",
+      "url": "https://www.haodf.com/hospital/422/keshi/3519.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "口腔颌面-头颈肿瘤科",
+      "url": "https://www.haodf.com/hospital/422/keshi/2520278707.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "眼科",
+      "url": "https://www.haodf.com/hospital/422/keshi/1478.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "辅助生殖科",
+      "url": "https://www.haodf.com/hospital/422/keshi/69436.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "介入科",
+      "url": "https://www.haodf.com/hospital/422/keshi/2942465112.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "血管外科",
+      "url": "https://www.haodf.com/hospital/422/keshi/1477.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "整复外科",
+      "url": "https://www.haodf.com/hospital/422/keshi/1479.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    }
+  ]
+}
