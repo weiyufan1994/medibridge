@@ -1,7 +1,7 @@
 {
   "hospital_name": "上海市第九人民医院",
   "total_depts": 22,
-  "completed_depts": 7,
+  "completed_depts": 8,
   "departments": [
     {
       "dept_name": "口腔科",
@@ -58,13 +58,22 @@
       "output_file": null
     },
     {
-      "dept_name": "康复医学科",
-      "url": "https://www.haodf.com/hospital/422/keshi/107539.html",
-      "status": "pending",
+      "dept_name": "口腔正畸科",
+      "url": "https://www.haodf.com/hospital/422/keshi/1866703903.html",
+      "status": "completed",
       "doctors_scraped": 0,
       "doctors_total": 0,
-      "last_updated": null,
+      "last_updated": "2026-03-02",
       "output_file": null
+    },
+    {
+      "dept_name": "康复医学科",
+      "url": "https://www.haodf.com/hospital/422/keshi/107539.html",
+      "status": "completed",
+      "doctors_scraped": 14,
+      "doctors_total": 14,
+      "last_updated": "2026-03-03",
+      "output_file": "上海市第九人民医院_康复医学科_医生信息_20260302.xlsx"
     },
     {
       "dept_name": "口腔粘膜病科",
@@ -127,15 +136,6 @@
       "doctors_scraped": 0,
       "doctors_total": 0,
       "last_updated": null,
-      "output_file": null
-    },
-    {
-      "dept_name": "口腔正畸科",
-      "url": "https://www.haodf.com/hospital/422/keshi/1866703903.html",
-      "status": "completed",
-      "doctors_scraped": 0,
-      "doctors_total": 0,
-      "last_updated": "2026-03-02",
       "output_file": null
     },
     {
