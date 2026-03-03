@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { TRPCClientError } from "@trpc/client";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import type { VisitMessageItem } from "@/features/visit/types";
@@ -12,9 +13,13 @@ type VisitAccessInput = {
 type UseVisitsParams = {
   accessInput: VisitAccessInput;
   enabled: boolean;
+  canSend: boolean;
   scrollContainerRef: RefObject<HTMLDivElement | null>;
   resolved: "en" | "zh";
 };
+
+const POLL_BASE_INTERVAL_MS = 2500;
+const POLL_RETRY_DELAYS_MS = [2000, 5000, 10000] as const;
 
 function getClientMsgId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -47,9 +52,30 @@ function mergeMessages(
   });
 }
 
+function isFatalPollingError(error: unknown): boolean {
+  if (!(error instanceof TRPCClientError)) {
+    return false;
+  }
+
+  if (error.data?.code === "UNAUTHORIZED") {
+    return true;
+  }
+
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("magic link has expired") ||
+    message.includes("magic link has been revoked") ||
+    message.includes("doctor magic link has been revoked") ||
+    message.includes("invalid magic link token") ||
+    message.includes("token expired") ||
+    message.includes("token revoked")
+  );
+}
+
 export function useVisits({
   accessInput,
   enabled,
+  canSend,
   scrollContainerRef,
   resolved,
 }: UseVisitsParams) {
@@ -60,8 +86,12 @@ export function useVisits({
   const [olderCursor, setOlderCursor] = useState<string | null>(null);
   const [hasMoreHistory, setHasMoreHistory] = useState(false);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [pollingFatalError, setPollingFatalError] = useState<string | null>(null);
   const shouldAutoScrollRef = useRef(true);
   const lastMessageRef = useRef<VisitMessageItem | null>(null);
+  const pollTimerRef = useRef<number | null>(null);
+  const retryAttemptRef = useRef(0);
+  const pollingStoppedRef = useRef(false);
   const utils = trpc.useUtils();
 
   const messagesQuery = trpc.visit.getMessagesByToken.useQuery(
@@ -142,7 +172,29 @@ export function useVisits({
       return;
     }
 
-    const interval = window.setInterval(async () => {
+    pollingStoppedRef.current = false;
+    retryAttemptRef.current = 0;
+    setPollingFatalError(null);
+
+    const clearPollTimer = () => {
+      if (pollTimerRef.current !== null) {
+        window.clearTimeout(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
+
+    const schedulePoll = (delayMs: number) => {
+      clearPollTimer();
+      pollTimerRef.current = window.setTimeout(() => {
+        void runPoll();
+      }, delayMs);
+    };
+
+    const runPoll = async () => {
+      if (pollingStoppedRef.current) {
+        return;
+      }
+
       const lastMessage = lastMessageRef.current;
       try {
         const result = await utils.visit.pollNewMessagesByToken.fetch({
@@ -158,18 +210,41 @@ export function useVisits({
           setMessages(prev => mergeMessages(prev, result.messages));
         }
 
+        retryAttemptRef.current = 0;
         setIsReconnecting(false);
-      } catch {
+        schedulePoll(POLL_BASE_INTERVAL_MS);
+      } catch (error) {
+        if (isFatalPollingError(error)) {
+          pollingStoppedRef.current = true;
+          setIsReconnecting(false);
+          setPollingFatalError("Session expired. Request a new link.");
+          clearPollTimer();
+          return;
+        }
+
         setIsReconnecting(true);
+        const retryDelay =
+          POLL_RETRY_DELAYS_MS[
+            Math.min(retryAttemptRef.current, POLL_RETRY_DELAYS_MS.length - 1)
+          ];
+        retryAttemptRef.current += 1;
+        schedulePoll(retryDelay);
       }
-    }, 2500);
+    };
+
+    schedulePoll(POLL_BASE_INTERVAL_MS);
 
     return () => {
-      window.clearInterval(interval);
+      pollingStoppedRef.current = true;
+      clearPollTimer();
     };
   }, [accessInput, enabled, messagesQuery.data, utils.visit.pollNewMessagesByToken]);
 
   async function handleSend() {
+    if (!canSend || pollingFatalError) {
+      return;
+    }
+
     const nextContent = content.trim();
     if (!nextContent || sendMutation.isPending) {
       return;
@@ -245,6 +320,7 @@ export function useVisits({
     messagesQuery,
     hasMoreHistory,
     isLoadingOlder,
+    pollingFatalError,
     sendMutation,
     setContent,
     loadOlderMessages,

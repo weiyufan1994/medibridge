@@ -268,7 +268,6 @@ export default function AppointmentAccessPage() {
                 onClick={() =>
                   void resendMutation.mutateAsync({
                     appointmentId,
-                    email: appointment.email,
                   })
                 }
                 disabled={resendMutation.isPending}

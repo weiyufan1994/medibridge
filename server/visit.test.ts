@@ -15,7 +15,13 @@ vi.mock("./appointmentsRouter", () => ({
   validateAppointmentToken: vi.fn(),
 }));
 
+vi.mock("./modules/appointments/repo", () => ({
+  markAppointmentInSessionIfNeeded: vi.fn(),
+  insertStatusEvent: vi.fn(),
+}));
+
 import * as visitRepo from "./modules/visit/repo";
+import * as appointmentsRepo from "./modules/appointments/repo";
 import { validateAppointmentToken } from "./appointmentsRouter";
 import { visitRouter } from "./visitRouter";
 
@@ -33,6 +39,9 @@ function createTestContext(): TrpcContext {
 describe("visit router", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(appointmentsRepo.markAppointmentInSessionIfNeeded).mockResolvedValue(
+      null as never
+    );
     vi.mocked(validateAppointmentToken).mockResolvedValue({
       role: "patient",
       appointment: {
@@ -162,5 +171,55 @@ describe("visit router", () => {
       senderType: "patient",
     });
     expect(result.createdAt).toBeInstanceOf(Date);
+  });
+
+  it("sendMessageByToken logs in_session transition from paid", async () => {
+    vi.mocked(visitRepo.getMessageByClientMsgId).mockResolvedValue(null as never);
+    vi.mocked(visitRepo.createMessage).mockResolvedValue({ insertId: 101 } as never);
+    vi.mocked(appointmentsRepo.markAppointmentInSessionIfNeeded).mockResolvedValue(
+      "paid" as never
+    );
+
+    const caller = visitRouter.createCaller(createTestContext());
+    await caller.sendMessageByToken({
+      appointmentId: 9001,
+      token: "patient_token_1234567890",
+      content: "触发状态迁移",
+      clientMsgId: "msg-paid-state",
+    });
+
+    expect(appointmentsRepo.insertStatusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appointmentId: 9001,
+        fromStatus: "paid",
+        toStatus: "in_session",
+        reason: "first_visit_message",
+      })
+    );
+  });
+
+  it("sendMessageByToken logs in_session transition from confirmed", async () => {
+    vi.mocked(visitRepo.getMessageByClientMsgId).mockResolvedValue(null as never);
+    vi.mocked(visitRepo.createMessage).mockResolvedValue({ insertId: 102 } as never);
+    vi.mocked(appointmentsRepo.markAppointmentInSessionIfNeeded).mockResolvedValue(
+      "confirmed" as never
+    );
+
+    const caller = visitRouter.createCaller(createTestContext());
+    await caller.sendMessageByToken({
+      appointmentId: 9001,
+      token: "patient_token_1234567890",
+      content: "触发状态迁移2",
+      clientMsgId: "msg-confirmed-state",
+    });
+
+    expect(appointmentsRepo.insertStatusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appointmentId: 9001,
+        fromStatus: "confirmed",
+        toStatus: "in_session",
+        reason: "first_visit_message",
+      })
+    );
   });
 });

@@ -4,6 +4,7 @@ import * as appointmentsRepo from "./modules/appointments/repo";
 import { generateToken, hashToken } from "./_core/appointmentToken";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { sendMagicLinkEmail } from "./_core/mailer";
+import { setCachedPatientAccessToken } from "./modules/appointments/tokenCache";
 
 const paymentStatusSchema = z.enum([
   "unpaid",
@@ -24,6 +25,11 @@ const statusSchema = z.enum([
   "expired",
   "refunded",
 ]);
+const RESEND_ALLOWED_STATUS: appointmentsRepo.AppointmentStatus[] = [
+  "paid",
+  "confirmed",
+  "in_session",
+];
 
 const getStatusInputSchema = z.object({
   appointmentId: z.number().int().positive(),
@@ -40,6 +46,66 @@ const getStatusOutputSchema = z.object({
 const confirmMockInputSchema = z.object({
   stripeSessionId: z.string().min(8).max(255),
 });
+
+const getCheckoutResultInputSchema = z.object({
+  stripeSessionId: z.string().trim().min(1).max(255),
+});
+
+const getCheckoutResultOutputSchema = z.object({
+  appointmentId: z.number().int().positive(),
+  paymentStatus: paymentStatusSchema,
+  status: statusSchema,
+  email: z.string(),
+  lastAccessAt: z.string().nullable().optional(),
+  paidAt: z.string().nullable().optional(),
+  canResendLink: z.boolean(),
+  messageForUser: z.string(),
+});
+
+function maskEmail(email: string): string {
+  const [rawLocalPart, rawDomain] = email.split("@");
+  if (!rawLocalPart || !rawDomain) {
+    return "***";
+  }
+
+  if (rawLocalPart.length === 1) {
+    return `***@${rawDomain}`;
+  }
+
+  if (rawLocalPart.length === 2) {
+    return `${rawLocalPart[0]}***@${rawDomain}`;
+  }
+
+  return `${rawLocalPart[0]}***${rawLocalPart[rawLocalPart.length - 1]}@${rawDomain}`;
+}
+
+function createCheckoutResultMessage(input: {
+  paymentStatus: appointmentsRepo.PaymentStatus;
+  status: appointmentsRepo.AppointmentStatus;
+  canResendLink: boolean;
+}) {
+  if (input.canResendLink) {
+    return "Payment successful. You can resend your access link if needed.";
+  }
+
+  if (input.paymentStatus === "pending") {
+    return "Payment is still processing. Please refresh in a moment.";
+  }
+
+  if (input.paymentStatus === "failed") {
+    return "Payment failed. Please try checkout again.";
+  }
+
+  if (input.paymentStatus === "refunded" || input.status === "refunded") {
+    return "This payment was refunded. Please contact support for next steps.";
+  }
+
+  if (input.status === "expired" || input.paymentStatus === "expired") {
+    return "This appointment has expired. Please book a new appointment.";
+  }
+
+  return "Payment has not completed yet. Please finish checkout first.";
+}
 
 function computeDefaultTokenExpiry(scheduledAt: Date): Date {
   const expiresAt = new Date(scheduledAt.getTime() + 60 * 60 * 1000);
@@ -73,30 +139,45 @@ export async function settleStripePaymentBySessionId(input: {
   source: "webhook" | "mock";
   eventId?: string;
 }) {
+  const claimRows = await appointmentsRepo.tryMarkPaidByStripeSessionId({
+    stripeSessionId: input.stripeSessionId,
+  });
+
+  if (claimRows === 0) {
+    const appointment = await appointmentsRepo.getAppointmentByStripeSessionId(
+      input.stripeSessionId
+    );
+
+    if (!appointment) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Appointment not found for Stripe session",
+      });
+    }
+
+    if (appointment.paymentStatus === "paid") {
+      return {
+        appointment,
+        alreadySettled: true,
+        patientLink: null,
+        doctorLink: null,
+      };
+    }
+
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Appointment is not in settleable payment state",
+    });
+  }
+
   const appointment = await appointmentsRepo.getAppointmentByStripeSessionId(
     input.stripeSessionId
   );
 
   if (!appointment) {
     throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Appointment not found for Stripe session",
-    });
-  }
-
-  if (appointment.paymentStatus === "paid") {
-    return {
-      appointment,
-      alreadySettled: true,
-      patientLink: null,
-      doctorLink: null,
-    };
-  }
-
-  if (appointment.status !== "pending_payment" || appointment.paymentStatus !== "pending") {
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message: "Appointment is not in pending payment state",
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Appointment disappeared after payment settlement",
     });
   }
 
@@ -108,16 +189,25 @@ export async function settleStripePaymentBySessionId(input: {
     appointment.scheduledAt ?? new Date()
   );
 
-  await appointmentsRepo.markAppointmentPaid({
+  const tokenRows = await appointmentsRepo.trySetAppointmentAccessTokensIfEmpty({
     appointmentId: appointment.id,
     accessTokenHash: patientTokenHash,
     doctorTokenHash,
     accessTokenExpiresAt,
   });
 
+  if (tokenRows === 0) {
+    return {
+      appointment,
+      alreadySettled: true,
+      patientLink: null,
+      doctorLink: null,
+    };
+  }
+
   await appointmentsRepo.insertStatusEvent({
     appointmentId: appointment.id,
-    fromStatus: appointment.status,
+    fromStatus: "pending_payment",
     toStatus: "paid",
     operatorType: input.source === "webhook" ? "webhook" : "system",
     reason: input.source === "webhook" ? "stripe_webhook_paid" : "mock_payment_paid",
@@ -130,6 +220,7 @@ export async function settleStripePaymentBySessionId(input: {
   const baseUrl = getBaseUrl();
   const patientLink = buildAppointmentMagicLink(baseUrl, appointment.id, patientToken);
   const doctorLink = buildDoctorMagicLink(baseUrl, appointment.id, doctorToken);
+  setCachedPatientAccessToken(appointment.id, patientToken, accessTokenExpiresAt);
   await sendMagicLinkEmail(appointment.email, patientLink);
   if (process.env.NODE_ENV !== "production") {
     console.log(`[Payments][DEV] Patient link: ${patientLink}`);
@@ -149,6 +240,43 @@ export async function settleStripePaymentBySessionId(input: {
 }
 
 export const paymentsRouter = router({
+  getCheckoutResult: publicProcedure
+    .input(getCheckoutResultInputSchema)
+    .output(getCheckoutResultOutputSchema)
+    .query(async ({ input }) => {
+      const appointment = await appointmentsRepo.getCheckoutResultByStripeSessionId(
+        input.stripeSessionId
+      );
+
+      if (!appointment) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Appointment not found for Stripe session",
+        });
+      }
+
+      const canResendLink =
+        appointment.paymentStatus === "paid" &&
+        RESEND_ALLOWED_STATUS.includes(appointment.status);
+
+      return {
+        appointmentId: appointment.id,
+        paymentStatus: appointment.paymentStatus,
+        status: appointment.status,
+        email: maskEmail(appointment.email),
+        lastAccessAt: appointment.lastAccessAt
+          ? appointment.lastAccessAt.toISOString()
+          : null,
+        paidAt: appointment.paidAt ? appointment.paidAt.toISOString() : null,
+        canResendLink,
+        messageForUser: createCheckoutResultMessage({
+          paymentStatus: appointment.paymentStatus,
+          status: appointment.status,
+          canResendLink,
+        }),
+      };
+    }),
+
   getStatus: protectedProcedure
     .input(getStatusInputSchema)
     .output(getStatusOutputSchema)

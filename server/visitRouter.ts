@@ -107,16 +107,16 @@ function translateMessage(input: {
 
 async function markInSessionIfTransitioned(appointmentId: number) {
   try {
-    const transitioned = await appointmentsRepo.markAppointmentInSessionIfNeeded(
+    const fromStatus = await appointmentsRepo.markAppointmentInSessionIfNeeded(
       appointmentId
     );
-    if (!transitioned) {
+    if (!fromStatus) {
       return;
     }
 
     await appointmentsRepo.insertStatusEvent({
       appointmentId,
-      fromStatus: "paid",
+      fromStatus,
       toStatus: "in_session",
       operatorType: "system",
       reason: "first_visit_message",

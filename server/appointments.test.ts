@@ -9,6 +9,9 @@ vi.mock("./modules/appointments/repo", () => ({
   getAppointmentById: vi.fn(),
   updateAppointmentById: vi.fn(),
 }));
+vi.mock("./_core/mailer", () => ({
+  sendMagicLinkEmail: vi.fn(),
+}));
 
 vi.mock("./modules/ai/repo", () => ({
   getAiChatSessionById: vi.fn(),
@@ -21,6 +24,9 @@ vi.mock("./modules/payments/stripe", () => ({
 import * as appointmentsRepo from "./modules/appointments/repo";
 import * as aiRepo from "./modules/ai/repo";
 import { createStripeCheckoutSession } from "./modules/payments/stripe";
+import { sendMagicLinkEmail } from "./_core/mailer";
+import { hashToken } from "./_core/appointmentToken";
+import { setCachedPatientAccessToken } from "./modules/appointments/tokenCache";
 import { appointmentsRouter } from "./appointmentsRouter";
 
 function createTestContext(): TrpcContext {
@@ -192,5 +198,88 @@ describe("appointments router", () => {
     });
 
     expect(result.stripeSessionId).toBeUndefined();
+  });
+
+  it("resendLink rejects refunded appointments with clear error", async () => {
+    vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue({
+      id: 201,
+      doctorId: 11,
+      triageSessionId: 99,
+      appointmentType: "video_call",
+      scheduledAt: new Date("2026-03-03T09:00:00.000Z"),
+      status: "refunded",
+      paymentStatus: "refunded",
+      amount: 4900,
+      currency: "usd",
+      paidAt: new Date("2026-03-03T08:00:00.000Z"),
+      email: "user@example.com",
+      sessionId: null,
+      userId: 1,
+      accessTokenHash: "hash_x",
+      doctorTokenHash: "hash_y",
+      accessTokenExpiresAt: new Date("2026-03-10T09:00:00.000Z"),
+      accessTokenRevokedAt: null,
+      doctorTokenRevokedAt: null,
+      lastAccessAt: null,
+      doctorLastAccessAt: null,
+      stripeSessionId: "cs_x",
+      createdAt: new Date("2026-03-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+    } as never);
+
+    const caller = appointmentsRouter.createCaller(createTestContext());
+    await expect(
+      caller.resendLink({
+        appointmentId: 201,
+      })
+    ).rejects.toThrow("Cannot resend link for refunded appointment");
+
+    expect(sendMagicLinkEmail).not.toHaveBeenCalled();
+  });
+
+  it("resendLink succeeds for paid appointment and returns usable link", async () => {
+    const token = "paid_token_for_resend_1234567890";
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    setCachedPatientAccessToken(202, token, expiresAt);
+
+    vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue({
+      id: 202,
+      doctorId: 11,
+      triageSessionId: 99,
+      appointmentType: "video_call",
+      scheduledAt: new Date("2026-03-03T09:00:00.000Z"),
+      status: "paid",
+      paymentStatus: "paid",
+      amount: 4900,
+      currency: "usd",
+      paidAt: new Date("2026-03-03T08:00:00.000Z"),
+      email: "user@example.com",
+      sessionId: null,
+      userId: 1,
+      accessTokenHash: hashToken(token),
+      doctorTokenHash: "hash_doctor",
+      accessTokenExpiresAt: expiresAt,
+      accessTokenRevokedAt: null,
+      doctorTokenRevokedAt: null,
+      lastAccessAt: null,
+      doctorLastAccessAt: null,
+      stripeSessionId: "cs_paid",
+      createdAt: new Date("2026-03-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+    } as never);
+    vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined as never);
+
+    const caller = appointmentsRouter.createCaller(createTestContext());
+    const result = await caller.resendLink({
+      appointmentId: 202,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.devLink).toContain(`/appointment/202?t=${encodeURIComponent(token)}`);
+    expect(sendMagicLinkEmail).toHaveBeenCalledTimes(1);
+    expect(sendMagicLinkEmail).toHaveBeenCalledWith(
+      "user@example.com",
+      expect.stringContaining(`/appointment/202?t=${encodeURIComponent(token)}`)
+    );
   });
 });

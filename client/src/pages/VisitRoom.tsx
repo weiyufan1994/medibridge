@@ -1,11 +1,13 @@
 import { useMemo, useRef } from "react";
-import { useRoute } from "wouter";
+import { useLocation, useRoute } from "wouter";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getLocalizedField } from "@/lib/i18n";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import AppLayout from "@/components/layout/AppLayout";
@@ -131,6 +133,42 @@ function isInSession(
   return scheduledAt.getTime() <= Date.now();
 }
 
+function getComposerAccessState(
+  status:
+    | "draft"
+    | "pending_payment"
+    | "paid"
+    | "confirmed"
+    | "in_session"
+    | "completed"
+    | "expired"
+    | "refunded",
+  paymentStatus: "unpaid" | "pending" | "paid" | "failed" | "expired" | "refunded"
+) {
+  if (
+    status === "expired" ||
+    status === "refunded" ||
+    paymentStatus === "expired" ||
+    paymentStatus === "refunded"
+  ) {
+    return { canSend: false, hint: "Link invalid, request new link" };
+  }
+
+  if (status === "completed") {
+    return { canSend: false, hint: "Visit completed, read-only" };
+  }
+
+  if (
+    status === "pending_payment" ||
+    paymentStatus === "unpaid" ||
+    paymentStatus === "pending"
+  ) {
+    return { canSend: false, hint: "Payment pending" };
+  }
+
+  return { canSend: true, hint: null as string | null };
+}
+
 function maskEmail(email: string): string {
   const [name = "", domain = ""] = email.split("@");
   if (!name || !domain) {
@@ -143,6 +181,7 @@ function maskEmail(email: string): string {
 }
 
 export default function VisitRoomPage() {
+  const [, setLocation] = useLocation();
   const { resolved } = useLanguage();
   const t = getVisitCopy(resolved);
   const pageTitle = resolved === "zh" ? "线上会诊室" : "Visit Room";
@@ -167,6 +206,12 @@ export default function VisitRoomPage() {
     enabled: validInput,
     retry: 0,
   });
+  const composerAccess = appointmentQuery.data
+    ? getComposerAccessState(
+        appointmentQuery.data.status,
+        appointmentQuery.data.paymentStatus
+      )
+    : { canSend: false, hint: null as string | null };
 
   const doctorQuery = trpc.doctors.getById.useQuery(
     { id: appointmentQuery.data?.doctorId ?? 0 },
@@ -183,6 +228,7 @@ export default function VisitRoomPage() {
     messagesQuery,
     hasMoreHistory,
     isLoadingOlder,
+    pollingFatalError,
     sendMutation,
     setContent,
     loadOlderMessages,
@@ -191,8 +237,22 @@ export default function VisitRoomPage() {
   } = useVisits({
     accessInput,
     enabled: validInput,
+    canSend: composerAccess.canSend,
     scrollContainerRef,
     resolved,
+  });
+
+  const resendMutation = trpc.appointments.resendLink.useMutation({
+    onSuccess: result => {
+      if (result.devLink) {
+        toast.success(`New link: ${result.devLink}`);
+      } else {
+        toast.success("Access link sent.");
+      }
+    },
+    onError: error => {
+      toast.error(error.message || "Failed to resend access link.");
+    },
   });
 
   if (!validInput) {
@@ -275,6 +335,9 @@ export default function VisitRoomPage() {
       : `${departmentName} · ${appointmentType}`;
   const triageSummary = appointment.triageSummary?.trim() ?? "";
   const localizedTriageSummary = localizeTriageSummary(triageSummary, resolved);
+  const composerHint = composerAccess.hint ?? t.composerHint;
+  const composerDisabled =
+    sendMutation.isPending || !composerAccess.canSend || Boolean(pollingFatalError);
 
   return (
     <AppLayout title={pageTitle}>
@@ -335,6 +398,31 @@ export default function VisitRoomPage() {
                 </p>
               </div>
             ) : null}
+            {pollingFatalError ? (
+              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <p className="text-xs font-medium text-amber-900">
+                  {pollingFatalError}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setLocation("/payment/success")}
+                  >
+                    Back to payment
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      void resendMutation.mutateAsync({ appointmentId: appointment.id })
+                    }
+                    disabled={resendMutation.isPending}
+                  >
+                    {resendMutation.isPending ? "Sending..." : "Resend link"}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </header>
 
           <Separator />
@@ -356,10 +444,10 @@ export default function VisitRoomPage() {
               value={content}
               onChange={setContent}
               onSend={() => void handleSend()}
-              disabled={sendMutation.isPending}
+              disabled={composerDisabled}
               isSending={sendMutation.isPending}
               placeholder={t.composerPlaceholder}
-              hint={t.composerHint}
+              hint={composerHint}
             />
           </footer>
         </Card>

@@ -1,4 +1,4 @@
-import { and, desc, eq, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import {
   appointmentStatusEvents,
   appointments,
@@ -47,6 +47,28 @@ export async function getAppointmentByStripeSessionId(stripeSessionId: string) {
 
   const rows = await db
     .select()
+    .from(appointments)
+    .where(eq(appointments.stripeSessionId, stripeSessionId))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+export async function getCheckoutResultByStripeSessionId(stripeSessionId: string) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const rows = await db
+    .select({
+      id: appointments.id,
+      paymentStatus: appointments.paymentStatus,
+      status: appointments.status,
+      email: appointments.email,
+      lastAccessAt: appointments.lastAccessAt,
+      paidAt: appointments.paidAt,
+    })
     .from(appointments)
     .where(eq(appointments.stripeSessionId, stripeSessionId))
     .limit(1);
@@ -154,6 +176,69 @@ export async function markAppointmentPaid(input: {
   });
 }
 
+export async function tryMarkPaidByStripeSessionId(input: {
+  stripeSessionId: string;
+  paidAt?: Date;
+}) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const now = new Date();
+  const result = await db
+    .update(appointments)
+    .set({
+      paymentStatus: "paid",
+      status: "paid",
+      paidAt: input.paidAt ?? now,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(appointments.stripeSessionId, input.stripeSessionId),
+        eq(appointments.paymentStatus, "pending"),
+        eq(appointments.status, "pending_payment")
+      )
+    );
+
+  return Number((result as { affectedRows?: number }).affectedRows ?? 0);
+}
+
+export async function trySetAppointmentAccessTokensIfEmpty(input: {
+  appointmentId: number;
+  accessTokenHash: string;
+  doctorTokenHash: string;
+  accessTokenExpiresAt: Date;
+}) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const result = await db
+    .update(appointments)
+    .set({
+      accessTokenHash: input.accessTokenHash,
+      doctorTokenHash: input.doctorTokenHash,
+      accessTokenExpiresAt: input.accessTokenExpiresAt,
+      accessTokenRevokedAt: null,
+      doctorTokenRevokedAt: null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(appointments.id, input.appointmentId),
+        eq(appointments.paymentStatus, "paid"),
+        eq(appointments.status, "paid"),
+        isNull(appointments.accessTokenHash),
+        isNull(appointments.doctorTokenHash)
+      )
+    );
+
+  return Number((result as { affectedRows?: number }).affectedRows ?? 0);
+}
+
 export async function findLatestAppointmentIdByLookup(lookup: {
   doctorId: number;
   email: string;
@@ -254,18 +339,24 @@ export async function markAppointmentInSessionIfNeeded(appointmentId: number) {
     throw new Error("Database not available");
   }
 
+  const rows = await db
+    .select({ status: appointments.status })
+    .from(appointments)
+    .where(eq(appointments.id, appointmentId))
+    .limit(1);
+
+  const currentStatus = rows[0]?.status;
+  if (currentStatus !== "paid" && currentStatus !== "confirmed") {
+    return null;
+  }
+
   const result = await db
     .update(appointments)
     .set({ status: "in_session", updatedAt: new Date() })
-    .where(
-      and(
-        eq(appointments.id, appointmentId),
-        or(eq(appointments.status, "paid"), eq(appointments.status, "confirmed"))
-      )
-    );
+    .where(and(eq(appointments.id, appointmentId), eq(appointments.status, currentStatus)));
 
   const affectedRows = Number((result as { affectedRows?: number }).affectedRows ?? 0);
-  return affectedRows > 0;
+  return affectedRows > 0 ? currentStatus : null;
 }
 
 export async function countStatusEventsByAppointment(appointmentId: number) {

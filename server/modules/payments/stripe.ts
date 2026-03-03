@@ -33,7 +33,19 @@ export function createStripeCheckoutSession(input: {
   // Replace with official Stripe SDK call in production.
   const url = configuredCheckoutBase
     ? `${configuredCheckoutBase.replace(/\/$/, "")}/${id}`
-    : `${input.successUrl}?mockStripeSessionId=${encodeURIComponent(id)}&mockPaid=1`;
+    : (() => {
+        const successUrlWithSessionId = input.successUrl.includes(
+          "{CHECKOUT_SESSION_ID}"
+        )
+          ? input.successUrl.replace("{CHECKOUT_SESSION_ID}", id)
+          : input.successUrl;
+        const urlObj = new URL(successUrlWithSessionId);
+        if (!urlObj.searchParams.get("session_id")) {
+          urlObj.searchParams.set("session_id", id);
+        }
+        urlObj.searchParams.set("mockPaid", "1");
+        return urlObj.toString();
+      })();
 
   return { id, url };
 }
