@@ -36,7 +36,7 @@ def json_to_excel(json_file, output_file, dept_name=""):
             continue
         
         doctor = {
-            '医院': output.get('hospital', '上海市第九人民医院'),
+            '医院': output.get('hospital', ''),
             '科室': output.get('department', dept_name),
             '姓名': name,
             '职称': output.get('title', ''),
@@ -46,6 +46,13 @@ def json_to_excel(json_file, output_file, dept_name=""):
             '社会任职': output.get('social_positions', ''),
             '科研成果': output.get('research', ''),
             '治疗经验': output.get('treatment_experience', ''),
+            # 个人成就字段（右侧边栏统计数据）
+            '总访问': output.get('total_visits', ''),
+            '总文章': output.get('total_articles', ''),
+            '总患者': output.get('total_patients', ''),
+            '诊后报到患者': output.get('followup_patients', ''),
+            '诊后评价': output.get('followup_reviews', ''),
+            # 满意度和推荐度
             '疗效满意度': output.get('efficacy_satisfaction', ''),
             '态度满意度': output.get('attitude_satisfaction', ''),
             '病友推荐度': output.get('recommendation_score', ''),
@@ -68,10 +75,30 @@ def json_to_excel(json_file, output_file, dept_name=""):
         df.to_excel(writer, index=False, sheet_name=sheet_name)
         
         ws = writer.sheets[sheet_name]
+        # 列宽：序号、医院、科室、姓名、职称、专业方向、专业擅长、个人简介、社会任职、科研成果、
+        #       治疗经验、总访问、总文章、总患者、诊后报到患者、诊后评价、疗效满意度、态度满意度、病友推荐度、doctor_id、URL
         col_widths = {
-            'A': 6, 'B': 20, 'C': 12, 'D': 10, 'E': 15,
-            'F': 20, 'G': 40, 'H': 60, 'I': 30, 'J': 40,
-            'K': 30, 'L': 12, 'M': 12, 'N': 12, 'O': 15, 'P': 50
+            'A': 6,  # 序号
+            'B': 20, # 医院
+            'C': 12, # 科室
+            'D': 10, # 姓名
+            'E': 15, # 职称
+            'F': 20, # 专业方向
+            'G': 40, # 专业擅长
+            'H': 60, # 个人简介
+            'I': 30, # 社会任职
+            'J': 40, # 科研成果
+            'K': 30, # 治疗经验
+            'L': 12, # 总访问
+            'M': 10, # 总文章
+            'N': 10, # 总患者
+            'O': 14, # 诊后报到患者
+            'P': 10, # 诊后评价
+            'Q': 12, # 疗效满意度
+            'R': 12, # 态度满意度
+            'S': 12, # 病友推荐度
+            'T': 15, # doctor_id
+            'U': 50, # URL
         }
         for col, width in col_widths.items():
             ws.column_dimensions[col].width = width
