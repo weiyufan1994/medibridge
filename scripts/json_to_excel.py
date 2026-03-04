@@ -16,23 +16,27 @@ def json_to_excel(json_file, output_file, dept_name=""):
     
     results = data.get('results', [])
     doctors = []
+    skipped = 0
     
     for item in results:
         output = item.get('output', {})
-        error = item.get('error', '')
         
-        if error or not output:
-            print(f"跳过失败条目: input={item.get('input','')}, error={error}")
+        if not output:
+            skipped += 1
+            print(f"跳过空条目: input={item.get('input','')}")
             continue
         
-        # 过滤掉无效记录（没有姓名的）
+        # 以姓名是否有效来判断（不依赖success字段）
         name = output.get('name', '').strip()
-        if not name or name == '（页面未显示）':
-            print(f"跳过无姓名条目: input={item.get('input','')}")
+        invalid_names = ['', '（页面未显示）', '页面无法访问', '页面无法访问或医生信息未收录', 
+                         '医生信息未收录', '该医生信息未收录', None]
+        if not name or name in invalid_names or '无法访问' in name or '未收录' in name:
+            skipped += 1
+            print(f"跳过无效条目: input={item.get('input','')}, name={name}")
             continue
         
         doctor = {
-            '医院': output.get('hospital', ''),
+            '医院': output.get('hospital', '上海市第九人民医院'),
             '科室': output.get('department', dept_name),
             '姓名': name,
             '职称': output.get('title', ''),
@@ -46,11 +50,11 @@ def json_to_excel(json_file, output_file, dept_name=""):
             '态度满意度': output.get('attitude_satisfaction', ''),
             '病友推荐度': output.get('recommendation_score', ''),
             'doctor_id': output.get('doctor_id', item.get('input', '')),
-            '医生介绍页URL': output.get('profile_url', ''),
+            '医生介绍页URL': output.get('url', output.get('profile_url', f"https://www.haodf.com/doctor/{item.get('input','')}/xinxi-jieshao.html")),
         }
         doctors.append(doctor)
     
-    print(f"共 {len(doctors)} 位有效医生")
+    print(f"共 {len(doctors)} 位有效医生，跳过 {skipped} 条无效记录")
     
     if not doctors:
         print("无有效数据，退出")
