@@ -11,7 +11,6 @@ type SmtpConfig = {
   user: string;
   pass: string;
   from: string;
-  appBaseUrl: string;
 };
 
 function getSmtpConfig(): SmtpConfig | null {
@@ -20,9 +19,8 @@ function getSmtpConfig(): SmtpConfig | null {
   const user = process.env.SMTP_USER?.trim();
   const pass = process.env.SMTP_PASS?.trim();
   const from = process.env.MAIL_FROM?.trim();
-  const appBaseUrl = process.env.APP_BASE_URL?.trim();
 
-  if (!host || !portRaw || !user || !pass || !from || !appBaseUrl) {
+  if (!host || !portRaw || !user || !pass || !from) {
     return null;
   }
 
@@ -37,7 +35,6 @@ function getSmtpConfig(): SmtpConfig | null {
     user,
     pass,
     from,
-    appBaseUrl,
   };
 }
 
@@ -60,7 +57,7 @@ export async function sendMagicLinkEmail(to: string, link: string): Promise<void
 
   const smtpConfig = getSmtpConfig();
   if (!smtpConfig) {
-    console.warn("[Mailer] SMTP is not configured. Set SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS/MAIL_FROM/APP_BASE_URL.");
+    console.warn("[Mailer] SMTP is not configured. Set SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS/MAIL_FROM.");
     return;
   }
 

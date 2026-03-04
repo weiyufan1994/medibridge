@@ -1,4 +1,5 @@
 export type VisitSenderType = "patient" | "doctor" | "system";
+export type VisitParticipantRole = Exclude<VisitSenderType, "system">;
 
 export type VisitMessageItem = {
   id: number;

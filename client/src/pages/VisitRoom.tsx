@@ -5,6 +5,11 @@ import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getLocalizedField } from "@/lib/i18n";
+import {
+  formatChinaDateTime,
+  formatLocalDateTime,
+  toDate,
+} from "@/lib/appointmentTime";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -95,10 +100,6 @@ function parseTokenFromLocation(): string {
     return "";
   }
   return new URLSearchParams(window.location.search).get("t")?.trim() || "";
-}
-
-function toDate(value: Date | string): Date {
-  return value instanceof Date ? value : new Date(value);
 }
 
 function getAppointmentTypeLabel(
@@ -312,11 +313,12 @@ export default function VisitRoomPage() {
   const scheduledAt = appointment.scheduledAt
     ? toDate(appointment.scheduledAt)
     : null;
-  const scheduledTimeText =
-    scheduledAt?.toLocaleString(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }) || "TBD";
+  const scheduledTimeText = scheduledAt
+    ? viewerRole === "doctor"
+      ? formatChinaDateTime(scheduledAt)
+      : formatLocalDateTime(scheduledAt)
+    : "TBD";
+  const scheduledChinaTimeText = formatChinaDateTime(scheduledAt);
   const inSession = isInSession(scheduledAt, appointment.status);
   const patientIdentity =
     appointment.patient.sessionId?.trim() ||
@@ -386,6 +388,11 @@ export default function VisitRoomPage() {
                   ) : null}
                 </div>
                 <p className="text-xs text-slate-500">{scheduledTimeText}</p>
+                {viewerRole === "patient" ? (
+                  <p className="text-xs text-slate-400">
+                    Doctor time (China): {scheduledChinaTimeText}
+                  </p>
+                ) : null}
               </div>
             </div>
             {triageSummary.length > 0 ? (
@@ -429,6 +436,7 @@ export default function VisitRoomPage() {
 
           <VisitMessagesList
             showInitialSkeleton={showInitialSkeleton}
+            currentRole={viewerRole}
             messages={messages}
             hasMoreHistory={hasMoreHistory}
             isLoadingOlder={isLoadingOlder}

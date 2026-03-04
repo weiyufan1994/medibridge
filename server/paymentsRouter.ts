@@ -1,10 +1,12 @@
 import { TRPCError } from "@trpc/server";
+import type { Request } from "express";
 import { z } from "zod";
 import * as appointmentsRepo from "./modules/appointments/repo";
 import { generateToken, hashToken } from "./_core/appointmentToken";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { sendMagicLinkEmail } from "./_core/mailer";
 import { setCachedPatientAccessToken } from "./modules/appointments/tokenCache";
+import { getPublicBaseUrl } from "./core/getPublicBaseUrl";
 
 const paymentStatusSchema = z.enum([
   "unpaid",
@@ -113,11 +115,6 @@ function computeDefaultTokenExpiry(scheduledAt: Date): Date {
   return expiresAt;
 }
 
-function getBaseUrl() {
-  const configuredBaseUrl = process.env.APP_BASE_URL?.trim();
-  return (configuredBaseUrl || "http://localhost:3000").replace(/\/$/, "");
-}
-
 function buildAppointmentMagicLink(
   baseUrl: string,
   appointmentId: number,
@@ -134,18 +131,26 @@ function buildDoctorMagicLink(
   return `${baseUrl}/visit/${appointmentId}?t=${encodeURIComponent(token)}`;
 }
 
+function buildDevAccessLink(appointmentId: number, token: string): string {
+  return `http://localhost:3000/appointment-access?appointmentId=${appointmentId}&token=${encodeURIComponent(token)}`;
+}
+
 export async function settleStripePaymentBySessionId(input: {
   stripeSessionId: string;
   source: "webhook" | "mock";
   eventId?: string;
+  req?: Request;
+  dbExecutor?: appointmentsRepo.AppointmentRepoExecutor;
 }) {
   const claimRows = await appointmentsRepo.tryMarkPaidByStripeSessionId({
     stripeSessionId: input.stripeSessionId,
+    dbExecutor: input.dbExecutor,
   });
 
   if (claimRows === 0) {
     const appointment = await appointmentsRepo.getAppointmentByStripeSessionId(
-      input.stripeSessionId
+      input.stripeSessionId,
+      input.dbExecutor
     );
 
     if (!appointment) {
@@ -171,7 +176,8 @@ export async function settleStripePaymentBySessionId(input: {
   }
 
   const appointment = await appointmentsRepo.getAppointmentByStripeSessionId(
-    input.stripeSessionId
+    input.stripeSessionId,
+    input.dbExecutor
   );
 
   if (!appointment) {
@@ -194,12 +200,14 @@ export async function settleStripePaymentBySessionId(input: {
     role: "patient",
     tokenHash: patientTokenHash,
     expiresAt: accessTokenExpiresAt,
+    dbExecutor: input.dbExecutor,
   });
   await appointmentsRepo.createAppointmentTokenIfMissing({
     appointmentId: appointment.id,
     role: "doctor",
     tokenHash: doctorLinkHash,
     expiresAt: accessTokenExpiresAt,
+    dbExecutor: input.dbExecutor,
   });
 
   await appointmentsRepo.insertStatusEvent({
@@ -212,16 +220,17 @@ export async function settleStripePaymentBySessionId(input: {
       stripeSessionId: input.stripeSessionId,
       eventId: input.eventId ?? null,
     },
+    dbExecutor: input.dbExecutor,
   });
 
-  const baseUrl = getBaseUrl();
+  const baseUrl = getPublicBaseUrl(input.req);
   const patientLink = buildAppointmentMagicLink(baseUrl, appointment.id, patientToken);
   const doctorLink = buildDoctorMagicLink(baseUrl, appointment.id, doctorToken);
   setCachedPatientAccessToken(appointment.id, patientToken, accessTokenExpiresAt);
   await sendMagicLinkEmail(appointment.email, patientLink);
-  if (process.env.NODE_ENV !== "production") {
-    console.log(`[Payments][DEV] Patient link: ${patientLink}`);
-    console.log(`[Payments][DEV] Doctor link: ${doctorLink}`);
+  if (process.env.NODE_ENV === "development") {
+    console.log("DEV ACCESS LINK:");
+    console.log(buildDevAccessLink(appointment.id, patientToken));
   }
 
   return {
@@ -318,7 +327,7 @@ export const paymentsRouter = router({
         devDoctorLink: z.string().url().nullable(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       if (process.env.NODE_ENV === "production") {
         throw new TRPCError({
           code: "FORBIDDEN",
@@ -329,6 +338,7 @@ export const paymentsRouter = router({
       const result = await settleStripePaymentBySessionId({
         stripeSessionId: input.stripeSessionId,
         source: "mock",
+        req: ctx.req,
       });
 
       return {

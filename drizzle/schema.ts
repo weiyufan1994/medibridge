@@ -424,3 +424,18 @@ export const appointmentStatusEvents = mysqlTable(
 export type AppointmentStatusEvent = typeof appointmentStatusEvents.$inferSelect;
 export type InsertAppointmentStatusEvent =
   typeof appointmentStatusEvents.$inferInsert;
+
+/**
+ * Stripe webhook event log table - ensures event-level idempotency.
+ */
+export const stripeWebhookEvents = mysqlTable("stripe_webhook_events", {
+  eventId: varchar("eventId", { length: 255 }).primaryKey(),
+  type: varchar("type", { length: 100 }).notNull(),
+  stripeSessionId: varchar("stripeSessionId", { length: 255 }),
+  appointmentId: int("appointmentId"),
+  payloadHash: varchar("payloadHash", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type StripeWebhookEvent = typeof stripeWebhookEvents.$inferSelect;
+export type InsertStripeWebhookEvent = typeof stripeWebhookEvents.$inferInsert;

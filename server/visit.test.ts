@@ -3,6 +3,7 @@ import type { TrpcContext } from "./_core/context";
 
 vi.mock("./modules/visit/repo", () => ({
   getRecentMessages: vi.fn(),
+  getMessagesBeforeCursor: vi.fn(),
   getMessageByClientMsgId: vi.fn(),
   createMessage: vi.fn(),
   getLatestMessage: vi.fn(),
@@ -34,6 +35,10 @@ function createTestContext(): TrpcContext {
     } as TrpcContext["req"],
     res: {} as TrpcContext["res"],
   };
+}
+
+function encodeTestCursor(createdAt: Date, id: number) {
+  return Buffer.from(`${createdAt.toISOString()}|${id}`, "utf8").toString("base64url");
 }
 
 describe("visit router", () => {
@@ -118,6 +123,98 @@ describe("visit router", () => {
         clientMsgId: null,
       },
     ]);
+  });
+
+  it("getMessagesByToken uses oldest message as nextCursor for beforeCursor pagination", async () => {
+    const t2 = new Date("2026-03-03T09:02:00.000Z");
+    const t3 = new Date("2026-03-03T09:03:00.000Z");
+    const t4 = new Date("2026-03-03T09:04:00.000Z");
+    const t5 = new Date("2026-03-03T09:05:00.000Z");
+
+    vi.mocked(visitRepo.getRecentMessages).mockResolvedValueOnce([
+      {
+        id: 5,
+        appointmentId: 9001,
+        senderType: "doctor",
+        content: "m5",
+        originalContent: "m5",
+        translatedContent: "m5",
+        sourceLanguage: "zh",
+        targetLanguage: "zh",
+        clientMsgId: null,
+        createdAt: t5,
+      },
+      {
+        id: 4,
+        appointmentId: 9001,
+        senderType: "patient",
+        content: "m4",
+        originalContent: "m4",
+        translatedContent: "m4",
+        sourceLanguage: "zh",
+        targetLanguage: "zh",
+        clientMsgId: null,
+        createdAt: t4,
+      },
+    ] as never);
+
+    vi.mocked(visitRepo.getMessagesBeforeCursor).mockResolvedValueOnce([
+      {
+        id: 3,
+        appointmentId: 9001,
+        senderType: "doctor",
+        content: "m3",
+        originalContent: "m3",
+        translatedContent: "m3",
+        sourceLanguage: "zh",
+        targetLanguage: "zh",
+        clientMsgId: null,
+        createdAt: t3,
+      },
+      {
+        id: 2,
+        appointmentId: 9001,
+        senderType: "patient",
+        content: "m2",
+        originalContent: "m2",
+        translatedContent: "m2",
+        sourceLanguage: "zh",
+        targetLanguage: "zh",
+        clientMsgId: null,
+        createdAt: t2,
+      },
+    ] as never);
+
+    const caller = visitRouter.createCaller(createTestContext());
+    const first = await caller.getMessagesByToken({
+      appointmentId: 9001,
+      token: "patient_token_1234567890",
+      limit: 2,
+    });
+    expect(first.messages.map(message => message.id)).toEqual([4, 5]);
+    expect(first.nextCursor).toBe(encodeTestCursor(t4, 4));
+    expect(first.hasMore).toBe(true);
+
+    const second = await caller.getMessagesByToken({
+      appointmentId: 9001,
+      token: "patient_token_1234567890",
+      limit: 2,
+      beforeCursor: first.nextCursor ?? undefined,
+    });
+
+    expect(visitRepo.getMessagesBeforeCursor).toHaveBeenCalledWith({
+      appointmentId: 9001,
+      beforeCreatedAt: t4,
+      beforeId: 4,
+      limit: 2,
+    });
+    expect(second.messages.map(message => message.id)).toEqual([2, 3]);
+    expect(second.nextCursor).toBe(encodeTestCursor(t2, 2));
+    expect(second.hasMore).toBe(true);
+
+    const mergedAsc = [...second.messages, ...first.messages];
+    expect(mergedAsc.map(message => message.id)).toEqual([2, 3, 4, 5]);
+    expect(new Set(mergedAsc.map(message => message.id)).size).toBe(4);
   });
 
   it("sendMessageByToken reuses existing message when clientMsgId is duplicated", async () => {

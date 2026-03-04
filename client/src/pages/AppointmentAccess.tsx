@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import AppLayout from "@/components/layout/AppLayout";
+import {
+  formatChinaDateTime,
+  formatLocalDateTime,
+  toDate,
+  toLocalDateTimeInputValue,
+} from "@/lib/appointmentTime";
 
 function parseTokenFromLocation(): string {
   if (typeof window === "undefined") {
@@ -23,27 +29,6 @@ function parseMockStripeSessionIdFromLocation(): string {
     new URLSearchParams(window.location.search).get("mockStripeSessionId")?.trim() ||
     ""
   );
-}
-
-function toDate(value: Date | string | null): Date | null {
-  if (!value) {
-    return null;
-  }
-  const parsed = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-  return parsed;
-}
-
-function toDateTimeInputValue(value: Date | string | null): string {
-  const date = toDate(value);
-  if (!date) {
-    return "";
-  }
-
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 16);
 }
 
 export default function AppointmentAccessPage() {
@@ -85,7 +70,7 @@ export default function AppointmentAccessPage() {
   const utils = trpc.useUtils();
   const rescheduleMutation = trpc.appointments.rescheduleByToken.useMutation({
     onSuccess: async result => {
-      setNewScheduledAt(toDateTimeInputValue(result.scheduledAt));
+      setNewScheduledAt(toLocalDateTimeInputValue(result.scheduledAt));
       await utils.appointments.getByToken.invalidate(queryInput);
       toast.success("Appointment rescheduled.");
     },
@@ -232,7 +217,8 @@ export default function AppointmentAccessPage() {
             <p>Email: {appointment.email}</p>
             <p>Session ID: {appointment.sessionId || "-"}</p>
             <p>Triage Session ID: {appointment.triageSessionId}</p>
-            <p>Scheduled At: {scheduledAt ? scheduledAt.toLocaleString() : "-"}</p>
+            <p>Scheduled At (Local): {formatLocalDateTime(scheduledAt)}</p>
+            <p>Doctor time (China): {formatChinaDateTime(scheduledAt)}</p>
           </CardContent>
         </Card>
 
@@ -243,7 +229,9 @@ export default function AppointmentAccessPage() {
           <CardContent className="space-y-3">
             <Input
               type="datetime-local"
-              value={newScheduledAt || toDateTimeInputValue(appointment.scheduledAt)}
+              value={
+                newScheduledAt || toLocalDateTimeInputValue(appointment.scheduledAt)
+              }
               onChange={event => setNewScheduledAt(event.target.value)}
             />
             <div className="flex flex-wrap gap-2">

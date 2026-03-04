@@ -3,6 +3,7 @@ import {
   appointmentTokens,
   appointmentStatusEvents,
   appointments,
+  stripeWebhookEvents,
   type InsertAppointment,
 } from "../../../drizzle/schema";
 import { getDb } from "../../db";
@@ -27,6 +28,17 @@ export type PaymentStatus =
 
 export type AppointmentTokenRole = "patient" | "doctor";
 const ACTIVE_TOKEN_LIMIT_PER_ROLE = 5;
+type BaseDb = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+type DbExecutor = Pick<BaseDb, "select" | "insert" | "update">;
+export type AppointmentRepoExecutor = DbExecutor;
+
+async function resolveDbExecutor(dbExecutor?: DbExecutor) {
+  const db = dbExecutor ?? (await getDb());
+  if (!db) {
+    throw new Error("Database not available");
+  }
+  return db;
+}
 
 export async function getAppointmentById(appointmentId: number) {
   const db = await getDb();
@@ -43,11 +55,11 @@ export async function getAppointmentById(appointmentId: number) {
   return rows[0] ?? null;
 }
 
-export async function getAppointmentByStripeSessionId(stripeSessionId: string) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
+export async function getAppointmentByStripeSessionId(
+  stripeSessionId: string,
+  dbExecutor?: DbExecutor
+) {
+  const db = await resolveDbExecutor(dbExecutor);
 
   const rows = await db
     .select()
@@ -175,6 +187,34 @@ export async function getLatestAppointmentTokenIssuedAt(input: {
   return rows[0]?.createdAt ?? null;
 }
 
+export async function getAppointmentTokenCooldownRemainingSeconds(input: {
+  appointmentId: number;
+  role: AppointmentTokenRole;
+  cooldownSeconds: number;
+}) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const rows = await db
+    .select({
+      remainingSeconds:
+        sql<number>`greatest(${input.cooldownSeconds} - timestampdiff(second, ${appointmentTokens.createdAt}, now()), 0)`,
+    })
+    .from(appointmentTokens)
+    .where(
+      and(
+        eq(appointmentTokens.appointmentId, input.appointmentId),
+        eq(appointmentTokens.role, input.role)
+      )
+    )
+    .orderBy(desc(appointmentTokens.createdAt), desc(appointmentTokens.id))
+    .limit(1);
+
+  return Number(rows[0]?.remainingSeconds ?? 0);
+}
+
 export async function updateActiveAppointmentTokenExpiry(input: {
   appointmentId: number;
   expiresAt: Date;
@@ -206,11 +246,9 @@ export async function createAppointmentTokenIfMissing(input: {
   tokenHash: string;
   expiresAt: Date;
   revokedAt?: Date | null;
+  dbExecutor?: DbExecutor;
 }) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
+  const db = await resolveDbExecutor(input.dbExecutor);
 
   const existing = await db
     .select({ id: appointmentTokens.id })
@@ -249,7 +287,7 @@ export async function createAppointmentTokenIfMissing(input: {
 }
 
 async function revokeOldActiveTokensBeyondLimit(input: {
-  db: Awaited<ReturnType<typeof getDb>>;
+  db: DbExecutor;
   appointmentId: number;
   role: AppointmentTokenRole;
 }) {
@@ -364,11 +402,9 @@ export async function markAppointmentPendingPayment(input: {
 export async function tryMarkPaidByStripeSessionId(input: {
   stripeSessionId: string;
   paidAt?: Date;
+  dbExecutor?: DbExecutor;
 }) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
+  const db = await resolveDbExecutor(input.dbExecutor);
 
   const now = new Date();
   const result = await db
@@ -455,6 +491,40 @@ export async function listAppointmentsByUserScope(input: {
     .limit(input.limit);
 }
 
+export async function listAppointmentsByUserOrEmail(input: {
+  userId: number;
+  email?: string | null;
+}) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const hasEmail = Boolean(input.email && input.email.trim().length > 0);
+  const whereClause = hasEmail
+    ? or(eq(appointments.userId, input.userId), eq(appointments.email, input.email!))
+    : eq(appointments.userId, input.userId);
+
+  return db
+    .select()
+    .from(appointments)
+    .where(whereClause)
+    .orderBy(desc(appointments.createdAt), desc(appointments.id));
+}
+
+export async function listAppointmentsByEmail(email: string) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  return db
+    .select()
+    .from(appointments)
+    .where(eq(appointments.email, email))
+    .orderBy(desc(appointments.createdAt), desc(appointments.id));
+}
+
 export async function insertStatusEvent(input: {
   appointmentId: number;
   fromStatus: string | null;
@@ -463,11 +533,9 @@ export async function insertStatusEvent(input: {
   operatorId?: number | null;
   reason?: string | null;
   payloadJson?: unknown;
+  dbExecutor?: DbExecutor;
 }) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
+  const db = await resolveDbExecutor(input.dbExecutor);
 
   await db.insert(appointmentStatusEvents).values({
     appointmentId: input.appointmentId,
@@ -480,6 +548,25 @@ export async function insertStatusEvent(input: {
       typeof input.payloadJson === "undefined"
         ? null
         : (input.payloadJson as Record<string, unknown>),
+  });
+}
+
+export async function insertStripeWebhookEvent(input: {
+  eventId: string;
+  type: string;
+  stripeSessionId?: string | null;
+  appointmentId?: number | null;
+  payloadHash?: string | null;
+  dbExecutor?: DbExecutor;
+}) {
+  const db = await resolveDbExecutor(input.dbExecutor);
+
+  await db.insert(stripeWebhookEvents).values({
+    eventId: input.eventId,
+    type: input.type,
+    stripeSessionId: input.stripeSessionId ?? null,
+    appointmentId: input.appointmentId ?? null,
+    payloadHash: input.payloadHash ?? null,
   });
 }
 

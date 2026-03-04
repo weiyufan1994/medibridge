@@ -159,14 +159,19 @@ export const visitRouter = router({
           })
         : await visitRepo.getRecentMessages(appointment.id, input.limit);
 
+      const rowCount = pageRows.length;
+      const oldestDesc = rowCount > 0 ? pageRows[rowCount - 1] : null;
       const orderedAsc = pageRows.reverse();
       const normalized = normalizeMessages(orderedAsc);
-      const oldest = pageRows[pageRows.length - 1];
+      const hasMore = rowCount === input.limit;
 
       return {
         messages: normalized,
-        nextCursor: oldest ? encodeCursor(oldest.createdAt, oldest.id) : null,
-        hasMore: pageRows.length === input.limit,
+        nextCursor:
+          hasMore && oldestDesc
+            ? encodeCursor(oldestDesc.createdAt, oldestDesc.id)
+            : null,
+        hasMore,
       };
     }),
 
@@ -207,11 +212,18 @@ export const visitRouter = router({
       const senderType = role === "doctor" ? "doctor" : "patient";
       const messageUserId =
         role === "patient" ? (appointment.userId ?? null) : null;
-      let insertResult: unknown;
-      try {
-        insertResult = await visitRepo.createMessage({
+      const getMysqlErrorCode = (error: unknown) =>
+        (error as { cause?: { code?: string } })?.cause?.code ??
+        (error as { code?: string })?.code;
+      const isDuplicate = (error: unknown) =>
+        getMysqlErrorCode(error) === "ER_DUP_ENTRY";
+      const isFkViolation = (error: unknown) =>
+        getMysqlErrorCode(error) === "ER_NO_REFERENCED_ROW_2";
+
+      const insertOnce = (userId: number | null) =>
+        visitRepo.createMessage({
           appointmentId: appointment.id,
-          userId: messageUserId,
+          userId,
           senderType,
           content: translation.translatedContent,
           originalContent: translation.originalContent,
@@ -222,38 +234,40 @@ export const visitRouter = router({
           createdAt,
           clientMsgId: input.clientMsgId,
         });
-      } catch (error) {
-        const errorCode =
-          (error as { cause?: { code?: string } })?.cause?.code ??
-          (error as { code?: string })?.code;
 
-        if (messageUserId && errorCode === "ER_NO_REFERENCED_ROW_2") {
-          insertResult = await visitRepo.createMessage({
-            appointmentId: appointment.id,
-            userId: null,
-            senderType,
-            content: translation.translatedContent,
-            originalContent: translation.originalContent,
-            translatedContent: translation.translatedContent,
-            sourceLanguage: translation.sourceLanguage,
-            targetLanguage: translation.targetLanguage,
-            translationProvider: translation.translationProvider,
-            createdAt,
-            clientMsgId: input.clientMsgId,
-          });
-        } else {
-        const duplicateCode =
-          (error as { cause?: { code?: string } })?.cause?.code ??
-          (error as { code?: string })?.code;
-        if (input.clientMsgId && duplicateCode === "ER_DUP_ENTRY") {
+      let insertResult: unknown;
+      try {
+        insertResult = await insertOnce(messageUserId);
+      } catch (error) {
+        if (messageUserId !== null && isFkViolation(error)) {
+          try {
+            insertResult = await insertOnce(null);
+          } catch (retryError) {
+            if (input.clientMsgId && isDuplicate(retryError)) {
+              const existing = await visitRepo.getMessageByClientMsgId(
+                appointment.id,
+                input.clientMsgId
+              );
+
+              if (existing) {
+                return existing;
+              }
+            }
+
+            throw retryError;
+          }
+        } else if (input.clientMsgId && isDuplicate(error)) {
           const existing = await visitRepo.getMessageByClientMsgId(
             appointment.id,
             input.clientMsgId
           );
+
           if (existing) {
             return existing;
           }
-        }
+
+          throw error;
+        } else {
           throw error;
         }
       }

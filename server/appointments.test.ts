@@ -7,7 +7,7 @@ vi.mock("./modules/appointments/repo", () => ({
   markAppointmentPendingPayment: vi.fn(),
   insertStatusEvent: vi.fn(),
   getAppointmentById: vi.fn(),
-  getLatestAppointmentTokenIssuedAt: vi.fn(),
+  getAppointmentTokenCooldownRemainingSeconds: vi.fn(),
   listActiveAppointmentTokens: vi.fn(),
   createAppointmentTokenIfMissing: vi.fn(),
   updateAppointmentById: vi.fn(),
@@ -65,9 +65,9 @@ describe("appointments router", () => {
     vi.mocked(appointmentsRepo.createAppointmentTokenIfMissing).mockResolvedValue(
       undefined as never
     );
-    vi.mocked(appointmentsRepo.getLatestAppointmentTokenIssuedAt).mockResolvedValue(
-      null as never
-    );
+    vi.mocked(
+      appointmentsRepo.getAppointmentTokenCooldownRemainingSeconds
+    ).mockResolvedValue(0 as never);
     vi.mocked(appointmentsRepo.listActiveAppointmentTokens).mockResolvedValue(
       [] as never
     );
@@ -326,9 +326,9 @@ describe("appointments router", () => {
       createdAt: new Date("2026-03-01T00:00:00.000Z"),
       updatedAt: new Date("2026-03-01T00:00:00.000Z"),
     } as never);
-    vi.mocked(appointmentsRepo.getLatestAppointmentTokenIssuedAt).mockResolvedValue(
-      new Date(Date.now() - 30_000) as never
-    );
+    vi.mocked(
+      appointmentsRepo.getAppointmentTokenCooldownRemainingSeconds
+    ).mockResolvedValue(30 as never);
 
     const caller = appointmentsRouter.createCaller(createTestContext());
 
@@ -336,7 +336,7 @@ describe("appointments router", () => {
       caller.resendLink({
         appointmentId: 203,
       })
-    ).rejects.toThrow("Please wait at least 60 seconds before resending again");
+    ).rejects.toThrow("Please wait 30 seconds before resending again");
     expect(sendMagicLinkEmail).not.toHaveBeenCalled();
     expect(appointmentsRepo.createAppointmentTokenIfMissing).not.toHaveBeenCalled();
   });
@@ -368,9 +368,9 @@ describe("appointments router", () => {
       createdAt: new Date("2026-03-01T00:00:00.000Z"),
       updatedAt: new Date("2026-03-01T00:00:00.000Z"),
     } as never);
-    vi.mocked(appointmentsRepo.getLatestAppointmentTokenIssuedAt).mockResolvedValue(
-      new Date(Date.now() - 61_000) as never
-    );
+    vi.mocked(
+      appointmentsRepo.getAppointmentTokenCooldownRemainingSeconds
+    ).mockResolvedValue(0 as never);
     vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined as never);
 
     const caller = appointmentsRouter.createCaller(createTestContext());

@@ -3,10 +3,11 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VisitMessageBubble } from "@/features/visit/components/VisitMessageBubble";
-import type { VisitMessageItem } from "@/features/visit/types";
+import type { VisitMessageItem, VisitParticipantRole } from "@/features/visit/types";
 
 type VisitMessagesListProps = {
   showInitialSkeleton: boolean;
+  currentRole: VisitParticipantRole;
   messages: VisitMessageItem[];
   hasMoreHistory: boolean;
   isLoadingOlder: boolean;
@@ -17,6 +18,7 @@ type VisitMessagesListProps = {
 
 export function VisitMessagesList({
   showInitialSkeleton,
+  currentRole,
   messages,
   hasMoreHistory,
   isLoadingOlder,
@@ -80,6 +82,7 @@ export function VisitMessagesList({
                   <VisitMessageBubble
                     key={message.id}
                     message={message}
+                    currentRole={currentRole}
                     compactWithPrev={compactWithPrev}
                     showTimestamp={showTimestamp}
                   />

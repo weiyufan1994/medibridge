@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { parse as parseCookieHeader } from "cookie";
 import { z } from "zod";
 import { appointments } from "../drizzle/schema";
 import * as aiRepo from "./modules/ai/repo";
@@ -16,6 +17,7 @@ import { invokeLLM } from "./_core/llm";
 import {
   setCachedPatientAccessToken,
 } from "./modules/appointments/tokenCache";
+import { getPublicBaseUrl } from "./core/getPublicBaseUrl";
 
 const APPOINTMENT_TYPE_VALUES = [
   "online_chat",
@@ -149,6 +151,22 @@ const listMineInputSchema = z.object({
 
 const listMineOutputSchema = z.array(appointmentPublicSchema);
 
+const myAppointmentItemSchema = z.object({
+  id: z.number().int().positive(),
+  doctorId: z.number().int().positive(),
+  appointmentType: z.enum(APPOINTMENT_TYPE_VALUES),
+  scheduledAt: z.date().nullable(),
+  status: z.enum(APPOINTMENT_STATUS_VALUES),
+  paymentStatus: z.enum(PAYMENT_STATUS_VALUES),
+  createdAt: z.date(),
+});
+
+const listMyAppointmentsOutputSchema = z.object({
+  upcoming: z.array(myAppointmentItemSchema),
+  completed: z.array(myAppointmentItemSchema),
+  past: z.array(myAppointmentItemSchema),
+});
+
 const CONSULTATION_DURATION_MINUTES = 60;
 const TOKEN_RESEND_COOLDOWN_MS = 60_000;
 const RESEND_ALLOWED_STATUS = new Set<string>(["paid", "confirmed", "in_session"]);
@@ -174,18 +192,6 @@ function computeDefaultTokenExpiry(scheduledAt: Date): Date {
   return expiresAt;
 }
 
-function getBaseUrl(ctx: TrpcContext): string {
-  const configuredBaseUrl = process.env.APP_BASE_URL?.trim();
-  if (configuredBaseUrl) {
-    return configuredBaseUrl.replace(/\/$/, "");
-  }
-
-  const protocol = ctx.req.protocol || "http";
-  const host =
-    ctx.req.get?.("host") || ctx.req.headers.host || "localhost:3000";
-  return `${protocol}://${host}`;
-}
-
 function buildAppointmentMagicLink(
   baseUrl: string,
   appointmentId: number,
@@ -202,9 +208,70 @@ function buildVisitUrl(
   return `${baseUrl}/visit/${appointmentId}?t=${encodeURIComponent(token)}`;
 }
 
-function getPublicUrlBase(): string {
-  const configuredPublicUrl = process.env.PUBLIC_URL?.trim();
-  return (configuredPublicUrl || "http://localhost:5173").replace(/\/$/, "");
+function getDevAppointmentAccessLink(appointmentId: number, token: string): string {
+  return `http://localhost:3000/appointment-access?appointmentId=${appointmentId}&token=${encodeURIComponent(token)}`;
+}
+
+function getSessionEmailFromContext(ctx: TrpcContext): string | null {
+  const rawCookieHeader = ctx.req.headers.cookie;
+  const cookies = rawCookieHeader ? parseCookieHeader(rawCookieHeader) : {};
+
+  const raw =
+    (typeof ctx.req.headers["x-session-email"] === "string"
+      ? ctx.req.headers["x-session-email"]
+      : undefined) ??
+    cookies.sessionEmail ??
+    cookies["session-email"] ??
+    cookies.email;
+
+  if (typeof raw !== "string") {
+    return null;
+  }
+
+  const normalized = raw.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function toMyAppointmentItem(appointment: typeof appointments.$inferSelect) {
+  return {
+    id: appointment.id,
+    doctorId: appointment.doctorId,
+    appointmentType: appointment.appointmentType,
+    scheduledAt: appointment.scheduledAt,
+    status: appointment.status,
+    paymentStatus: appointment.paymentStatus,
+    createdAt: appointment.createdAt,
+  };
+}
+
+function classifyMyAppointments(items: Array<ReturnType<typeof toMyAppointmentItem>>) {
+  const upcoming: Array<ReturnType<typeof toMyAppointmentItem>> = [];
+  const completed: Array<ReturnType<typeof toMyAppointmentItem>> = [];
+  const past: Array<ReturnType<typeof toMyAppointmentItem>> = [];
+
+  for (const item of items) {
+    if (
+      item.status === "pending_payment" ||
+      item.status === "paid" ||
+      item.status === "confirmed" ||
+      item.status === "in_session"
+    ) {
+      upcoming.push(item);
+      continue;
+    }
+
+    if (item.status === "completed") {
+      completed.push(item);
+      continue;
+    }
+
+    if (item.status === "expired" || item.status === "refunded") {
+      past.push(item);
+      continue;
+    }
+  }
+
+  return { upcoming, completed, past };
 }
 
 function readAssistantText(content: unknown): string {
@@ -432,22 +499,20 @@ async function assertResendCooldown(input: {
   appointmentId: number;
   role: appointmentsRepo.AppointmentTokenRole;
 }) {
-  const latestIssuedAt = await appointmentsRepo.getLatestAppointmentTokenIssuedAt({
-    appointmentId: input.appointmentId,
-    role: input.role,
-  });
-  if (!latestIssuedAt) {
-    return;
-  }
+  const remainingSeconds =
+    await appointmentsRepo.getAppointmentTokenCooldownRemainingSeconds({
+      appointmentId: input.appointmentId,
+      role: input.role,
+      cooldownSeconds: Math.floor(TOKEN_RESEND_COOLDOWN_MS / 1000),
+    });
 
-  const elapsedMs = Date.now() - latestIssuedAt.getTime();
-  if (elapsedMs >= TOKEN_RESEND_COOLDOWN_MS) {
+  if (remainingSeconds <= 0) {
     return;
   }
 
   throw new TRPCError({
     code: "TOO_MANY_REQUESTS",
-    message: "Please wait at least 60 seconds before resending again",
+    message: `Please wait ${remainingSeconds} seconds before resending again`,
   });
 }
 
@@ -495,6 +560,29 @@ export const appointmentsRouter = router({
         limit: input.limit,
       });
       return appointmentRows.map(toPublicAppointment);
+    }),
+
+  listMyAppointments: publicProcedure
+    .output(listMyAppointmentsOutputSchema)
+    .query(async ({ ctx }) => {
+      const userEmail = ctx.user?.email?.trim().toLowerCase();
+
+      let rows: typeof appointments.$inferSelect[] = [];
+      if (ctx.user) {
+        rows = await appointmentsRepo.listAppointmentsByUserOrEmail({
+          userId: ctx.user.id,
+          email: userEmail,
+        });
+      } else {
+        const sessionEmail = getSessionEmailFromContext(ctx);
+        if (!sessionEmail) {
+          return { upcoming: [], completed: [], past: [] };
+        }
+        rows = await appointmentsRepo.listAppointmentsByEmail(sessionEmail);
+      }
+
+      const items = rows.map(toMyAppointmentItem);
+      return classifyMyAppointments(items);
     }),
 
   create: publicProcedure
@@ -546,13 +634,13 @@ export const appointmentsRouter = router({
         reason: "appointment_draft_created",
       });
 
-      const publicUrlBase = getPublicUrlBase();
+      const publicUrlBase = getPublicBaseUrl(ctx.req);
       const checkout = createStripeCheckoutSession({
         appointmentId,
         amount: pricing.amount,
         currency: pricing.currency,
-        successUrl: `${publicUrlBase}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancelUrl: `${publicUrlBase}/triage`,
+        successUrl: `${publicUrlBase}/payment/success`,
+        cancelUrl: `${publicUrlBase}/payment/cancel`,
       });
 
       await appointmentsRepo.markAppointmentPendingPayment({
@@ -661,7 +749,7 @@ export const appointmentsRouter = router({
         input.token,
         "join_room"
       );
-      const baseUrl = getBaseUrl(ctx);
+      const baseUrl = getPublicBaseUrl(ctx.req);
 
       return {
         appointmentId: appointment.id,
@@ -716,7 +804,7 @@ export const appointmentsRouter = router({
         role: "patient",
       });
 
-      const baseUrl = getBaseUrl(ctx);
+      const baseUrl = getPublicBaseUrl(ctx.req);
 
       const token = generateToken();
       const tokenHash = hashToken(token);
@@ -734,6 +822,10 @@ export const appointmentsRouter = router({
       setCachedPatientAccessToken(appointment.id, token, accessTokenExpiresAt);
       const link = buildAppointmentMagicLink(baseUrl, appointment.id, token);
       await sendMagicLinkEmail(appointment.email, link);
+      if (process.env.NODE_ENV === "development") {
+        console.log("DEV ACCESS LINK:");
+        console.log(getDevAppointmentAccessLink(appointment.id, token));
+      }
 
       return {
         ok: true as const,
@@ -785,7 +877,7 @@ export const appointmentsRouter = router({
         expiresAt: accessTokenExpiresAt,
       });
 
-      const baseUrl = getBaseUrl(ctx);
+      const baseUrl = getPublicBaseUrl(ctx.req);
       const doctorLink = buildVisitUrl(baseUrl, appointment.id, doctorToken);
 
       console.log(`[Appointments][DEV] Doctor link: ${doctorLink}`);

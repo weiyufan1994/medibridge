@@ -31,6 +31,7 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  app.set("trust proxy", true);
   app.post(
     "/api/payments/stripe/webhook",
     express.raw({ type: "application/json" }),

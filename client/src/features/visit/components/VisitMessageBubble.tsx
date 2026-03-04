@@ -1,15 +1,20 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import type { VisitMessageItem } from "@/features/visit/types";
+import type {
+  VisitMessageItem,
+  VisitParticipantRole,
+} from "@/features/visit/types";
 
 type VisitMessageBubbleProps = {
   message: VisitMessageItem;
+  currentRole: VisitParticipantRole;
   showTimestamp: boolean;
   compactWithPrev: boolean;
 };
 
 export function VisitMessageBubble({
   message,
+  currentRole,
   showTimestamp,
   compactWithPrev,
 }: VisitMessageBubbleProps) {
@@ -27,12 +32,12 @@ export function VisitMessageBubble({
     );
   }
 
-  const isPatient = message.senderType === "patient";
-  const wrapperClass = isPatient ? "justify-end" : "justify-start";
-  const bubbleClass = isPatient
+  const isMine = message.senderType === currentRole;
+  const wrapperClass = isMine ? "justify-end" : "justify-start";
+  const bubbleClass = isMine
     ? "bg-sky-600 text-white"
     : "border border-slate-200 bg-white text-slate-900";
-  const timestampClass = isPatient
+  const timestampClass = isMine
     ? "text-right text-[11px] text-slate-500"
     : "text-left text-[11px] text-slate-500";
   const canToggleOriginal =
@@ -60,7 +65,7 @@ export function VisitMessageBubble({
             type="button"
             className={cn(
               "mt-1 text-[11px] underline underline-offset-2",
-              isPatient ? "text-right text-slate-500" : "text-left text-slate-500"
+              isMine ? "text-right text-slate-500" : "text-left text-slate-500"
             )}
             onClick={() => setShowOriginal(current => !current)}
           >

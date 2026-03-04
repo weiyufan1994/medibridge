@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,8 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import AppLayout from "@/components/layout/AppLayout";
-import { VisitMessageBubble } from "@/features/visit/components/VisitMessageBubble";
-import type { VisitMessageItem } from "@/features/visit/types";
+import { MyAppointments } from "@/components/MyAppointments";
 
 function formatDateTime(value: Date | string | null) {
   if (!value) {
@@ -21,12 +19,6 @@ function formatDateTime(value: Date | string | null) {
   return date.toLocaleString();
 }
 
-function toAppointmentTypeLabel(type: "online_chat" | "video_call" | "in_person") {
-  if (type === "online_chat") return "Online chat";
-  if (type === "video_call") return "Video call";
-  return "In person";
-}
-
 export default function DashboardPage() {
   const { user, isAuthenticated } = useAuth();
   const usageQuery = trpc.ai.getUsageSummary.useQuery(undefined, {
@@ -36,30 +28,12 @@ export default function DashboardPage() {
     { limit: 30 },
     { enabled: isAuthenticated }
   );
-  const appointmentsQuery = trpc.appointments.listMine.useQuery(
-    { limit: 20 },
-    { enabled: isAuthenticated }
-  );
 
   const accountPlan = usageQuery.data?.role === "pro" ? "Pro" : "Free";
   const remainingText =
     usageQuery.data?.remainingToday === null || usageQuery.data?.remainingToday === undefined
       ? "Unlimited"
       : String(usageQuery.data.remainingToday);
-
-  const appointmentPreviewMessages = useMemo<VisitMessageItem[]>(() => {
-    return (appointmentsQuery.data ?? []).map(item => ({
-      id: item.id,
-      senderType: "system",
-      content: `#${item.id} · ${toAppointmentTypeLabel(item.appointmentType)} · ${item.status} · ${formatDateTime(item.scheduledAt)}`,
-      originalContent: `#${item.id} · ${toAppointmentTypeLabel(item.appointmentType)} · ${item.status} · ${formatDateTime(item.scheduledAt)}`,
-      translatedContent: `#${item.id} · ${toAppointmentTypeLabel(item.appointmentType)} · ${item.status} · ${formatDateTime(item.scheduledAt)}`,
-      sourceLanguage: "auto",
-      targetLanguage: "auto",
-      createdAt: item.createdAt,
-      clientMsgId: null,
-    }));
-  }, [appointmentsQuery.data]);
 
   return (
     <AppLayout title="个人中心 / User Center" showBack={true}>
@@ -147,32 +121,7 @@ export default function DashboardPage() {
           </TabsContent>
 
           <TabsContent value="appointments">
-            <Card>
-              <CardHeader>
-                <CardTitle>Appointments</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {appointmentsQuery.isLoading ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    正在加载行程...
-                  </div>
-                ) : appointmentPreviewMessages.length > 0 ? (
-                  <div className="space-y-2">
-                    {appointmentPreviewMessages.map((message, index) => (
-                      <VisitMessageBubble
-                        key={message.id}
-                        message={message}
-                        compactWithPrev={index > 0}
-                        showTimestamp={false}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">暂无就诊行程。</p>
-                )}
-              </CardContent>
-            </Card>
+            <MyAppointments />
           </TabsContent>
         </Tabs>
       </div>
