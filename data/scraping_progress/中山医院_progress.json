@@ -1,7 +1,7 @@
 {
   "hospital_name": "中山医院",
   "total_depts": 25,
-  "completed_depts": 4,
+  "completed_depts": 6,
   "departments": [
     {
       "dept_name": "胃肠外科",
@@ -87,20 +87,20 @@
     {
       "dept_name": "心脏外科",
       "url": "https://www.haodf.com/hospital/420/keshi/1783.html",
-      "status": "pending",
-      "doctors_scraped": 0,
-      "doctors_total": 0,
-      "last_updated": null,
-      "output_file": null
+      "status": "completed",
+      "doctors_scraped": 38,
+      "doctors_total": 38,
+      "last_updated": "2026-03-05 01:56:50",
+      "output_file": "data/hospitals/复旦大学附属中山医院_心脏外科_医生详细信息.xlsx"
     },
     {
       "dept_name": "肝胆肿瘤与肝移植外科",
       "url": "https://www.haodf.com/hospital/420/keshi/1764.html",
-      "status": "pending",
-      "doctors_scraped": 0,
-      "doctors_total": 0,
-      "last_updated": null,
-      "output_file": null
+      "status": "completed",
+      "doctors_scraped": 38,
+      "doctors_total": 38,
+      "last_updated": "2026-03-05 01:56:50",
+      "output_file": "data/hospitals/复旦大学附属中山医院_肝胆肿瘤与肝移植外科_医生详细信息.xlsx"
     },
     {
       "dept_name": "普外科",
