@@ -1,7 +1,7 @@
 {
   "hospital_name": "中山医院",
   "total_depts": 25,
-  "completed_depts": 2,
+  "completed_depts": 4,
   "departments": [
     {
       "dept_name": "胃肠外科",
@@ -69,20 +69,20 @@
     {
       "dept_name": "血管外科",
       "url": "https://www.haodf.com/hospital/420/keshi/1785.html",
-      "status": "pending",
-      "doctors_scraped": 0,
-      "doctors_total": 0,
-      "last_updated": null,
-      "output_file": null
+      "status": "completed",
+      "doctors_scraped": 20,
+      "doctors_total": 20,
+      "last_updated": "2026-03-05 01:05:54",
+      "output_file": "data/hospitals/复旦大学附属中山医院_血管外科_医生详细信息.xlsx"
     },
     {
       "dept_name": "胸外科",
       "url": "https://www.haodf.com/hospital/420/keshi/1784.html",
-      "status": "pending",
-      "doctors_scraped": 0,
-      "doctors_total": 0,
-      "last_updated": null,
-      "output_file": null
+      "status": "completed",
+      "doctors_scraped": 20,
+      "doctors_total": 20,
+      "last_updated": "2026-03-05 01:05:54",
+      "output_file": "data/hospitals/复旦大学附属中山医院_胸外科_医生详细信息.xlsx"
     },
     {
       "dept_name": "心脏外科",
