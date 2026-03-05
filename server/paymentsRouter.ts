@@ -2,35 +2,27 @@ import { TRPCError } from "@trpc/server";
 import type { Request } from "express";
 import { z } from "zod";
 import * as appointmentsRepo from "./modules/appointments/repo";
-import { generateToken, hashToken } from "./_core/appointmentToken";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { sendMagicLinkEmail } from "./_core/mailer";
 import { setCachedPatientAccessToken } from "./modules/appointments/tokenCache";
-import { getPublicBaseUrl } from "./core/getPublicBaseUrl";
+import { issueAppointmentAccessLinks } from "./modules/appointments/tokenService";
+import { createStripeCheckoutSession } from "./modules/payments/stripe";
+import {
+  APPOINTMENT_INVALID_TRANSITION_ERROR,
+  APPOINTMENT_STATUS_VALUES,
+  CHECKOUT_REINIT_ALLOWED_FROM,
+  CHECKOUT_REINIT_BLOCKED_STATUSES,
+  PAYMENT_STATUS_VALUES,
+  type AppointmentStatus,
+  type PaymentStatus,
+} from "./modules/appointments/stateMachine";
+import type { appointments } from "../drizzle/schema";
 
-const paymentStatusSchema = z.enum([
-  "unpaid",
-  "pending",
+const paymentStatusSchema = z.enum(PAYMENT_STATUS_VALUES);
+const statusSchema = z.enum(APPOINTMENT_STATUS_VALUES);
+const RESEND_ALLOWED_STATUS: AppointmentStatus[] = [
   "paid",
-  "failed",
-  "expired",
-  "refunded",
-]);
-
-const statusSchema = z.enum([
-  "draft",
-  "pending_payment",
-  "paid",
-  "confirmed",
-  "in_session",
-  "completed",
-  "expired",
-  "refunded",
-]);
-const RESEND_ALLOWED_STATUS: appointmentsRepo.AppointmentStatus[] = [
-  "paid",
-  "confirmed",
-  "in_session",
+  "active",
 ];
 
 const getStatusInputSchema = z.object({
@@ -48,6 +40,9 @@ const getStatusOutputSchema = z.object({
 const confirmMockInputSchema = z.object({
   stripeSessionId: z.string().min(8).max(255),
 });
+const createCheckoutSessionForAppointmentInputSchema = z.object({
+  appointmentId: z.number().int().positive(),
+});
 
 const getCheckoutResultInputSchema = z.object({
   stripeSessionId: z.string().trim().min(1).max(255),
@@ -62,6 +57,13 @@ const getCheckoutResultOutputSchema = z.object({
   paidAt: z.string().nullable().optional(),
   canResendLink: z.boolean(),
   messageForUser: z.string(),
+});
+const createCheckoutSessionForAppointmentOutputSchema = z.object({
+  appointmentId: z.number().int().positive(),
+  checkoutSessionUrl: z.string().url(),
+  status: statusSchema,
+  paymentStatus: paymentStatusSchema,
+  stripeSessionId: z.string().optional(),
 });
 
 function maskEmail(email: string): string {
@@ -82,8 +84,8 @@ function maskEmail(email: string): string {
 }
 
 function createCheckoutResultMessage(input: {
-  paymentStatus: appointmentsRepo.PaymentStatus;
-  status: appointmentsRepo.AppointmentStatus;
+  paymentStatus: PaymentStatus;
+  status: AppointmentStatus;
   canResendLink: boolean;
 }) {
   if (input.canResendLink) {
@@ -101,38 +103,15 @@ function createCheckoutResultMessage(input: {
   if (input.paymentStatus === "refunded" || input.status === "refunded") {
     return "This payment was refunded. Please contact support for next steps.";
   }
+  if (input.status === "canceled" || input.paymentStatus === "canceled") {
+    return "This appointment was canceled.";
+  }
 
   if (input.status === "expired" || input.paymentStatus === "expired") {
     return "This appointment has expired. Please book a new appointment.";
   }
 
   return "Payment has not completed yet. Please finish checkout first.";
-}
-
-function computeDefaultTokenExpiry(scheduledAt: Date): Date {
-  const expiresAt = new Date(scheduledAt.getTime() + 60 * 60 * 1000);
-  expiresAt.setDate(expiresAt.getDate() + 7);
-  return expiresAt;
-}
-
-function buildAppointmentMagicLink(
-  baseUrl: string,
-  appointmentId: number,
-  token: string
-): string {
-  return `${baseUrl}/appointment/${appointmentId}?t=${encodeURIComponent(token)}`;
-}
-
-function buildDoctorMagicLink(
-  baseUrl: string,
-  appointmentId: number,
-  token: string
-): string {
-  return `${baseUrl}/visit/${appointmentId}?t=${encodeURIComponent(token)}`;
-}
-
-function buildDevAccessLink(appointmentId: number, token: string): string {
-  return `http://localhost:3000/appointment-access?appointmentId=${appointmentId}&token=${encodeURIComponent(token)}`;
 }
 
 export async function settleStripePaymentBySessionId(input: {
@@ -144,6 +123,12 @@ export async function settleStripePaymentBySessionId(input: {
 }) {
   const claimRows = await appointmentsRepo.tryMarkPaidByStripeSessionId({
     stripeSessionId: input.stripeSessionId,
+    operatorType: input.source === "webhook" ? "webhook" : "system",
+    reason: input.source === "webhook" ? "stripe_webhook_paid" : "mock_payment_paid",
+    payloadJson: {
+      stripeSessionId: input.stripeSessionId,
+      eventId: input.eventId ?? null,
+    },
     dbExecutor: input.dbExecutor,
   });
 
@@ -187,50 +172,41 @@ export async function settleStripePaymentBySessionId(input: {
     });
   }
 
-  const patientToken = generateToken();
-  const patientTokenHash = hashToken(patientToken);
-  const doctorToken = generateToken();
-  const doctorLinkHash = hashToken(doctorToken);
-  const accessTokenExpiresAt = computeDefaultTokenExpiry(
-    appointment.scheduledAt ?? new Date()
+  const issuedLinks = await issueAppointmentAccessLinks({
+    appointmentId: appointment.id,
+    createdBy: input.source === "webhook" ? "stripe_webhook" : "system",
+  });
+
+  const patientLink = issuedLinks.patientLink;
+  const doctorLink = issuedLinks.doctorLink;
+  setCachedPatientAccessToken(
+    appointment.id,
+    issuedLinks.patient.token,
+    issuedLinks.expiresAt
   );
-
-  await appointmentsRepo.createAppointmentTokenIfMissing({
-    appointmentId: appointment.id,
-    role: "patient",
-    tokenHash: patientTokenHash,
-    expiresAt: accessTokenExpiresAt,
-    dbExecutor: input.dbExecutor,
-  });
-  await appointmentsRepo.createAppointmentTokenIfMissing({
-    appointmentId: appointment.id,
-    role: "doctor",
-    tokenHash: doctorLinkHash,
-    expiresAt: accessTokenExpiresAt,
-    dbExecutor: input.dbExecutor,
-  });
-
-  await appointmentsRepo.insertStatusEvent({
-    appointmentId: appointment.id,
-    fromStatus: "pending_payment",
-    toStatus: "paid",
-    operatorType: input.source === "webhook" ? "webhook" : "system",
-    reason: input.source === "webhook" ? "stripe_webhook_paid" : "mock_payment_paid",
-    payloadJson: {
-      stripeSessionId: input.stripeSessionId,
-      eventId: input.eventId ?? null,
-    },
-    dbExecutor: input.dbExecutor,
-  });
-
-  const baseUrl = getPublicBaseUrl(input.req);
-  const patientLink = buildAppointmentMagicLink(baseUrl, appointment.id, patientToken);
-  const doctorLink = buildDoctorMagicLink(baseUrl, appointment.id, doctorToken);
-  setCachedPatientAccessToken(appointment.id, patientToken, accessTokenExpiresAt);
-  await sendMagicLinkEmail(appointment.email, patientLink);
-  if (process.env.NODE_ENV === "development") {
-    console.log("DEV ACCESS LINK:");
-    console.log(buildDevAccessLink(appointment.id, patientToken));
+  if (!appointment.email.endsWith("@medibridge.local")) {
+    try {
+      await sendMagicLinkEmail(appointment.email, patientLink);
+    } catch (error) {
+      const reason =
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : "unknown_mailer_error";
+      await appointmentsRepo.insertStatusEvent({
+        appointmentId: appointment.id,
+        fromStatus: "paid",
+        toStatus: "paid",
+        operatorType: input.source === "webhook" ? "webhook" : "system",
+        operatorId: null,
+        reason: "payment_link_email_failed",
+        payloadJson: {
+          stripeSessionId: input.stripeSessionId,
+          error: reason,
+        },
+        dbExecutor: input.dbExecutor,
+      });
+      console.error("[payments] failed to send payment success link email:", reason);
+    }
   }
 
   return {
@@ -245,7 +221,106 @@ export async function settleStripePaymentBySessionId(input: {
   };
 }
 
+type AppointmentRow = typeof appointments.$inferSelect;
+
+export async function reinitiateCheckoutForAppointment(input: {
+  appointment: AppointmentRow;
+  baseUrl: string;
+  operatorType: "system" | "patient" | "admin";
+  operatorId: number | null;
+}) {
+  if (
+    input.appointment.paymentStatus === "paid" ||
+    CHECKOUT_REINIT_BLOCKED_STATUSES.includes(input.appointment.status)
+  ) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: APPOINTMENT_INVALID_TRANSITION_ERROR,
+    });
+  }
+
+  const normalizedBaseUrl = input.baseUrl.trim().replace(/\/$/, "");
+  if (!normalizedBaseUrl) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "APP_BASE_URL_MISSING",
+    });
+  }
+
+  const checkout = createStripeCheckoutSession({
+    appointmentId: input.appointment.id,
+    amount: input.appointment.amount,
+    currency: input.appointment.currency,
+    successUrl: `${normalizedBaseUrl}/payment/success`,
+    cancelUrl: `${normalizedBaseUrl}/payment/cancel`,
+  });
+
+  await appointmentsRepo.revokeAppointmentTokens({
+    appointmentId: input.appointment.id,
+    reason: "payment_reinitiated",
+  });
+  const transitioned = await appointmentsRepo.tryTransitionAppointmentById({
+    appointmentId: input.appointment.id,
+    allowedFrom: CHECKOUT_REINIT_ALLOWED_FROM,
+    toStatus: "pending_payment",
+    toPaymentStatus: "pending",
+    operatorType: input.operatorType,
+    operatorId: input.operatorId,
+    reason: "checkout_session_created",
+    payloadJson: {
+      oldStripeSessionId: input.appointment.stripeSessionId,
+      newStripeSessionId: checkout.id,
+    },
+    update: {
+      stripeSessionId: checkout.id,
+    },
+  });
+
+  if (!transitioned.ok) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: APPOINTMENT_INVALID_TRANSITION_ERROR,
+    });
+  }
+
+  return {
+    appointmentId: input.appointment.id,
+    checkoutSessionUrl: checkout.url,
+    status: "pending_payment" as const,
+    paymentStatus: "pending" as const,
+    stripeSessionId:
+      process.env.NODE_ENV === "development" ? checkout.id : undefined,
+  };
+}
+
 export const paymentsRouter = router({
+  createCheckoutSessionForAppointment: publicProcedure
+    .input(createCheckoutSessionForAppointmentInputSchema)
+    .output(createCheckoutSessionForAppointmentOutputSchema)
+    .mutation(async ({ input, ctx }) => {
+      const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
+      if (!appointment) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Appointment not found",
+        });
+      }
+
+      const baseUrl = process.env.APP_BASE_URL?.trim();
+      if (!baseUrl) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "APP_BASE_URL_MISSING",
+        });
+      }
+      return reinitiateCheckoutForAppointment({
+        appointment,
+        baseUrl,
+        operatorType: "system",
+        operatorId: ctx.user?.id ?? null,
+      });
+    }),
+
   getCheckoutResult: publicProcedure
     .input(getCheckoutResultInputSchema)
     .output(getCheckoutResultOutputSchema)

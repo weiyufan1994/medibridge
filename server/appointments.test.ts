@@ -5,12 +5,19 @@ vi.mock("./modules/appointments/repo", () => ({
   createAppointmentDraft: vi.fn(),
   findLatestAppointmentIdByLookup: vi.fn(),
   markAppointmentPendingPayment: vi.fn(),
+  tryTransitionAppointmentById: vi.fn(),
   insertStatusEvent: vi.fn(),
   getAppointmentById: vi.fn(),
   getAppointmentTokenCooldownRemainingSeconds: vi.fn(),
-  listActiveAppointmentTokens: vi.fn(),
-  createAppointmentTokenIfMissing: vi.fn(),
   updateAppointmentById: vi.fn(),
+  revokeAppointmentTokens: vi.fn(),
+}));
+vi.mock("./modules/appointments/tokenService", () => ({
+  issueAppointmentAccessLinks: vi.fn(),
+}));
+vi.mock("./modules/appointments/tokenValidation", () => ({
+  validateAppointmentAccessToken: vi.fn(),
+  revokeAppointmentAccessToken: vi.fn(),
 }));
 vi.mock("./_core/mailer", () => ({
   sendMagicLinkEmail: vi.fn(),
@@ -18,6 +25,7 @@ vi.mock("./_core/mailer", () => ({
 
 vi.mock("./modules/ai/repo", () => ({
   getAiChatSessionById: vi.fn(),
+  createAiChatSession: vi.fn(),
 }));
 
 vi.mock("./modules/payments/stripe", () => ({
@@ -28,7 +36,8 @@ import * as appointmentsRepo from "./modules/appointments/repo";
 import * as aiRepo from "./modules/ai/repo";
 import { createStripeCheckoutSession } from "./modules/payments/stripe";
 import { sendMagicLinkEmail } from "./_core/mailer";
-import { hashToken } from "./_core/appointmentToken";
+import { issueAppointmentAccessLinks } from "./modules/appointments/tokenService";
+import { validateAppointmentAccessToken } from "./modules/appointments/tokenValidation";
 import { appointmentsRouter, validateAppointmentToken } from "./appointmentsRouter";
 
 function createTestContext(): TrpcContext {
@@ -62,15 +71,45 @@ describe("appointments router", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.NODE_ENV = "development";
-    vi.mocked(appointmentsRepo.createAppointmentTokenIfMissing).mockResolvedValue(
-      undefined as never
-    );
+    process.env.APP_BASE_URL = "https://medibridge.test";
     vi.mocked(
       appointmentsRepo.getAppointmentTokenCooldownRemainingSeconds
     ).mockResolvedValue(0 as never);
-    vi.mocked(appointmentsRepo.listActiveAppointmentTokens).mockResolvedValue(
-      [] as never
-    );
+    vi.mocked(issueAppointmentAccessLinks).mockResolvedValue({
+      patient: { token: "patient-token" },
+      doctor: { token: "doctor-token" },
+      expiresAt: new Date("2026-03-05T00:00:00.000Z"),
+      patientLink: "https://medibridge.test/room?token=patient-token",
+      doctorLink: "https://medibridge.test/room?token=doctor-token",
+    } as never);
+    vi.mocked(validateAppointmentAccessToken).mockResolvedValue({
+      appointmentId: 303,
+      role: "patient",
+      tokenId: 1,
+      tokenHash: "a".repeat(64),
+      expiresAt: new Date("2026-03-05T00:00:00.000Z"),
+      displayInfo: { patientEmail: "user@example.com", doctorId: 11 },
+      appointment: {
+        id: 303,
+        doctorId: 11,
+        triageSessionId: 99,
+        appointmentType: "video_call",
+        scheduledAt: new Date("2026-03-03T09:00:00.000Z"),
+        status: "paid",
+        paymentStatus: "paid",
+        amount: 4900,
+        currency: "usd",
+        paidAt: new Date("2026-03-03T08:00:00.000Z"),
+        email: "user@example.com",
+        sessionId: null,
+        userId: 1,
+        lastAccessAt: null,
+        doctorLastAccessAt: null,
+        stripeSessionId: "cs_paid",
+        createdAt: new Date("2026-03-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+    } as never);
 
     vi.mocked(aiRepo.getAiChatSessionById).mockResolvedValue({
       id: 99,
@@ -284,19 +323,16 @@ describe("appointments router", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(result.devLink).toContain("/appointment/202?t=");
+    expect(result.devLink).toContain("/room?token=");
     expect(sendMagicLinkEmail).toHaveBeenCalledTimes(1);
     expect(sendMagicLinkEmail).toHaveBeenCalledWith(
       "user@example.com",
-      expect.stringContaining("/appointment/202?t=")
+      expect.stringContaining("/room?token=")
     );
-    expect(appointmentsRepo.createAppointmentTokenIfMissing).toHaveBeenCalledWith(
-      expect.objectContaining({
-        appointmentId: 202,
-        role: "patient",
-        tokenHash: expect.any(String),
-      })
-    );
+    expect(issueAppointmentAccessLinks).toHaveBeenCalledWith({
+      appointmentId: 202,
+      createdBy: "resend_link",
+    });
   });
 
   it("resendLink rejects when another patient token was issued within 60 seconds", async () => {
@@ -338,7 +374,7 @@ describe("appointments router", () => {
       })
     ).rejects.toThrow("Please wait 30 seconds before resending again");
     expect(sendMagicLinkEmail).not.toHaveBeenCalled();
-    expect(appointmentsRepo.createAppointmentTokenIfMissing).not.toHaveBeenCalled();
+    expect(issueAppointmentAccessLinks).not.toHaveBeenCalled();
   });
 
   it("resendLink allows resend again after 60 seconds", async () => {
@@ -380,65 +416,62 @@ describe("appointments router", () => {
 
     expect(result.ok).toBe(true);
     expect(sendMagicLinkEmail).toHaveBeenCalledTimes(1);
-    expect(appointmentsRepo.createAppointmentTokenIfMissing).toHaveBeenCalledTimes(1);
+    expect(issueAppointmentAccessLinks).toHaveBeenCalledTimes(1);
   });
 
-  it("validateAppointmentToken accepts multiple active patient tokens in parallel", async () => {
-    const token1 = "patient_token_1_1234567890";
-    const token2 = "patient_token_2_1234567890";
-    const token1Hash = hashToken(token1);
-    const token2Hash = hashToken(token2);
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue({
-      id: 303,
-      doctorId: 11,
-      triageSessionId: 99,
-      appointmentType: "video_call",
-      scheduledAt: new Date("2026-03-03T09:00:00.000Z"),
-      status: "paid",
-      paymentStatus: "paid",
-      amount: 4900,
-      currency: "usd",
-      paidAt: new Date("2026-03-03T08:00:00.000Z"),
-      email: "user@example.com",
-      sessionId: null,
-      userId: 1,
-      accessTokenHash: null,
-      doctorTokenHash: null,
-      accessTokenExpiresAt: expiresAt,
-      accessTokenRevokedAt: null,
-      doctorTokenRevokedAt: null,
-      lastAccessAt: null,
-      doctorLastAccessAt: null,
-      stripeSessionId: "cs_paid",
-      createdAt: new Date("2026-03-01T00:00:00.000Z"),
-      updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+  it("validateAppointmentToken delegates to tokenValidation and returns role", async () => {
+    const result = await validateAppointmentToken(
+      303,
+      "patient_token_2_1234567890",
+      "join_room"
+    );
+
+    expect(result.role).toBe("patient");
+    expect(validateAppointmentAccessToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        token: "patient_token_2_1234567890",
+        expectedAppointmentId: 303,
+        action: "join_room",
+      })
+    );
+  });
+
+  it("createV2 creates pending_payment appointment and returns checkout session url", async () => {
+    vi.mocked(appointmentsRepo.createAppointmentDraft).mockResolvedValue({
+      insertId: 1001,
     } as never);
-    vi.mocked(appointmentsRepo.listActiveAppointmentTokens).mockResolvedValue([
-      {
-        id: 1,
-        appointmentId: 303,
-        role: "patient",
-        tokenHash: token1Hash,
-        expiresAt,
-        revokedAt: null,
-      },
-      {
-        id: 2,
-        appointmentId: 303,
-        role: "patient",
-        tokenHash: token2Hash,
-        expiresAt,
-        revokedAt: null,
-      },
-    ] as never);
 
-    const hitToken2 = await validateAppointmentToken(303, token2, "join_room");
-    const hitToken1 = await validateAppointmentToken(303, token1, "join_room");
+    const caller = appointmentsRouter.createCaller(createTestContext());
+    const result = await caller.createV2({
+      doctorId: 11,
+      contact: { email: "user@example.com" },
+      appointmentType: "online_chat",
+      triageSessionId: 99,
+    });
 
-    expect(hitToken2.role).toBe("patient");
-    expect(hitToken1.role).toBe("patient");
-    expect(appointmentsRepo.createAppointmentTokenIfMissing).not.toHaveBeenCalled();
+    expect(result.appointmentId).toBe(1001);
+    expect(result.status).toBe("pending_payment");
+    expect(result.paymentStatus).toBe("pending");
+    expect(result.checkoutSessionUrl).toContain("checkout.mock");
+  });
+
+  it("cancel rejects illegal transition with unified error code", async () => {
+    vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue({
+      id: 3001,
+      status: "refunded",
+      paymentStatus: "refunded",
+      stripeSessionId: "cs_1",
+      paidAt: new Date("2026-03-03T00:00:00.000Z"),
+    } as never);
+    vi.mocked(appointmentsRepo.tryTransitionAppointmentById).mockResolvedValue({
+      ok: false,
+      reason: "illegal_transition",
+    } as never);
+
+    const caller = appointmentsRouter.createCaller(createTestContext());
+    await expect(caller.cancel({ appointmentId: 3001 })).rejects.toThrow(
+      "APPOINTMENT_INVALID_STATUS_TRANSITION"
+    );
   });
 
 });

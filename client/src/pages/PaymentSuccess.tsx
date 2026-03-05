@@ -1,5 +1,5 @@
 import { Loader2 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import AppLayout from "@/components/layout/AppLayout";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +37,8 @@ function getDisplayPaymentState(paymentStatus: string) {
 export default function PaymentSuccessPage() {
   const stripeSessionId = getSessionIdFromQuery();
   const mockPaid = isMockPaidQueryEnabled();
+  const [pollTimedOut, setPollTimedOut] = useState(false);
+  const startedAtRef = useRef<number>(Date.now());
 
   const checkoutResultQuery = trpc.payments.getCheckoutResult.useQuery(
     { stripeSessionId },
@@ -64,6 +66,21 @@ export default function PaymentSuccessPage() {
       toast.error(error.message || "Failed to resend access link.");
     },
   });
+  const retryPaymentMutation = trpc.payments.createCheckoutSessionForAppointment.useMutation({
+    onSuccess: result => {
+      if (typeof window !== "undefined") {
+        window.location.href = result.checkoutSessionUrl;
+      }
+    },
+    onError: error => {
+      toast.error(error.message || "Failed to restart checkout.");
+    },
+  });
+
+  const isTerminalStatus = useMemo(() => {
+    const status = checkoutResultQuery.data?.paymentStatus;
+    return status === "paid" || status === "failed" || status === "expired" || status === "refunded";
+  }, [checkoutResultQuery.data?.paymentStatus]);
 
   useEffect(() => {
     if (!mockPaid) {
@@ -87,6 +104,32 @@ export default function PaymentSuccessPage() {
     stripeSessionId,
     checkoutResultQuery.data,
     confirmMockCheckoutMutation,
+  ]);
+
+  useEffect(() => {
+    if (stripeSessionId.length === 0 || !checkoutResultQuery.data) {
+      return;
+    }
+    if (isTerminalStatus || pollTimedOut) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      void checkoutResultQuery.refetch();
+
+      const elapsedMs = Date.now() - startedAtRef.current;
+      if (elapsedMs >= 2 * 60 * 1000) {
+        setPollTimedOut(true);
+      }
+    }, 3000);
+
+    return () => window.clearInterval(timer);
+  }, [
+    checkoutResultQuery.refetch,
+    checkoutResultQuery.data,
+    isTerminalStatus,
+    pollTimedOut,
+    stripeSessionId,
   ]);
 
   if (stripeSessionId.length === 0) {
@@ -156,7 +199,11 @@ export default function PaymentSuccessPage() {
             {summary.paymentStatus === "paid" ? (
               <p>访问链接已发送到邮箱 {summary.email}</p>
             ) : (
-              <p>仍在处理中，稍后刷新。</p>
+              <p>
+                {pollTimedOut
+                  ? "支付结果确认超时，请手动刷新或重新发起支付。"
+                  : "仍在处理中，系统会自动刷新。"}
+              </p>
             )}
           </CardContent>
         </Card>
@@ -174,6 +221,22 @@ export default function PaymentSuccessPage() {
               >
                 {checkoutResultQuery.isFetching ? "Refreshing..." : "Refresh"}
               </Button>
+              {(summary.paymentStatus === "pending" ||
+                summary.paymentStatus === "failed" ||
+                summary.paymentStatus === "expired") && (
+                <Button
+                  onClick={() =>
+                    void retryPaymentMutation.mutateAsync({
+                      appointmentId: summary.appointmentId,
+                    })
+                  }
+                  disabled={retryPaymentMutation.isPending}
+                >
+                  {retryPaymentMutation.isPending
+                    ? "Redirecting..."
+                    : "Retry Payment"}
+                </Button>
+              )}
               {summary.canResendLink ? (
                 <Button
                   onClick={() =>

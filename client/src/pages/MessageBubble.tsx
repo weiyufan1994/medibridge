@@ -7,7 +7,7 @@ export type VisitMessageItem = {
   senderType: VisitSenderType;
   content: string;
   createdAt: Date;
-  clientMsgId: string | null;
+  clientMessageId: string | null;
 };
 
 type MessageBubbleProps = {

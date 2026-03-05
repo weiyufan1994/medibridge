@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   InputOTP,
   InputOTPGroup,
@@ -47,10 +48,12 @@ export function AppointmentModal({
     isSubmitting,
     bookingScheduledAt,
     bookingType,
+    intake,
     setBookingEmail,
     setBookingOtpCode,
     setBookingScheduledAt,
     setBookingType,
+    setIntake,
     handleRequestOtp,
     handleCreateBooking,
   } = useAppointmentForm({
@@ -150,6 +153,100 @@ export function AppointmentModal({
               <option value="video_call">{t.bookingTypeVideo}</option>
               <option value="in_person">{t.bookingTypeInPerson}</option>
             </select>
+          </div>
+          <div className="space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+            <p className="text-sm font-medium">{t.intakeTitle}</p>
+            <p className="text-xs text-slate-500">{t.intakeDesc}</p>
+            <div className="space-y-1">
+              <Label htmlFor="intake-chief-complaint">{t.intakeChiefComplaint}</Label>
+              <Textarea
+                id="intake-chief-complaint"
+                value={intake.chiefComplaint}
+                onChange={event =>
+                  setIntake(current => ({ ...current, chiefComplaint: event.target.value }))
+                }
+                placeholder={t.intakePlaceholderChiefComplaint}
+                rows={2}
+                disabled={isSubmitting}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="intake-duration">{t.intakeDuration}</Label>
+                <Input
+                  id="intake-duration"
+                  value={intake.duration}
+                  onChange={event =>
+                    setIntake(current => ({ ...current, duration: event.target.value }))
+                  }
+                  placeholder={t.intakePlaceholderDuration}
+                  disabled={isSubmitting}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="intake-age-group">{t.intakeAgeGroup}</Label>
+                <Input
+                  id="intake-age-group"
+                  value={intake.ageGroup}
+                  onChange={event =>
+                    setIntake(current => ({ ...current, ageGroup: event.target.value }))
+                  }
+                  placeholder={t.intakePlaceholderAgeGroup}
+                  disabled={isSubmitting}
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="intake-medical-history">{t.intakeMedicalHistory}</Label>
+              <Textarea
+                id="intake-medical-history"
+                value={intake.medicalHistory}
+                onChange={event =>
+                  setIntake(current => ({ ...current, medicalHistory: event.target.value }))
+                }
+                placeholder={t.intakePlaceholderMedicalHistory}
+                rows={2}
+                disabled={isSubmitting}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="intake-medications">{t.intakeMedications}</Label>
+              <Textarea
+                id="intake-medications"
+                value={intake.medications}
+                onChange={event =>
+                  setIntake(current => ({ ...current, medications: event.target.value }))
+                }
+                placeholder={t.intakePlaceholderMedications}
+                rows={2}
+                disabled={isSubmitting}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="intake-allergies">{t.intakeAllergies}</Label>
+              <Input
+                id="intake-allergies"
+                value={intake.allergies}
+                onChange={event =>
+                  setIntake(current => ({ ...current, allergies: event.target.value }))
+                }
+                placeholder={t.intakePlaceholderAllergies}
+                disabled={isSubmitting}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="intake-other-symptoms">{t.intakeOtherSymptoms}</Label>
+              <Textarea
+                id="intake-other-symptoms"
+                value={intake.otherSymptoms}
+                onChange={event =>
+                  setIntake(current => ({ ...current, otherSymptoms: event.target.value }))
+                }
+                placeholder={t.intakePlaceholderOtherSymptoms}
+                rows={2}
+                disabled={isSubmitting}
+              />
+            </div>
           </div>
         </div>
         <DialogFooter>

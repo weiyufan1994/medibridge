@@ -91,6 +91,32 @@ export async function listAiChatSessionsByUser(userId: number, limit: number) {
     .limit(limit);
 }
 
+export async function listAiChatSessionsForAdmin(input: {
+  limit: number;
+  status?: "active" | "completed";
+  userId?: number;
+}) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const filters = [];
+  if (input.status) {
+    filters.push(eq(aiChatSessions.status, input.status));
+  }
+  if (typeof input.userId === "number") {
+    filters.push(eq(aiChatSessions.userId, input.userId));
+  }
+
+  return db
+    .select()
+    .from(aiChatSessions)
+    .where(filters.length > 0 ? and(...filters) : undefined)
+    .orderBy(desc(aiChatSessions.createdAt), desc(aiChatSessions.id))
+    .limit(input.limit);
+}
+
 export async function getAiChatSessionById(sessionId: number) {
   const db = await getDb();
   if (!db) {

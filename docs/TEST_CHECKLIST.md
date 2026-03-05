@@ -37,6 +37,10 @@ pnpm test
 Expected:
 - Type check passes with no errors.
 - Existing test suites pass (`auth`, `ai-billing`, `appointments`, `visit`, `doctors`, `appointmentToken`).
+- E2E-style payment flow test passes:
+  - `booking/payment -> webhook settlement -> issue links -> join room`
+- Appointment state regression matrix is covered in tests:
+  - `pending`, `paid`, `failed`, `refunded`, `expired`, `canceled`
 
 ## 3. Core E2E Flow (Manual)
 
@@ -84,7 +88,7 @@ Expected:
 Expected:
 - Both sides can read and send.
 - Sender type is correct (`patient` / `doctor`).
-- No duplicate message on retries (clientMsgId idempotency).
+- No duplicate message on retries (clientMessageId idempotency).
 
 ### E. Token Validation Scenarios
 

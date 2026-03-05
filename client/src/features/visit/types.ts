@@ -10,5 +10,5 @@ export type VisitMessageItem = {
   sourceLanguage: string;
   targetLanguage: string;
   createdAt: Date;
-  clientMsgId: string | null;
+  clientMessageId: string | null;
 };

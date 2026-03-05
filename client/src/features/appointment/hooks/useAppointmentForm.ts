@@ -5,6 +5,15 @@ import { trpc } from "@/lib/trpc";
 import { getAppointmentCopy } from "@/features/appointment/copy";
 
 export type AppointmentType = "online_chat" | "video_call" | "in_person";
+export type AppointmentIntake = {
+  chiefComplaint: string;
+  duration: string;
+  medicalHistory: string;
+  medications: string;
+  allergies: string;
+  ageGroup: string;
+  otherSymptoms: string;
+};
 
 type UseAppointmentFormParams = {
   doctorId: number | null;
@@ -34,6 +43,15 @@ export function useAppointmentForm({
   const [otpCooldownSeconds, setOtpCooldownSeconds] = useState(0);
   const [bookingScheduledAt, setBookingScheduledAt] = useState("");
   const [bookingType, setBookingType] = useState<AppointmentType>("video_call");
+  const [intake, setIntake] = useState<AppointmentIntake>({
+    chiefComplaint: "",
+    duration: "",
+    medicalHistory: "",
+    medications: "",
+    allergies: "",
+    ageGroup: "",
+    otherSymptoms: "",
+  });
   const authenticatedEmail = meQuery.data?.email?.trim().toLowerCase() ?? "";
   const isLoggedInWithEmail = authenticatedEmail.length > 0;
 
@@ -66,6 +84,15 @@ export function useAppointmentForm({
       setBookingOtpCode("");
       setOtpRequestedEmail("");
       setOtpCooldownSeconds(0);
+      setIntake({
+        chiefComplaint: "",
+        duration: "",
+        medicalHistory: "",
+        medications: "",
+        allergies: "",
+        ageGroup: "",
+        otherSymptoms: "",
+      });
     }
   }, [open]);
 
@@ -75,7 +102,7 @@ export function useAppointmentForm({
     }
   }, [authenticatedEmail, isLoggedInWithEmail]);
 
-  const createAppointmentMutation = trpc.appointments.create.useMutation({
+  const createAppointmentMutation = trpc.appointments.createV2.useMutation({
     onSuccess: async result => {
       toast.success(t.bookingSuccess);
       onBooked();
@@ -125,6 +152,10 @@ export function useAppointmentForm({
       toast.error(t.bookingInvalid);
       return;
     }
+    if (!intake.chiefComplaint.trim()) {
+      toast.error(t.bookingChiefComplaintRequired);
+      return;
+    }
     const normalizedSessionId =
       sessionId.trim().length > 0 ? sessionId.trim() : undefined;
     const triageSessionId = Number(normalizedSessionId ?? NaN);
@@ -172,7 +203,10 @@ export function useAppointmentForm({
           triageSessionId,
           appointmentType: bookingType,
           scheduledAt: new Date(bookingScheduledAt).toISOString(),
-          email: createEmail,
+          contact: {
+            email: createEmail,
+          },
+          intake,
           sessionId: normalizedSessionId,
         });
       } catch {
@@ -185,7 +219,10 @@ export function useAppointmentForm({
       triageSessionId,
       appointmentType: bookingType,
       scheduledAt: new Date(bookingScheduledAt).toISOString(),
-      email: createEmail,
+      contact: {
+        email: createEmail,
+      },
+      intake,
       sessionId: normalizedSessionId,
     });
   };
@@ -211,11 +248,13 @@ export function useAppointmentForm({
     isSubmitting,
     bookingScheduledAt,
     bookingType,
+    intake,
     createAppointmentMutation,
     setBookingEmail,
     setBookingOtpCode,
     setBookingScheduledAt,
     setBookingType,
+    setIntake,
     handleRequestOtp,
     handleCreateBooking,
   };

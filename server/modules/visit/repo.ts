@@ -65,9 +65,9 @@ export async function getRecentMessages(appointmentId: number, limit: number) {
     .limit(limit);
 }
 
-export async function getMessageByClientMsgId(
+export async function getMessageByClientMessageId(
   appointmentId: number,
-  clientMsgId: string
+  clientMessageId: string
 ) {
   const db = await getDb();
   if (!db) {
@@ -75,21 +75,51 @@ export async function getMessageByClientMsgId(
   }
 
   const existing = await db
-    .select({
-      id: appointmentMessages.id,
-      senderType: appointmentMessages.senderType,
-      createdAt: appointmentMessages.createdAt,
-    })
+    .select()
     .from(appointmentMessages)
     .where(
       and(
         eq(appointmentMessages.appointmentId, appointmentId),
-        eq(appointmentMessages.clientMsgId, clientMsgId)
+        eq(appointmentMessages.clientMessageId, clientMessageId)
       )
     )
     .limit(1);
 
   return existing[0] ?? null;
+}
+
+export async function getMessageById(id: number) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const rows = await db
+    .select()
+    .from(appointmentMessages)
+    .where(eq(appointmentMessages.id, id))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+export async function getLatestMessageCursor(appointmentId: number) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const latest = await db
+    .select({
+      id: appointmentMessages.id,
+      createdAt: appointmentMessages.createdAt,
+    })
+    .from(appointmentMessages)
+    .where(eq(appointmentMessages.appointmentId, appointmentId))
+    .orderBy(desc(appointmentMessages.createdAt), desc(appointmentMessages.id))
+    .limit(1);
+
+  return latest[0] ?? null;
 }
 
 export async function createMessage(input: {
@@ -102,7 +132,7 @@ export async function createMessage(input: {
   sourceLanguage: string;
   targetLanguage: string;
   translationProvider?: string | null;
-  clientMsgId?: string;
+  clientMessageId?: string;
   createdAt: Date;
 }) {
   const db = await getDb();
@@ -120,7 +150,7 @@ export async function createMessage(input: {
     sourceLanguage: input.sourceLanguage,
     targetLanguage: input.targetLanguage,
     translationProvider: input.translationProvider ?? null,
-    clientMsgId: input.clientMsgId ?? null,
+    clientMessageId: input.clientMessageId ?? null,
     createdAt: input.createdAt,
   });
 }

@@ -1,4 +1,15 @@
-import { and, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNull,
+  like,
+  lt,
+  or,
+  sql,
+} from "drizzle-orm";
 import {
   appointmentTokens,
   appointmentStatusEvents,
@@ -7,24 +18,12 @@ import {
   type InsertAppointment,
 } from "../../../drizzle/schema";
 import { getDb } from "../../db";
-
-export type AppointmentStatus =
-  | "draft"
-  | "pending_payment"
-  | "paid"
-  | "confirmed"
-  | "in_session"
-  | "completed"
-  | "expired"
-  | "refunded";
-
-export type PaymentStatus =
-  | "unpaid"
-  | "pending"
-  | "paid"
-  | "failed"
-  | "expired"
-  | "refunded";
+import {
+  type AppointmentStatus,
+  type PaymentStatus,
+  isAllowedPaymentStatusForAppointment,
+  isAllowedStatusTransition,
+} from "./stateMachine";
 
 export type AppointmentTokenRole = "patient" | "doctor";
 const ACTIVE_TOKEN_LIMIT_PER_ROLE = 5;
@@ -109,7 +108,13 @@ export async function listActiveAppointmentTokens(input: {
       role: appointmentTokens.role,
       tokenHash: appointmentTokens.tokenHash,
       expiresAt: appointmentTokens.expiresAt,
+      lastUsedAt: appointmentTokens.lastUsedAt,
+      useCount: appointmentTokens.useCount,
+      maxUses: appointmentTokens.maxUses,
       revokedAt: appointmentTokens.revokedAt,
+      revokeReason: appointmentTokens.revokeReason,
+      ipFirstSeen: appointmentTokens.ipFirstSeen,
+      uaFirstSeen: appointmentTokens.uaFirstSeen,
     })
     .from(appointmentTokens)
     .where(
@@ -152,10 +157,45 @@ export async function getActiveAppointmentTokenByHash(input: {
       role: appointmentTokens.role,
       tokenHash: appointmentTokens.tokenHash,
       expiresAt: appointmentTokens.expiresAt,
+      lastUsedAt: appointmentTokens.lastUsedAt,
+      useCount: appointmentTokens.useCount,
+      maxUses: appointmentTokens.maxUses,
       revokedAt: appointmentTokens.revokedAt,
+      revokeReason: appointmentTokens.revokeReason,
+      ipFirstSeen: appointmentTokens.ipFirstSeen,
+      uaFirstSeen: appointmentTokens.uaFirstSeen,
     })
     .from(appointmentTokens)
     .where(whereClause)
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+export async function getAppointmentTokenByHash(tokenHash: string) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const rows = await db
+    .select({
+      id: appointmentTokens.id,
+      appointmentId: appointmentTokens.appointmentId,
+      role: appointmentTokens.role,
+      tokenHash: appointmentTokens.tokenHash,
+      expiresAt: appointmentTokens.expiresAt,
+      lastUsedAt: appointmentTokens.lastUsedAt,
+      useCount: appointmentTokens.useCount,
+      maxUses: appointmentTokens.maxUses,
+      revokedAt: appointmentTokens.revokedAt,
+      revokeReason: appointmentTokens.revokeReason,
+      ipFirstSeen: appointmentTokens.ipFirstSeen,
+      uaFirstSeen: appointmentTokens.uaFirstSeen,
+      createdAt: appointmentTokens.createdAt,
+    })
+    .from(appointmentTokens)
+    .where(eq(appointmentTokens.tokenHash, tokenHash))
     .limit(1);
 
   return rows[0] ?? null;
@@ -245,6 +285,8 @@ export async function createAppointmentTokenIfMissing(input: {
   role: AppointmentTokenRole;
   tokenHash: string;
   expiresAt: Date;
+  maxUses?: number;
+  createdBy?: string | null;
   revokedAt?: Date | null;
   dbExecutor?: DbExecutor;
 }) {
@@ -276,6 +318,8 @@ export async function createAppointmentTokenIfMissing(input: {
     role: input.role,
     tokenHash: input.tokenHash,
     expiresAt: input.expiresAt,
+    maxUses: input.maxUses ?? 1,
+    createdBy: input.createdBy ?? null,
     revokedAt: input.revokedAt ?? null,
   });
 
@@ -284,6 +328,105 @@ export async function createAppointmentTokenIfMissing(input: {
     appointmentId: input.appointmentId,
     role: input.role,
   });
+}
+
+export async function updateTokenUsageIfAllowed(input: {
+  tokenId: number;
+  now?: Date;
+}) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const now = input.now ?? new Date();
+  const result = await db
+    .update(appointmentTokens)
+    .set({
+      useCount: sql`${appointmentTokens.useCount} + 1`,
+      lastUsedAt: now,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(appointmentTokens.id, input.tokenId),
+        isNull(appointmentTokens.revokedAt),
+        gt(appointmentTokens.expiresAt, now),
+        lt(appointmentTokens.useCount, appointmentTokens.maxUses)
+      )
+    );
+
+  return Number((result as { affectedRows?: number }).affectedRows ?? 0);
+}
+
+export async function saveTokenFirstSeen(input: {
+  tokenId: number;
+  ip?: string | null;
+  userAgent?: string | null;
+}) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const updates: Record<string, unknown> = {};
+  if (input.ip && input.ip.trim().length > 0) {
+    updates.ipFirstSeen = input.ip.trim().slice(0, 64);
+  }
+  if (input.userAgent && input.userAgent.trim().length > 0) {
+    updates.uaFirstSeen = input.userAgent.trim().slice(0, 512);
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return;
+  }
+
+  await db
+    .update(appointmentTokens)
+    .set(updates)
+    .where(
+      and(
+        eq(appointmentTokens.id, input.tokenId),
+        or(
+          isNull(appointmentTokens.ipFirstSeen),
+          isNull(appointmentTokens.uaFirstSeen)
+        )
+      )
+    );
+}
+
+export async function revokeAppointmentTokens(input: {
+  appointmentId?: number;
+  role?: AppointmentTokenRole;
+  tokenHash?: string;
+  reason?: string | null;
+  now?: Date;
+  dbExecutor?: DbExecutor;
+}) {
+  const db = await resolveDbExecutor(input.dbExecutor);
+
+  const now = input.now ?? new Date();
+  const clauses = [isNull(appointmentTokens.revokedAt)];
+  if (typeof input.appointmentId === "number") {
+    clauses.push(eq(appointmentTokens.appointmentId, input.appointmentId));
+  }
+  if (input.role) {
+    clauses.push(eq(appointmentTokens.role, input.role));
+  }
+  if (input.tokenHash) {
+    clauses.push(eq(appointmentTokens.tokenHash, input.tokenHash));
+  }
+
+  const result = await db
+    .update(appointmentTokens)
+    .set({
+      revokedAt: now,
+      revokeReason: input.reason ?? "manual_revoke",
+      updatedAt: now,
+    })
+    .where(and(...clauses));
+
+  return Number((result as { affectedRows?: number }).affectedRows ?? 0);
 }
 
 async function revokeOldActiveTokensBeyondLimit(input: {
@@ -349,6 +492,7 @@ export async function createAppointmentDraft(input: {
   currency: string;
   userId?: number | null;
   sessionId?: string;
+  notes?: string | null;
 }) {
   const db = await getDb();
   if (!db) {
@@ -367,6 +511,7 @@ export async function createAppointmentDraft(input: {
     email: input.email,
     userId: input.userId ?? null,
     sessionId: input.sessionId,
+    notes: input.notes ?? null,
     lastAccessAt: null,
     doctorLastAccessAt: null,
   });
@@ -387,43 +532,245 @@ export async function updateAppointmentById(
     .where(eq(appointments.id, appointmentId));
 }
 
+type TransitionOperator = "system" | "patient" | "doctor" | "admin" | "webhook";
+
+async function readAppointmentStateById(input: {
+  appointmentId: number;
+  dbExecutor?: DbExecutor;
+}) {
+  const db = await resolveDbExecutor(input.dbExecutor);
+  const rows = await db
+    .select({
+      id: appointments.id,
+      status: appointments.status,
+      paymentStatus: appointments.paymentStatus,
+      stripeSessionId: appointments.stripeSessionId,
+    })
+    .from(appointments)
+    .where(eq(appointments.id, input.appointmentId))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+async function readAppointmentStateByStripeSessionId(input: {
+  stripeSessionId: string;
+  dbExecutor?: DbExecutor;
+}) {
+  const db = await resolveDbExecutor(input.dbExecutor);
+  const rows = await db
+    .select({
+      id: appointments.id,
+      status: appointments.status,
+      paymentStatus: appointments.paymentStatus,
+      stripeSessionId: appointments.stripeSessionId,
+    })
+    .from(appointments)
+    .where(eq(appointments.stripeSessionId, input.stripeSessionId))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+export async function recordIllegalStatusTransition(input: {
+  appointmentId: number;
+  fromStatus: AppointmentStatus;
+  attemptedStatus: AppointmentStatus;
+  attemptedPaymentStatus: PaymentStatus;
+  operatorType: TransitionOperator;
+  operatorId?: number | null;
+  reason?: string | null;
+  payloadJson?: unknown;
+  dbExecutor?: DbExecutor;
+}) {
+  await insertStatusEvent({
+    appointmentId: input.appointmentId,
+    fromStatus: input.fromStatus,
+    toStatus: input.fromStatus,
+    operatorType: input.operatorType,
+    operatorId: input.operatorId ?? null,
+    reason: input.reason ?? "illegal_transition_attempt",
+    payloadJson: {
+      attemptedStatus: input.attemptedStatus,
+      attemptedPaymentStatus: input.attemptedPaymentStatus,
+      ...(typeof input.payloadJson === "object" && input.payloadJson
+        ? (input.payloadJson as Record<string, unknown>)
+        : {}),
+    },
+    dbExecutor: input.dbExecutor,
+  });
+}
+
+export async function tryTransitionAppointmentById(input: {
+  appointmentId: number;
+  allowedFrom: AppointmentStatus[];
+  toStatus: AppointmentStatus;
+  toPaymentStatus: PaymentStatus;
+  operatorType: TransitionOperator;
+  operatorId?: number | null;
+  reason?: string | null;
+  payloadJson?: unknown;
+  update?: Partial<InsertAppointment>;
+  dbExecutor?: DbExecutor;
+}) {
+  const db = await resolveDbExecutor(input.dbExecutor);
+  const current = await readAppointmentStateById({
+    appointmentId: input.appointmentId,
+    dbExecutor: db,
+  });
+  if (!current) {
+    return { ok: false as const, reason: "not_found" as const };
+  }
+
+  const allowedFromState = input.allowedFrom.includes(current.status as AppointmentStatus);
+  const allowedTransition = isAllowedStatusTransition(
+    current.status as AppointmentStatus,
+    input.toStatus
+  );
+  const allowedPair = isAllowedPaymentStatusForAppointment(
+    input.toStatus,
+    input.toPaymentStatus
+  );
+
+  if (!allowedFromState || !allowedTransition || !allowedPair) {
+    await recordIllegalStatusTransition({
+      appointmentId: current.id,
+      fromStatus: current.status as AppointmentStatus,
+      attemptedStatus: input.toStatus,
+      attemptedPaymentStatus: input.toPaymentStatus,
+      operatorType: input.operatorType,
+      operatorId: input.operatorId,
+      reason: input.reason ?? "illegal_transition_attempt",
+      payloadJson: input.payloadJson,
+      dbExecutor: db,
+    });
+    return { ok: false as const, reason: "illegal_transition" as const, current };
+  }
+
+  const now = new Date();
+  const result = await db
+    .update(appointments)
+    .set({
+      status: input.toStatus,
+      paymentStatus: input.toPaymentStatus,
+      updatedAt: now,
+      ...(input.update ?? {}),
+    })
+    .where(
+      and(
+        eq(appointments.id, current.id),
+        eq(appointments.status, current.status),
+        eq(appointments.paymentStatus, current.paymentStatus)
+      )
+    );
+
+  const affectedRows = Number((result as { affectedRows?: number }).affectedRows ?? 0);
+  if (affectedRows !== 1) {
+    return { ok: false as const, reason: "conflict" as const, current };
+  }
+
+  if (
+    current.status !== input.toStatus ||
+    current.paymentStatus !== input.toPaymentStatus
+  ) {
+    await insertStatusEvent({
+      appointmentId: current.id,
+      fromStatus: current.status,
+      toStatus: input.toStatus,
+      operatorType: input.operatorType,
+      operatorId: input.operatorId ?? null,
+      reason: input.reason ?? null,
+      payloadJson: input.payloadJson,
+      dbExecutor: db,
+    });
+  }
+
+  return { ok: true as const, reason: "updated" as const, current };
+}
+
+export async function tryTransitionAppointmentByStripeSessionId(input: {
+  stripeSessionId: string;
+  allowedFrom: AppointmentStatus[];
+  toStatus: AppointmentStatus;
+  toPaymentStatus: PaymentStatus;
+  operatorType: TransitionOperator;
+  operatorId?: number | null;
+  reason?: string | null;
+  payloadJson?: unknown;
+  update?: Partial<InsertAppointment>;
+  dbExecutor?: DbExecutor;
+}) {
+  const db = await resolveDbExecutor(input.dbExecutor);
+  const current = await readAppointmentStateByStripeSessionId({
+    stripeSessionId: input.stripeSessionId,
+    dbExecutor: db,
+  });
+  if (!current) {
+    return { ok: false as const, reason: "not_found" as const };
+  }
+
+  return tryTransitionAppointmentById({
+    appointmentId: current.id,
+    allowedFrom: input.allowedFrom,
+    toStatus: input.toStatus,
+    toPaymentStatus: input.toPaymentStatus,
+    operatorType: input.operatorType,
+    operatorId: input.operatorId,
+    reason: input.reason,
+    payloadJson: {
+      stripeSessionId: input.stripeSessionId,
+      ...(typeof input.payloadJson === "object" && input.payloadJson
+        ? (input.payloadJson as Record<string, unknown>)
+        : {}),
+    },
+    update: input.update,
+    dbExecutor: db,
+  });
+}
+
 export async function markAppointmentPendingPayment(input: {
   appointmentId: number;
   stripeSessionId: string;
 }) {
-  return updateAppointmentById(input.appointmentId, {
-    stripeSessionId: input.stripeSessionId,
-    paymentStatus: "pending",
-    status: "pending_payment",
-    updatedAt: new Date(),
+  return tryTransitionAppointmentById({
+    appointmentId: input.appointmentId,
+    allowedFrom: ["draft", "pending_payment"],
+    toStatus: "pending_payment",
+    toPaymentStatus: "pending",
+    operatorType: "system",
+    reason: "checkout_session_created",
+    payloadJson: {
+      stripeSessionId: input.stripeSessionId,
+    },
+    update: {
+      stripeSessionId: input.stripeSessionId,
+    },
   });
 }
 
 export async function tryMarkPaidByStripeSessionId(input: {
   stripeSessionId: string;
   paidAt?: Date;
+  operatorType?: TransitionOperator;
+  reason?: string | null;
+  payloadJson?: unknown;
   dbExecutor?: DbExecutor;
 }) {
-  const db = await resolveDbExecutor(input.dbExecutor);
+  const transitioned = await tryTransitionAppointmentByStripeSessionId({
+    stripeSessionId: input.stripeSessionId,
+    allowedFrom: ["pending_payment"],
+    toStatus: "paid",
+    toPaymentStatus: "paid",
+    operatorType: input.operatorType ?? "webhook",
+    reason: input.reason ?? "stripe_webhook_paid",
+    payloadJson: input.payloadJson,
+    update: {
+      paidAt: input.paidAt ?? new Date(),
+    },
+    dbExecutor: input.dbExecutor,
+  });
 
-  const now = new Date();
-  const result = await db
-    .update(appointments)
-    .set({
-      paymentStatus: "paid",
-      status: "paid",
-      paidAt: input.paidAt ?? now,
-      updatedAt: now,
-    })
-    .where(
-      and(
-        eq(appointments.stripeSessionId, input.stripeSessionId),
-        eq(appointments.paymentStatus, "pending"),
-        eq(appointments.status, "pending_payment")
-      )
-    );
-
-  return Number((result as { affectedRows?: number }).affectedRows ?? 0);
+  return transitioned.ok ? 1 : 0;
 }
 export async function findLatestAppointmentIdByLookup(lookup: {
   doctorId: number;
@@ -525,6 +872,52 @@ export async function listAppointmentsByEmail(email: string) {
     .orderBy(desc(appointments.createdAt), desc(appointments.id));
 }
 
+export async function listAppointmentsForAdmin(input: {
+  limit: number;
+  status?: AppointmentStatus;
+  paymentStatus?: PaymentStatus;
+  emailQuery?: string;
+}) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const filters = [];
+  if (input.status) {
+    filters.push(eq(appointments.status, input.status));
+  }
+  if (input.paymentStatus) {
+    filters.push(eq(appointments.paymentStatus, input.paymentStatus));
+  }
+  if (input.emailQuery && input.emailQuery.trim().length > 0) {
+    filters.push(like(appointments.email, `%${input.emailQuery.trim()}%`));
+  }
+
+  return db
+    .select({
+      id: appointments.id,
+      userId: appointments.userId,
+      email: appointments.email,
+      doctorId: appointments.doctorId,
+      triageSessionId: appointments.triageSessionId,
+      appointmentType: appointments.appointmentType,
+      status: appointments.status,
+      paymentStatus: appointments.paymentStatus,
+      amount: appointments.amount,
+      currency: appointments.currency,
+      stripeSessionId: appointments.stripeSessionId,
+      scheduledAt: appointments.scheduledAt,
+      paidAt: appointments.paidAt,
+      createdAt: appointments.createdAt,
+      updatedAt: appointments.updatedAt,
+    })
+    .from(appointments)
+    .where(filters.length > 0 ? and(...filters) : undefined)
+    .orderBy(desc(appointments.createdAt), desc(appointments.id))
+    .limit(input.limit);
+}
+
 export async function insertStatusEvent(input: {
   appointmentId: number;
   fromStatus: string | null;
@@ -583,13 +976,13 @@ export async function markAppointmentInSessionIfNeeded(appointmentId: number) {
     .limit(1);
 
   const currentStatus = rows[0]?.status;
-  if (currentStatus !== "paid" && currentStatus !== "confirmed") {
+  if (currentStatus !== "paid") {
     return null;
   }
 
   const result = await db
     .update(appointments)
-    .set({ status: "in_session", updatedAt: new Date() })
+    .set({ status: "active", updatedAt: new Date() })
     .where(and(eq(appointments.id, appointmentId), eq(appointments.status, currentStatus)));
 
   const affectedRows = Number((result as { affectedRows?: number }).affectedRows ?? 0);
@@ -608,4 +1001,46 @@ export async function countStatusEventsByAppointment(appointmentId: number) {
     .where(eq(appointmentStatusEvents.appointmentId, appointmentId));
 
   return Number(rows[0]?.count ?? 0);
+}
+
+export async function listStatusEventsByAppointment(input: {
+  appointmentId: number;
+  limit?: number;
+}) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const limit = input.limit ?? 100;
+  return db
+    .select()
+    .from(appointmentStatusEvents)
+    .where(eq(appointmentStatusEvents.appointmentId, input.appointmentId))
+    .orderBy(desc(appointmentStatusEvents.createdAt), desc(appointmentStatusEvents.id))
+    .limit(limit);
+}
+
+export async function listStripeWebhookEventsForAppointment(input: {
+  appointmentId: number;
+  stripeSessionId?: string | null;
+  limit?: number;
+}) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const limit = input.limit ?? 100;
+  const filters = [eq(stripeWebhookEvents.appointmentId, input.appointmentId)];
+  if (input.stripeSessionId && input.stripeSessionId.trim().length > 0) {
+    filters.push(eq(stripeWebhookEvents.stripeSessionId, input.stripeSessionId.trim()));
+  }
+
+  return db
+    .select()
+    .from(stripeWebhookEvents)
+    .where(or(...filters))
+    .orderBy(desc(stripeWebhookEvents.createdAt))
+    .limit(limit);
 }

@@ -4,7 +4,9 @@ import type { TrpcContext } from "./_core/context";
 vi.mock("./modules/visit/repo", () => ({
   getRecentMessages: vi.fn(),
   getMessagesBeforeCursor: vi.fn(),
-  getMessageByClientMsgId: vi.fn(),
+  getMessageByClientMessageId: vi.fn(),
+  getMessageById: vi.fn(),
+  getLatestMessageCursor: vi.fn(),
   createMessage: vi.fn(),
   getLatestMessage: vi.fn(),
   pollMessages: vi.fn(),
@@ -16,14 +18,20 @@ vi.mock("./appointmentsRouter", () => ({
   validateAppointmentToken: vi.fn(),
 }));
 
+vi.mock("./modules/appointments/tokenValidation", () => ({
+  validateAppointmentAccessToken: vi.fn(),
+}));
+
 vi.mock("./modules/appointments/repo", () => ({
   markAppointmentInSessionIfNeeded: vi.fn(),
   insertStatusEvent: vi.fn(),
+  updateAppointmentById: vi.fn(),
 }));
 
 import * as visitRepo from "./modules/visit/repo";
 import * as appointmentsRepo from "./modules/appointments/repo";
 import { validateAppointmentToken } from "./appointmentsRouter";
+import { validateAppointmentAccessToken } from "./modules/appointments/tokenValidation";
 import { visitRouter } from "./visitRouter";
 
 function createTestContext(): TrpcContext {
@@ -47,6 +55,11 @@ describe("visit router", () => {
     vi.mocked(appointmentsRepo.markAppointmentInSessionIfNeeded).mockResolvedValue(
       null as never
     );
+    vi.mocked(validateAppointmentAccessToken).mockResolvedValue({
+      appointmentId: 9001,
+      role: "patient",
+      appointment: { id: 9001 },
+    } as never);
     vi.mocked(validateAppointmentToken).mockResolvedValue({
       role: "patient",
       appointment: {
@@ -69,7 +82,7 @@ describe("visit router", () => {
         translatedContent: "请补充症状",
         sourceLanguage: "zh",
         targetLanguage: "zh",
-        clientMsgId: null,
+        clientMessageId: null,
         createdAt: newer,
       },
       {
@@ -81,7 +94,7 @@ describe("visit router", () => {
         translatedContent: "我发烧了",
         sourceLanguage: "zh",
         targetLanguage: "zh",
-        clientMsgId: "c1",
+        clientMessageId: "c1",
         createdAt: older,
       },
     ] as never);
@@ -96,7 +109,8 @@ describe("visit router", () => {
     expect(validateAppointmentToken).toHaveBeenCalledWith(
       9001,
       "patient_token_1234567890",
-      "read_history"
+      "read_history",
+      expect.anything()
     );
     expect(visitRepo.getRecentMessages).toHaveBeenCalledWith(9001, 50);
     expect(result.messages).toEqual([
@@ -109,7 +123,7 @@ describe("visit router", () => {
         sourceLanguage: "zh",
         targetLanguage: "zh",
         createdAt: older,
-        clientMsgId: "c1",
+        clientMessageId: "c1",
       },
       {
         id: 2,
@@ -120,9 +134,48 @@ describe("visit router", () => {
         sourceLanguage: "zh",
         targetLanguage: "zh",
         createdAt: newer,
-        clientMsgId: null,
+        clientMessageId: null,
       },
     ]);
+  });
+
+  it("roomGetMessages validates by token only and returns role", async () => {
+    const createdAt = new Date("2026-03-03T09:00:00.000Z");
+    vi.mocked(validateAppointmentAccessToken).mockResolvedValue({
+      appointmentId: 9001,
+      role: "doctor",
+      appointment: { id: 9001 },
+    } as never);
+    vi.mocked(visitRepo.getRecentMessages).mockResolvedValue([
+      {
+        id: 1,
+        appointmentId: 9001,
+        senderType: "doctor",
+        content: "请说明症状",
+        originalContent: "请说明症状",
+        translatedContent: "请说明症状",
+        sourceLanguage: "zh",
+        targetLanguage: "zh",
+        clientMessageId: null,
+        createdAt,
+      },
+    ] as never);
+
+    const caller = visitRouter.createCaller(createTestContext());
+    const result = await caller.roomGetMessages({
+      token: "doctor_token_1234567890",
+      limit: 50,
+    });
+
+    expect(validateAppointmentAccessToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        token: "doctor_token_1234567890",
+        action: "read_history",
+      })
+    );
+    expect(result.appointmentId).toBe(9001);
+    expect(result.role).toBe("doctor");
+    expect(result.messages).toHaveLength(1);
   });
 
   it("getMessagesByToken uses oldest message as nextCursor for beforeCursor pagination", async () => {
@@ -141,7 +194,7 @@ describe("visit router", () => {
         translatedContent: "m5",
         sourceLanguage: "zh",
         targetLanguage: "zh",
-        clientMsgId: null,
+        clientMessageId: null,
         createdAt: t5,
       },
       {
@@ -153,7 +206,7 @@ describe("visit router", () => {
         translatedContent: "m4",
         sourceLanguage: "zh",
         targetLanguage: "zh",
-        clientMsgId: null,
+        clientMessageId: null,
         createdAt: t4,
       },
     ] as never);
@@ -168,7 +221,7 @@ describe("visit router", () => {
         translatedContent: "m3",
         sourceLanguage: "zh",
         targetLanguage: "zh",
-        clientMsgId: null,
+        clientMessageId: null,
         createdAt: t3,
       },
       {
@@ -180,7 +233,7 @@ describe("visit router", () => {
         translatedContent: "m2",
         sourceLanguage: "zh",
         targetLanguage: "zh",
-        clientMsgId: null,
+        clientMessageId: null,
         createdAt: t2,
       },
     ] as never);
@@ -217,9 +270,9 @@ describe("visit router", () => {
     expect(new Set(mergedAsc.map(message => message.id)).size).toBe(4);
   });
 
-  it("sendMessageByToken reuses existing message when clientMsgId is duplicated", async () => {
+  it("sendMessageByToken reuses existing message when clientMessageId is duplicated", async () => {
     const createdAt = new Date("2026-03-03T09:02:00.000Z");
-    vi.mocked(visitRepo.getMessageByClientMsgId).mockResolvedValue({
+    vi.mocked(visitRepo.getMessageByClientMessageId).mockResolvedValue({
       id: 77,
       senderType: "patient",
       createdAt,
@@ -230,10 +283,10 @@ describe("visit router", () => {
       appointmentId: 9001,
       token: "patient_token_1234567890",
       content: "重复提交",
-      clientMsgId: "msg-1",
+      clientMessageId: "msg-1",
     });
 
-    expect(visitRepo.getMessageByClientMsgId).toHaveBeenCalledWith(9001, "msg-1");
+    expect(visitRepo.getMessageByClientMessageId).toHaveBeenCalledWith(9001, "msg-1");
     expect(visitRepo.createMessage).not.toHaveBeenCalled();
     expect(result).toEqual({
       id: 77,
@@ -243,7 +296,7 @@ describe("visit router", () => {
   });
 
   it("sendMessageByToken creates a new message and returns insert id", async () => {
-    vi.mocked(visitRepo.getMessageByClientMsgId).mockResolvedValue(null as never);
+    vi.mocked(visitRepo.getMessageByClientMessageId).mockResolvedValue(null as never);
     vi.mocked(visitRepo.createMessage).mockResolvedValue({ insertId: 88 } as never);
 
     const caller = visitRouter.createCaller(createTestContext());
@@ -251,7 +304,7 @@ describe("visit router", () => {
       appointmentId: 9001,
       token: "patient_token_1234567890",
       content: "新的消息",
-      clientMsgId: "msg-2",
+      clientMessageId: "msg-2",
     });
 
     expect(visitRepo.createMessage).toHaveBeenCalledTimes(1);
@@ -260,7 +313,7 @@ describe("visit router", () => {
         appointmentId: 9001,
         senderType: "patient",
         content: "新的消息",
-        clientMsgId: "msg-2",
+        clientMessageId: "msg-2",
       })
     );
     expect(result).toMatchObject({
@@ -270,8 +323,8 @@ describe("visit router", () => {
     expect(result.createdAt).toBeInstanceOf(Date);
   });
 
-  it("sendMessageByToken logs in_session transition from paid", async () => {
-    vi.mocked(visitRepo.getMessageByClientMsgId).mockResolvedValue(null as never);
+  it("sendMessageByToken logs active transition from paid", async () => {
+    vi.mocked(visitRepo.getMessageByClientMessageId).mockResolvedValue(null as never);
     vi.mocked(visitRepo.createMessage).mockResolvedValue({ insertId: 101 } as never);
     vi.mocked(appointmentsRepo.markAppointmentInSessionIfNeeded).mockResolvedValue(
       "paid" as never
@@ -282,39 +335,14 @@ describe("visit router", () => {
       appointmentId: 9001,
       token: "patient_token_1234567890",
       content: "触发状态迁移",
-      clientMsgId: "msg-paid-state",
+      clientMessageId: "msg-paid-state",
     });
 
     expect(appointmentsRepo.insertStatusEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         appointmentId: 9001,
         fromStatus: "paid",
-        toStatus: "in_session",
-        reason: "first_visit_message",
-      })
-    );
-  });
-
-  it("sendMessageByToken logs in_session transition from confirmed", async () => {
-    vi.mocked(visitRepo.getMessageByClientMsgId).mockResolvedValue(null as never);
-    vi.mocked(visitRepo.createMessage).mockResolvedValue({ insertId: 102 } as never);
-    vi.mocked(appointmentsRepo.markAppointmentInSessionIfNeeded).mockResolvedValue(
-      "confirmed" as never
-    );
-
-    const caller = visitRouter.createCaller(createTestContext());
-    await caller.sendMessageByToken({
-      appointmentId: 9001,
-      token: "patient_token_1234567890",
-      content: "触发状态迁移2",
-      clientMsgId: "msg-confirmed-state",
-    });
-
-    expect(appointmentsRepo.insertStatusEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        appointmentId: 9001,
-        fromStatus: "confirmed",
-        toStatus: "in_session",
+        toStatus: "active",
         reason: "first_visit_message",
       })
     );

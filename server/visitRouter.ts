@@ -3,6 +3,9 @@ import { z } from "zod";
 import { appointmentMessages } from "../drizzle/schema";
 import * as appointmentsRepo from "./modules/appointments/repo";
 import * as visitRepo from "./modules/visit/repo";
+import { validateAppointmentAccessToken } from "./modules/appointments/tokenValidation";
+import { markInSessionIfTransitioned } from "./modules/visit/status";
+import { translateVisitMessage } from "./modules/visit/translation";
 import { validateAppointmentToken } from "./appointmentsRouter";
 import { publicProcedure, router } from "./_core/trpc";
 
@@ -16,10 +19,17 @@ const getMessagesInputSchema = accessInputSchema.extend({
   beforeCursor: z.string().trim().min(1).optional(),
 });
 
+const roomGetMessagesInputSchema = z.object({
+  token: z.string().trim().min(16).max(512),
+  limit: z.number().int().min(1).max(200).optional().default(50),
+  beforeCursor: z.string().trim().min(1).optional(),
+});
+
 const sendMessageInputSchema = accessInputSchema.extend({
   content: z.string().trim().min(1).max(4000),
   sourceLanguage: z.string().trim().min(2).max(8).optional().default("auto"),
   targetLanguage: z.string().trim().min(2).max(8).optional().default("auto"),
+  clientMessageId: z.string().trim().min(1).max(128).optional(),
   clientMsgId: z.string().trim().min(1).max(128).optional(),
 });
 
@@ -41,7 +51,7 @@ const messageSchema = z.object({
   sourceLanguage: z.string(),
   targetLanguage: z.string(),
   createdAt: z.date(),
-  clientMsgId: z.string().nullable(),
+  clientMessageId: z.string().nullable(),
 });
 
 function encodeCursor(createdAt: Date, id: number) {
@@ -81,54 +91,84 @@ function normalizeMessages(
     sourceLanguage: message.sourceLanguage ?? "auto",
     targetLanguage: message.targetLanguage ?? "auto",
     createdAt: message.createdAt,
-    clientMsgId: message.clientMsgId,
+    clientMessageId: message.clientMessageId,
   }));
 }
 
-function translateMessage(input: {
-  content: string;
-  sourceLanguage: string;
-  targetLanguage: string;
+function toMessageSendResult(message: {
+  id: number;
+  senderType: "patient" | "doctor" | "system";
+  createdAt: Date;
 }) {
-  const originalContent = input.content;
-
-  // Placeholder translation seam. When translator is wired,
-  // replace this with real translation call and keep both fields persisted.
-  const translatedContent = input.content;
-
   return {
-    originalContent,
-    translatedContent,
-    sourceLanguage: input.sourceLanguage,
-    targetLanguage: input.targetLanguage,
-    translationProvider: "identity",
+    id: message.id,
+    senderType: message.senderType,
+    createdAt: message.createdAt,
   };
 }
 
-async function markInSessionIfTransitioned(appointmentId: number) {
-  try {
-    const fromStatus = await appointmentsRepo.markAppointmentInSessionIfNeeded(
-      appointmentId
-    );
-    if (!fromStatus) {
-      return;
-    }
-
-    await appointmentsRepo.insertStatusEvent({
-      appointmentId,
-      fromStatus,
-      toStatus: "in_session",
-      operatorType: "system",
-      reason: "first_visit_message",
-    });
-  } catch (error) {
-    if (process.env.NODE_ENV !== "test") {
-      console.warn("[Visit] failed to mark in_session:", error);
-    }
-  }
-}
-
 export const visitRouter = router({
+  roomGetMessages: publicProcedure
+    .input(roomGetMessagesInputSchema)
+    .output(
+      z.object({
+        appointmentId: z.number().int().positive(),
+        role: z.enum(["patient", "doctor"]),
+        messages: z.array(messageSchema),
+        nextCursor: z.string().nullable(),
+        hasMore: z.boolean(),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const validated = await validateAppointmentAccessToken({
+        token: input.token,
+        action: "read_history",
+        req: ctx.req,
+      });
+      const appointment = validated.appointment;
+      const touchedAt = new Date();
+      if (validated.role === "doctor") {
+        await appointmentsRepo.updateAppointmentById(appointment.id, {
+          doctorLastAccessAt: touchedAt,
+        });
+      } else {
+        await appointmentsRepo.updateAppointmentById(appointment.id, {
+          lastAccessAt: touchedAt,
+        });
+      }
+
+      const cursor =
+        typeof input.beforeCursor === "string" && input.beforeCursor.trim().length > 0
+          ? decodeCursor(input.beforeCursor)
+          : null;
+
+      const pageRows = cursor
+        ? await visitRepo.getMessagesBeforeCursor({
+            appointmentId: appointment.id,
+            beforeCreatedAt: cursor.createdAt,
+            beforeId: cursor.id,
+            limit: input.limit,
+          })
+        : await visitRepo.getRecentMessages(appointment.id, input.limit);
+
+      const rowCount = pageRows.length;
+      const oldestDesc = rowCount > 0 ? pageRows[rowCount - 1] : null;
+      const orderedAsc = pageRows.reverse();
+      const normalized = normalizeMessages(orderedAsc);
+      const hasMore = rowCount === input.limit;
+
+      return {
+        appointmentId: appointment.id,
+        role: validated.role,
+        messages: normalized,
+        nextCursor:
+          hasMore && oldestDesc
+            ? encodeCursor(oldestDesc.createdAt, oldestDesc.id)
+            : null,
+        hasMore,
+      };
+    }),
+
   getMessagesByToken: publicProcedure
     .input(getMessagesInputSchema)
     .output(
@@ -138,11 +178,12 @@ export const visitRouter = router({
         hasMore: z.boolean(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const { appointment } = await validateAppointmentToken(
         input.appointmentId,
         input.token,
-        "read_history"
+        "read_history",
+        ctx.req
       );
 
       const cursor =
@@ -184,25 +225,28 @@ export const visitRouter = router({
         createdAt: z.date(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { appointment, role } = await validateAppointmentToken(
         input.appointmentId,
         input.token,
-        "send_message"
+        "send_message",
+        ctx.req
       );
 
-      if (input.clientMsgId) {
-        const existing = await visitRepo.getMessageByClientMsgId(
+      const dedupeClientMessageId = input.clientMessageId ?? input.clientMsgId;
+
+      if (dedupeClientMessageId) {
+        const existing = await visitRepo.getMessageByClientMessageId(
           appointment.id,
-          input.clientMsgId
+          dedupeClientMessageId
         );
 
         if (existing) {
-          return existing;
+          return toMessageSendResult(existing);
         }
       }
 
-      const translation = translateMessage({
+      const translation = await translateVisitMessage({
         content: input.content,
         sourceLanguage: input.sourceLanguage,
         targetLanguage: input.targetLanguage,
@@ -232,7 +276,7 @@ export const visitRouter = router({
           targetLanguage: translation.targetLanguage,
           translationProvider: translation.translationProvider,
           createdAt,
-          clientMsgId: input.clientMsgId,
+          clientMessageId: dedupeClientMessageId,
         });
 
       let insertResult: unknown;
@@ -243,27 +287,27 @@ export const visitRouter = router({
           try {
             insertResult = await insertOnce(null);
           } catch (retryError) {
-            if (input.clientMsgId && isDuplicate(retryError)) {
-              const existing = await visitRepo.getMessageByClientMsgId(
+            if (dedupeClientMessageId && isDuplicate(retryError)) {
+              const existing = await visitRepo.getMessageByClientMessageId(
                 appointment.id,
-                input.clientMsgId
+                dedupeClientMessageId
               );
 
               if (existing) {
-                return existing;
+                return toMessageSendResult(existing);
               }
             }
 
             throw retryError;
           }
-        } else if (input.clientMsgId && isDuplicate(error)) {
-          const existing = await visitRepo.getMessageByClientMsgId(
+        } else if (dedupeClientMessageId && isDuplicate(error)) {
+          const existing = await visitRepo.getMessageByClientMessageId(
             appointment.id,
-            input.clientMsgId
+            dedupeClientMessageId
           );
 
           if (existing) {
-            return existing;
+            return toMessageSendResult(existing);
           }
 
           throw error;
@@ -307,11 +351,12 @@ export const visitRouter = router({
         messages: z.array(messageSchema),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const { appointment } = await validateAppointmentToken(
         input.appointmentId,
         input.token,
-        "read_history"
+        "read_history",
+        ctx.req
       );
 
       if (!input.afterCreatedAt && !input.afterId) {

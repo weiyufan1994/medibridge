@@ -113,6 +113,20 @@
       "when": 1772624160000,
       "tag": "0016_stripe_webhook_events",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "5",
+      "when": 1772626200000,
+      "tag": "0017_appointment_token_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1772639009394,
+      "tag": "0017_appointment_messages_client_message_id_fix",
+      "breakpoints": true
     }
   ]
 }

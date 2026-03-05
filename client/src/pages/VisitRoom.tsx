@@ -1,7 +1,6 @@
 import { useMemo, useRef } from "react";
-import { useLocation, useRoute } from "wouter";
+import { useRoute } from "wouter";
 import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getLocalizedField } from "@/lib/i18n";
@@ -68,6 +67,18 @@ const TRIAGE_SUMMARY_LABEL_ALIASES: Record<string, keyof typeof TRIAGE_SUMMARY_L
   其他症状: "otherSymptoms",
 } as const;
 
+const INTAKE_FIELD_ORDER = [
+  "chiefComplaint",
+  "duration",
+  "medicalHistory",
+  "medications",
+  "allergies",
+  "ageGroup",
+  "otherSymptoms",
+] as const;
+
+type IntakeFieldKey = (typeof INTAKE_FIELD_ORDER)[number];
+
 function localizeTriageSummary(summary: string, lang: "en" | "zh"): string {
   const normalized = summary
     .split(/[;；]/)
@@ -110,66 +121,6 @@ function getAppointmentTypeLabel(
   return "In person";
 }
 
-function isInSession(
-  scheduledAt: Date | null,
-  status:
-    | "draft"
-    | "pending_payment"
-    | "paid"
-    | "confirmed"
-    | "in_session"
-    | "completed"
-    | "expired"
-    | "refunded"
-) {
-  if (status === "completed" || status === "expired" || status === "refunded") {
-    return false;
-  }
-  if (status === "in_session") {
-    return true;
-  }
-  if (!scheduledAt) {
-    return false;
-  }
-  return scheduledAt.getTime() <= Date.now();
-}
-
-function getComposerAccessState(
-  status:
-    | "draft"
-    | "pending_payment"
-    | "paid"
-    | "confirmed"
-    | "in_session"
-    | "completed"
-    | "expired"
-    | "refunded",
-  paymentStatus: "unpaid" | "pending" | "paid" | "failed" | "expired" | "refunded"
-) {
-  if (
-    status === "expired" ||
-    status === "refunded" ||
-    paymentStatus === "expired" ||
-    paymentStatus === "refunded"
-  ) {
-    return { canSend: false, hint: "Link invalid, request new link" };
-  }
-
-  if (status === "completed") {
-    return { canSend: false, hint: "Visit completed, read-only" };
-  }
-
-  if (
-    status === "pending_payment" ||
-    paymentStatus === "unpaid" ||
-    paymentStatus === "pending"
-  ) {
-    return { canSend: false, hint: "Payment pending" };
-  }
-
-  return { canSend: true, hint: null as string | null };
-}
-
 function maskEmail(email: string): string {
   const [name = "", domain = ""] = email.split("@");
   if (!name || !domain) {
@@ -182,7 +133,6 @@ function maskEmail(email: string): string {
 }
 
 export default function VisitRoomPage() {
-  const [, setLocation] = useLocation();
   const { resolved } = useLanguage();
   const t = getVisitCopy(resolved);
   const pageTitle = resolved === "zh" ? "线上会诊室" : "Visit Room";
@@ -207,12 +157,6 @@ export default function VisitRoomPage() {
     enabled: validInput,
     retry: 0,
   });
-  const composerAccess = appointmentQuery.data
-    ? getComposerAccessState(
-        appointmentQuery.data.status,
-        appointmentQuery.data.paymentStatus
-      )
-    : { canSend: false, hint: null as string | null };
 
   const doctorQuery = trpc.doctors.getById.useQuery(
     { id: appointmentQuery.data?.doctorId ?? 0 },
@@ -226,34 +170,22 @@ export default function VisitRoomPage() {
     content,
     isReconnecting,
     messages,
-    messagesQuery,
     hasMoreHistory,
     isLoadingOlder,
     pollingFatalError,
-    sendMutation,
+    isSending,
+    role,
+    currentStatus,
+    canSendMessage,
     setContent,
     loadOlderMessages,
     handleSend,
     showInitialSkeleton,
   } = useVisits({
-    accessInput,
+    accessInput: { token: accessInput.token },
     enabled: validInput,
-    canSend: composerAccess.canSend,
     scrollContainerRef,
     resolved,
-  });
-
-  const resendMutation = trpc.appointments.resendLink.useMutation({
-    onSuccess: result => {
-      if (result.devLink) {
-        toast.success(`New link: ${result.devLink}`);
-      } else {
-        toast.success("Access link sent.");
-      }
-    },
-    onError: error => {
-      toast.error(error.message || "Failed to resend access link.");
-    },
   });
 
   if (!validInput) {
@@ -292,7 +224,7 @@ export default function VisitRoomPage() {
 
   const appointment = appointmentQuery.data;
   const doctorData = doctorQuery.data;
-  const viewerRole = appointment.role;
+  const viewerRole = role ?? appointment.role;
   const doctorName = doctorData
     ? getLocalizedField({
         lang: resolved,
@@ -319,7 +251,6 @@ export default function VisitRoomPage() {
       : formatLocalDateTime(scheduledAt)
     : "TBD";
   const scheduledChinaTimeText = formatChinaDateTime(scheduledAt);
-  const inSession = isInSession(scheduledAt, appointment.status);
   const patientIdentity =
     appointment.patient.sessionId?.trim() ||
     maskEmail(appointment.patient.email) ||
@@ -337,9 +268,33 @@ export default function VisitRoomPage() {
       : `${departmentName} · ${appointmentType}`;
   const triageSummary = appointment.triageSummary?.trim() ?? "";
   const localizedTriageSummary = localizeTriageSummary(triageSummary, resolved);
-  const composerHint = composerAccess.hint ?? t.composerHint;
-  const composerDisabled =
-    sendMutation.isPending || !composerAccess.canSend || Boolean(pollingFatalError);
+  const intake = appointment.intake;
+  const intakeLabelMap: Record<IntakeFieldKey, string> = {
+    chiefComplaint: t.intakeChiefComplaint,
+    duration: t.intakeDuration,
+    medicalHistory: t.intakeMedicalHistory,
+    medications: t.intakeMedications,
+    allergies: t.intakeAllergies,
+    ageGroup: t.intakeAgeGroup,
+    otherSymptoms: t.intakeOtherSymptoms,
+  };
+  const intakeRows = intake
+    ? INTAKE_FIELD_ORDER.map(key => {
+        const value = intake[key]?.trim() ?? "";
+        if (!value) {
+          return null;
+        }
+        return {
+          label: intakeLabelMap[key],
+          value,
+        };
+      }).filter((item): item is { label: string; value: string } => Boolean(item))
+    : [];
+  const liveStatus = currentStatus ?? "connecting";
+  const composerHint = canSendMessage
+    ? t.composerHint
+    : `Read-only (${liveStatus})`;
+  const composerDisabled = isSending || !canSendMessage || Boolean(pollingFatalError);
 
   return (
     <AppLayout title={pageTitle}>
@@ -371,14 +326,10 @@ export default function VisitRoomPage() {
               <div className="flex shrink-0 flex-col items-end gap-1">
                 <div className="flex items-center gap-2">
                   <Badge
-                    variant={inSession ? "default" : "secondary"}
-                    className={
-                      inSession
-                        ? "bg-emerald-600 text-white"
-                        : "bg-slate-100 text-slate-700"
-                    }
+                    variant={canSendMessage ? "default" : "secondary"}
+                    className={canSendMessage ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700"}
                   >
-                    {inSession ? "In session" : "Scheduled"}
+                    {canSendMessage ? "Chat enabled" : "Read only"}
                   </Badge>
                   {isReconnecting ? (
                     <span className="inline-flex items-center gap-1 text-xs text-slate-500">
@@ -395,6 +346,9 @@ export default function VisitRoomPage() {
                 ) : null}
               </div>
             </div>
+            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+              <p className="text-xs text-slate-600">Room status: {liveStatus}</p>
+            </div>
             {triageSummary.length > 0 ? (
               <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
                 <p className="text-xs font-medium text-slate-700">
@@ -405,29 +359,26 @@ export default function VisitRoomPage() {
                 </p>
               </div>
             ) : null}
+            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-medium text-slate-700">{t.intakeTitle}</p>
+              {intakeRows.length > 0 ? (
+                <div className="mt-2 space-y-1">
+                  {intakeRows.map(row => (
+                    <p key={row.label} className="text-xs leading-relaxed text-slate-600">
+                      <span className="font-medium text-slate-700">{row.label}: </span>
+                      {row.value}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">{t.intakeEmpty}</p>
+              )}
+            </div>
             {pollingFatalError ? (
               <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
                 <p className="text-xs font-medium text-amber-900">
                   {pollingFatalError}
                 </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setLocation("/payment/success")}
-                  >
-                    Back to payment
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() =>
-                      void resendMutation.mutateAsync({ appointmentId: appointment.id })
-                    }
-                    disabled={resendMutation.isPending}
-                  >
-                    {resendMutation.isPending ? "Sending..." : "Resend link"}
-                  </Button>
-                </div>
               </div>
             ) : null}
           </header>
@@ -453,7 +404,7 @@ export default function VisitRoomPage() {
               onChange={setContent}
               onSend={() => void handleSend()}
               disabled={composerDisabled}
-              isSending={sendMutation.isPending}
+              isSending={isSending}
               placeholder={t.composerPlaceholder}
               hint={composerHint}
             />

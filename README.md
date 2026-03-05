@@ -125,6 +125,26 @@ Quota is charged by **Session**, with a **Message-count fallback guard** inside 
 - `appointments`: booking and access token lifecycle
 - `appointment_messages`: visit-room conversation records
 
+## Appointment Link Token Security
+- Room entry links are token-only: `{APP_BASE_URL}/room?token=...`
+- `APP_BASE_URL` is required for link issuance; no Host header fallback is used for token links
+- Tokens are high-entropy random values; database stores only SHA-256 hash (`appointmentTokens.tokenHash`)
+- Token rows enforce expiry, revoke status, and usage quota (`useCount` / `maxUses`)
+- Validation returns normalized access context for downstream visit/chat APIs
+- Abuse guards include IP failure rate limit and auto-revoke for repeated failed attempts on the same token hash
+- See implementation details: [`docs/appointment-link-auth.md`](./docs/appointment-link-auth.md)
+
+## Payment and Appointment State Machine
+- Canonical state-machine doc: [`docs/appointment_state_machine.md`](./docs/appointment_state_machine.md)
+- Appointment statuses are finite and centralized in `server/modules/appointments/stateMachine.ts`.
+- Visit-room access is centrally gated by `ensureAppointmentStatusAllowsVisitV2`:
+  - Allowed: `paid`, `active` (and `paymentStatus=paid`)
+  - Denied with `APPOINTMENT_NOT_ALLOWED`: `pending_payment`, `ended`, `expired`, `refunded`, `canceled`
+- Stripe settlement is idempotent:
+  - Event-level idempotency: `stripe_webhook_events.eventId` uniqueness
+  - State-level idempotency: only `pending_payment -> paid` can settle
+  - Replay never re-issues token or resends payment-success link
+
 ## Operational Notes
 - Any schema change must be followed by migration generation/apply (`pnpm db:push`)
 - Auth and billing constraints are business-critical and must be covered by tests before release

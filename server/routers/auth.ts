@@ -2,13 +2,12 @@ import { COOKIE_NAME } from "@shared/const";
 import { TRPCError } from "@trpc/server";
 import crypto from "crypto";
 import { z } from "zod";
-import { validateAppointmentToken } from "../appointmentsRouter";
-import { hashToken } from "../_core/appointmentToken";
 import { getSessionCookieOptions } from "../_core/cookies";
 import { sdk } from "../_core/sdk";
 import { publicProcedure, router } from "../_core/trpc";
 import * as appointmentsRepo from "../modules/appointments/repo";
 import * as authRepo from "../modules/auth/repo";
+import { validateAppointmentAccessToken } from "../modules/appointments/tokenValidation";
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const otpStore = new Map<
@@ -168,33 +167,14 @@ export const authRouter = router({
     .input(verifyMagicLinkInputSchema)
     .mutation(async ({ input, ctx }) => {
       const parsedToken = parseMagicToken(input.token);
-      const tokenHash = hashToken(parsedToken);
-      let targetAppointmentId = input.appointmentId;
-      if (!targetAppointmentId) {
-        const tokenRow = await appointmentsRepo.getActiveAppointmentTokenByHash({
-          tokenHash,
-          role: "patient",
-        });
-        if (!tokenRow) {
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "Invalid magic link token",
-          });
-        }
-        targetAppointmentId = tokenRow.appointmentId;
-      }
-
-      const { appointment, role } = await validateAppointmentToken(
-        targetAppointmentId,
-        parsedToken,
-        "join_room"
-      );
-      if (role !== "patient") {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "Invalid magic link token",
-        });
-      }
+      const validated = await validateAppointmentAccessToken({
+        token: parsedToken,
+        expectedRole: "patient",
+        expectedAppointmentId: input.appointmentId,
+        action: "join_room",
+        req: ctx.req,
+      });
+      const appointment = validated.appointment;
 
       let targetUser = appointment.userId
         ? await authRepo.getUserById(appointment.userId)

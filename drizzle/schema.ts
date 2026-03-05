@@ -23,7 +23,7 @@ export const users = mysqlTable("users", {
   isGuest: tinyint("isGuest").notNull().default(1),
   deviceId: varchar("deviceId", { length: 128 }).unique(),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["free", "pro"]).default("free").notNull(),
+  role: mysqlEnum("role", ["free", "pro", "admin"]).default("free").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -275,11 +275,11 @@ export const appointments = mysqlTable(
       "draft",
       "pending_payment",
       "paid",
-      "confirmed",
-      "in_session",
-      "completed",
+      "active",
+      "ended",
       "expired",
       "refunded",
+      "canceled",
     ])
       .default("draft")
       .notNull(),
@@ -290,6 +290,7 @@ export const appointments = mysqlTable(
       "failed",
       "expired",
       "refunded",
+      "canceled",
     ])
       .default("unpaid")
       .notNull(),
@@ -327,9 +328,16 @@ export const appointmentTokens = mysqlTable(
       .notNull()
       .references(() => appointments.id, { onDelete: "cascade" }),
     role: mysqlEnum("role", ["patient", "doctor"]).notNull(),
-    tokenHash: varchar("tokenHash", { length: 128 }).notNull(),
+    tokenHash: varchar("tokenHash", { length: 64 }).notNull(),
     expiresAt: timestamp("expiresAt").notNull(),
+    lastUsedAt: timestamp("lastUsedAt"),
+    useCount: int("useCount").notNull().default(0),
+    maxUses: int("maxUses").notNull().default(1),
     revokedAt: timestamp("revokedAt"),
+    revokeReason: text("revokeReason"),
+    createdBy: varchar("createdBy", { length: 64 }),
+    ipFirstSeen: varchar("ipFirstSeen", { length: 64 }),
+    uaFirstSeen: varchar("uaFirstSeen", { length: 512 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
@@ -338,11 +346,9 @@ export const appointmentTokens = mysqlTable(
       table.appointmentId,
       table.role
     ),
-    appointmentExpiryIdx: index("appointmentTokensAppointmentExpiryIdx").on(
-      table.appointmentId,
-      table.expiresAt
-    ),
-    tokenHashIdx: index("appointmentTokensTokenHashIdx").on(table.tokenHash),
+    expiresAtIdx: index("appointmentTokensExpiresAtIdx").on(table.expiresAt),
+    revokedAtIdx: index("appointmentTokensRevokedAtIdx").on(table.revokedAt),
+    tokenHashUk: uniqueIndex("appointmentTokensTokenHashUk").on(table.tokenHash),
   })
 );
 
@@ -369,7 +375,7 @@ export const appointmentMessages = mysqlTable(
     sourceLanguage: varchar("sourceLanguage", { length: 8 }),
     targetLanguage: varchar("targetLanguage", { length: 8 }),
     translationProvider: varchar("translationProvider", { length: 64 }),
-    clientMsgId: varchar("clientMsgId", { length: 128 }),
+    clientMessageId: varchar("clientMessageId", { length: 128 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => ({
@@ -378,9 +384,9 @@ export const appointmentMessages = mysqlTable(
     ),
     userIdx: index("appointmentMessagesUserIdx").on(table.userId),
     createdAtIdx: index("appointmentMessagesCreatedAtIdx").on(table.createdAt),
-    appointmentClientMsgUk: uniqueIndex(
-      "appointmentMessagesAppointmentClientMsgUk"
-    ).on(table.appointmentId, table.clientMsgId),
+    appointmentClientMessageUk: uniqueIndex(
+      "appointmentMessagesAppointmentClientMessageUk"
+    ).on(table.appointmentId, table.clientMessageId),
   })
 );
 
@@ -439,3 +445,84 @@ export const stripeWebhookEvents = mysqlTable("stripe_webhook_events", {
 
 export type StripeWebhookEvent = typeof stripeWebhookEvents.$inferSelect;
 export type InsertStripeWebhookEvent = typeof stripeWebhookEvents.$inferInsert;
+
+/**
+ * Visit summary table - stores bilingual post-visit summaries per appointment.
+ */
+export const appointmentVisitSummaries = mysqlTable(
+  "appointment_visit_summaries",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    appointmentId: int("appointmentId")
+      .notNull()
+      .references(() => appointments.id, { onDelete: "cascade" }),
+    summaryZh: text("summaryZh").notNull(),
+    summaryEn: text("summaryEn").notNull(),
+    source: varchar("source", { length: 32 }).notNull().default("llm"),
+    generatedBy: int("generatedBy").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    appointmentUk: uniqueIndex("appointmentVisitSummariesAppointmentUk").on(
+      table.appointmentId
+    ),
+    createdAtIdx: index("appointmentVisitSummariesCreatedAtIdx").on(table.createdAt),
+  })
+);
+
+export type AppointmentVisitSummary = typeof appointmentVisitSummaries.$inferSelect;
+export type InsertAppointmentVisitSummary =
+  typeof appointmentVisitSummaries.$inferInsert;
+
+/**
+ * Retention policy table - configurable retention days by tier.
+ */
+export const visitRetentionPolicies = mysqlTable(
+  "visit_retention_policies",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    tier: mysqlEnum("tier", ["free", "paid"]).notNull(),
+    retentionDays: int("retentionDays").notNull(),
+    enabled: tinyint("enabled").notNull().default(1),
+    updatedBy: int("updatedBy").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    tierUk: uniqueIndex("visitRetentionPoliciesTierUk").on(table.tier),
+  })
+);
+
+export type VisitRetentionPolicy = typeof visitRetentionPolicies.$inferSelect;
+export type InsertVisitRetentionPolicy = typeof visitRetentionPolicies.$inferInsert;
+
+/**
+ * Retention cleanup audit table - records every cleanup run.
+ */
+export const retentionCleanupAudits = mysqlTable(
+  "retention_cleanup_audits",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    dryRun: tinyint("dryRun").notNull().default(0),
+    freeRetentionDays: int("freeRetentionDays").notNull(),
+    paidRetentionDays: int("paidRetentionDays").notNull(),
+    scannedMessages: int("scannedMessages").notNull().default(0),
+    deletedMessages: int("deletedMessages").notNull().default(0),
+    detailsJson: json("detailsJson"),
+    createdBy: int("createdBy").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    createdAtIdx: index("retentionCleanupAuditsCreatedAtIdx").on(table.createdAt),
+  })
+);
+
+export type RetentionCleanupAudit = typeof retentionCleanupAudits.$inferSelect;
+export type InsertRetentionCleanupAudit = typeof retentionCleanupAudits.$inferInsert;

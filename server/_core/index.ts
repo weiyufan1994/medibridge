@@ -8,6 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { handleStripeWebhook } from "../stripeWebhookRoute";
+import { createVisitRealtimeGateway } from "../modules/visit/realtimeGateway";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -31,6 +32,7 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  const visitRealtimeGateway = createVisitRealtimeGateway();
   app.set("trust proxy", true);
   app.post(
     "/api/payments/stripe/webhook",
@@ -59,6 +61,10 @@ async function startServer() {
     serveStatic(app);
   }
 
+  server.on("upgrade", (req, socket, head) => {
+    void visitRealtimeGateway.handleUpgrade(req, socket, head);
+  });
+
   const preferredPort = parseInt(process.env.PORT || "3000");
   const port = await findAvailablePort(preferredPort);
 
@@ -68,6 +74,11 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+  });
+
+  process.on("SIGTERM", () => {
+    visitRealtimeGateway.shutdown();
+    server.close();
   });
 }
 

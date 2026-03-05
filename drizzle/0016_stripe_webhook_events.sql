@@ -1,4 +1,4 @@
-CREATE TABLE `stripe_webhook_events` (
+CREATE TABLE IF NOT EXISTS `stripe_webhook_events` (
 	`eventId` varchar(255) NOT NULL,
 	`type` varchar(100) NOT NULL,
 	`stripeSessionId` varchar(255),

@@ -1,25 +1,50 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { TRPCClientError } from "@trpc/client";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
-import type { VisitMessageItem } from "@/features/visit/types";
+import type { VisitMessageItem, VisitParticipantRole } from "@/features/visit/types";
 import { getVisitCopy } from "@/features/visit/copy";
 
 type VisitAccessInput = {
-  appointmentId: number;
   token: string;
 };
 
 type UseVisitsParams = {
   accessInput: VisitAccessInput;
   enabled: boolean;
-  canSend: boolean;
   scrollContainerRef: RefObject<HTMLDivElement | null>;
   resolved: "en" | "zh";
 };
 
-const POLL_BASE_INTERVAL_MS = 2500;
-const POLL_RETRY_DELAYS_MS = [2000, 5000, 10000] as const;
+type JoinedPayload = {
+  appointmentId: number;
+  role: VisitParticipantRole;
+  currentStatus: string;
+  canSendMessage: boolean;
+};
+
+type StatusPayload = {
+  currentStatus: string;
+  canSendMessage: boolean;
+};
+
+type IncomingMessagePayload = {
+  id: number;
+  appointmentId: number;
+  senderRole: "patient" | "doctor" | "system";
+  textOriginal: string;
+  textTranslated: string;
+  sourceLanguage: string;
+  targetLanguage: string;
+  clientMessageId: string | null;
+  createdAt: string;
+};
+
+type SocketEventEnvelope = {
+  event: string;
+  data?: unknown;
+};
+
+const RECONNECT_DELAYS_MS = [1000, 2500, 5000, 10000] as const;
 
 function getClientMsgId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -52,30 +77,40 @@ function mergeMessages(
   });
 }
 
-function isFatalPollingError(error: unknown): boolean {
-  if (!(error instanceof TRPCClientError)) {
-    return false;
-  }
+function normalizeRealtimeMessage(payload: IncomingMessagePayload): VisitMessageItem {
+  return {
+    id: payload.id,
+    senderType: payload.senderRole,
+    content: payload.textTranslated || payload.textOriginal,
+    originalContent: payload.textOriginal,
+    translatedContent: payload.textTranslated || payload.textOriginal,
+    sourceLanguage: payload.sourceLanguage || "auto",
+    targetLanguage: payload.targetLanguage || "auto",
+    createdAt: toDate(payload.createdAt),
+    clientMessageId: payload.clientMessageId,
+  };
+}
 
-  if (error.data?.code === "UNAUTHORIZED") {
-    return true;
-  }
-
-  const message = error.message.toLowerCase();
+function isFatalCode(code: string) {
   return (
-    message.includes("magic link has expired") ||
-    message.includes("magic link has been revoked") ||
-    message.includes("doctor magic link has been revoked") ||
-    message.includes("invalid magic link token") ||
-    message.includes("token expired") ||
-    message.includes("token revoked")
+    code === "TOKEN_EXPIRED" ||
+    code === "TOKEN_REVOKED" ||
+    code === "TOKEN_INVALID" ||
+    code === "APPOINTMENT_NOT_ALLOWED"
   );
+}
+
+function getWsUrl() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.host}/api/visit-room/ws`;
 }
 
 export function useVisits({
   accessInput,
   enabled,
-  canSend,
   scrollContainerRef,
   resolved,
 }: UseVisitsParams) {
@@ -87,22 +122,27 @@ export function useVisits({
   const [hasMoreHistory, setHasMoreHistory] = useState(false);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [pollingFatalError, setPollingFatalError] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  const [role, setRole] = useState<VisitParticipantRole | null>(null);
+  const [currentStatus, setCurrentStatus] = useState<string | null>(null);
+  const [canSendMessageFromRoom, setCanSendMessageFromRoom] = useState<boolean | null>(null);
+
   const shouldAutoScrollRef = useRef(true);
-  const lastMessageRef = useRef<VisitMessageItem | null>(null);
-  const pollTimerRef = useRef<number | null>(null);
-  const retryAttemptRef = useRef(0);
-  const pollingStoppedRef = useRef(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const reconnectAttemptRef = useRef(0);
+  const closedByAppRef = useRef(false);
   const utils = trpc.useUtils();
 
-  const messagesQuery = trpc.visit.getMessagesByToken.useQuery(
-    { ...accessInput, limit: 50 },
+  const messagesQuery = trpc.visit.roomGetMessages.useQuery(
+    { token: accessInput.token, limit: 50 },
     {
       enabled,
       retry: 0,
     }
   );
 
-  const sendMutation = trpc.visit.sendMessageByToken.useMutation();
+  const effectiveCanSend = Boolean(canSendMessageFromRoom) && !pollingFatalError;
 
   const getViewport = () => {
     if (!scrollContainerRef.current) return null;
@@ -138,14 +178,12 @@ export function useVisits({
     setMessages(initialMessages);
     setOlderCursor(messagesQuery.data.nextCursor ?? null);
     setHasMoreHistory(messagesQuery.data.hasMore);
+    setRole(messagesQuery.data.role);
     shouldAutoScrollRef.current = true;
     requestAnimationFrame(() => scrollToBottom("auto"));
   }, [messagesQuery.data]);
 
   useEffect(() => {
-    lastMessageRef.current =
-      messages.length > 0 ? messages[messages.length - 1] : null;
-
     if (shouldAutoScrollRef.current) {
       requestAnimationFrame(() => scrollToBottom("smooth"));
     }
@@ -168,120 +206,162 @@ export function useVisits({
   }, []);
 
   useEffect(() => {
-    if (!enabled || !messagesQuery.data) {
+    if (!enabled || pollingFatalError) {
       return;
     }
 
-    pollingStoppedRef.current = false;
-    retryAttemptRef.current = 0;
-    setPollingFatalError(null);
+    closedByAppRef.current = false;
 
-    const clearPollTimer = () => {
-      if (pollTimerRef.current !== null) {
-        window.clearTimeout(pollTimerRef.current);
-        pollTimerRef.current = null;
+    const clearReconnectTimer = () => {
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
       }
     };
 
-    const schedulePoll = (delayMs: number) => {
-      clearPollTimer();
-      pollTimerRef.current = window.setTimeout(() => {
-        void runPoll();
-      }, delayMs);
+    const closeSocket = () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
     };
 
-    const runPoll = async () => {
-      if (pollingStoppedRef.current) {
+    const connect = () => {
+      const wsUrl = getWsUrl();
+      if (!wsUrl) {
         return;
       }
 
-      const lastMessage = lastMessageRef.current;
-      try {
-        const result = await utils.visit.pollNewMessagesByToken.fetch({
-          ...accessInput,
-          afterCreatedAt: lastMessage?.createdAt,
-          afterId: lastMessage?.id,
-          limit: 100,
-        });
+      closeSocket();
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
 
-        if (result.messages.length > 0) {
-          const nearBottomBeforeUpdate = isNearBottom();
-          shouldAutoScrollRef.current = nearBottomBeforeUpdate;
-          setMessages(prev => mergeMessages(prev, result.messages));
+      ws.onopen = () => {
+        reconnectAttemptRef.current = 0;
+        setIsReconnecting(false);
+        ws.send(
+          JSON.stringify({
+            event: "room.join",
+            data: {
+              token: accessInput.token,
+            },
+          })
+        );
+      };
+
+      ws.onmessage = event => {
+        let envelope: SocketEventEnvelope;
+        try {
+          envelope = JSON.parse(String(event.data)) as SocketEventEnvelope;
+        } catch {
+          return;
         }
 
-        retryAttemptRef.current = 0;
-        setIsReconnecting(false);
-        schedulePoll(POLL_BASE_INTERVAL_MS);
-      } catch (error) {
-        if (isFatalPollingError(error)) {
-          pollingStoppedRef.current = true;
+        if (envelope.event === "room.joined") {
+          const payload = envelope.data as JoinedPayload;
+          setRole(payload.role);
+          setCurrentStatus(payload.currentStatus);
+          setCanSendMessageFromRoom(payload.canSendMessage);
+          setPollingFatalError(null);
           setIsReconnecting(false);
-          setPollingFatalError("Session expired. Request a new link.");
-          clearPollTimer();
+          return;
+        }
+
+        if (envelope.event === "message.new") {
+          const payload = envelope.data as IncomingMessagePayload;
+          const nearBottomBeforeUpdate = isNearBottom();
+          shouldAutoScrollRef.current = nearBottomBeforeUpdate;
+          setMessages(prev => mergeMessages(prev, [normalizeRealtimeMessage(payload)]));
+          setIsSending(false);
+          return;
+        }
+
+        if (envelope.event === "room.status") {
+          const payload = envelope.data as StatusPayload;
+          setCurrentStatus(payload.currentStatus);
+          setCanSendMessageFromRoom(payload.canSendMessage);
+          return;
+        }
+
+        if (envelope.event === "error") {
+          const payload = envelope.data as { code?: string; message?: string };
+          const code = (payload?.code ?? "UNKNOWN_ERROR").trim();
+          const message = payload?.message ?? code;
+
+          if (isFatalCode(code)) {
+            setPollingFatalError(message);
+            setCanSendMessageFromRoom(false);
+            setIsSending(false);
+            return;
+          }
+
+          if (code !== "ROOM_READ_ONLY") {
+            toast.error(message);
+          }
+          setIsSending(false);
+        }
+      };
+
+      ws.onclose = () => {
+        wsRef.current = null;
+        setIsSending(false);
+        if (!enabled || closedByAppRef.current || pollingFatalError) {
           return;
         }
 
         setIsReconnecting(true);
-        const retryDelay =
-          POLL_RETRY_DELAYS_MS[
-            Math.min(retryAttemptRef.current, POLL_RETRY_DELAYS_MS.length - 1)
+        const delayMs =
+          RECONNECT_DELAYS_MS[
+            Math.min(reconnectAttemptRef.current, RECONNECT_DELAYS_MS.length - 1)
           ];
-        retryAttemptRef.current += 1;
-        schedulePoll(retryDelay);
-      }
+        reconnectAttemptRef.current += 1;
+        clearReconnectTimer();
+        reconnectTimerRef.current = window.setTimeout(() => {
+          connect();
+        }, delayMs);
+      };
     };
 
-    schedulePoll(POLL_BASE_INTERVAL_MS);
+    connect();
 
     return () => {
-      pollingStoppedRef.current = true;
-      clearPollTimer();
+      closedByAppRef.current = true;
+      clearReconnectTimer();
+      closeSocket();
     };
-  }, [accessInput, enabled, messagesQuery.data, utils.visit.pollNewMessagesByToken]);
+  }, [enabled, accessInput.token, pollingFatalError]);
 
   async function handleSend() {
-    if (!canSend || pollingFatalError) {
+    if (!effectiveCanSend || isSending) {
       return;
     }
 
     const nextContent = content.trim();
-    if (!nextContent || sendMutation.isPending) {
+    if (!nextContent) {
+      return;
+    }
+
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      toast.error(t.sendFailed);
       return;
     }
 
     try {
-      const clientMsgId = getClientMsgId();
-      const result = await sendMutation.mutateAsync({
-        ...accessInput,
-        content: nextContent,
-        sourceLanguage: resolved,
-        targetLanguage: resolved,
-        clientMsgId,
-      });
-
-      shouldAutoScrollRef.current = true;
-      setMessages(prev =>
-        mergeMessages(prev, [
-          {
-            id: result.id,
-            senderType: result.senderType,
-            content: nextContent,
-            originalContent: nextContent,
-            translatedContent: nextContent,
-            sourceLanguage: resolved,
-            targetLanguage: resolved,
-            createdAt: toDate(result.createdAt),
-            clientMsgId,
+      setIsSending(true);
+      ws.send(
+        JSON.stringify({
+          event: "message.send",
+          data: {
+            textOriginal: nextContent,
+            clientMessageId: getClientMsgId(),
           },
-        ])
+        })
       );
       setContent("");
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : t.sendFailed;
+      setIsSending(false);
+      const message = error instanceof Error ? error.message : t.sendFailed;
       toast.error(message);
     }
   }
@@ -293,8 +373,8 @@ export function useVisits({
 
     setIsLoadingOlder(true);
     try {
-      const result = await utils.visit.getMessagesByToken.fetch({
-        ...accessInput,
+      const result = await utils.visit.roomGetMessages.fetch({
+        token: accessInput.token,
         beforeCursor: olderCursor,
         limit: 50,
       });
@@ -321,7 +401,10 @@ export function useVisits({
     hasMoreHistory,
     isLoadingOlder,
     pollingFatalError,
-    sendMutation,
+    isSending,
+    role,
+    currentStatus,
+    canSendMessage: effectiveCanSend,
     setContent,
     loadOlderMessages,
     handleSend,

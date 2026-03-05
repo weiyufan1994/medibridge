@@ -16,9 +16,11 @@ import DoctorDetail from "./pages/DoctorDetail";
 import Hospitals from "./pages/Hospitals";
 import AITriagePage from "./pages/AITriage";
 import DashboardPage from "./pages/Dashboard";
+import AdminPage from "./pages/Admin";
 import AppointmentAccessPage from "./pages/AppointmentAccess";
 import VisitRoomPage from "./pages/VisitRoom";
 import PaymentSuccessPage from "./pages/PaymentSuccess";
+import PaymentCancelPage from "./pages/PaymentCancel";
 import ComponentShowcase from "./sandbox/ComponentShowcase";
 
 function parseMagicLinkTokenFromUrl(): string | null {
@@ -82,8 +84,10 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/triage"} component={AITriagePage} />
       <Route path={"/dashboard"} component={DashboardRouteGuard} />
+      <Route path={"/admin"} component={AdminPage} />
       <Route path={"/appointment/:id"} component={AppointmentAccessPage} />
       <Route path={"/payment/success"} component={PaymentSuccessPage} />
+      <Route path={"/payment/cancel"} component={PaymentCancelPage} />
       <Route path={"/visit/:id"} component={VisitRoomPage} />
       <Route path={"/doctor/:id"} component={DoctorDetail} />
       <Route path={"/hospitals"} component={Hospitals} />

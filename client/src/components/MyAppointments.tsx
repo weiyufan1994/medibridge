@@ -24,12 +24,19 @@ type MyAppointmentItem = {
     | "draft"
     | "pending_payment"
     | "paid"
-    | "confirmed"
-    | "in_session"
-    | "completed"
+    | "active"
+    | "ended"
     | "expired"
-    | "refunded";
-  paymentStatus: "unpaid" | "pending" | "paid" | "failed" | "expired" | "refunded";
+    | "refunded"
+    | "canceled";
+  paymentStatus:
+    | "unpaid"
+    | "pending"
+    | "paid"
+    | "failed"
+    | "expired"
+    | "refunded"
+    | "canceled";
   createdAt: Date | string;
 };
 
@@ -44,9 +51,27 @@ function toStatusLabel(status: MyAppointmentItem["status"]) {
 }
 
 function toStatusBadgeVariant(status: MyAppointmentItem["status"]) {
-  if (status === "completed") return "secondary" as const;
-  if (status === "expired" || status === "refunded") return "destructive" as const;
+  if (status === "ended") return "secondary" as const;
+  if (status === "expired" || status === "refunded" || status === "canceled") {
+    return "destructive" as const;
+  }
   return "default" as const;
+}
+
+function getPrimaryAction(item: MyAppointmentItem) {
+  if (item.status === "pending_payment") {
+    return { label: "Pay Now", hint: "Complete payment to unlock visit room." };
+  }
+  if (item.status === "paid") {
+    return { label: "Enter Visit Room", hint: "Paid, waiting for doctor to start." };
+  }
+  if (item.status === "active") {
+    return { label: "Enter Visit Room", hint: "Active, chat available." };
+  }
+  if (item.status === "ended") {
+    return { label: "View Record", hint: "Visit completed, read-only." };
+  }
+  return { label: "View", hint: "This appointment is not active." };
 }
 
 function AppointmentRow(props: {
@@ -68,6 +93,7 @@ function AppointmentRow(props: {
     doctorQuery.data?.doctor?.nameEn ||
     doctorQuery.data?.doctor?.name ||
     `Doctor #${props.item.doctorId}`;
+  const primaryAction = getPrimaryAction(props.item);
 
   return (
     <TableRow>
@@ -90,23 +116,13 @@ function AppointmentRow(props: {
         <Button
           type="button"
           size="sm"
-          variant="outline"
-          onClick={() => {
-            void props.onView(props.item.id);
-          }}
-          disabled={props.isActing}
-        >
-          View
-        </Button>
-        <Button
-          type="button"
-          size="sm"
+          variant={props.item.status === "active" ? "default" : "outline"}
           onClick={() => {
             void props.onEnter(props.item.id);
           }}
           disabled={props.isActing}
         >
-          Enter Visit Room
+          {primaryAction.label}
         </Button>
         <Button
           type="button"
@@ -119,6 +135,7 @@ function AppointmentRow(props: {
         >
           Resend Link
         </Button>
+        <p className="mt-2 text-xs text-muted-foreground">{primaryAction.hint}</p>
       </TableCell>
     </TableRow>
   );

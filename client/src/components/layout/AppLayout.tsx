@@ -46,6 +46,7 @@ export default function AppLayout({
               isGuest?: number;
               name?: string | null;
               email?: string | null;
+              role?: string | null;
               avatarUrl?: string | null;
               imageUrl?: string | null;
             } | null;
@@ -56,6 +57,7 @@ export default function AppLayout({
               isGuest?: number;
               name?: string | null;
               email?: string | null;
+              role?: string | null;
               avatarUrl?: string | null;
               imageUrl?: string | null;
             }
@@ -136,6 +138,16 @@ export default function AppLayout({
                 >
                   {homeCopy.dashboard}
                 </Button>
+                {user.role === "pro" || user.role === "admin" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLocation("/admin")}
+                  >
+                    Admin
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   variant="ghost"
