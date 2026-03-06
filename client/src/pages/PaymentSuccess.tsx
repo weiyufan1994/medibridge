@@ -59,8 +59,13 @@ export default function PaymentSuccessPage() {
   });
 
   const resendMutation = trpc.appointments.resendLink.useMutation({
-    onSuccess: () => {
-      toast.success("Sent");
+    onSuccess: result => {
+      if (result.devLink && typeof window !== "undefined") {
+        const nextUrl = new URL(result.devLink);
+        window.location.href = `${nextUrl.pathname}${nextUrl.search}`;
+        return;
+      }
+      toast.success("Access link has been sent to your email.");
     },
     onError: error => {
       toast.error(error.message || "Failed to resend access link.");
@@ -247,8 +252,8 @@ export default function PaymentSuccessPage() {
                   disabled={resendMutation.isPending}
                 >
                   {resendMutation.isPending
-                    ? "Sending..."
-                    : "Resend access link"}
+                    ? "Opening..."
+                    : "Enter Visit Room"}
                 </Button>
               ) : null}
             </div>

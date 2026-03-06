@@ -13,6 +13,10 @@ export function getAppointmentCopy(lang: Lang) {
     bookingEmailPlaceholder: t.bookingEmailPlaceholder,
     bookingTime: t.bookingTime,
     bookingType: t.bookingType,
+    bookingPackage: isZh ? "服务套餐" : "Consultation Package",
+    bookingPackageFallback: isZh
+      ? "请选择一个套餐后继续。"
+      : "Choose a package to continue.",
     bookingTypeOnline: t.bookingTypeOnline,
     bookingTypeVideo: t.bookingTypeVideo,
     bookingTypeInPerson: t.bookingTypeInPerson,

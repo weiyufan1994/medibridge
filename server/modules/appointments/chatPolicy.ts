@@ -6,6 +6,10 @@ type ChatPolicyContext = {
 };
 
 export function canJoinRoom(context: ChatPolicyContext): boolean {
+  if (context.status === "ended" && context.paymentStatus === "paid") {
+    return true;
+  }
+
   try {
     ensureAppointmentStatusAllowsVisitV2({
       status: context.status as never,
@@ -18,6 +22,5 @@ export function canJoinRoom(context: ChatPolicyContext): boolean {
 }
 
 export function canSendMessage(context: ChatPolicyContext): boolean {
-  return canJoinRoom(context) && context.status === "active";
+  return canJoinRoom(context) && (context.status === "paid" || context.status === "active");
 }
-

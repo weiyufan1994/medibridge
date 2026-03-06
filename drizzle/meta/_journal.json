@@ -127,6 +127,34 @@
       "when": 1772639009394,
       "tag": "0017_appointment_messages_client_message_id_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1772700000000,
+      "tag": "0018_appointment_state_machine_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1772780000000,
+      "tag": "0019_realtime_chat_client_message_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1772860000000,
+      "tag": "0020_ops_admin_summary_retention",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "5",
+      "when": 1772940000000,
+      "tag": "0021_appointment_messages_composite_index",
+      "breakpoints": true
     }
   ]
 }

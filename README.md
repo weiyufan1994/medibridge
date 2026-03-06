@@ -15,9 +15,9 @@ This README is the single handover document for onboarding, architecture underst
 ```bash
 pnpm install
 ```
-2. Run DB migrations
+2. Run DB migrations (safe mode, recommended)
 ```bash
-pnpm db:push
+pnpm db:migrate:safe
 ```
 3. Start dev server
 ```bash
@@ -146,7 +146,11 @@ Quota is charged by **Session**, with a **Message-count fallback guard** inside 
   - Replay never re-issues token or resends payment-success link
 
 ## Operational Notes
-- Any schema change must be followed by migration generation/apply (`pnpm db:push`)
+- Any schema change must be followed by migration apply + verification:
+  - `pnpm db:migrate:safe` (recommended)
+  - or `pnpm db:migrate` then `pnpm db:verify:migrations`
+- If schema was manually patched and Drizzle history is behind, repair history once:
+  - `pnpm db:repair:migration-history`
 - Auth and billing constraints are business-critical and must be covered by tests before release
 - Do not reintroduce password-based authentication paths
 

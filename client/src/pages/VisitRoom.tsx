@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import { useRoute } from "wouter";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getLocalizedField } from "@/lib/i18n";
@@ -13,7 +14,24 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import AppLayout from "@/components/layout/AppLayout";
 import { ChatComposer } from "./ChatComposer";
 import { VisitMessagesList } from "@/features/visit/components/VisitMessagesList";
@@ -114,11 +132,12 @@ function parseTokenFromLocation(): string {
 }
 
 function getAppointmentTypeLabel(
-  type: "online_chat" | "video_call" | "in_person"
+  type: "online_chat" | "video_call" | "in_person",
+  t: ReturnType<typeof getVisitCopy>
 ) {
-  if (type === "online_chat") return "Online chat";
-  if (type === "video_call") return "Video call";
-  return "In person";
+  if (type === "online_chat") return t.appointmentTypeOnline;
+  if (type === "video_call") return t.appointmentTypeVideo;
+  return t.appointmentTypeInPerson;
 }
 
 function maskEmail(email: string): string {
@@ -130,6 +149,10 @@ function maskEmail(email: string): string {
     return `${name[0] ?? "*"}*@${domain}`;
   }
   return `${name.slice(0, 2)}***@${domain}`;
+}
+
+function interpolateStatus(template: string, status: string) {
+  return template.replace("{{status}}", status);
 }
 
 export default function VisitRoomPage() {
@@ -155,7 +178,24 @@ export default function VisitRoomPage() {
 
   const appointmentQuery = trpc.appointments.getByToken.useQuery(accessInput, {
     enabled: validInput,
-    retry: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  const utils = trpc.useUtils();
+  const completeAppointmentMutation = trpc.appointments.completeAppointment.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.appointments.getByToken.invalidate(accessInput),
+        utils.appointments.listMyAppointments.invalidate(),
+        utils.appointments.listMine.invalidate(),
+        utils.visit.roomGetMessages.invalidate({ token: accessInput.token, limit: 50 }),
+      ]);
+      toast.success(t.consultationEndedSuccess);
+    },
+    onError: error => {
+      toast.error(error.message || t.consultationEndFailed);
+    },
   });
 
   const doctorQuery = trpc.doctors.getById.useQuery(
@@ -225,23 +265,25 @@ export default function VisitRoomPage() {
   const appointment = appointmentQuery.data;
   const doctorData = doctorQuery.data;
   const viewerRole = role ?? appointment.role;
+  const isDoctorView = viewerRole === "doctor";
+
   const doctorName = doctorData
     ? getLocalizedField({
         lang: resolved,
         zh: doctorData.doctor.name,
         en: doctorData.doctor.nameEn,
-        placeholder: "Assigned doctor",
+        placeholder: t.assignedDoctorFallback,
       })
-    : "Assigned doctor";
+    : t.assignedDoctorFallback;
   const departmentName = doctorData
     ? getLocalizedField({
         lang: resolved,
         zh: doctorData.department.name,
         en: doctorData.department.nameEn,
-        placeholder: "Department",
+        placeholder: t.departmentFallback,
       })
-    : "Department";
-  const appointmentType = getAppointmentTypeLabel(appointment.appointmentType);
+    : t.departmentFallback;
+  const appointmentType = getAppointmentTypeLabel(appointment.appointmentType, t);
   const scheduledAt = appointment.scheduledAt
     ? toDate(appointment.scheduledAt)
     : null;
@@ -249,23 +291,24 @@ export default function VisitRoomPage() {
     ? viewerRole === "doctor"
       ? formatChinaDateTime(scheduledAt)
       : formatLocalDateTime(scheduledAt)
-    : "TBD";
+    : t.tbd;
   const scheduledChinaTimeText = formatChinaDateTime(scheduledAt);
   const patientIdentity =
     appointment.patient.sessionId?.trim() ||
     maskEmail(appointment.patient.email) ||
-    "Unknown patient";
+    t.unknownPatient;
+
   const doctorHeaderTitle = `🧑‍⚕️ ${doctorName}`;
   const patientLabelPrefix = resolved === "zh" ? "🤒 患者" : "🤒 Patient";
   const patientHeaderTitle = `${patientLabelPrefix} ${patientIdentity}`;
-  const headerTitle =
-    viewerRole === "doctor" ? patientHeaderTitle : doctorHeaderTitle;
+  const headerTitle = isDoctorView ? patientHeaderTitle : doctorHeaderTitle;
   const avatarFallback =
-    viewerRole === "doctor" ? "患" : doctorName.slice(0, 1).toUpperCase();
+    isDoctorView ? "患" : doctorName.slice(0, 1).toUpperCase();
   const headerSubtitle =
-    viewerRole === "doctor"
-      ? `${resolved === "zh" ? "患者摘要" : "Patient context"} · ${patientIdentity}`
+    isDoctorView
+      ? `${t.patientContextTitle} · ${patientIdentity}`
       : `${departmentName} · ${appointmentType}`;
+
   const triageSummary = appointment.triageSummary?.trim() ?? "";
   const localizedTriageSummary = localizeTriageSummary(triageSummary, resolved);
   const intake = appointment.intake;
@@ -290,21 +333,25 @@ export default function VisitRoomPage() {
         };
       }).filter((item): item is { label: string; value: string } => Boolean(item))
     : [];
+
   const liveStatus = currentStatus ?? "connecting";
-  const composerHint = canSendMessage
+  const roomClosedByStatus = appointment.status === "ended";
+  const effectiveCanSendMessage = canSendMessage && !roomClosedByStatus;
+  const composerHint = effectiveCanSendMessage
     ? t.composerHint
-    : `Read-only (${liveStatus})`;
-  const composerDisabled = isSending || !canSendMessage || Boolean(pollingFatalError);
+    : interpolateStatus(t.composerReadOnlyHint, liveStatus);
+  const composerDisabled =
+    isSending || !effectiveCanSendMessage || Boolean(pollingFatalError);
 
   return (
     <AppLayout title={pageTitle}>
-      <div className="mx-auto w-full max-w-5xl py-2">
+      <div className="mx-auto w-full max-w-7xl py-2">
         <Card className="h-[calc(100vh-9rem)] overflow-hidden rounded-2xl border-slate-200 shadow-sm">
-          <header className="shrink-0 px-5 py-4">
+          <header className="shrink-0 border-b px-5 py-4">
             <div className="flex items-start justify-between gap-4">
               <div className="flex min-w-0 items-center gap-3">
                 <Avatar className="h-11 w-11 border border-slate-200">
-                  {viewerRole === "patient" ? (
+                  {!isDoctorView ? (
                     <AvatarImage
                       src={doctorData?.doctor.imageUrl ?? undefined}
                       alt={doctorName}
@@ -323,56 +370,76 @@ export default function VisitRoomPage() {
                   </p>
                 </div>
               </div>
+
               <div className="flex shrink-0 flex-col items-end gap-1">
                 <div className="flex items-center gap-2">
                   <Badge
-                    variant={canSendMessage ? "default" : "secondary"}
-                    className={canSendMessage ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700"}
+                    variant={effectiveCanSendMessage ? "default" : "secondary"}
+                    className={
+                      effectiveCanSendMessage
+                        ? "bg-emerald-600 text-white"
+                        : "bg-slate-100 text-slate-700"
+                    }
                   >
-                    {canSendMessage ? "Chat enabled" : "Read only"}
+                    {effectiveCanSendMessage ? t.chatEnabled : t.readOnly}
                   </Badge>
                   {isReconnecting ? (
                     <span className="inline-flex items-center gap-1 text-xs text-slate-500">
                       <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                      Reconnecting...
+                      {t.reconnecting}
                     </span>
                   ) : null}
                 </div>
                 <p className="text-xs text-slate-500">{scheduledTimeText}</p>
-                {viewerRole === "patient" ? (
+                {!isDoctorView ? (
                   <p className="text-xs text-slate-400">
-                    Doctor time (China): {scheduledChinaTimeText}
+                    {t.doctorTimeChina}: {scheduledChinaTimeText}
                   </p>
+                ) : null}
+
+                {isDoctorView && !roomClosedByStatus ? (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        disabled={completeAppointmentMutation.isPending}
+                      >
+                        {t.endConsultation}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>{t.endConsultationTitle}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {t.endConsultationDesc}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() =>
+                            void completeAppointmentMutation.mutateAsync({
+                              appointmentId: appointment.id,
+                              token: accessInput.token,
+                            })
+                          }
+                        >
+                          {completeAppointmentMutation.isPending
+                            ? t.ending
+                            : t.confirmEnd}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 ) : null}
               </div>
             </div>
             <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-              <p className="text-xs text-slate-600">Room status: {liveStatus}</p>
-            </div>
-            {triageSummary.length > 0 ? (
-              <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-medium text-slate-700">
-                  {resolved === "zh" ? "AI 分诊摘要" : "AI Triage Summary"}
-                </p>
-                <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                  {localizedTriageSummary}
-                </p>
-              </div>
-            ) : null}
-            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs font-medium text-slate-700">{t.intakeTitle}</p>
-              {intakeRows.length > 0 ? (
-                <div className="mt-2 space-y-1">
-                  {intakeRows.map(row => (
-                    <p key={row.label} className="text-xs leading-relaxed text-slate-600">
-                      <span className="font-medium text-slate-700">{row.label}: </span>
-                      {row.value}
-                    </p>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-1 text-xs leading-relaxed text-slate-500">{t.intakeEmpty}</p>
-              )}
+              <p className="text-xs text-slate-600">
+                {t.roomStatus}: {liveStatus}
+              </p>
             </div>
             {pollingFatalError ? (
               <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
@@ -383,32 +450,101 @@ export default function VisitRoomPage() {
             ) : null}
           </header>
 
-          <Separator />
+          <div className={`grid h-[calc(100%-8.75rem)] min-h-0 ${isDoctorView ? "lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]" : "grid-cols-1"}`}>
+            <section className="min-h-0 border-r-0 lg:border-r lg:border-slate-100">
+              <div className="flex h-full min-h-0 flex-col">
+                <VisitMessagesList
+                  showInitialSkeleton={showInitialSkeleton}
+                  currentRole={viewerRole}
+                  messages={messages}
+                  hasMoreHistory={hasMoreHistory}
+                  isLoadingOlder={isLoadingOlder}
+                  onLoadOlder={() => void loadOlderMessages()}
+                  scrollContainerRef={scrollContainerRef}
+                  emptyStateText={t.noMessages}
+                  loadEarlierText={t.loadEarlierMessages}
+                  loadingEarlierText={t.loadingEarlierMessages}
+                />
+                <Separator />
+                <footer className="shrink-0">
+                  <ChatComposer
+                    value={content}
+                    onChange={setContent}
+                    onSend={() => void handleSend()}
+                    disabled={composerDisabled}
+                    isSending={isSending}
+                    placeholder={t.composerPlaceholder}
+                    hint={composerHint}
+                  />
+                </footer>
+              </div>
+            </section>
 
-          <VisitMessagesList
-            showInitialSkeleton={showInitialSkeleton}
-            currentRole={viewerRole}
-            messages={messages}
-            hasMoreHistory={hasMoreHistory}
-            isLoadingOlder={isLoadingOlder}
-            onLoadOlder={() => void loadOlderMessages()}
-            scrollContainerRef={scrollContainerRef}
-            emptyStateText={t.noMessages}
-          />
+            {isDoctorView ? (
+              <aside className="hidden min-h-0 bg-slate-50/70 lg:block">
+                <div className="h-full overflow-y-auto p-4">
+                  <div className="sticky top-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <Accordion type="multiple" defaultValue={["context", "triage", "intake"]}>
+                      <AccordionItem value="context">
+                        <AccordionTrigger>{t.patientContextTitle}</AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-2 text-xs text-slate-600">
+                            <p>
+                              <span className="font-medium text-slate-800">{resolved === "zh" ? "患者" : "Patient"}: </span>
+                              {patientIdentity}
+                            </p>
+                            <p>
+                              <span className="font-medium text-slate-800">{resolved === "zh" ? "科室" : "Department"}: </span>
+                              {departmentName}
+                            </p>
+                            <p>
+                              <span className="font-medium text-slate-800">{resolved === "zh" ? "会诊类型" : "Visit Type"}: </span>
+                              {appointmentType}
+                            </p>
+                            <p>
+                              <span className="font-medium text-slate-800">{resolved === "zh" ? "预约时间" : "Scheduled"}: </span>
+                              {scheduledTimeText}
+                            </p>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
 
-          <Separator />
+                      <AccordionItem value="triage">
+                        <AccordionTrigger>{t.aiTriageSummaryTitle}</AccordionTrigger>
+                        <AccordionContent>
+                          {localizedTriageSummary ? (
+                            <p className="text-xs leading-relaxed text-slate-600">
+                              {localizedTriageSummary}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-slate-500">{t.aiTriageSummaryEmpty}</p>
+                          )}
+                        </AccordionContent>
+                      </AccordionItem>
 
-          <footer className="shrink-0">
-            <ChatComposer
-              value={content}
-              onChange={setContent}
-              onSend={() => void handleSend()}
-              disabled={composerDisabled}
-              isSending={isSending}
-              placeholder={t.composerPlaceholder}
-              hint={composerHint}
-            />
-          </footer>
+                      <AccordionItem value="intake">
+                        <AccordionTrigger>{t.preVisitIntakeTitle}</AccordionTrigger>
+                        <AccordionContent>
+                          {intakeRows.length > 0 ? (
+                            <div className="space-y-1.5">
+                              {intakeRows.map(row => (
+                                <p key={row.label} className="text-xs leading-relaxed text-slate-600">
+                                  <span className="font-medium text-slate-700">{row.label}: </span>
+                                  {row.value}
+                                </p>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-slate-500">{t.intakeEmpty}</p>
+                          )}
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  </div>
+                </div>
+              </aside>
+            ) : null}
+          </div>
         </Card>
       </div>
     </AppLayout>

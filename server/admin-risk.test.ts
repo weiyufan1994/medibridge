@@ -85,4 +85,47 @@ describe("computeAdminRisks", () => {
     expect(suggestions.some(item => item.action === "resend_access_link")).toBe(true);
     expect(suggestions.some(item => item.action === "issue_access_links")).toBe(true);
   });
+
+  it("detects doctor reply SLA overdue", () => {
+    const now = new Date("2026-03-05T10:30:00.000Z");
+    const risks = computeAdminRisks(
+      {
+        appointment: {
+          status: "active",
+          paymentStatus: "paid",
+        },
+        recentMessages: [
+          {
+            id: 1,
+            senderType: "patient",
+            createdAt: "2026-03-05T10:00:00.000Z",
+          },
+        ],
+      },
+      now
+    );
+
+    expect(risks.some(item => item.code === "DOCTOR_REPLY_SLA_OVERDUE")).toBe(true);
+  });
+
+  it("suggests notify-doctor action when SLA is overdue", () => {
+    const now = new Date("2026-03-05T10:30:00.000Z");
+    const detail = {
+      appointment: {
+        status: "active",
+        paymentStatus: "paid",
+      },
+      recentMessages: [
+        {
+          id: 1,
+          senderType: "patient",
+          createdAt: "2026-03-05T10:00:00.000Z",
+        },
+      ],
+    };
+    const risks = computeAdminRisks(detail, now);
+    const suggestions = computeAdminSuggestions(detail, risks);
+
+    expect(suggestions.some(item => item.action === "notify_doctor_followup")).toBe(true);
+  });
 });

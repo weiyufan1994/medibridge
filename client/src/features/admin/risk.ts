@@ -10,6 +10,7 @@ export type AdminSuggestionAction =
   | "reinitiate_payment"
   | "resend_access_link"
   | "issue_access_links"
+  | "notify_doctor_followup"
   | "inspect_webhook_timeline"
   | "monitor_only";
 
@@ -39,6 +40,8 @@ type AdminDetailInput = {
   }> | null;
   recentMessages?: Array<{
     id?: number | null;
+    senderType?: string | null;
+    createdAt?: Date | string | null;
   }> | null;
 };
 
@@ -137,6 +140,46 @@ export function computeAdminRisks(
     });
   }
 
+  if (paymentStatus === "paid" && (status === "paid" || status === "active")) {
+    const messages = detail.recentMessages ?? [];
+    let latestPatientAt: Date | null = null;
+    let latestDoctorAt: Date | null = null;
+
+    for (const message of messages) {
+      const sender = String(message.senderType ?? "");
+      const createdAt = toDate(message.createdAt);
+      if (!createdAt) {
+        continue;
+      }
+      if (sender === "patient") {
+        if (!latestPatientAt || createdAt > latestPatientAt) {
+          latestPatientAt = createdAt;
+        }
+        continue;
+      }
+      if (sender === "doctor") {
+        if (!latestDoctorAt || createdAt > latestDoctorAt) {
+          latestDoctorAt = createdAt;
+        }
+      }
+    }
+
+    if (latestPatientAt) {
+      const waitingMs = now.getTime() - latestPatientAt.getTime();
+      const doctorRepliedAfterLatestPatient =
+        latestDoctorAt && latestDoctorAt.getTime() >= latestPatientAt.getTime();
+      if (!doctorRepliedAfterLatestPatient && waitingMs >= 15 * 60 * 1000) {
+        const isCritical = waitingMs >= 60 * 60 * 1000;
+        const waitingMinutes = Math.floor(waitingMs / 60_000);
+        risks.push({
+          code: "DOCTOR_REPLY_SLA_OVERDUE",
+          level: isCritical ? "critical" : "warning",
+          message: `Doctor reply SLA overdue: patient has waited ${waitingMinutes} minutes.`,
+        });
+      }
+    }
+  }
+
   return risks;
 }
 
@@ -170,6 +213,16 @@ export function computeAdminSuggestions(
       detail: "Webhook failures detected. Check event sequence before retrying payment.",
       action: "inspect_webhook_timeline",
       priority: 95,
+    });
+  }
+
+  if (riskCodes.has("DOCTOR_REPLY_SLA_OVERDUE")) {
+    suggestions.push({
+      key: "suggest_notify_doctor_followup",
+      title: "Notify doctor follow-up",
+      detail: "Patient message is waiting. Trigger doctor follow-up reminder now.",
+      action: "notify_doctor_followup",
+      priority: 92,
     });
   }
 

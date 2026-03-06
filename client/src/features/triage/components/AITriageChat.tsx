@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -155,14 +155,14 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                   {requestError}
                 </p>
               )}
-              <div className="flex items-center gap-2">
-                <Input
+              <div className="flex items-end gap-2">
+                <Textarea
                   value={input}
                   onChange={event => setInput(event.target.value)}
                   onKeyDown={handleInputKeyDown}
                   placeholder={t.placeholder}
                   disabled={isChatPending || triageResult?.isComplete || messageLimitReached}
-                  className="border-sky-200 focus-visible:ring-sky-400"
+                  className="max-h-32 min-h-16 resize-none overflow-y-auto border-sky-200 focus-visible:ring-sky-400"
                 />
                 <Button
                   onClick={() => void handleSend()}
@@ -441,6 +441,10 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
         doctorId={bookingDoctorId}
         sessionId={triageSessionId || "triage-session"}
         resolved={resolved}
+        triagePrefill={{
+          summary: triageResult?.summary,
+          extraction: triageResult?.extraction,
+        }}
       />
     </>
   );

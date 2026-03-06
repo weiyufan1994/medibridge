@@ -75,6 +75,7 @@ const TRIAGE_JSON_SCHEMA: JsonSchema = {
 };
 
 const TRIAGE_SYSTEM_PROMPT_ZH = `你是一个专业的分诊医生。
+语言要求：所有 reply、summary、keywords、extraction 字段必须严格使用中文输出，不得混用英文。
 核心目标：在 5 到 8 个对话回合内，快速收集完患者信息并生成分诊报告；给出报告后，必须引导患者去预约医生，并明确表示对话即将结束。
 
 行为要求：
@@ -93,6 +94,7 @@ const TRIAGE_SYSTEM_PROMPT_ZH = `你是一个专业的分诊医生。
 5) 禁止输出 Markdown、代码块或额外字段；必须只返回 JSON。`;
 
 const TRIAGE_SYSTEM_PROMPT_EN = `You are a professional triage doctor.
+Language requirement: strictly output all reply, summary, keywords, and extraction fields in English only.
 Core objective: finish data collection and produce a triage report within 5-8 dialogue turns; after the report, you must guide the patient to book a doctor and clearly state the conversation is ending.
 
 Behavior requirements:

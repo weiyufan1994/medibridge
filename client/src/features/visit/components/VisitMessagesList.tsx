@@ -14,6 +14,8 @@ type VisitMessagesListProps = {
   onLoadOlder: () => void;
   scrollContainerRef: RefObject<HTMLDivElement | null>;
   emptyStateText: string;
+  loadEarlierText: string;
+  loadingEarlierText: string;
 };
 
 export function VisitMessagesList({
@@ -25,6 +27,8 @@ export function VisitMessagesList({
   onLoadOlder,
   scrollContainerRef,
   emptyStateText,
+  loadEarlierText,
+  loadingEarlierText,
 }: VisitMessagesListProps) {
   return (
     <section className="min-h-0 flex-1">
@@ -33,15 +37,18 @@ export function VisitMessagesList({
           <div className="p-5">
             {hasMoreHistory ? (
               <div className="mb-3 flex justify-center">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={isLoadingOlder}
-                  onClick={onLoadOlder}
-                >
-                  {isLoadingOlder ? "Loading..." : "Load earlier messages"}
-                </Button>
+                {isLoadingOlder ? (
+                  <p className="text-xs text-slate-500">{loadingEarlierText}</p>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onLoadOlder}
+                  >
+                    {loadEarlierText}
+                  </Button>
+                )}
               </div>
             ) : null}
             {showInitialSkeleton ? (

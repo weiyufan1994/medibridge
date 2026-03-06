@@ -229,7 +229,7 @@ export function useTriageChat({
         result = await sendMessageMutation.mutateAsync({
           sessionId: numericSessionId,
           content,
-          lang: inputLang,
+          lang: resolved,
         });
       } catch (error) {
         if (error instanceof TRPCClientError && isSessionAccessDeniedError(error)) {
@@ -239,7 +239,7 @@ export function useTriageChat({
           result = await sendMessageMutation.mutateAsync({
             sessionId: Number(refreshedSessionId),
             content,
-            lang: inputLang,
+            lang: resolved,
           });
         } else {
           throw error;
@@ -345,8 +345,8 @@ export function useTriageChat({
     await sendMessage(content);
   };
 
-  const handleInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") {
+  const handleInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       void handleSend();
     }

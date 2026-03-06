@@ -17,7 +17,7 @@ vi.mock("./modules/appointments/repo", () => ({
   revokeAppointmentTokens: vi.fn(),
 }));
 
-vi.mock("./paymentsRouter", () => ({
+vi.mock("./routers/payments", () => ({
   settleStripePaymentBySessionId: vi.fn(),
 }));
 

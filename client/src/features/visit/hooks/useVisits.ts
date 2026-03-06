@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import type { VisitMessageItem, VisitParticipantRole } from "@/features/visit/types";
@@ -42,6 +43,14 @@ type IncomingMessagePayload = {
 type SocketEventEnvelope = {
   event: string;
   data?: unknown;
+};
+
+type RoomMessagesPage = {
+  appointmentId: number;
+  role: VisitParticipantRole;
+  messages: Array<VisitMessageItem & { createdAt: Date | string }>;
+  nextCursor: string | null;
+  hasMore: boolean;
 };
 
 const RECONNECT_DELAYS_MS = [1000, 2500, 5000, 10000] as const;
@@ -91,6 +100,17 @@ function normalizeRealtimeMessage(payload: IncomingMessagePayload): VisitMessage
   };
 }
 
+function flattenHistoryPages(pages: RoomMessagesPage[]): VisitMessageItem[] {
+  return [...pages]
+    .reverse()
+    .flatMap(page =>
+      page.messages.map(message => ({
+        ...message,
+        createdAt: toDate(message.createdAt),
+      }))
+    );
+}
+
 function isFatalCode(code: string) {
   return (
     code === "TOKEN_EXPIRED" ||
@@ -118,9 +138,6 @@ export function useVisits({
   const [messages, setMessages] = useState<VisitMessageItem[]>([]);
   const [content, setContent] = useState("");
   const [isReconnecting, setIsReconnecting] = useState(false);
-  const [olderCursor, setOlderCursor] = useState<string | null>(null);
-  const [hasMoreHistory, setHasMoreHistory] = useState(false);
-  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [pollingFatalError, setPollingFatalError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [role, setRole] = useState<VisitParticipantRole | null>(null);
@@ -128,20 +145,32 @@ export function useVisits({
   const [canSendMessageFromRoom, setCanSendMessageFromRoom] = useState<boolean | null>(null);
 
   const shouldAutoScrollRef = useRef(true);
+  const hasHydratedInitialMessagesRef = useRef(false);
+  const topAutoLoadLockRef = useRef(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const reconnectAttemptRef = useRef(0);
   const closedByAppRef = useRef(false);
   const utils = trpc.useUtils();
 
-  const messagesQuery = trpc.visit.roomGetMessages.useQuery(
-    { token: accessInput.token, limit: 50 },
-    {
-      enabled,
-      retry: 0,
-    }
-  );
+  const messagesInfiniteQuery = useInfiniteQuery({
+    queryKey: ["visit", "roomGetMessages", accessInput.token],
+    enabled,
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) =>
+      utils.visit.roomGetMessages.fetch({
+        token: accessInput.token,
+        limit: 50,
+        beforeCursor: pageParam ?? undefined,
+      }) as Promise<RoomMessagesPage>,
+    getNextPageParam: lastPage => lastPage.nextCursor,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
 
+  const hasMoreHistory = Boolean(messagesInfiniteQuery.hasNextPage);
+  const isLoadingOlder = messagesInfiniteQuery.isFetchingNextPage;
   const effectiveCanSend = Boolean(canSendMessageFromRoom) && !pollingFatalError;
 
   const getViewport = () => {
@@ -166,28 +195,66 @@ export function useVisits({
   };
 
   useEffect(() => {
-    if (!messagesQuery.data) {
+    setMessages([]);
+    setRole(null);
+    setCurrentStatus(null);
+    setCanSendMessageFromRoom(null);
+    setPollingFatalError(null);
+    hasHydratedInitialMessagesRef.current = false;
+    topAutoLoadLockRef.current = false;
+  }, [accessInput.token]);
+
+  useEffect(() => {
+    const pages = messagesInfiniteQuery.data?.pages;
+    if (!pages || pages.length === 0) {
       return;
     }
 
-    const initialMessages = messagesQuery.data.messages.map(message => ({
-      ...message,
-      createdAt: toDate(message.createdAt),
-    }));
+    const flattened = flattenHistoryPages(pages);
+    setMessages(prev => mergeMessages(flattened, prev));
+    setRole(pages[0].role);
 
-    setMessages(initialMessages);
-    setOlderCursor(messagesQuery.data.nextCursor ?? null);
-    setHasMoreHistory(messagesQuery.data.hasMore);
-    setRole(messagesQuery.data.role);
-    shouldAutoScrollRef.current = true;
-    requestAnimationFrame(() => scrollToBottom("auto"));
-  }, [messagesQuery.data]);
+    if (!hasHydratedInitialMessagesRef.current) {
+      hasHydratedInitialMessagesRef.current = true;
+      shouldAutoScrollRef.current = true;
+      requestAnimationFrame(() => scrollToBottom("auto"));
+    }
+  }, [messagesInfiniteQuery.data]);
 
   useEffect(() => {
     if (shouldAutoScrollRef.current) {
       requestAnimationFrame(() => scrollToBottom("smooth"));
     }
   }, [messages]);
+
+  async function loadOlderMessages() {
+    if (!hasMoreHistory || isLoadingOlder) {
+      return;
+    }
+
+    const viewport = getViewport();
+    const previousHeight = viewport?.scrollHeight ?? 0;
+    const previousTop = viewport?.scrollTop ?? 0;
+
+    try {
+      await messagesInfiniteQuery.fetchNextPage();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t.sendFailed;
+      toast.error(message);
+      return;
+    }
+
+    if (!viewport) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      // Keep viewport anchored after prepending older messages.
+      const nextHeight = viewport.scrollHeight;
+      const delta = nextHeight - previousHeight;
+      viewport.scrollTop = previousTop + delta;
+    });
+  }
 
   useEffect(() => {
     const viewport = getViewport();
@@ -197,13 +264,28 @@ export function useVisits({
 
     const handleScroll = () => {
       shouldAutoScrollRef.current = isNearBottom();
+
+      if (viewport.scrollTop > 160) {
+        topAutoLoadLockRef.current = false;
+      }
+
+      if (
+        viewport.scrollTop <= 80 &&
+        !topAutoLoadLockRef.current &&
+        hasMoreHistory &&
+        !isLoadingOlder
+      ) {
+        // Infinite scroll for chat history: when user reaches the top, fetch older page.
+        topAutoLoadLockRef.current = true;
+        void loadOlderMessages();
+      }
     };
 
     viewport.addEventListener("scroll", handleScroll, { passive: true });
     return () => {
       viewport.removeEventListener("scroll", handleScroll);
     };
-  }, []);
+  }, [hasMoreHistory, isLoadingOlder]);
 
   useEffect(() => {
     if (!enabled || pollingFatalError) {
@@ -366,38 +448,13 @@ export function useVisits({
     }
   }
 
-  async function loadOlderMessages() {
-    if (!olderCursor || isLoadingOlder) {
-      return;
-    }
-
-    setIsLoadingOlder(true);
-    try {
-      const result = await utils.visit.roomGetMessages.fetch({
-        token: accessInput.token,
-        beforeCursor: olderCursor,
-        limit: 50,
-      });
-      if (result.messages.length > 0) {
-        setMessages(prev => mergeMessages(result.messages, prev));
-      }
-      setOlderCursor(result.nextCursor);
-      setHasMoreHistory(result.hasMore);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t.sendFailed;
-      toast.error(message);
-    } finally {
-      setIsLoadingOlder(false);
-    }
-  }
-
-  const showInitialSkeleton = messagesQuery.isLoading && messages.length === 0;
+  const showInitialSkeleton = messagesInfiniteQuery.isLoading && messages.length === 0;
 
   return {
     content,
     isReconnecting,
     messages,
-    messagesQuery,
+    messagesQuery: messagesInfiniteQuery,
     hasMoreHistory,
     isLoadingOlder,
     pollingFatalError,

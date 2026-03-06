@@ -7,13 +7,14 @@ import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { DoctorDetailContent } from "@/features/hospitals/components/DoctorDetailContent";
 import { useDoctorDetail } from "@/features/hospitals/hooks/useDoctorDetail";
-import { hospitalsCopy } from "@/features/hospitals/copy";
+import { getHospitalsCopy } from "@/features/hospitals/copy";
 
 export default function DoctorDetail() {
   const [, params] = useRoute("/doctor/:id");
   const [, setLocation] = useLocation();
   const doctorId = params?.id ? parseInt(params.id) : 0;
   const { resolved } = useLanguage();
+  const copy = getHospitalsCopy(resolved);
 
   const handleGoBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
@@ -39,9 +40,9 @@ export default function DoctorDetail() {
         <div className="container py-12">
           <Card>
             <CardContent className="p-12 text-center">
-              <p className="text-muted-foreground">{hospitalsCopy.doctorDetail.notFound}</p>
+              <p className="text-muted-foreground">{copy.doctorDetail.notFound}</p>
               <Link href="/">
-                <Button variant="link" className="mt-4">{hospitalsCopy.doctorDetail.backToHome}</Button>
+                <Button variant="link" className="mt-4">{copy.doctorDetail.backToHome}</Button>
               </Link>
             </CardContent>
           </Card>
@@ -62,18 +63,18 @@ export default function DoctorDetail() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-foreground">MediBridge</h1>
-                <p className="text-sm text-muted-foreground">{hospitalsCopy.doctorDetail.subtitle}</p>
+                <p className="text-sm text-muted-foreground">{copy.doctorDetail.subtitle}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={handleGoBack}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                {hospitalsCopy.doctorDetail.back}
+                {copy.doctorDetail.back}
               </Button>
               <LanguageSwitcher />
               <Link href="/">
                 <Button variant="ghost" size="sm">
-                  {hospitalsCopy.doctorDetail.backToHome}
+                  {copy.doctorDetail.backToHome}
                 </Button>
               </Link>
             </div>

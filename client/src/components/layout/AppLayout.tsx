@@ -145,7 +145,7 @@ export default function AppLayout({
                     size="sm"
                     onClick={() => setLocation("/admin")}
                   >
-                    Admin
+                    {homeCopy.admin}
                   </Button>
                 ) : null}
                 <Button

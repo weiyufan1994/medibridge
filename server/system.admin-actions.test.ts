@@ -4,8 +4,14 @@ vi.mock("./modules/appointments/repo", () => ({
   getAppointmentById: vi.fn(),
   insertStatusEvent: vi.fn(),
 }));
+vi.mock("./modules/visit/repo", () => ({
+  getRecentMessages: vi.fn(),
+}));
+vi.mock("./modules/doctors/repo", () => ({
+  getDoctorById: vi.fn(),
+}));
 
-vi.mock("./paymentsRouter", () => ({
+vi.mock("./routers/payments", () => ({
   reinitiateCheckoutForAppointment: vi.fn(),
 }));
 
@@ -16,16 +22,22 @@ vi.mock("./modules/appointments/tokenService", () => ({
 vi.mock("./_core/mailer", () => ({
   sendMagicLinkEmail: vi.fn(),
 }));
+vi.mock("./_core/notification", () => ({
+  notifyOwner: vi.fn(),
+}));
 
 vi.mock("./modules/appointments/tokenCache", () => ({
   setCachedPatientAccessToken: vi.fn(),
 }));
 
 import * as appointmentsRepo from "./modules/appointments/repo";
-import { reinitiateCheckoutForAppointment } from "./paymentsRouter";
+import * as visitRepo from "./modules/visit/repo";
+import * as doctorsRepo from "./modules/doctors/repo";
+import { reinitiateCheckoutForAppointment } from "./routers/payments";
 import { issueAppointmentAccessLinks } from "./modules/appointments/tokenService";
 import { sendMagicLinkEmail } from "./_core/mailer";
 import { setCachedPatientAccessToken } from "./modules/appointments/tokenCache";
+import { notifyOwner } from "./_core/notification";
 import { systemRouter } from "./_core/systemRouter";
 
 function createAdminCaller() {
@@ -117,8 +129,8 @@ describe("system admin actions", () => {
         token: "doctor_token",
       },
       expiresAt: new Date("2026-03-10T00:00:00.000Z"),
-      patientLink: "https://medibridge.test/visit?t=patient_token",
-      doctorLink: "https://medibridge.test/visit?t=doctor_token",
+      patientLink: "https://medibridge.test/visit/321?t=patient_token",
+      doctorLink: "https://medibridge.test/visit/321?t=doctor_token",
     } as never);
 
     const caller = createAdminCaller();
@@ -127,7 +139,7 @@ describe("system admin actions", () => {
     expect(result).toEqual({ ok: true });
     expect(sendMagicLinkEmail).toHaveBeenCalledWith(
       "patient@example.com",
-      "https://medibridge.test/visit?t=patient_token"
+      "https://medibridge.test/visit/321?t=patient_token"
     );
     expect(setCachedPatientAccessToken).toHaveBeenCalled();
     expect(appointmentsRepo.insertStatusEvent).toHaveBeenCalledWith(
@@ -152,8 +164,8 @@ describe("system admin actions", () => {
         token: "doctor_token",
       },
       expiresAt: new Date("2026-03-10T00:00:00.000Z"),
-      patientLink: "https://medibridge.test/visit?t=patient_token",
-      doctorLink: "https://medibridge.test/visit?t=doctor_token",
+      patientLink: "https://medibridge.test/visit/321?t=patient_token",
+      doctorLink: "https://medibridge.test/visit/321?t=doctor_token",
     } as never);
 
     const caller = createAdminCaller();
@@ -161,8 +173,8 @@ describe("system admin actions", () => {
 
     expect(result).toMatchObject({
       appointmentId: 321,
-      patientLink: "https://medibridge.test/visit?t=patient_token",
-      doctorLink: "https://medibridge.test/visit?t=doctor_token",
+      patientLink: "https://medibridge.test/visit/321?t=patient_token",
+      doctorLink: "https://medibridge.test/visit/321?t=doctor_token",
     });
     expect(appointmentsRepo.insertStatusEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -170,6 +182,36 @@ describe("system admin actions", () => {
         operatorType: "admin",
         operatorId: 99,
         reason: "admin_issue_access_links",
+      })
+    );
+  });
+
+  it("adminNotifyDoctorFollowup sends reminder notification", async () => {
+    vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue(
+      mockAppointment() as never
+    );
+    vi.mocked(doctorsRepo.getDoctorById).mockResolvedValue({
+      doctor: { id: 7, name: "Dr. Li" },
+      hospital: { name: "Ruijin Hospital" },
+      department: { name: "Cardiology" },
+    } as never);
+    vi.mocked(visitRepo.getRecentMessages).mockResolvedValue([
+      {
+        id: 1,
+        senderType: "patient",
+        createdAt: new Date("2026-03-01T11:00:00.000Z"),
+      },
+    ] as never);
+    vi.mocked(notifyOwner).mockResolvedValue(true as never);
+
+    const caller = createAdminCaller();
+    const result = await caller.adminNotifyDoctorFollowup({ appointmentId: 321 });
+
+    expect(result).toEqual({ ok: true });
+    expect(notifyOwner).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: expect.stringContaining("#321"),
+        content: expect.stringContaining("patient@example.com"),
       })
     );
   });

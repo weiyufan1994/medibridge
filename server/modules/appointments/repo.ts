@@ -31,6 +31,15 @@ type BaseDb = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 type DbExecutor = Pick<BaseDb, "select" | "insert" | "update">;
 export type AppointmentRepoExecutor = DbExecutor;
 
+function extractAffectedRows(result: unknown): number {
+  const header =
+    Array.isArray(result) && result.length > 0
+      ? (result[0] as { affectedRows?: unknown })
+      : (result as { affectedRows?: unknown });
+  const value = Number(header?.affectedRows ?? 0);
+  return Number.isFinite(value) ? value : 0;
+}
+
 async function resolveDbExecutor(dbExecutor?: DbExecutor) {
   const db = dbExecutor ?? (await getDb());
   if (!db) {
@@ -356,7 +365,7 @@ export async function updateTokenUsageIfAllowed(input: {
       )
     );
 
-  return Number((result as { affectedRows?: number }).affectedRows ?? 0);
+  return extractAffectedRows(result);
 }
 
 export async function saveTokenFirstSeen(input: {
@@ -426,7 +435,7 @@ export async function revokeAppointmentTokens(input: {
     })
     .where(and(...clauses));
 
-  return Number((result as { affectedRows?: number }).affectedRows ?? 0);
+  return extractAffectedRows(result);
 }
 
 async function revokeOldActiveTokensBeyondLimit(input: {
@@ -664,7 +673,7 @@ export async function tryTransitionAppointmentById(input: {
       )
     );
 
-  const affectedRows = Number((result as { affectedRows?: number }).affectedRows ?? 0);
+  const affectedRows = extractAffectedRows(result);
   if (affectedRows !== 1) {
     return { ok: false as const, reason: "conflict" as const, current };
   }
@@ -777,23 +786,34 @@ export async function findLatestAppointmentIdByLookup(lookup: {
   email: string;
   scheduledAt: Date;
   triageSessionId: number;
+  status?: AppointmentStatus;
+  paymentStatus?: PaymentStatus;
 }) {
   const db = await getDb();
   if (!db) {
     throw new Error("Database not available");
   }
 
+  let whereClause = and(
+    eq(appointments.doctorId, lookup.doctorId),
+    eq(appointments.email, lookup.email),
+    eq(appointments.scheduledAt, lookup.scheduledAt),
+    eq(appointments.triageSessionId, lookup.triageSessionId)
+  );
+  if (lookup.status) {
+    whereClause = and(whereClause, eq(appointments.status, lookup.status));
+  }
+  if (lookup.paymentStatus) {
+    whereClause = and(
+      whereClause,
+      eq(appointments.paymentStatus, lookup.paymentStatus)
+    );
+  }
+
   const rows = await db
     .select({ id: appointments.id })
     .from(appointments)
-    .where(
-      and(
-        eq(appointments.doctorId, lookup.doctorId),
-        eq(appointments.email, lookup.email),
-        eq(appointments.scheduledAt, lookup.scheduledAt),
-        eq(appointments.triageSessionId, lookup.triageSessionId)
-      )
-    )
+    .where(whereClause)
     .orderBy(desc(appointments.id))
     .limit(1);
 
@@ -985,7 +1005,7 @@ export async function markAppointmentInSessionIfNeeded(appointmentId: number) {
     .set({ status: "active", updatedAt: new Date() })
     .where(and(eq(appointments.id, appointmentId), eq(appointments.status, currentStatus)));
 
-  const affectedRows = Number((result as { affectedRows?: number }).affectedRows ?? 0);
+  const affectedRows = extractAffectedRows(result);
   return affectedRows > 0 ? currentStatus : null;
 }
 

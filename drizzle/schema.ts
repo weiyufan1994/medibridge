@@ -382,6 +382,10 @@ export const appointmentMessages = mysqlTable(
     appointmentIdx: index("appointmentMessagesAppointmentIdx").on(
       table.appointmentId
     ),
+    appointmentCreatedAtIdx: index("appointmentMessagesAppointmentCreatedAtIdx").on(
+      table.appointmentId,
+      table.createdAt
+    ),
     userIdx: index("appointmentMessagesUserIdx").on(table.userId),
     createdAtIdx: index("appointmentMessagesCreatedAtIdx").on(table.createdAt),
     appointmentClientMessageUk: uniqueIndex(

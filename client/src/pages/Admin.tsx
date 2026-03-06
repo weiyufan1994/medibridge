@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   computeAdminRisks,
   computeAdminSuggestions,
   type AdminSuggestion,
 } from "@/features/admin/risk";
 
-function formatDate(value: Date | string | null) {
+function formatDate(value: Date | string | null, locale?: string) {
   if (!value) {
     return "-";
   }
@@ -21,7 +22,7 @@ function formatDate(value: Date | string | null) {
   if (Number.isNaN(date.getTime())) {
     return "-";
   }
-  return date.toLocaleString();
+  return date.toLocaleString(locale);
 }
 
 function stringify(value: unknown) {
@@ -47,7 +48,7 @@ function toOperatorBadgeClass(operatorType: string) {
   return "bg-slate-100 text-slate-700";
 }
 
-function toReasonLabel(reason: string | null | undefined) {
+function toReasonLabel(reason: string | null | undefined, lang: "zh" | "en") {
   const raw = (reason ?? "").trim();
   if (!raw) {
     return "-";
@@ -55,19 +56,19 @@ function toReasonLabel(reason: string | null | undefined) {
   const baseReason = raw.includes(":") ? raw.split(":")[0] : raw;
 
   const map: Record<string, string> = {
-    appointment_draft_created: "Draft created",
-    checkout_session_created: "Checkout created",
-    stripe_webhook_paid: "Stripe payment settled",
-    payment_reinitiated: "Payment re-initiated",
-    payment_refunded: "Payment refunded",
-    checkout_session_expired: "Checkout expired",
-    payment_failed: "Payment failed",
-    admin_reinitiate_payment: "Admin re-initiated payment",
-    admin_resend_access_link: "Admin resent access link",
-    admin_issue_access_links: "Admin issued new access links",
-    admin_status_update: "Admin updated status",
-    appointment_canceled: "Appointment canceled",
-    payment_link_email_failed: "Link email failed",
+    appointment_draft_created: lang === "zh" ? "已创建草稿" : "Draft created",
+    checkout_session_created: lang === "zh" ? "已创建支付会话" : "Checkout created",
+    stripe_webhook_paid: lang === "zh" ? "Stripe 支付已确认" : "Stripe payment settled",
+    payment_reinitiated: lang === "zh" ? "已重启支付" : "Payment re-initiated",
+    payment_refunded: lang === "zh" ? "已退款" : "Payment refunded",
+    checkout_session_expired: lang === "zh" ? "支付会话已过期" : "Checkout expired",
+    payment_failed: lang === "zh" ? "支付失败" : "Payment failed",
+    admin_reinitiate_payment: lang === "zh" ? "管理员重启支付" : "Admin re-initiated payment",
+    admin_resend_access_link: lang === "zh" ? "管理员重发访问链接" : "Admin resent access link",
+    admin_issue_access_links: lang === "zh" ? "管理员签发新访问链接" : "Admin issued new access links",
+    admin_status_update: lang === "zh" ? "管理员更新状态" : "Admin updated status",
+    appointment_canceled: lang === "zh" ? "预约已取消" : "Appointment canceled",
+    payment_link_email_failed: lang === "zh" ? "支付链接邮件发送失败" : "Link email failed",
   };
   if (map[baseReason]) {
     return raw.startsWith(`${baseReason}:`) ? `${map[baseReason]} (${raw.slice(baseReason.length + 1)})` : map[baseReason];
@@ -75,21 +76,24 @@ function toReasonLabel(reason: string | null | undefined) {
   return raw;
 }
 
-function toWebhookTypeLabel(type: string) {
+function toWebhookTypeLabel(type: string, lang: "zh" | "en") {
   const map: Record<string, string> = {
-    "checkout.session.completed": "Checkout completed",
-    "checkout.session.expired": "Checkout expired",
-    "payment_intent.payment_failed": "Payment failed",
-    "charge.refunded": "Charge refunded",
-    "refund.updated": "Refund updated",
-    signature_invalid: "Signature invalid",
-    signature_verification_failed: "Signature verification failed",
-    missing_session_id: "Missing session id",
-    malformed_event: "Malformed event",
-    db_unavailable: "DB unavailable",
-    processing_error: "Processing error",
-    webhook_error_missing_session_id: "Webhook missing session id",
-    webhook_error_processing: "Webhook processing error",
+    "checkout.session.completed": lang === "zh" ? "结账完成" : "Checkout completed",
+    "checkout.session.expired": lang === "zh" ? "结账过期" : "Checkout expired",
+    "payment_intent.payment_failed": lang === "zh" ? "支付失败" : "Payment failed",
+    "charge.refunded": lang === "zh" ? "已退款" : "Charge refunded",
+    "refund.updated": lang === "zh" ? "退款更新" : "Refund updated",
+    signature_invalid: lang === "zh" ? "签名无效" : "Signature invalid",
+    signature_verification_failed:
+      lang === "zh" ? "签名校验失败" : "Signature verification failed",
+    missing_session_id: lang === "zh" ? "缺少 session id" : "Missing session id",
+    malformed_event: lang === "zh" ? "事件格式错误" : "Malformed event",
+    db_unavailable: lang === "zh" ? "数据库不可用" : "DB unavailable",
+    processing_error: lang === "zh" ? "处理失败" : "Processing error",
+    webhook_error_missing_session_id:
+      lang === "zh" ? "Webhook 缺少 session id" : "Webhook missing session id",
+    webhook_error_processing:
+      lang === "zh" ? "Webhook 处理失败" : "Webhook processing error",
   };
   return map[type] ?? type;
 }
@@ -143,6 +147,23 @@ function downloadBase64File(base64: string, mimeType: string, filename: string) 
 
 export default function AdminPage() {
   const { user, loading } = useAuth();
+  const { resolved } = useLanguage();
+  const lang = resolved as "zh" | "en";
+  const locale = lang === "zh" ? "zh-CN" : "en-US";
+  const tr = (zh: string, en: string) => (lang === "zh" ? zh : en);
+  const toUiError = (message?: string) => {
+    const raw = (message ?? "").trim();
+    if (!raw) {
+      return tr("操作失败，请重试。", "Operation failed. Please retry.");
+    }
+    if (raw === "RETENTION_STORAGE_UNAVAILABLE" || raw.includes("Failed query")) {
+      return tr(
+        "数据保留策略表不可用。请先执行数据库迁移（含 0020）。",
+        "Retention storage is unavailable. Run database migrations (including 0020)."
+      );
+    }
+    return raw;
+  };
   const role = (user as { role?: string } | null)?.role;
   const isAdmin = role === "pro" || role === "admin";
   const [emailQuery, setEmailQuery] = useState("");
@@ -261,10 +282,10 @@ export default function AdminPage() {
   ]);
   const resendPaymentMutation = trpc.system.adminReinitiatePayment.useMutation({
     onError: error => {
-      toast.error(error.message || "Failed to re-initiate payment.");
+      toast.error(toUiError(error.message));
     },
     onSuccess: async result => {
-      toast.success("Redirecting to checkout...");
+      toast.success(tr("正在跳转到支付页...", "Redirecting to checkout..."));
       await refreshAdminData();
       if (typeof window !== "undefined") {
         window.location.href = result.checkoutUrl;
@@ -273,11 +294,11 @@ export default function AdminPage() {
   });
   const resendAccessLinkMutation = trpc.system.adminResendAccessLink.useMutation({
     onSuccess: async () => {
-      toast.success("Access link email resent.");
+      toast.success(tr("访问链接邮件已重发。", "Access link email resent."));
       await refreshAdminData();
     },
     onError: error => {
-      toast.error(error.message || "Failed to resend access link.");
+      toast.error(toUiError(error.message));
     },
   });
   const issueLinksMutation = trpc.system.adminIssueAccessLinks.useMutation({
@@ -286,60 +307,68 @@ export default function AdminPage() {
         patientLink: result.patientLink,
         doctorLink: result.doctorLink,
       });
-      toast.success("New links issued.");
+      toast.success(tr("新链接已签发。", "New links issued."));
       await refreshAdminData();
     },
     onError: error => {
-      toast.error(error.message || "Failed to issue links.");
+      toast.error(toUiError(error.message));
+    },
+  });
+  const notifyDoctorFollowupMutation = trpc.system.adminNotifyDoctorFollowup.useMutation({
+    onSuccess: () => {
+      toast.success(tr("已发送医生跟进提醒。", "Doctor follow-up reminder sent."));
+    },
+    onError: error => {
+      toast.error(toUiError(error.message));
     },
   });
   const updateStatusMutation = trpc.system.adminUpdateAppointmentStatus.useMutation({
     onSuccess: async () => {
-      toast.success("Appointment status updated.");
+      toast.success(tr("预约状态已更新。", "Appointment status updated."));
       await refreshAdminData();
     },
     onError: error => {
-      toast.error(error.message || "Failed to update appointment status.");
+      toast.error(toUiError(error.message));
     },
   });
   const generateSummaryMutation = trpc.system.adminGenerateVisitSummary.useMutation({
     onSuccess: async () => {
-      toast.success("Visit summary generated.");
+      toast.success(tr("会后总结已生成。", "Visit summary generated."));
       await visitSummaryQuery.refetch();
     },
     onError: error => {
-      toast.error(error.message || "Failed to generate visit summary.");
+      toast.error(toUiError(error.message));
     },
   });
   const exportSummaryPdfMutation = trpc.system.adminExportVisitSummaryPdf.useMutation({
     onSuccess: result => {
       downloadBase64File(result.base64, result.mimeType, result.filename);
-      toast.success("PDF exported.");
+      toast.success(tr("PDF 已导出。", "PDF exported."));
     },
     onError: error => {
-      toast.error(error.message || "Failed to export summary PDF.");
+      toast.error(toUiError(error.message));
     },
   });
   const updateRetentionPolicyMutation = trpc.system.adminUpsertRetentionPolicy.useMutation({
     onSuccess: async () => {
-      toast.success("Retention policy updated.");
+      toast.success(tr("保留策略已更新。", "Retention policy updated."));
       await retentionPoliciesQuery.refetch();
     },
     onError: error => {
-      toast.error(error.message || "Failed to update retention policy.");
+      toast.error(toUiError(error.message));
     },
   });
   const runRetentionCleanupMutation = trpc.system.adminRunRetentionCleanup.useMutation({
     onSuccess: async result => {
       toast.success(
         result.dryRun
-          ? `Dry-run done. Candidates: ${result.totalCandidates}`
-          : `Cleanup done. Deleted: ${result.deletedMessages}`
+          ? tr(`演练完成。候选数：${result.totalCandidates}`, `Dry-run done. Candidates: ${result.totalCandidates}`)
+          : tr(`清理完成。删除数：${result.deletedMessages}`, `Cleanup done. Deleted: ${result.deletedMessages}`)
       );
       await retentionAuditsQuery.refetch();
     },
     onError: error => {
-      toast.error(error.message || "Failed to run retention cleanup.");
+      toast.error(toUiError(error.message));
     },
   });
 
@@ -355,7 +384,7 @@ export default function AdminPage() {
   const openAppointmentById = () => {
     const parsed = Number(appointmentIdInput.trim());
     if (!Number.isInteger(parsed) || parsed <= 0) {
-      toast.error("Please enter a valid appointment ID.");
+      toast.error(tr("请输入有效的预约 ID。", "Please enter a valid appointment ID."));
       return;
     }
     setSelectedAppointmentId(parsed);
@@ -364,13 +393,13 @@ export default function AdminPage() {
 
   const applyManualStatusUpdate = () => {
     if (!selectedAppointmentId) {
-      toast.error("Load appointment detail first.");
+      toast.error(tr("请先加载预约详情。", "Load appointment detail first."));
       return;
     }
 
     const reason = manualStatusReason.trim();
     if (reason.length < 3) {
-      toast.error("Please provide a valid reason.");
+      toast.error(tr("请填写有效原因。", "Please provide a valid reason."));
       return;
     }
 
@@ -401,7 +430,7 @@ export default function AdminPage() {
     const raw = tier === "free" ? freeRetentionDaysInput : paidRetentionDaysInput;
     const parsed = Number(raw.trim());
     if (!Number.isInteger(parsed) || parsed < 1 || parsed > 3650) {
-      toast.error("Retention days must be between 1 and 3650.");
+      toast.error(tr("保留天数需在 1 到 3650 之间。", "Retention days must be between 1 and 3650."));
       return;
     }
     const existing = (retentionPoliciesQuery.data ?? []).find(item => item.tier === tier);
@@ -424,7 +453,7 @@ export default function AdminPage() {
 
   const handleCopyDebugSnapshot = async () => {
     if (!appointmentDetailQuery.data) {
-      toast.error("No appointment detail to copy.");
+      toast.error(tr("没有可复制的预约详情。", "No appointment detail to copy."));
       return;
     }
 
@@ -463,10 +492,10 @@ export default function AdminPage() {
 
     try {
       await navigator.clipboard.writeText(textTemplate);
-      toast.success("Debug snapshot copied.");
+      toast.success(tr("调试快照已复制。", "Debug snapshot copied."));
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to copy debug snapshot."
+        error instanceof Error ? error.message : tr("复制调试快照失败。", "Failed to copy debug snapshot.")
       );
     }
   };
@@ -474,17 +503,25 @@ export default function AdminPage() {
   const beforeReinitiatePayment = () => {
     const detail = appointmentDetailQuery.data?.appointment;
     if (!detail) {
-      toast.error("Load appointment detail first.");
+      toast.error(tr("请先加载预约详情。", "Load appointment detail first."));
       return false;
     }
     const blockedStatuses = new Set(["paid", "active", "ended", "refunded"]);
     if (detail.paymentStatus === "paid" || blockedStatuses.has(detail.status)) {
-      toast.error("This appointment is already settled. Re-initiate payment is not allowed.");
+      toast.error(
+        tr(
+          "该预约已结算，不可重新发起支付。",
+          "This appointment is already settled. Re-initiate payment is not allowed."
+        )
+      );
       return false;
     }
     if (typeof window !== "undefined") {
       const ok = window.confirm(
-        "Re-initiate payment will create a new checkout session and invalidate old access links. Continue?"
+        tr(
+          "重新发起支付会创建新的结账会话并使旧访问链接失效，是否继续？",
+          "Re-initiate payment will create a new checkout session and invalidate old access links. Continue?"
+        )
       );
       if (!ok) {
         return false;
@@ -496,17 +533,22 @@ export default function AdminPage() {
   const beforeResendAccessLink = () => {
     const detail = appointmentDetailQuery.data?.appointment;
     if (!detail) {
-      toast.error("Load appointment detail first.");
+      toast.error(tr("请先加载预约详情。", "Load appointment detail first."));
       return false;
     }
     const allowedStatuses = new Set(["paid", "active"]);
     if (detail.paymentStatus !== "paid" || !allowedStatuses.has(detail.status)) {
-      toast.error("Access link resend is only available for paid/active appointments.");
+      toast.error(
+        tr("仅已支付/进行中的预约支持重发访问链接。", "Access link resend is only available for paid/active appointments.")
+      );
       return false;
     }
     if (typeof window !== "undefined") {
       const ok = window.confirm(
-        "Resending access link will issue new token links and send email to patient. Continue?"
+        tr(
+          "重发访问链接会签发新 token 并给患者发送邮件，是否继续？",
+          "Resending access link will issue new token links and send email to patient. Continue?"
+        )
       );
       if (!ok) {
         return false;
@@ -518,16 +560,19 @@ export default function AdminPage() {
   const beforeIssueLinks = () => {
     const detail = appointmentDetailQuery.data?.appointment;
     if (!detail) {
-      toast.error("Load appointment detail first.");
+      toast.error(tr("请先加载预约详情。", "Load appointment detail first."));
       return false;
     }
     if (detail.paymentStatus !== "paid") {
-      toast.error("Issue link is only available after payment is settled.");
+      toast.error(tr("仅支付完成后可签发访问链接。", "Issue link is only available after payment is settled."));
       return false;
     }
     if (typeof window !== "undefined") {
       const ok = window.confirm(
-        "Issuing new access links will revoke previously active links. Continue?"
+        tr(
+          "签发新访问链接会吊销此前有效链接，是否继续？",
+          "Issuing new access links will revoke previously active links. Continue?"
+        )
       );
       if (!ok) {
         return false;
@@ -538,7 +583,7 @@ export default function AdminPage() {
 
   const runSuggestedAction = (suggestion: AdminSuggestion) => {
     if (!selectedAppointmentId) {
-      toast.error("Load appointment detail first.");
+      toast.error(tr("请先加载预约详情。", "Load appointment detail first."));
       return;
     }
 
@@ -557,16 +602,20 @@ export default function AdminPage() {
       issueLinksMutation.mutate({ appointmentId: selectedAppointmentId });
       return;
     }
-    if (suggestion.action === "inspect_webhook_timeline") {
-      toast.message("Review the webhook timeline section below before next action.");
+    if (suggestion.action === "notify_doctor_followup") {
+      notifyDoctorFollowupMutation.mutate({ appointmentId: selectedAppointmentId });
       return;
     }
-    toast.message("No urgent action required.");
+    if (suggestion.action === "inspect_webhook_timeline") {
+      toast.message(tr("请先查看下方 webhook 时间线再执行下一步。", "Review the webhook timeline section below before next action."));
+      return;
+    }
+    toast.message(tr("当前无紧急动作。", "No urgent action required."));
   };
 
   if (loading) {
     return (
-      <AppLayout title="Admin Console / 管理后台">
+      <AppLayout title={tr("管理后台", "Admin Console")}>
         <div className="mx-auto flex min-h-[40vh] max-w-3xl items-center justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
         </div>
@@ -576,14 +625,14 @@ export default function AdminPage() {
 
   if (!isAdmin) {
     return (
-      <AppLayout title="Admin Console / 管理后台">
+      <AppLayout title={tr("管理后台", "Admin Console")}>
         <div className="mx-auto max-w-3xl">
           <Card>
             <CardHeader>
-              <CardTitle>Access denied</CardTitle>
+              <CardTitle>{tr("无访问权限", "Access denied")}</CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              This page is available to admin users only.
+              {tr("仅管理员可访问该页面。", "This page is available to admin users only.")}
             </CardContent>
           </Card>
         </div>
@@ -592,15 +641,15 @@ export default function AdminPage() {
   }
 
   return (
-    <AppLayout title="Admin Console / 管理后台">
+    <AppLayout title={tr("管理后台", "Admin Console")}>
       <div className="mx-auto w-full max-w-7xl space-y-6 py-2">
         <Card>
           <CardHeader>
-            <CardTitle>Filters</CardTitle>
+            <CardTitle>{tr("筛选", "Filters")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap items-end gap-3">
             <div className="w-full max-w-sm space-y-1">
-              <p className="text-xs text-muted-foreground">Search by email</p>
+              <p className="text-xs text-muted-foreground">{tr("按邮箱搜索", "Search by email")}</p>
               <Input
                 value={emailQuery}
                 onChange={event => setEmailQuery(event.target.value)}
@@ -608,20 +657,20 @@ export default function AdminPage() {
               />
             </div>
             <div className="w-full max-w-xs space-y-1">
-              <p className="text-xs text-muted-foreground">Open appointment by ID</p>
+              <p className="text-xs text-muted-foreground">{tr("按 ID 打开预约", "Open appointment by ID")}</p>
               <div className="flex items-center gap-2">
                 <Input
                   value={appointmentIdInput}
                   onChange={event => setAppointmentIdInput(event.target.value)}
-                  placeholder="e.g. 123"
+                  placeholder={tr("例如：123", "e.g. 123")}
                 />
                 <Button type="button" variant="outline" onClick={openAppointmentById}>
-                  Open
+                  {tr("打开", "Open")}
                 </Button>
               </div>
             </div>
             <div className="w-full max-w-xs space-y-1">
-              <p className="text-xs text-muted-foreground">Appointment status</p>
+              <p className="text-xs text-muted-foreground">{tr("预约状态", "Appointment status")}</p>
               <select
                 className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                 value={statusFilter}
@@ -629,13 +678,13 @@ export default function AdminPage() {
               >
                 {appointmentStatusOptions.map(value => (
                   <option key={value} value={value}>
-                    {value || "All"}
+                    {value || tr("全部", "All")}
                   </option>
                 ))}
               </select>
             </div>
             <div className="w-full max-w-xs space-y-1">
-              <p className="text-xs text-muted-foreground">Payment status</p>
+              <p className="text-xs text-muted-foreground">{tr("支付状态", "Payment status")}</p>
               <select
                 className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                 value={paymentStatusFilter}
@@ -643,7 +692,7 @@ export default function AdminPage() {
               >
                 {paymentStatusOptions.map(value => (
                   <option key={value} value={value}>
-                    {value || "All"}
+                    {value || tr("全部", "All")}
                   </option>
                 ))}
               </select>
@@ -655,20 +704,20 @@ export default function AdminPage() {
                 void refreshAdminData();
               }}
             >
-              Refresh
+              {tr("刷新", "Refresh")}
             </Button>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Appointments (Latest 50)</CardTitle>
+            <CardTitle>{tr("预约列表（最新 50 条）", "Appointments (Latest 50)")}</CardTitle>
           </CardHeader>
           <CardContent>
             {appointmentsQuery.isLoading ? (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Loading appointments...
+                {tr("正在加载预约...", "Loading appointments...")}
               </div>
             ) : appointmentsQuery.error ? (
               <p className="text-sm text-destructive">{appointmentsQuery.error.message}</p>
@@ -680,11 +729,11 @@ export default function AdminPage() {
                       <th className="px-2 py-2 text-left">ID</th>
                       <th className="px-2 py-2 text-left">Email</th>
                       <th className="px-2 py-2 text-left">Status</th>
-                      <th className="px-2 py-2 text-left">Payment</th>
+                      <th className="px-2 py-2 text-left">{tr("支付", "Payment")}</th>
                       <th className="px-2 py-2 text-left">Amount</th>
-                      <th className="px-2 py-2 text-left">Doctor</th>
-                      <th className="px-2 py-2 text-left">Triage Session</th>
-                      <th className="px-2 py-2 text-left">Created</th>
+                      <th className="px-2 py-2 text-left">{tr("医生", "Doctor")}</th>
+                      <th className="px-2 py-2 text-left">{tr("分诊会话", "Triage Session")}</th>
+                      <th className="px-2 py-2 text-left">{tr("创建时间", "Created")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -706,7 +755,7 @@ export default function AdminPage() {
                         </td>
                         <td className="px-2 py-2">{item.doctorId}</td>
                         <td className="px-2 py-2">{item.triageSessionId}</td>
-                        <td className="px-2 py-2">{formatDate(item.createdAt)}</td>
+                        <td className="px-2 py-2">{formatDate(item.createdAt, locale)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -726,12 +775,12 @@ export default function AdminPage() {
           <CardContent>
             {!selectedAppointmentId ? (
               <p className="text-sm text-muted-foreground">
-                Click an appointment row to view details and admin actions.
+                {tr("点击一条预约记录查看详情与可执行动作。", "Click an appointment row to view details and admin actions.")}
               </p>
             ) : appointmentDetailQuery.isLoading ? (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Loading appointment detail...
+                {tr("正在加载预约详情...", "Loading appointment detail...")}
               </div>
             ) : appointmentDetailQuery.error ? (
               <p className="text-sm text-destructive">{appointmentDetailQuery.error.message}</p>
@@ -757,17 +806,17 @@ export default function AdminPage() {
                   </p>
                   <p>
                     <span className="font-medium">Scheduled: </span>
-                    {formatDate(appointmentDetailQuery.data?.appointment.scheduledAt ?? null)}
+                    {formatDate(appointmentDetailQuery.data?.appointment.scheduledAt ?? null, locale)}
                   </p>
                   <p>
                     <span className="font-medium">Paid at: </span>
-                    {formatDate(appointmentDetailQuery.data?.appointment.paidAt ?? null)}
+                    {formatDate(appointmentDetailQuery.data?.appointment.paidAt ?? null, locale)}
                   </p>
                 </div>
 
                 {risks.length > 0 ? (
                   <div className="space-y-2 rounded border border-amber-200 bg-amber-50 p-3">
-                    <p className="text-sm font-medium text-amber-900">Risk Alerts</p>
+                    <p className="text-sm font-medium text-amber-900">{tr("风险提示", "Risk Alerts")}</p>
                     <div className="space-y-1">
                       {risks.map(risk => (
                         <p
@@ -786,7 +835,7 @@ export default function AdminPage() {
                 ) : null}
 
                 <div className="space-y-2 rounded border border-sky-200 bg-sky-50 p-3">
-                  <p className="text-sm font-medium text-sky-900">Recommended Actions</p>
+                  <p className="text-sm font-medium text-sky-900">{tr("建议动作", "Recommended Actions")}</p>
                   <div className="space-y-2">
                     {suggestions.map(suggestion => (
                       <div
@@ -805,7 +854,7 @@ export default function AdminPage() {
                           variant="outline"
                           onClick={() => runSuggestedAction(suggestion)}
                         >
-                          Run
+                          {tr("执行", "Run")}
                         </Button>
                       </div>
                     ))}
@@ -813,12 +862,12 @@ export default function AdminPage() {
                 </div>
 
                 <div className="space-y-2 rounded border p-3">
-                  <p className="text-sm font-medium">Doctor / Triage</p>
+                  <p className="text-sm font-medium">{tr("医生 / 分诊信息", "Doctor / Triage")}</p>
                   <p className="text-sm text-muted-foreground">
                     Doctor:{" "}
                     {appointmentDetailQuery.data?.doctor
                       ? `${appointmentDetailQuery.data.doctor.name} (${appointmentDetailQuery.data.doctor.departmentName})`
-                      : "Unknown"}
+                      : tr("未知", "Unknown")}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Triage summary:{" "}
@@ -827,18 +876,18 @@ export default function AdminPage() {
                 </div>
 
                 <div className="space-y-2 rounded border p-3">
-                  <p className="text-sm font-medium">Intake</p>
+                  <p className="text-sm font-medium">{tr("诊前信息", "Intake")}</p>
                   {appointmentDetailQuery.data?.intake ? (
                     <pre className="max-h-48 overflow-auto rounded bg-slate-50 p-2 text-xs">
                       {JSON.stringify(appointmentDetailQuery.data.intake, null, 2)}
                     </pre>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No intake data.</p>
+                    <p className="text-sm text-muted-foreground">{tr("暂无诊前信息。", "No intake data.")}</p>
                   )}
                 </div>
 
                 <div className="space-y-2 rounded border p-3">
-                  <p className="text-sm font-medium">Active Tokens</p>
+                  <p className="text-sm font-medium">{tr("有效访问令牌", "Active Tokens")}</p>
                   {appointmentDetailQuery.data?.activeTokens?.length ? (
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-[720px] text-xs">
@@ -858,8 +907,8 @@ export default function AdminPage() {
                               <td className="px-2 py-1">
                                 {token.useCount}/{token.maxUses}
                               </td>
-                              <td className="px-2 py-1">{formatDate(token.lastUsedAt)}</td>
-                              <td className="px-2 py-1">{formatDate(token.expiresAt)}</td>
+                              <td className="px-2 py-1">{formatDate(token.lastUsedAt, locale)}</td>
+                              <td className="px-2 py-1">{formatDate(token.expiresAt, locale)}</td>
                               <td className="px-2 py-1">{token.ipFirstSeen || "-"}</td>
                             </tr>
                           ))}
@@ -867,12 +916,12 @@ export default function AdminPage() {
                       </table>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No active tokens.</p>
+                    <p className="text-sm text-muted-foreground">{tr("暂无有效令牌。", "No active tokens.")}</p>
                   )}
                 </div>
 
                 <div className="space-y-2 rounded border p-3">
-                  <p className="text-sm font-medium">Status Timeline</p>
+                  <p className="text-sm font-medium">{tr("状态时间线", "Status Timeline")}</p>
                   {appointmentDetailQuery.data?.statusEvents?.length ? (
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-[900px] text-xs">
@@ -888,7 +937,7 @@ export default function AdminPage() {
                         <tbody>
                           {appointmentDetailQuery.data.statusEvents.map(event => (
                             <tr key={event.id} className="border-b">
-                              <td className="px-2 py-1">{formatDate(event.createdAt)}</td>
+                              <td className="px-2 py-1">{formatDate(event.createdAt, locale)}</td>
                               <td className="px-2 py-1">{event.fromStatus || "-"}</td>
                               <td className="px-2 py-1">{event.toStatus}</td>
                               <td className="px-2 py-1">
@@ -901,19 +950,19 @@ export default function AdminPage() {
                                     : ""}
                                 </span>
                               </td>
-                              <td className="px-2 py-1">{toReasonLabel(event.reason)}</td>
+                              <td className="px-2 py-1">{toReasonLabel(event.reason, lang)}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No status events.</p>
+                    <p className="text-sm text-muted-foreground">{tr("暂无状态事件。", "No status events.")}</p>
                   )}
                 </div>
 
                 <div className="space-y-2 rounded border p-3">
-                  <p className="text-sm font-medium">Stripe Webhook Events</p>
+                  <p className="text-sm font-medium">{tr("Stripe Webhook 事件", "Stripe Webhook Events")}</p>
                   {appointmentDetailQuery.data?.webhookEvents?.length ? (
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-[900px] text-xs">
@@ -932,9 +981,9 @@ export default function AdminPage() {
                             const outcome = toWebhookOutcome(event.type);
                             return (
                               <tr key={event.eventId} className="border-b">
-                                <td className="px-2 py-1">{formatDate(event.createdAt)}</td>
+                                <td className="px-2 py-1">{formatDate(event.createdAt, locale)}</td>
                                 <td className="px-2 py-1">{event.eventId}</td>
-                                <td className="px-2 py-1">{toWebhookTypeLabel(event.type)}</td>
+                                <td className="px-2 py-1">{toWebhookTypeLabel(event.type, lang)}</td>
                                 <td className="px-2 py-1">
                                   <span
                                     className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${toWebhookBadgeClass(outcome)}`}
@@ -951,12 +1000,12 @@ export default function AdminPage() {
                       </table>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No webhook events.</p>
+                    <p className="text-sm text-muted-foreground">{tr("暂无 webhook 事件。", "No webhook events.")}</p>
                   )}
                 </div>
 
                 <div className="space-y-2 rounded border p-3">
-                  <p className="text-sm font-medium">Recent Visit Messages</p>
+                  <p className="text-sm font-medium">{tr("最近会诊消息", "Recent Visit Messages")}</p>
                   {appointmentDetailQuery.data?.recentMessages?.length ? (
                     <div className="max-h-64 overflow-auto rounded border">
                       <table className="w-full min-w-[980px] text-xs">
@@ -973,7 +1022,7 @@ export default function AdminPage() {
                           {appointmentDetailQuery.data.recentMessages.map(message => (
                             <tr key={message.id} className="border-b align-top">
                               <td className="px-2 py-1 whitespace-nowrap">
-                                {formatDate(message.createdAt)}
+                                {formatDate(message.createdAt, locale)}
                               </td>
                               <td className="px-2 py-1">{message.senderType}</td>
                               <td className="px-2 py-1 max-w-[320px] break-words">
@@ -993,7 +1042,7 @@ export default function AdminPage() {
                       </table>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No visit messages yet.</p>
+                    <p className="text-sm text-muted-foreground">{tr("暂无会诊消息。", "No visit messages yet.")}</p>
                   )}
                 </div>
 
@@ -1011,8 +1060,8 @@ export default function AdminPage() {
                     disabled={resendPaymentMutation.isPending}
                   >
                     {resendPaymentMutation.isPending
-                      ? "Opening checkout..."
-                      : "Re-initiate Payment"}
+                      ? tr("正在打开支付页...", "Opening checkout...")
+                      : tr("重新发起支付", "Re-initiate Payment")}
                   </Button>
                   <Button
                     type="button"
@@ -1027,8 +1076,8 @@ export default function AdminPage() {
                     disabled={resendAccessLinkMutation.isPending}
                   >
                     {resendAccessLinkMutation.isPending
-                      ? "Sending..."
-                      : "Resend Access Link Email"}
+                      ? tr("发送中...", "Sending...")
+                      : tr("重发访问链接邮件", "Resend Access Link Email")}
                   </Button>
                   <Button
                     type="button"
@@ -1042,20 +1091,20 @@ export default function AdminPage() {
                     disabled={issueLinksMutation.isPending}
                   >
                     {issueLinksMutation.isPending
-                      ? "Issuing..."
-                      : "Issue New Access Links"}
+                      ? tr("签发中...", "Issuing...")
+                      : tr("签发新访问链接", "Issue New Access Links")}
                   </Button>
                   <Button
                     type="button"
                     variant="secondary"
                     onClick={() => void handleCopyDebugSnapshot()}
                   >
-                    Copy Debug Snapshot
+                    {tr("复制调试快照", "Copy Debug Snapshot")}
                   </Button>
                 </div>
 
                 <div className="space-y-2 rounded border p-3">
-                  <p className="text-sm font-medium">Manual Status Update</p>
+                  <p className="text-sm font-medium">{tr("手动状态更新", "Manual Status Update")}</p>
                   <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
                     <select
                       className="h-9 rounded-md border border-input bg-background px-3 text-sm"
@@ -1086,7 +1135,7 @@ export default function AdminPage() {
                     <Input
                       value={manualStatusReason}
                       onChange={event => setManualStatusReason(event.target.value)}
-                      placeholder="reason"
+                      placeholder={tr("原因", "reason")}
                     />
                     <Button
                       type="button"
@@ -1094,14 +1143,16 @@ export default function AdminPage() {
                       onClick={applyManualStatusUpdate}
                       disabled={updateStatusMutation.isPending}
                     >
-                      {updateStatusMutation.isPending ? "Updating..." : "Apply Status"}
+                      {updateStatusMutation.isPending
+                        ? tr("更新中...", "Updating...")
+                        : tr("应用状态", "Apply Status")}
                     </Button>
                   </div>
                 </div>
 
                 <div className="space-y-2 rounded border p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-medium">Post-Visit Summary (ZH/EN)</p>
+                    <p className="text-sm font-medium">{tr("会后总结（中/英）", "Post-Visit Summary (ZH/EN)")}</p>
                     <div className="flex flex-wrap gap-2">
                       <Button
                         type="button"
@@ -1117,8 +1168,8 @@ export default function AdminPage() {
                         disabled={generateSummaryMutation.isPending}
                       >
                         {generateSummaryMutation.isPending
-                          ? "Generating..."
-                          : "Generate Summary"}
+                          ? tr("生成中...", "Generating...")
+                          : tr("生成总结", "Generate Summary")}
                       </Button>
                       <Button
                         type="button"
@@ -1133,7 +1184,7 @@ export default function AdminPage() {
                         }
                         disabled={exportSummaryPdfMutation.isPending}
                       >
-                        Export ZH PDF
+                        {tr("导出中文 PDF", "Export ZH PDF")}
                       </Button>
                       <Button
                         type="button"
@@ -1148,12 +1199,12 @@ export default function AdminPage() {
                         }
                         disabled={exportSummaryPdfMutation.isPending}
                       >
-                        Export EN PDF
+                        {tr("导出英文 PDF", "Export EN PDF")}
                       </Button>
                     </div>
                   </div>
                   {visitSummaryQuery.isLoading ? (
-                    <p className="text-sm text-muted-foreground">Loading summary...</p>
+                    <p className="text-sm text-muted-foreground">{tr("正在加载总结...", "Loading summary...")}</p>
                   ) : visitSummaryQuery.data ? (
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                       <div className="rounded bg-slate-50 p-2">
@@ -1171,7 +1222,7 @@ export default function AdminPage() {
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      No summary generated yet.
+                      {tr("尚未生成总结。", "No summary generated yet.")}
                     </p>
                   )}
                 </div>
@@ -1190,13 +1241,13 @@ export default function AdminPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>AI Triage Sessions (Latest 50)</CardTitle>
+            <CardTitle>{tr("AI 分诊会话（最新 50 条）", "AI Triage Sessions (Latest 50)")}</CardTitle>
           </CardHeader>
           <CardContent>
             {triageQuery.isLoading ? (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Loading triage sessions...
+                {tr("正在加载分诊会话...", "Loading triage sessions...")}
               </div>
             ) : triageQuery.error ? (
               <p className="text-sm text-destructive">{triageQuery.error.message}</p>
@@ -1218,8 +1269,8 @@ export default function AdminPage() {
                         <td className="px-2 py-2">{item.id}</td>
                         <td className="px-2 py-2">{item.userId ?? "-"}</td>
                         <td className="px-2 py-2">{item.status}</td>
-                        <td className="px-2 py-2">{formatDate(item.createdAt)}</td>
-                        <td className="px-2 py-2">{formatDate(item.updatedAt)}</td>
+                        <td className="px-2 py-2">{formatDate(item.createdAt, locale)}</td>
+                        <td className="px-2 py-2">{formatDate(item.updatedAt, locale)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1231,20 +1282,20 @@ export default function AdminPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Risk Metrics</CardTitle>
+            <CardTitle>{tr("风险指标", "Risk Metrics")}</CardTitle>
           </CardHeader>
           <CardContent>
             {metricsQuery.isLoading ? (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Loading metrics...
+                {tr("正在加载指标...", "Loading metrics...")}
               </div>
             ) : metricsQuery.error ? (
               <p className="text-sm text-destructive">{metricsQuery.error.message}</p>
             ) : (
               <div className="space-y-2">
                 <p className="text-xs text-muted-foreground">
-                  Generated at: {metricsQuery.data?.generatedAt}
+                  {tr("生成时间", "Generated at")}: {metricsQuery.data?.generatedAt}
                 </p>
                 <div className="max-h-64 overflow-auto rounded border p-2">
                   <pre className="text-xs">
@@ -1258,17 +1309,17 @@ export default function AdminPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Retention Strategy & Cleanup</CardTitle>
+            <CardTitle>{tr("数据保留策略与清理", "Retention Strategy & Cleanup")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {retentionPoliciesQuery.isLoading ? (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Loading retention policies...
+                {tr("正在加载保留策略...", "Loading retention policies...")}
               </div>
             ) : retentionPoliciesQuery.error ? (
               <p className="text-sm text-destructive">
-                {retentionPoliciesQuery.error.message}
+                {toUiError(retentionPoliciesQuery.error.message)}
               </p>
             ) : (
               <div className="space-y-3 rounded border p-3">
@@ -1278,7 +1329,9 @@ export default function AdminPage() {
                     className="grid grid-cols-1 gap-2 rounded border bg-slate-50 p-2 md:grid-cols-5 md:items-center"
                   >
                     <p className="text-sm font-medium">
-                      {policy.tier === "free" ? "Free (short-term)" : "Paid (long-term)"}
+                      {policy.tier === "free"
+                        ? tr("免费用户（短期）", "Free (short-term)")
+                        : tr("付费用户（长期）", "Paid (long-term)")}
                     </p>
                     <Input
                       value={
@@ -1291,7 +1344,7 @@ export default function AdminPage() {
                           ? setFreeRetentionDaysInput(event.target.value)
                           : setPaidRetentionDaysInput(event.target.value)
                       }
-                      placeholder="Retention days"
+                      placeholder={tr("保留天数", "Retention days")}
                     />
                     <Button
                       type="button"
@@ -1299,7 +1352,7 @@ export default function AdminPage() {
                       onClick={() => upsertRetentionPolicy(policy.tier)}
                       disabled={updateRetentionPolicyMutation.isPending}
                     >
-                      Save Days
+                      {tr("保存天数", "Save Days")}
                     </Button>
                     <Button
                       type="button"
@@ -1307,10 +1360,10 @@ export default function AdminPage() {
                       onClick={() => toggleRetentionEnabled(policy.tier, !policy.enabled)}
                       disabled={updateRetentionPolicyMutation.isPending}
                     >
-                      {policy.enabled ? "Disable" : "Enable"}
+                      {policy.enabled ? tr("禁用", "Disable") : tr("启用", "Enable")}
                     </Button>
                     <p className="text-xs text-muted-foreground">
-                      Updated: {formatDate(policy.updatedAt)}
+                      {tr("更新时间", "Updated")}: {formatDate(policy.updatedAt, locale)}
                     </p>
                   </div>
                 ))}
@@ -1324,27 +1377,35 @@ export default function AdminPage() {
                 onClick={() => runRetentionCleanupMutation.mutate({ dryRun: true })}
                 disabled={runRetentionCleanupMutation.isPending}
               >
-                {runRetentionCleanupMutation.isPending ? "Running..." : "Run Dry-Run Cleanup"}
+                {runRetentionCleanupMutation.isPending
+                  ? tr("运行中...", "Running...")
+                  : tr("执行演练清理", "Run Dry-Run Cleanup")}
               </Button>
               <Button
                 type="button"
                 onClick={() => runRetentionCleanupMutation.mutate({ dryRun: false })}
                 disabled={runRetentionCleanupMutation.isPending}
               >
-                {runRetentionCleanupMutation.isPending ? "Running..." : "Run Real Cleanup"}
+                {runRetentionCleanupMutation.isPending
+                  ? tr("运行中...", "Running...")
+                  : tr("执行真实清理", "Run Real Cleanup")}
               </Button>
             </div>
 
             <div className="space-y-2 rounded border p-3">
-              <p className="text-sm font-medium">Cleanup Audit Log</p>
+              <p className="text-sm font-medium">{tr("清理审计日志", "Cleanup Audit Log")}</p>
               {retentionAuditsQuery.isLoading ? (
-                <p className="text-sm text-muted-foreground">Loading cleanup audits...</p>
+                <p className="text-sm text-muted-foreground">
+                  {tr("正在加载清理审计日志...", "Loading cleanup audits...")}
+                </p>
               ) : retentionAuditsQuery.error ? (
                 <p className="text-sm text-destructive">
-                  {retentionAuditsQuery.error.message}
+                  {toUiError(retentionAuditsQuery.error.message)}
                 </p>
               ) : (retentionAuditsQuery.data ?? []).length === 0 ? (
-                <p className="text-sm text-muted-foreground">No cleanup audits yet.</p>
+                <p className="text-sm text-muted-foreground">
+                  {tr("暂无清理审计日志。", "No cleanup audits yet.")}
+                </p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[900px] text-xs">
@@ -1362,7 +1423,7 @@ export default function AdminPage() {
                       {(retentionAuditsQuery.data ?? []).map(item => (
                         <tr key={item.id} className="border-b align-top">
                           <td className="px-2 py-1 whitespace-nowrap">
-                            {formatDate(item.createdAt)}
+                            {formatDate(item.createdAt, locale)}
                           </td>
                           <td className="px-2 py-1">{item.dryRun ? "dry-run" : "real"}</td>
                           <td className="px-2 py-1">

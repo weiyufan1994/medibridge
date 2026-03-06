@@ -10,7 +10,7 @@ import { Route, Switch } from "wouter";
 import { Loader2 } from "lucide-react";
 import ErrorBoundary from "@/layout/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import { LanguageProvider } from "./contexts/LanguageContext";
+import { LanguageProvider, useLanguage } from "./contexts/LanguageContext";
 import Home from "./pages/Home";
 import DoctorDetail from "./pages/DoctorDetail";
 import Hospitals from "./pages/Hospitals";
@@ -21,7 +21,9 @@ import AppointmentAccessPage from "./pages/AppointmentAccess";
 import VisitRoomPage from "./pages/VisitRoom";
 import PaymentSuccessPage from "./pages/PaymentSuccess";
 import PaymentCancelPage from "./pages/PaymentCancel";
+import MockCheckoutPage from "./pages/MockCheckout";
 import ComponentShowcase from "./sandbox/ComponentShowcase";
+import { getDashboardCopy } from "@/features/dashboard/copy";
 
 function parseMagicLinkTokenFromUrl(): string | null {
   if (typeof window === "undefined") {
@@ -88,6 +90,7 @@ function Router() {
       <Route path={"/appointment/:id"} component={AppointmentAccessPage} />
       <Route path={"/payment/success"} component={PaymentSuccessPage} />
       <Route path={"/payment/cancel"} component={PaymentCancelPage} />
+      <Route path={"/mock-checkout/:bookingId"} component={MockCheckoutPage} />
       <Route path={"/visit/:id"} component={VisitRoomPage} />
       <Route path={"/doctor/:id"} component={DoctorDetail} />
       <Route path={"/hospitals"} component={Hospitals} />
@@ -101,6 +104,8 @@ function Router() {
 
 function DashboardRouteGuard() {
   const { loading, isGuest, isLoginModalOpen, openLoginModal } = useAuth();
+  const { resolved } = useLanguage();
+  const t = getDashboardCopy(resolved);
 
   useEffect(() => {
     if (!loading && isGuest && !isLoginModalOpen) {
@@ -121,12 +126,12 @@ function DashboardRouteGuard() {
       <main className="mx-auto flex min-h-[60vh] max-w-3xl items-center justify-center px-4">
         <div className="space-y-4 text-center">
           <h1 className="text-xl font-semibold tracking-tight">
-            请先登录以查看您的个人资料
+            {t.guardTitle}
           </h1>
           <p className="text-sm text-muted-foreground">
-            登录后可查看账户状态、问诊记录与行程安排。
+            {t.guardDesc}
           </p>
-          <Button onClick={openLoginModal}>登录/注册</Button>
+          <Button onClick={openLoginModal}>{t.guardAction}</Button>
         </div>
       </main>
     );

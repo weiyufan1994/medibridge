@@ -1,4 +1,4 @@
-const ROOM_PATH = "/room";
+const VISIT_PATH_PREFIX = "/visit";
 
 function normalizeBaseUrl(url: string): string {
   return url.replace(/\/+$/, "");
@@ -12,7 +12,12 @@ export function getRequiredAppBaseUrl(): string {
   return normalizeBaseUrl(configured);
 }
 
-export function buildAppointmentAccessLink(token: string): string {
+export function buildAppointmentAccessLink(input: {
+  appointmentId: number;
+  token: string;
+}): string {
   const baseUrl = getRequiredAppBaseUrl();
-  return `${baseUrl}${ROOM_PATH}?token=${encodeURIComponent(token)}`;
+  return `${baseUrl}${VISIT_PATH_PREFIX}/${input.appointmentId}?t=${encodeURIComponent(
+    input.token
+  )}`;
 }

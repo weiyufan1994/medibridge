@@ -14,7 +14,7 @@ vi.mock("./modules/visit/repo", () => ({
   getPatientSession: vi.fn(),
 }));
 
-vi.mock("./appointmentsRouter", () => ({
+vi.mock("./routers/appointments", () => ({
   validateAppointmentToken: vi.fn(),
 }));
 
@@ -30,9 +30,9 @@ vi.mock("./modules/appointments/repo", () => ({
 
 import * as visitRepo from "./modules/visit/repo";
 import * as appointmentsRepo from "./modules/appointments/repo";
-import { validateAppointmentToken } from "./appointmentsRouter";
+import { validateAppointmentToken } from "./routers/appointments";
 import { validateAppointmentAccessToken } from "./modules/appointments/tokenValidation";
-import { visitRouter } from "./visitRouter";
+import { visitRouter } from "./routers/visit";
 
 function createTestContext(): TrpcContext {
   return {

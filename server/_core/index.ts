@@ -9,6 +9,7 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { handleStripeWebhook } from "../stripeWebhookRoute";
 import { createVisitRealtimeGateway } from "../modules/visit/realtimeGateway";
+import { startAppointmentAutoCloseWorker } from "../modules/appointments/autoCloseWorker";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -33,6 +34,7 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
   const visitRealtimeGateway = createVisitRealtimeGateway();
+  const stopAppointmentAutoCloseWorker = startAppointmentAutoCloseWorker();
   app.set("trust proxy", true);
   app.post(
     "/api/payments/stripe/webhook",
@@ -77,6 +79,7 @@ async function startServer() {
   });
 
   process.on("SIGTERM", () => {
+    stopAppointmentAutoCloseWorker();
     visitRealtimeGateway.shutdown();
     server.close();
   });

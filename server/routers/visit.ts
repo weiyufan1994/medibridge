@@ -1,13 +1,13 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { appointmentMessages } from "../drizzle/schema";
-import * as appointmentsRepo from "./modules/appointments/repo";
-import * as visitRepo from "./modules/visit/repo";
-import { validateAppointmentAccessToken } from "./modules/appointments/tokenValidation";
-import { markInSessionIfTransitioned } from "./modules/visit/status";
-import { translateVisitMessage } from "./modules/visit/translation";
-import { validateAppointmentToken } from "./appointmentsRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { appointmentMessages } from "../../drizzle/schema";
+import * as appointmentsRepo from "../modules/appointments/repo";
+import * as visitRepo from "../modules/visit/repo";
+import { validateAppointmentAccessToken } from "../modules/appointments/tokenValidation";
+import { markInSessionIfTransitioned } from "../modules/visit/status";
+import { translateVisitMessage } from "../modules/visit/translation";
+import { validateAppointmentToken } from "./appointments";
+import { publicProcedure, router } from "../_core/trpc";
 
 const accessInputSchema = z.object({
   appointmentId: z.number().int().positive(),

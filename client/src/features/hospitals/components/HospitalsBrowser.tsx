@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { getLocalizedField } from "@/lib/i18n";
-import { hospitalsCopy } from "@/features/hospitals/copy";
+import { getHospitalsCopy } from "@/features/hospitals/copy";
 
 export type ViewMode = "hospitals" | "departments" | "doctors";
 
@@ -81,6 +81,8 @@ export function HospitalsBrowser({
   onBackToHospitals,
   onBackToDepartments,
 }: Props) {
+  const copy = getHospitalsCopy(resolved);
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center gap-2 mb-6 text-sm text-muted-foreground">
@@ -88,7 +90,7 @@ export function HospitalsBrowser({
           onClick={onBackToHospitals}
           className={`hover:text-foreground transition-colors ${viewMode === "hospitals" ? "text-foreground font-medium" : ""}`}
         >
-          {hospitalsCopy.browser.breadcrumbHospitals}
+          {copy.browser.breadcrumbHospitals}
         </button>
         {viewMode !== "hospitals" && (
           <>
@@ -97,7 +99,7 @@ export function HospitalsBrowser({
               onClick={onBackToDepartments}
               className={`hover:text-foreground transition-colors ${viewMode === "departments" ? "text-foreground font-medium" : ""}`}
             >
-              {selectedHospitalName || hospitalsCopy.browser.breadcrumbDepartmentsFallback}
+              {selectedHospitalName || copy.browser.breadcrumbDepartmentsFallback}
             </button>
           </>
         )}
@@ -105,7 +107,7 @@ export function HospitalsBrowser({
           <>
             <ChevronRight className="w-4 h-4" />
             <span className="text-foreground font-medium">
-              {selectedDepartmentName || hospitalsCopy.browser.breadcrumbDoctorsFallback}
+              {selectedDepartmentName || copy.browser.breadcrumbDoctorsFallback}
             </span>
           </>
         )}
@@ -116,10 +118,10 @@ export function HospitalsBrowser({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Hospital className="w-6 h-6 text-primary" />
-              {hospitalsCopy.browser.selectHospitalTitle}
+              {copy.browser.selectHospitalTitle}
             </CardTitle>
             <CardDescription>
-              {hospitalsCopy.browser.selectHospitalDescription(hospitals?.length || 0)}
+              {copy.browser.selectHospitalDescription(hospitals?.length || 0)}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -184,7 +186,7 @@ export function HospitalsBrowser({
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Stethoscope className="w-6 h-6 text-primary" />
-                  {hospitalsCopy.browser.selectDepartmentTitle}
+                  {copy.browser.selectDepartmentTitle}
                 </CardTitle>
                 <CardDescription>
                   {selectedHospitalName}
@@ -192,7 +194,7 @@ export function HospitalsBrowser({
               </div>
               <Button variant="ghost" size="sm" onClick={onBackToHospitals}>
                 <ChevronLeft className="w-4 h-4 mr-1" />
-                {hospitalsCopy.browser.back}
+                {copy.browser.back}
               </Button>
             </div>
           </CardHeader>
@@ -238,9 +240,9 @@ export function HospitalsBrowser({
           <CardHeader>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <CardTitle>{hospitalsCopy.browser.doctorsTitle}</CardTitle>
+                <CardTitle>{copy.browser.doctorsTitle}</CardTitle>
                 <CardDescription>
-                  {hospitalsCopy.browser.doctorsCountLabel(
+                  {copy.browser.doctorsCountLabel(
                     selectedDepartmentName,
                     filteredDoctors?.length || 0
                   )}
@@ -248,13 +250,13 @@ export function HospitalsBrowser({
               </div>
               <Button variant="ghost" size="sm" onClick={onBackToDepartments}>
                 <ChevronLeft className="w-4 h-4 mr-1" />
-                {hospitalsCopy.browser.back}
+                {copy.browser.back}
               </Button>
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder={hospitalsCopy.browser.searchPlaceholder}
+                placeholder={copy.browser.searchPlaceholder}
                 value={searchQuery}
                 onChange={(e) => onSearchQueryChange(e.target.value)}
                 className="pl-9"
@@ -269,7 +271,7 @@ export function HospitalsBrowser({
             )}
             {filteredDoctors && filteredDoctors.length === 0 && (
               <div className="py-12 text-center text-muted-foreground">
-                <p className="text-sm">{hospitalsCopy.browser.noDoctorsFound}</p>
+                <p className="text-sm">{copy.browser.noDoctorsFound}</p>
               </div>
             )}
             {filteredDoctors?.map(({ doctor }) => {
@@ -309,20 +311,20 @@ export function HospitalsBrowser({
                         <p className="text-sm text-muted-foreground mb-3">{doctorTitle}</p>
                         {doctor.specialty && (
                           <p className="text-sm text-muted-foreground mb-2">
-                            <span className="font-medium">{hospitalsCopy.browser.specialtyLabel}</span>
+                            <span className="font-medium">{copy.browser.specialtyLabel}</span>
                             {doctorSpecialty}
                           </p>
                         )}
                         {doctor.expertise && (
                           <p className="text-sm text-muted-foreground line-clamp-3">
-                            <span className="font-medium">{hospitalsCopy.browser.expertiseLabel}</span>
+                            <span className="font-medium">{copy.browser.expertiseLabel}</span>
                             {doctorExpertise}
                           </p>
                         )}
                       </div>
                       <Link href={`/doctor/${doctor.id}`}>
                         <Button size="sm">
-                          {hospitalsCopy.browser.viewProfile}
+                          {copy.browser.viewProfile}
                         </Button>
                       </Link>
                     </div>

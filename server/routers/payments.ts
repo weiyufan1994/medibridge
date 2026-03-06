@@ -1,12 +1,12 @@
 import { TRPCError } from "@trpc/server";
 import type { Request } from "express";
 import { z } from "zod";
-import * as appointmentsRepo from "./modules/appointments/repo";
-import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { sendMagicLinkEmail } from "./_core/mailer";
-import { setCachedPatientAccessToken } from "./modules/appointments/tokenCache";
-import { issueAppointmentAccessLinks } from "./modules/appointments/tokenService";
-import { createStripeCheckoutSession } from "./modules/payments/stripe";
+import * as appointmentsRepo from "../modules/appointments/repo";
+import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { sendMagicLinkEmail } from "../_core/mailer";
+import { setCachedPatientAccessToken } from "../modules/appointments/tokenCache";
+import { issueAppointmentAccessLinks } from "../modules/appointments/tokenService";
+import { createStripeCheckoutSession } from "../modules/payments/stripe";
 import {
   APPOINTMENT_INVALID_TRANSITION_ERROR,
   APPOINTMENT_STATUS_VALUES,
@@ -15,8 +15,8 @@ import {
   PAYMENT_STATUS_VALUES,
   type AppointmentStatus,
   type PaymentStatus,
-} from "./modules/appointments/stateMachine";
-import type { appointments } from "../drizzle/schema";
+} from "../modules/appointments/stateMachine";
+import type { appointments } from "../../drizzle/schema";
 
 const paymentStatusSchema = z.enum(PAYMENT_STATUS_VALUES);
 const statusSchema = z.enum(APPOINTMENT_STATUS_VALUES);
@@ -39,6 +39,9 @@ const getStatusOutputSchema = z.object({
 
 const confirmMockInputSchema = z.object({
   stripeSessionId: z.string().min(8).max(255),
+});
+const confirmMockByAppointmentInputSchema = z.object({
+  appointmentId: z.number().int().positive(),
 });
 const createCheckoutSessionForAppointmentInputSchema = z.object({
   appointmentId: z.number().int().positive(),
@@ -420,6 +423,58 @@ export const paymentsRouter = router({
         ok: true as const,
         alreadySettled: result.alreadySettled,
         appointmentId: result.appointment.id,
+        devPatientLink:
+          process.env.NODE_ENV === "development" ? result.patientLink : null,
+        devDoctorLink:
+          process.env.NODE_ENV === "development" ? result.doctorLink : null,
+      };
+    }),
+
+  confirmMockCheckoutByAppointment: publicProcedure
+    .input(confirmMockByAppointmentInputSchema)
+    .output(
+      z.object({
+        ok: z.literal(true),
+        alreadySettled: z.boolean(),
+        appointmentId: z.number().int().positive(),
+        stripeSessionId: z.string().nullable(),
+        devPatientLink: z.string().url().nullable(),
+        devDoctorLink: z.string().url().nullable(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      if (process.env.NODE_ENV === "production") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Mock checkout is disabled in production",
+        });
+      }
+
+      const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
+      if (!appointment) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Appointment not found",
+        });
+      }
+      if (!appointment.stripeSessionId) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Stripe session is missing for appointment",
+        });
+      }
+
+      const result = await settleStripePaymentBySessionId({
+        stripeSessionId: appointment.stripeSessionId,
+        source: "mock",
+        req: ctx.req,
+      });
+
+      return {
+        ok: true as const,
+        alreadySettled: result.alreadySettled,
+        appointmentId: result.appointment.id,
+        stripeSessionId: appointment.stripeSessionId,
         devPatientLink:
           process.env.NODE_ENV === "development" ? result.patientLink : null,
         devDoctorLink:

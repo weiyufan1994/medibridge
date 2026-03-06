@@ -5,10 +5,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useLanguage } from "@/contexts/LanguageContext";
 import AppLayout from "@/components/layout/AppLayout";
 import { MyAppointments } from "@/components/MyAppointments";
+import { getDashboardCopy } from "@/features/dashboard/copy";
 
-function formatDateTime(value: Date | string | null) {
+function formatDateTime(value: Date | string | null, locale?: string) {
   if (!value) {
     return "-";
   }
@@ -16,11 +18,14 @@ function formatDateTime(value: Date | string | null) {
   if (Number.isNaN(date.getTime())) {
     return "-";
   }
-  return date.toLocaleString();
+  return date.toLocaleString(locale);
 }
 
 export default function DashboardPage() {
   const { user, isAuthenticated } = useAuth();
+  const { resolved } = useLanguage();
+  const t = getDashboardCopy(resolved);
+  const locale = resolved === "zh" ? "zh-CN" : "en-US";
   const usageQuery = trpc.ai.getUsageSummary.useQuery(undefined, {
     enabled: isAuthenticated,
   });
@@ -32,30 +37,31 @@ export default function DashboardPage() {
   const accountPlan = usageQuery.data?.role === "pro" ? "Pro" : "Free";
   const remainingText =
     usageQuery.data?.remainingToday === null || usageQuery.data?.remainingToday === undefined
-      ? "Unlimited"
+      ? t.unlimited
       : String(usageQuery.data.remainingToday);
+  const displayName = user?.name || user?.email || t.fallbackUserName;
 
   return (
-    <AppLayout title="个人中心 / User Center" showBack={true}>
+    <AppLayout title={t.appLayoutTitle} showBack={true}>
       <div className="mx-auto w-full max-w-6xl space-y-6 py-2">
         <header className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t.pageTitle}</h1>
           <p className="text-sm text-muted-foreground">
-            欢迎回来，{user?.name || user?.email || "MediBridge 用户"}
+            {t.welcomeBack.replace("{{name}}", displayName)}
           </p>
         </header>
 
         <Tabs defaultValue="account" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="account">账户状态</TabsTrigger>
-            <TabsTrigger value="consultations">我的问诊记录</TabsTrigger>
-            <TabsTrigger value="appointments">我的行程</TabsTrigger>
+            <TabsTrigger value="account">{t.tabAccount}</TabsTrigger>
+            <TabsTrigger value="consultations">{t.tabConsultations}</TabsTrigger>
+            <TabsTrigger value="appointments">{t.tabAppointments}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="account">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Account & Billing</CardTitle>
+                <CardTitle>{t.accountBilling}</CardTitle>
                 <Badge variant={accountPlan === "Pro" ? "default" : "secondary"}>
                   {accountPlan}
                 </Badge>
@@ -64,17 +70,22 @@ export default function DashboardPage() {
                 {usageQuery.isLoading ? (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    正在加载账户信息...
+                    {t.loadingAccount}
                   </div>
                 ) : (
                   <>
-                    <p>今日剩余可用问诊次数：{remainingText}</p>
+                    <p>{t.remainingToday.replace("{{count}}", remainingText)}</p>
                     <p className="text-muted-foreground">
-                      累计 AI 会话数：{usageQuery.data?.totalSessions ?? 0}
+                      {t.totalSessions.replace(
+                        "{{count}}",
+                        String(usageQuery.data?.totalSessions ?? 0)
+                      )}
                     </p>
                   </>
                 )}
-                <Button type="button">升级 Pro</Button>
+                {accountPlan !== "Pro" ? (
+                  <Button type="button">{t.upgradePro}</Button>
+                ) : null}
               </CardContent>
             </Card>
           </TabsContent>
@@ -82,13 +93,13 @@ export default function DashboardPage() {
           <TabsContent value="consultations">
             <Card>
               <CardHeader>
-                <CardTitle>AI Consultations</CardTitle>
+                <CardTitle>{t.aiConsultations}</CardTitle>
               </CardHeader>
               <CardContent>
                 {sessionsQuery.isLoading ? (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    正在加载问诊记录...
+                    {t.loadingConsultations}
                   </div>
                 ) : sessionsQuery.data && sessionsQuery.data.length > 0 ? (
                   <div className="space-y-3">
@@ -98,7 +109,9 @@ export default function DashboardPage() {
                         className="rounded-lg border bg-background p-3 text-sm"
                       >
                         <div className="flex items-center justify-between gap-3">
-                          <p className="font-medium">会话 #{session.id}</p>
+                          <p className="font-medium">
+                            {t.sessionLabel.replace("{{id}}", String(session.id))}
+                          </p>
                           <Badge
                             variant={
                               session.status === "completed" ? "secondary" : "default"
@@ -108,13 +121,16 @@ export default function DashboardPage() {
                           </Badge>
                         </div>
                         <p className="mt-2 text-muted-foreground">
-                          创建时间：{formatDateTime(session.createdAt)}
+                          {t.createdAt.replace(
+                            "{{time}}",
+                            formatDateTime(session.createdAt, locale)
+                          )}
                         </p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">暂无 AI 问诊记录。</p>
+                  <p className="text-sm text-muted-foreground">{t.noConsultations}</p>
                 )}
               </CardContent>
             </Card>

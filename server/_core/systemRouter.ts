@@ -6,7 +6,7 @@ import { getMetricsSnapshot } from "./metrics";
 import * as appointmentsRepo from "../modules/appointments/repo";
 import * as aiRepo from "../modules/ai/repo";
 import * as doctorsRepo from "../modules/doctors/repo";
-import { reinitiateCheckoutForAppointment } from "../paymentsRouter";
+import { reinitiateCheckoutForAppointment } from "../routers/payments";
 import { getPublicBaseUrl } from "../core/getPublicBaseUrl";
 import { issueAppointmentAccessLinks } from "../modules/appointments/tokenService";
 import { sendMagicLinkEmail } from "./mailer";
@@ -38,6 +38,9 @@ const adminAppointmentDetailInputSchema = z.object({
   appointmentId: z.number().int().positive(),
 });
 const adminAppointmentActionInputSchema = z.object({
+  appointmentId: z.number().int().positive(),
+});
+const adminNotifyDoctorFollowupInputSchema = z.object({
   appointmentId: z.number().int().positive(),
 });
 const adminAppointmentStatusUpdateSchema = z.object({
@@ -417,6 +420,42 @@ export const systemRouter = router({
       } as const;
     }),
 
+  adminNotifyDoctorFollowup: adminProcedure
+    .input(adminNotifyDoctorFollowupInputSchema)
+    .mutation(async ({ input }) => {
+      const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
+      if (!appointment) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Appointment not found",
+        });
+      }
+
+      const doctor = await doctorsRepo.getDoctorById(appointment.doctorId);
+      const recentMessages = await visitRepo.getRecentMessages(appointment.id, 20);
+      const latestPatientMessage = recentMessages
+        .filter(message => message.senderType === "patient")
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+
+      const title = `Doctor follow-up reminder #${appointment.id}`;
+      const content = [
+        `Appointment: #${appointment.id}`,
+        `Patient: ${appointment.email}`,
+        `Doctor: ${
+          doctor
+            ? `${doctor.doctor.name} (${doctor.hospital.name}/${doctor.department.name})`
+            : String(appointment.doctorId)
+        }`,
+        `Status: ${appointment.status}/${appointment.paymentStatus}`,
+        `Latest patient message: ${latestPatientMessage?.createdAt?.toISOString() ?? "-"}`,
+      ].join("\n");
+
+      const delivered = await notifyOwner({ title, content });
+      return {
+        ok: delivered,
+      } as const;
+    }),
+
   adminUpdateAppointmentStatus: adminProcedure
     .input(adminAppointmentStatusUpdateSchema)
     .mutation(async ({ input, ctx }) => {
@@ -594,27 +633,42 @@ export const systemRouter = router({
     }),
 
   adminRetentionPolicies: adminProcedure.query(async () => {
-    const rows = await adminRepo.ensureDefaultRetentionPolicies();
-    return rows.map(row => ({
-      id: row.id,
-      tier: row.tier,
-      retentionDays: row.retentionDays,
-      enabled: row.enabled === 1,
-      updatedBy: row.updatedBy,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    }));
+    try {
+      const rows = await adminRepo.ensureDefaultRetentionPolicies();
+      return rows.map(row => ({
+        id: row.id,
+        tier: row.tier,
+        retentionDays: row.retentionDays,
+        enabled: row.enabled === 1,
+        updatedBy: row.updatedBy,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      }));
+    } catch {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "RETENTION_STORAGE_UNAVAILABLE",
+      });
+    }
   }),
 
   adminUpsertRetentionPolicy: adminProcedure
     .input(retentionPolicyUpsertSchema)
     .mutation(async ({ input, ctx }) => {
-      const updated = await adminRepo.upsertRetentionPolicy({
-        tier: input.tier,
-        retentionDays: input.retentionDays,
-        enabled: input.enabled,
-        updatedBy: ctx.user.id,
-      });
+      let updated: Awaited<ReturnType<typeof adminRepo.upsertRetentionPolicy>> | null = null;
+      try {
+        updated = await adminRepo.upsertRetentionPolicy({
+          tier: input.tier,
+          retentionDays: input.retentionDays,
+          enabled: input.enabled,
+          updatedBy: ctx.user.id,
+        });
+      } catch {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "RETENTION_STORAGE_UNAVAILABLE",
+        });
+      }
 
       if (!updated) {
         throw new TRPCError({
@@ -636,26 +690,40 @@ export const systemRouter = router({
   adminRunRetentionCleanup: adminProcedure
     .input(retentionCleanupRunSchema)
     .mutation(async ({ input, ctx }) => {
-      return adminRepo.runRetentionCleanup({
-        dryRun: input.dryRun,
-        createdBy: ctx.user.id,
-      });
+      try {
+        return adminRepo.runRetentionCleanup({
+          dryRun: input.dryRun,
+          createdBy: ctx.user.id,
+        });
+      } catch {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "RETENTION_STORAGE_UNAVAILABLE",
+        });
+      }
     }),
 
   adminRetentionCleanupAudits: adminProcedure
     .input(retentionCleanupAuditListSchema)
     .query(async ({ input }) => {
-      const rows = await adminRepo.listRetentionCleanupAudits(input.limit);
-      return rows.map(row => ({
-        id: row.id,
-        dryRun: row.dryRun === 1,
-        freeRetentionDays: row.freeRetentionDays,
-        paidRetentionDays: row.paidRetentionDays,
-        scannedMessages: row.scannedMessages,
-        deletedMessages: row.deletedMessages,
-        detailsJson: row.detailsJson,
-        createdBy: row.createdBy,
-        createdAt: row.createdAt,
-      }));
+      try {
+        const rows = await adminRepo.listRetentionCleanupAudits(input.limit);
+        return rows.map(row => ({
+          id: row.id,
+          dryRun: row.dryRun === 1,
+          freeRetentionDays: row.freeRetentionDays,
+          paidRetentionDays: row.paidRetentionDays,
+          scannedMessages: row.scannedMessages,
+          deletedMessages: row.deletedMessages,
+          detailsJson: row.detailsJson,
+          createdBy: row.createdBy,
+          createdAt: row.createdAt,
+        }));
+      } catch {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "RETENTION_STORAGE_UNAVAILABLE",
+        });
+      }
     }),
 });

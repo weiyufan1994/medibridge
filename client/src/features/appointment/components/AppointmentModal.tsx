@@ -17,9 +17,11 @@ import {
 } from "@/components/ui/dialog";
 import {
   useAppointmentForm,
+  type AppointmentPackageId,
   type AppointmentType,
 } from "@/features/appointment/hooks/useAppointmentForm";
 import { getAppointmentCopy } from "@/features/appointment/copy";
+import type { TriagePrefillInput } from "@shared/appointmentIntake";
 
 type AppointmentModalProps = {
   open: boolean;
@@ -27,6 +29,7 @@ type AppointmentModalProps = {
   doctorId: number | null;
   sessionId: string;
   resolved: "en" | "zh";
+  triagePrefill?: TriagePrefillInput;
 };
 
 export function AppointmentModal({
@@ -35,6 +38,7 @@ export function AppointmentModal({
   doctorId,
   sessionId,
   resolved,
+  triagePrefill,
 }: AppointmentModalProps) {
   const t = getAppointmentCopy(resolved);
   const {
@@ -48,11 +52,15 @@ export function AppointmentModal({
     isSubmitting,
     bookingScheduledAt,
     bookingType,
+    bookingPackageId,
+    packageOptions,
+    packagesLoading,
     intake,
     setBookingEmail,
     setBookingOtpCode,
     setBookingScheduledAt,
     setBookingType,
+    setBookingPackageId,
     setIntake,
     handleRequestOtp,
     handleCreateBooking,
@@ -61,8 +69,10 @@ export function AppointmentModal({
     sessionId,
     resolved,
     open,
+    triagePrefill,
     onBooked: () => onOpenChange(false),
   });
+  const selectedPackage = packageOptions.find(option => option.id === bookingPackageId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -153,6 +163,33 @@ export function AppointmentModal({
               <option value="video_call">{t.bookingTypeVideo}</option>
               <option value="in_person">{t.bookingTypeInPerson}</option>
             </select>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="booking-package">{t.bookingPackage}</Label>
+            <select
+              id="booking-package"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={bookingPackageId}
+              onChange={event =>
+                setBookingPackageId(event.target.value as AppointmentPackageId)
+              }
+              disabled={isSubmitting || packagesLoading}
+            >
+              {packageOptions.map(option => (
+                <option key={option.id} value={option.id}>
+                  {resolved === "zh" ? option.titleZh : option.titleEn}
+                  {" - "}
+                  {(option.amount / 100).toFixed(2)} {option.currency.toUpperCase()}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-slate-500">
+              {selectedPackage
+                ? resolved === "zh"
+                  ? selectedPackage.descriptionZh
+                  : selectedPackage.descriptionEn
+                : t.bookingPackageFallback}
+            </p>
           </div>
           <div className="space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3">
             <p className="text-sm font-medium">{t.intakeTitle}</p>

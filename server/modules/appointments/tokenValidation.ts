@@ -25,6 +25,26 @@ export type AppointmentAccessContext = {
 };
 
 const tokenFailureCounts = new Map<string, number>();
+const JOIN_REUSE_WINDOW_MS = 10 * 60 * 1000;
+
+function canReuseJoinWithoutIncrement(input: {
+  action: VisitAccessAction;
+  useCount: number;
+  maxUses: number;
+  lastUsedAt: Date | null;
+  now: Date;
+}) {
+  if (input.action !== "join_room") {
+    return false;
+  }
+  if (input.useCount <= 0 || input.maxUses <= 0) {
+    return false;
+  }
+  if (!input.lastUsedAt) {
+    return false;
+  }
+  return input.now.getTime() - input.lastUsedAt.getTime() <= JOIN_REUSE_WINDOW_MS;
+}
 
 function getClientIp(req?: Request): string | null {
   if (!req) {
@@ -102,6 +122,7 @@ export async function validateAppointmentAccessToken(input: {
   expectedAppointmentId?: number;
   req?: Request;
 }): Promise<AppointmentAccessContext> {
+  const action = input.action ?? "join_room";
   const token = input.token.trim();
   if (!token) {
     throwTokenError("TOKEN_MISSING");
@@ -131,7 +152,15 @@ export async function validateAppointmentAccessToken(input: {
     throwTokenError("TOKEN_EXPIRED");
   }
 
-  if (tokenRow.useCount >= tokenRow.maxUses) {
+  const isJoinReuseAllowed = canReuseJoinWithoutIncrement({
+    action,
+    useCount: tokenRow.useCount,
+    maxUses: tokenRow.maxUses,
+    lastUsedAt: tokenRow.lastUsedAt ?? null,
+    now,
+  });
+
+  if (action === "join_room" && tokenRow.useCount >= tokenRow.maxUses && !isJoinReuseAllowed) {
     await handleFailedAttempt({ tokenHash, reason: "TOKEN_MAX_USES", req: input.req });
     throwTokenError("TOKEN_MAX_USES");
   }
@@ -164,7 +193,7 @@ export async function validateAppointmentAccessToken(input: {
       status: appointment.status,
       paymentStatus: appointment.paymentStatus,
     }) ||
-    (input.action === "send_message" &&
+    (action === "send_message" &&
       !canSendMessage({
         status: appointment.status,
         paymentStatus: appointment.paymentStatus,
@@ -178,13 +207,15 @@ export async function validateAppointmentAccessToken(input: {
     throwTokenError("APPOINTMENT_NOT_ALLOWED");
   }
 
-  const touched = await appointmentsRepo.updateTokenUsageIfAllowed({
-    tokenId: tokenRow.id,
-    now,
-  });
-  if (touched !== 1) {
-    await handleFailedAttempt({ tokenHash, reason: "TOKEN_MAX_USES", req: input.req });
-    throwTokenError("TOKEN_MAX_USES");
+  if (action === "join_room" && !isJoinReuseAllowed) {
+    const touched = await appointmentsRepo.updateTokenUsageIfAllowed({
+      tokenId: tokenRow.id,
+      now,
+    });
+    if (touched !== 1) {
+      await handleFailedAttempt({ tokenHash, reason: "TOKEN_MAX_USES", req: input.req });
+      throwTokenError("TOKEN_MAX_USES");
+    }
   }
 
   await appointmentsRepo.saveTokenFirstSeen({

@@ -3,23 +3,28 @@ import { toast } from "sonner";
 import { getOrCreateDeviceId } from "@/features/auth/deviceId";
 import { trpc } from "@/lib/trpc";
 import { getAppointmentCopy } from "@/features/appointment/copy";
+import {
+  buildIntakeDefaultsFromTriage,
+  EMPTY_APPOINTMENT_INTAKE,
+  type AppointmentIntake,
+  type TriagePrefillInput,
+} from "@shared/appointmentIntake";
 
 export type AppointmentType = "online_chat" | "video_call" | "in_person";
-export type AppointmentIntake = {
-  chiefComplaint: string;
-  duration: string;
-  medicalHistory: string;
-  medications: string;
-  allergies: string;
-  ageGroup: string;
-  otherSymptoms: string;
-};
+export type AppointmentPackageId =
+  | "chat_quick_30m"
+  | "chat_standard_60m"
+  | "chat_extended_24h"
+  | "video_quick_30m"
+  | "video_standard_60m"
+  | "inperson_standard_45m";
 
 type UseAppointmentFormParams = {
   doctorId: number | null;
   sessionId: string;
   resolved: "en" | "zh";
   open: boolean;
+  triagePrefill?: TriagePrefillInput;
   onBooked: () => void;
 };
 
@@ -28,6 +33,7 @@ export function useAppointmentForm({
   sessionId,
   resolved,
   open,
+  triagePrefill,
   onBooked,
 }: UseAppointmentFormParams) {
   const t = getAppointmentCopy(resolved);
@@ -42,18 +48,24 @@ export function useAppointmentForm({
   const [otpRequestedEmail, setOtpRequestedEmail] = useState("");
   const [otpCooldownSeconds, setOtpCooldownSeconds] = useState(0);
   const [bookingScheduledAt, setBookingScheduledAt] = useState("");
-  const [bookingType, setBookingType] = useState<AppointmentType>("video_call");
-  const [intake, setIntake] = useState<AppointmentIntake>({
-    chiefComplaint: "",
-    duration: "",
-    medicalHistory: "",
-    medications: "",
-    allergies: "",
-    ageGroup: "",
-    otherSymptoms: "",
-  });
+  const [bookingType, setBookingType] = useState<AppointmentType>("online_chat");
+  const [bookingPackageId, setBookingPackageId] =
+    useState<AppointmentPackageId>("chat_standard_60m");
+  const [intake, setIntake] = useState<AppointmentIntake>(() =>
+    buildIntakeDefaultsFromTriage(triagePrefill)
+  );
   const authenticatedEmail = meQuery.data?.email?.trim().toLowerCase() ?? "";
   const isLoggedInWithEmail = authenticatedEmail.length > 0;
+  const packagesQuery = trpc.appointments.listPackages.useQuery(
+    {
+      appointmentType: bookingType,
+    },
+    {
+      enabled: open,
+      retry: false,
+      refetchOnWindowFocus: false,
+    }
+  );
 
   useEffect(() => {
     if (!open || !doctorId) return;
@@ -84,17 +96,13 @@ export function useAppointmentForm({
       setBookingOtpCode("");
       setOtpRequestedEmail("");
       setOtpCooldownSeconds(0);
-      setIntake({
-        chiefComplaint: "",
-        duration: "",
-        medicalHistory: "",
-        medications: "",
-        allergies: "",
-        ageGroup: "",
-        otherSymptoms: "",
-      });
+      setBookingType("online_chat");
+      setBookingPackageId("chat_standard_60m");
+      setIntake({ ...EMPTY_APPOINTMENT_INTAKE });
+      return;
     }
-  }, [open]);
+    setIntake(buildIntakeDefaultsFromTriage(triagePrefill));
+  }, [open, triagePrefill]);
 
   useEffect(() => {
     if (isLoggedInWithEmail) {
@@ -102,11 +110,29 @@ export function useAppointmentForm({
     }
   }, [authenticatedEmail, isLoggedInWithEmail]);
 
+  useEffect(() => {
+    const options = packagesQuery.data ?? [];
+    if (options.length === 0) {
+      return;
+    }
+    const selectedExists = options.some(option => option.id === bookingPackageId);
+    if (selectedExists) {
+      return;
+    }
+    const defaultOption = options.find(option => option.isDefault) ?? options[0];
+    setBookingPackageId(defaultOption.id);
+  }, [bookingPackageId, packagesQuery.data]);
+
   const createAppointmentMutation = trpc.appointments.createV2.useMutation({
     onSuccess: async result => {
       toast.success(t.bookingSuccess);
       onBooked();
       if (typeof window !== "undefined") {
+        const isMockCheckoutEnabled = import.meta.env.MODE !== "production";
+        if (isMockCheckoutEnabled && result.appointmentId > 0) {
+          window.location.href = `/mock-checkout/${result.appointmentId}`;
+          return;
+        }
         window.location.href = result.checkoutUrl;
       }
     },
@@ -202,6 +228,7 @@ export function useAppointmentForm({
           doctorId,
           triageSessionId,
           appointmentType: bookingType,
+          packageId: bookingPackageId,
           scheduledAt: new Date(bookingScheduledAt).toISOString(),
           contact: {
             email: createEmail,
@@ -218,6 +245,7 @@ export function useAppointmentForm({
       doctorId,
       triageSessionId,
       appointmentType: bookingType,
+      packageId: bookingPackageId,
       scheduledAt: new Date(bookingScheduledAt).toISOString(),
       contact: {
         email: createEmail,
@@ -248,12 +276,16 @@ export function useAppointmentForm({
     isSubmitting,
     bookingScheduledAt,
     bookingType,
+    bookingPackageId,
+    packageOptions: packagesQuery.data ?? [],
+    packagesLoading: packagesQuery.isLoading,
     intake,
     createAppointmentMutation,
     setBookingEmail,
     setBookingOtpCode,
     setBookingScheduledAt,
     setBookingType,
+    setBookingPackageId,
     setIntake,
     handleRequestOtp,
     handleCreateBooking,

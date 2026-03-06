@@ -26,7 +26,7 @@ vi.mock("./modules/appointments/tokenService", () => ({
 import * as appointmentsRepo from "./modules/appointments/repo";
 import { sendMagicLinkEmail } from "./_core/mailer";
 import { issueAppointmentAccessLinks } from "./modules/appointments/tokenService";
-import { paymentsRouter, settleStripePaymentBySessionId } from "./paymentsRouter";
+import { paymentsRouter, settleStripePaymentBySessionId } from "./routers/payments";
 import {
   clearTokenValidationStateForTests,
   validateAppointmentAccessToken,
@@ -111,8 +111,8 @@ describe("payments router", () => {
       patient: { token: "patient-token" },
       doctor: { token: "doctor-token" },
       expiresAt: new Date("2026-03-04T00:00:00.000Z"),
-      patientLink: "https://medibridge.test/room?token=patient-token",
-      doctorLink: "https://medibridge.test/room?token=doctor-token",
+      patientLink: "https://medibridge.test/visit/202?t=patient-token",
+      doctorLink: "https://medibridge.test/visit/202?t=doctor-token",
     } as never);
     vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined as never);
 
@@ -132,8 +132,8 @@ describe("payments router", () => {
     );
 
     expect(first.alreadySettled).toBe(false);
-    expect(first.patientLink).toContain("/room?token=patient-token");
-    expect(first.doctorLink).toContain("/room?token=doctor-token");
+    expect(first.patientLink).toContain("/visit/202?t=patient-token");
+    expect(first.doctorLink).toContain("/visit/202?t=doctor-token");
     expect(repeated.every(entry => entry.alreadySettled)).toBe(true);
     expect(repeated.every(entry => entry.patientLink === null)).toBe(true);
     expect(repeated.every(entry => entry.doctorLink === null)).toBe(true);
@@ -163,8 +163,8 @@ describe("payments router", () => {
       patient: { token: "patient-room-token" },
       doctor: { token: "doctor-room-token" },
       expiresAt: new Date(Date.now() + 60_000),
-      patientLink: "https://medibridge.test/visit?t=patient-room-token",
-      doctorLink: "https://medibridge.test/visit?t=doctor-room-token",
+      patientLink: "https://medibridge.test/visit/7001?t=patient-room-token",
+      doctorLink: "https://medibridge.test/visit/7001?t=doctor-room-token",
     } as never);
     vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined as never);
 
@@ -300,6 +300,41 @@ describe("payments router", () => {
     expect(result.checkoutSessionUrl).toContain("mockPaid=1");
     expect(appointmentsRepo.revokeAppointmentTokens).toHaveBeenCalledWith(
       expect.objectContaining({ appointmentId: 66, reason: "payment_reinitiated" })
+    );
+  });
+
+  it("confirmMockCheckoutByAppointment settles payment by booking id", async () => {
+    vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue({
+      id: 88,
+      stripeSessionId: "cs_test_booking_88",
+    } as never);
+    vi.mocked(appointmentsRepo.tryMarkPaidByStripeSessionId).mockResolvedValue(1 as never);
+    vi.mocked(appointmentsRepo.getAppointmentByStripeSessionId).mockResolvedValue({
+      id: 88,
+      status: "paid",
+      paymentStatus: "paid",
+      email: "patient@example.com",
+      scheduledAt: new Date("2026-03-03T10:00:00.000Z"),
+    } as never);
+    vi.mocked(issueAppointmentAccessLinks).mockResolvedValue({
+      patient: { token: "patient-token-88" },
+      doctor: { token: "doctor-token-88" },
+      expiresAt: new Date("2026-03-04T00:00:00.000Z"),
+      patientLink: "https://medibridge.test/visit/88?t=patient-token-88",
+      doctorLink: "https://medibridge.test/visit/88?t=doctor-token-88",
+    } as never);
+    vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined as never);
+
+    const caller = paymentsRouter.createCaller(createTestContext());
+    const result = await caller.confirmMockCheckoutByAppointment({
+      appointmentId: 88,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.appointmentId).toBe(88);
+    expect(result.stripeSessionId).toBe("cs_test_booking_88");
+    expect(appointmentsRepo.tryMarkPaidByStripeSessionId).toHaveBeenCalledWith(
+      expect.objectContaining({ stripeSessionId: "cs_test_booking_88" })
     );
   });
 });

@@ -125,7 +125,7 @@ export async function getLatestMessageCursor(appointmentId: number) {
 export async function createMessage(input: {
   appointmentId: number;
   userId?: number | null;
-  senderType: "patient" | "doctor";
+  senderType: "patient" | "doctor" | "system";
   content: string;
   originalContent: string;
   translatedContent: string;

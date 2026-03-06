@@ -260,7 +260,7 @@ describe("token validation", () => {
     }
   );
 
-  it("paid appointment can join but cannot send message", async () => {
+  it("paid appointment can join and can send message", async () => {
     vi.mocked(appointmentsRepo.getAppointmentTokenByHash).mockResolvedValue({
       id: 1,
       appointmentId: 777,
@@ -291,10 +291,77 @@ describe("token validation", () => {
         req: makeReq(),
         action: "send_message",
       })
-    ).rejects.toMatchObject<Partial<TRPCError>>({
-      code: "FORBIDDEN",
-      message: "APPOINTMENT_NOT_ALLOWED",
+    ).resolves.toMatchObject({
+      role: "patient",
+      appointmentId: 777,
     });
+  });
+
+  it("join_room allows idempotent reuse within active session window", async () => {
+    vi.mocked(appointmentsRepo.getAppointmentTokenByHash).mockResolvedValue({
+      id: 1,
+      appointmentId: 777,
+      role: "patient",
+      tokenHash: "a".repeat(64),
+      expiresAt: new Date(Date.now() + 60_000),
+      useCount: 1,
+      maxUses: 1,
+      lastUsedAt: new Date(Date.now() - 30_000),
+      revokedAt: null,
+      revokeReason: null,
+      ipFirstSeen: null,
+      uaFirstSeen: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never);
+    vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue(
+      paidAppointment() as never
+    );
+    vi.mocked(appointmentsRepo.saveTokenFirstSeen).mockResolvedValue(undefined as never);
+
+    await expect(
+      validateAppointmentAccessToken({
+        token: "token-1234567890abcdef",
+        req: makeReq(),
+        action: "join_room",
+      })
+    ).resolves.toBeTruthy();
+    expect(appointmentsRepo.updateTokenUsageIfAllowed).not.toHaveBeenCalled();
+  });
+
+  it("send_message is allowed after join consumed maxUses", async () => {
+    vi.mocked(appointmentsRepo.getAppointmentTokenByHash).mockResolvedValue({
+      id: 1,
+      appointmentId: 777,
+      role: "patient",
+      tokenHash: "a".repeat(64),
+      expiresAt: new Date(Date.now() + 60_000),
+      useCount: 1,
+      maxUses: 1,
+      lastUsedAt: new Date(Date.now() - 20 * 60 * 1000),
+      revokedAt: null,
+      revokeReason: null,
+      ipFirstSeen: null,
+      uaFirstSeen: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never);
+    vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue(
+      paidAppointment() as never
+    );
+    vi.mocked(appointmentsRepo.saveTokenFirstSeen).mockResolvedValue(undefined as never);
+
+    await expect(
+      validateAppointmentAccessToken({
+        token: "token-1234567890abcdef",
+        req: makeReq(),
+        action: "send_message",
+      })
+    ).resolves.toMatchObject({
+      role: "patient",
+      appointmentId: 777,
+    });
+    expect(appointmentsRepo.updateTokenUsageIfAllowed).not.toHaveBeenCalled();
   });
 
   it("active appointment allows send message", async () => {
@@ -329,7 +396,12 @@ describe("token validation", () => {
 
   it("APP_BASE_URL missing throws when building access link", () => {
     delete process.env.APP_BASE_URL;
-    expect(() => buildAppointmentAccessLink("abc")).toThrow("APP_BASE_URL_MISSING");
+    expect(() =>
+      buildAppointmentAccessLink({
+        appointmentId: 1,
+        token: "abc",
+      })
+    ).toThrow("APP_BASE_URL_MISSING");
   });
 
   it("IP failure rate limit returns TOO_MANY_REQUESTS", async () => {

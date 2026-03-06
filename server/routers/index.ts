@@ -1,8 +1,8 @@
 import { systemRouter } from "../_core/systemRouter";
 import { router } from "../_core/trpc";
-import { appointmentsRouter } from "../appointmentsRouter";
-import { paymentsRouter } from "../paymentsRouter";
-import { visitRouter } from "../visitRouter";
+import { appointmentsRouter } from "./appointments";
+import { paymentsRouter } from "./payments";
+import { visitRouter } from "./visit";
 import { aiRouter } from "./ai";
 import { authRouter } from "./auth";
 import { chatRouter } from "./chat";

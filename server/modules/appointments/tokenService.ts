@@ -106,7 +106,13 @@ export async function issueAppointmentAccessLinks(input: {
     patient,
     doctor,
     expiresAt: patient.expiresAt,
-    patientLink: buildAppointmentAccessLink(patient.token),
-    doctorLink: buildAppointmentAccessLink(doctor.token),
+    patientLink: buildAppointmentAccessLink({
+      appointmentId: input.appointmentId,
+      token: patient.token,
+    }),
+    doctorLink: buildAppointmentAccessLink({
+      appointmentId: input.appointmentId,
+      token: doctor.token,
+    }),
   };
 }
