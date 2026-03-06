@@ -2,9 +2,25 @@ import { useState, useEffect, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Send, Stethoscope, Hospital, User, ArrowRight, CheckCircle2 } from "lucide-react";
+import {
+  Loader2,
+  Send,
+  Stethoscope,
+  Hospital,
+  User,
+  ArrowRight,
+  CheckCircle2,
+  FlaskConical,
+  BookOpenText,
+} from "lucide-react";
 import { Streamdown } from "streamdown";
 import { Link } from "wouter";
 
@@ -18,28 +34,54 @@ interface RecommendedDoctor {
   reason: string;
 }
 
+const featuredTherapies = [
+  {
+    treatment:
+      "Axillary osmidrosis (狐臭) personalized minimally invasive management",
+    doctor: "潘博士团队",
+    note: "Featured specialty therapy. Please confirm candidacy and surgical plan with the registered doctor.",
+  },
+  {
+    treatment: "Complex oncology MDT second opinions",
+    doctor: "三甲肿瘤专科医生",
+    note: "Cross-discipline decision support for surgery, targeted therapy, and follow-up.",
+  },
+  {
+    treatment: "Joint preservation and sports injury rehabilitation",
+    doctor: "骨科与康复联合门诊",
+    note: "Supports treatment planning for ACL/meniscus injuries and chronic joint pain.",
+  },
+];
+
 export default function Home() {
   const [sessionId, setSessionId] = useState<string>("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [recommendedDoctors, setRecommendedDoctors] = useState<RecommendedDoctor[]>([]);
+  const [recommendedDoctors, setRecommendedDoctors] = useState<
+    RecommendedDoctor[]
+  >([]);
   const [showChat, setShowChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { data: departmentHighlights } =
+    trpc.doctors.getDepartmentHighlights.useQuery(
+      { limitDepartments: 8, doctorsPerDepartment: 2 },
+      { enabled: !showChat }
+    );
 
   const sendMessageMutation = trpc.chat.sendMessage.useMutation({
-    onSuccess: (data) => {
+    onSuccess: data => {
       setSessionId(data.sessionId);
       setMessages(prev => [
         ...prev,
         { role: "user", content: input },
-        { role: "assistant", content: data.message }
+        { role: "assistant", content: data.message },
       ]);
       setInput("");
-      
+
       if (data.recommendedDoctors && data.recommendedDoctors.length > 0) {
         setRecommendedDoctors(data.recommendedDoctors);
       }
-    }
+    },
   });
 
   useEffect(() => {
@@ -56,7 +98,7 @@ export default function Home() {
     sendMessageMutation.mutate({
       sessionId: sessionId || undefined,
       message: input,
-      chatHistory: messages
+      chatHistory: messages,
     });
   };
 
@@ -83,8 +125,12 @@ export default function Home() {
                 <Stethoscope className="w-6 h-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">MediBridge</h1>
-                <p className="text-sm text-muted-foreground">AI-Powered Medical Bridge to China</p>
+                <h1 className="text-2xl font-bold text-foreground">
+                  MediBridge
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  AI-Powered Medical Bridge to China
+                </p>
               </div>
             </div>
             <div className="flex gap-2">
@@ -112,10 +158,16 @@ export default function Home() {
                 Connect with Top Chinese Medical Experts
               </h2>
               <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-                MediBridge uses AI to match you with the best doctors and specialists from Shanghai's premier hospitals. Get expert medical opinions and treatment options in China.
+                MediBridge uses AI to match you with the best doctors and
+                specialists from Shanghai's premier hospitals. Get expert
+                medical opinions and treatment options in China.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button size="lg" className="text-lg px-8" onClick={() => setShowChat(true)}>
+                <Button
+                  size="lg"
+                  className="text-lg px-8"
+                  onClick={() => setShowChat(true)}
+                >
                   Start Consultation
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
@@ -138,7 +190,8 @@ export default function Home() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-muted-foreground">
-                    Our intelligent system analyzes your symptoms and medical needs to recommend the most suitable specialists.
+                    Our intelligent system analyzes your symptoms and medical
+                    needs to recommend the most suitable specialists.
                   </p>
                 </CardContent>
               </Card>
@@ -152,7 +205,8 @@ export default function Home() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-muted-foreground">
-                    Access over 1,100 doctors from 6 prestigious Grade-A tertiary hospitals in Shanghai.
+                    Access over 1,100 doctors from 6 prestigious Grade-A
+                    tertiary hospitals in Shanghai.
                   </p>
                 </CardContent>
               </Card>
@@ -166,23 +220,97 @@ export default function Home() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-muted-foreground">
-                    Connect with highly-rated specialists across cardiology, oncology, orthopedics, and more.
+                    Connect with highly-rated specialists across cardiology,
+                    oncology, orthopedics, and more.
                   </p>
                 </CardContent>
               </Card>
             </div>
 
+            {/* Featured Therapies */}
+            <div className="mb-16">
+              <div className="flex items-center gap-2 mb-4">
+                <FlaskConical className="w-5 h-5 text-primary" />
+                <h3 className="text-2xl font-bold">Featured Therapies</h3>
+              </div>
+              <p className="text-muted-foreground mb-6">
+                Start with HaoDF-backed doctor profiles and highlight specialty
+                treatments on the homepage.
+              </p>
+              <div className="grid md:grid-cols-3 gap-6">
+                {featuredTherapies.map(item => (
+                  <Card key={item.treatment}>
+                    <CardHeader>
+                      <CardTitle className="text-lg">
+                        {item.treatment}
+                      </CardTitle>
+                      <CardDescription>{item.doctor}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">
+                        {item.note}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            {/* Department quick guide */}
+            <div className="mb-16">
+              <div className="flex items-center gap-2 mb-4">
+                <BookOpenText className="w-5 h-5 text-primary" />
+                <h3 className="text-2xl font-bold">Department Quick Guide</h3>
+              </div>
+              <p className="text-muted-foreground mb-6">
+                We introduce 1-2 representative doctors in each department to
+                help patients understand where to consult first.
+              </p>
+              <div className="grid md:grid-cols-2 gap-4">
+                {departmentHighlights?.map(item => (
+                  <Card key={item.department.id}>
+                    <CardHeader>
+                      <CardTitle className="text-lg">
+                        {item.department.name}
+                      </CardTitle>
+                      <CardDescription>{item.hospital.name}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {item.doctors.map(doctor => (
+                        <div key={doctor.id} className="rounded-md border p-3">
+                          <p className="font-medium">{doctor.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {doctor.title || "Specialist"}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                            {doctor.expertise ||
+                              doctor.specialty ||
+                              "Consult this department for detailed scope and treatment options."}
+                          </p>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
             {/* How It Works */}
             <div className="bg-card rounded-lg p-8 border">
-              <h3 className="text-2xl font-bold text-center mb-8">How It Works</h3>
+              <h3 className="text-2xl font-bold text-center mb-8">
+                How It Works
+              </h3>
               <div className="grid md:grid-cols-3 gap-8">
                 <div className="text-center">
                   <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl font-bold mx-auto mb-4">
                     1
                   </div>
-                  <h4 className="font-semibold mb-2">Describe Your Condition</h4>
+                  <h4 className="font-semibold mb-2">
+                    Describe Your Condition
+                  </h4>
                   <p className="text-sm text-muted-foreground">
-                    Chat with our AI assistant about your symptoms and medical history
+                    Chat with our AI assistant about your symptoms and medical
+                    history
                   </p>
                 </div>
                 <div className="text-center">
@@ -191,7 +319,8 @@ export default function Home() {
                   </div>
                   <h4 className="font-semibold mb-2">Get Recommendations</h4>
                   <p className="text-sm text-muted-foreground">
-                    Receive personalized doctor recommendations based on your needs
+                    Receive personalized doctor recommendations based on your
+                    needs
                   </p>
                 </div>
                 <div className="text-center">
@@ -200,7 +329,8 @@ export default function Home() {
                   </div>
                   <h4 className="font-semibold mb-2">Connect with Doctors</h4>
                   <p className="text-sm text-muted-foreground">
-                    View detailed profiles and connect with your chosen specialists
+                    View detailed profiles and connect with your chosen
+                    specialists
                   </p>
                 </div>
               </div>
@@ -210,31 +340,43 @@ export default function Home() {
             <div className="mt-12 text-center">
               <p className="text-muted-foreground mb-4">Try asking about:</p>
               <div className="flex flex-wrap gap-3 justify-center">
-                <Badge 
-                  variant="secondary" 
+                <Badge
+                  variant="secondary"
                   className="cursor-pointer hover:bg-secondary/80 py-2 px-4 text-sm"
-                  onClick={() => handleQuickStart("I have persistent chest pain and shortness of breath")}
+                  onClick={() =>
+                    handleQuickStart(
+                      "I have persistent chest pain and shortness of breath"
+                    )
+                  }
                 >
                   Heart Problems
                 </Badge>
-                <Badge 
-                  variant="secondary" 
+                <Badge
+                  variant="secondary"
                   className="cursor-pointer hover:bg-secondary/80 py-2 px-4 text-sm"
-                  onClick={() => handleQuickStart("I need a cancer screening and consultation")}
+                  onClick={() =>
+                    handleQuickStart(
+                      "I need a cancer screening and consultation"
+                    )
+                  }
                 >
                   Cancer Screening
                 </Badge>
-                <Badge 
-                  variant="secondary" 
+                <Badge
+                  variant="secondary"
                   className="cursor-pointer hover:bg-secondary/80 py-2 px-4 text-sm"
-                  onClick={() => handleQuickStart("I have chronic knee pain when walking")}
+                  onClick={() =>
+                    handleQuickStart("I have chronic knee pain when walking")
+                  }
                 >
                   Joint Pain
                 </Badge>
-                <Badge 
-                  variant="secondary" 
+                <Badge
+                  variant="secondary"
                   className="cursor-pointer hover:bg-secondary/80 py-2 px-4 text-sm"
-                  onClick={() => handleQuickStart("I need a neurological consultation")}
+                  onClick={() =>
+                    handleQuickStart("I need a neurological consultation")
+                  }
                 >
                   Neurological Issues
                 </Badge>
@@ -252,7 +394,8 @@ export default function Home() {
                 <CardHeader className="border-b">
                   <CardTitle>AI Medical Consultation</CardTitle>
                   <CardDescription>
-                    Describe your symptoms and we'll recommend the best doctors for you
+                    Describe your symptoms and we'll recommend the best doctors
+                    for you
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0 flex flex-col h-[calc(100%-5rem)]">
@@ -263,9 +406,12 @@ export default function Home() {
                         <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                           <Stethoscope className="w-8 h-8 text-primary" />
                         </div>
-                        <h3 className="text-lg font-semibold mb-2">Welcome to MediBridge</h3>
+                        <h3 className="text-lg font-semibold mb-2">
+                          Welcome to MediBridge
+                        </h3>
                         <p className="text-muted-foreground max-w-md mx-auto">
-                          Please describe your symptoms or health concerns, and our AI will help you find the most suitable specialist
+                          Please describe your symptoms or health concerns, and
+                          our AI will help you find the most suitable specialist
                         </p>
                       </div>
                     )}
@@ -320,7 +466,7 @@ export default function Home() {
                     <div className="flex gap-2">
                       <Input
                         value={input}
-                        onChange={(e) => setInput(e.target.value)}
+                        onChange={e => setInput(e.target.value)}
                         onKeyPress={handleKeyPress}
                         placeholder="Describe your symptoms..."
                         disabled={sendMessageMutation.isPending}
@@ -328,7 +474,9 @@ export default function Home() {
                       />
                       <Button
                         onClick={handleSend}
-                        disabled={!input.trim() || sendMessageMutation.isPending}
+                        disabled={
+                          !input.trim() || sendMessageMutation.isPending
+                        }
                       >
                         {sendMessageMutation.isPending ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -382,7 +530,7 @@ export default function Home() {
 function DoctorRecommendationCard({
   doctorId,
   reason,
-  rank
+  rank,
 }: {
   doctorId: number;
   reason: string;
@@ -412,19 +560,29 @@ function DoctorRecommendationCard({
             <span className="text-sm font-bold text-primary">#{rank}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-foreground truncate">{doctor.name}</h4>
+            <h4 className="font-semibold text-foreground truncate">
+              {doctor.name}
+            </h4>
             <p className="text-sm text-muted-foreground">{doctor.title}</p>
             <div className="mt-1 flex flex-wrap gap-1">
-              <Badge variant="outline" className="text-xs">{hospital.name}</Badge>
-              <Badge variant="outline" className="text-xs">{department.name}</Badge>
+              <Badge variant="outline" className="text-xs">
+                {hospital.name}
+              </Badge>
+              <Badge variant="outline" className="text-xs">
+                {department.name}
+              </Badge>
             </div>
             {doctor.recommendationScore && (
               <div className="mt-2 flex items-center gap-1">
                 <span className="text-xs text-muted-foreground">Rating:</span>
-                <span className="text-xs font-semibold text-secondary">{doctor.recommendationScore}</span>
+                <span className="text-xs font-semibold text-secondary">
+                  {doctor.recommendationScore}
+                </span>
               </div>
             )}
-            <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{reason}</p>
+            <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
+              {reason}
+            </p>
             <div className="mt-3 flex gap-2">
               <Link href={`/doctor/${doctorId}`}>
                 <Button variant="outline" size="sm" className="text-xs">
