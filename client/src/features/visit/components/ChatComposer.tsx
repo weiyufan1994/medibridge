@@ -12,6 +12,7 @@ type ChatComposerProps = {
   hint: string;
   placeholder: string;
   onSelectAttachment?: (file: File) => void;
+  tone?: "default" | "embedded";
 };
 
 export function ChatComposer({
@@ -23,6 +24,7 @@ export function ChatComposer({
   hint,
   placeholder,
   onSelectAttachment,
+  tone = "default",
 }: ChatComposerProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -35,8 +37,14 @@ export function ChatComposer({
   }, [value]);
 
   return (
-    <div className="bg-white px-5 py-4">
-      <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 shadow-sm transition-colors focus-within:border-teal-500 focus-within:shadow-inner">
+    <div className={tone === "embedded" ? "bg-transparent px-2 py-2" : "bg-white px-5 py-4"}>
+      <div
+        className={
+          tone === "embedded"
+            ? "flex items-center gap-3 rounded-xl px-3 py-2 transition-colors"
+            : "flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 shadow-sm transition-colors focus-within:border-teal-500 focus-within:shadow-inner"
+        }
+      >
         <input
           ref={fileInputRef}
           type="file"
@@ -54,7 +62,7 @@ export function ChatComposer({
           type="button"
           variant="ghost"
           size="icon"
-          className="h-9 w-9 shrink-0 self-center rounded-full p-0 text-slate-700 hover:bg-slate-200/80"
+          className="h-9 w-9 shrink-0 items-center self-center rounded-full p-0 text-slate-700 hover:bg-slate-200/80"
           disabled={disabled}
           onClick={() => fileInputRef.current?.click()}
           aria-label="Upload medical image"
@@ -80,7 +88,7 @@ export function ChatComposer({
           type="button"
           onClick={onSend}
           disabled={disabled || !value.trim()}
-          className="h-9 w-9 shrink-0 self-center rounded-full bg-teal-600 p-0 text-white shadow-sm transition-opacity hover:bg-teal-700 disabled:opacity-40"
+          className="h-9 w-9 shrink-0 items-center self-center rounded-full bg-teal-600 p-0 text-white shadow-sm transition-opacity hover:bg-teal-700 disabled:opacity-40"
           aria-label="Send message"
         >
           {isSending ? (
@@ -90,7 +98,9 @@ export function ChatComposer({
           )}
         </Button>
       </div>
-      <p className="mt-2 text-right text-xs text-slate-500">{hint}</p>
+      <p className={tone === "embedded" ? "mt-1 px-1 text-right text-xs text-slate-500" : "mt-2 text-right text-xs text-slate-500"}>
+        {hint}
+      </p>
     </div>
   );
 }

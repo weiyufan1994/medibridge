@@ -7,14 +7,14 @@ import type {
 
 type VisitMessageBubbleProps = {
   message: VisitMessageItem;
-  viewerRole: VisitParticipantRole;
+  rightAlignRole: VisitParticipantRole;
   showTimestamp: boolean;
   compactWithPrev: boolean;
 };
 
 export function VisitMessageBubble({
   message,
-  viewerRole,
+  rightAlignRole,
   showTimestamp,
   compactWithPrev,
 }: VisitMessageBubbleProps) {
@@ -32,13 +32,12 @@ export function VisitMessageBubble({
     );
   }
 
-  // Principle: messages from the current viewer's role stay on the right.
-  const isViewerMessage = message.senderType === viewerRole;
-  const wrapperClass = isViewerMessage ? "justify-end" : "justify-start";
-  const bubbleClass = isViewerMessage
+  const isRightMessage = message.senderType === rightAlignRole;
+  const wrapperClass = isRightMessage ? "justify-end" : "justify-start";
+  const bubbleClass = isRightMessage
     ? "bg-teal-600 text-white"
     : "bg-slate-100 text-slate-800";
-  const timestampClass = isViewerMessage
+  const timestampClass = isRightMessage
     ? "text-right text-[11px] text-slate-500"
     : "text-left text-[11px] text-slate-500";
   const canToggleOriginal =
@@ -56,7 +55,7 @@ export function VisitMessageBubble({
         <div
           className={cn(
             "relative rounded-2xl px-4 py-3 text-sm leading-relaxed",
-            isViewerMessage
+            isRightMessage
               ? "after:absolute after:-right-1 after:bottom-3 after:h-2.5 after:w-2.5 after:rotate-45 after:bg-teal-600 after:content-['']"
               : "after:absolute after:-left-1 after:bottom-3 after:h-2.5 after:w-2.5 after:rotate-45 after:bg-slate-100 after:content-['']",
             bubbleClass
@@ -69,7 +68,7 @@ export function VisitMessageBubble({
             type="button"
             className={cn(
               "mt-1 text-[11px] underline underline-offset-2",
-              isViewerMessage
+              isRightMessage
                 ? "text-right text-slate-500"
                 : "text-left text-slate-500"
             )}
