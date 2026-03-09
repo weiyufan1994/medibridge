@@ -18,7 +18,7 @@ export default function AdminPage() {
   const locale = lang === "zh" ? "zh-CN" : "en-US";
   const tr = (zh: string, en: string) => (lang === "zh" ? zh : en);
   const role = (user as { role?: string } | null)?.role;
-  const isAdmin = role === "pro" || role === "admin";
+  const isAdmin = role === "admin";
 
   const {
     emailQuery,

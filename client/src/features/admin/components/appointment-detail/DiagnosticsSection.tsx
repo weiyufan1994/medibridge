@@ -25,15 +25,15 @@ export function DiagnosticsSection({ tr, lang, locale, detailData }: Diagnostics
         {detailData?.activeTokens?.length ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-xs">
-              <thead>
-                <tr className="border-b">
-                  <th className="px-2 py-1 text-left">Role</th>
-                  <th className="px-2 py-1 text-left">Uses</th>
-                  <th className="px-2 py-1 text-left">Last Used</th>
-                  <th className="px-2 py-1 text-left">Expires</th>
-                  <th className="px-2 py-1 text-left">IP</th>
-                </tr>
-              </thead>
+                  <thead>
+                    <tr className="border-b">
+                  <th className="px-2 py-1 text-left">{tr("角色", "Role")}</th>
+                  <th className="px-2 py-1 text-left">{tr("使用次数", "Uses")}</th>
+                  <th className="px-2 py-1 text-left">{tr("上次使用", "Last Used")}</th>
+                  <th className="px-2 py-1 text-left">{tr("过期时间", "Expires")}</th>
+                  <th className="px-2 py-1 text-left">{tr("IP", "IP")}</th>
+                    </tr>
+                  </thead>
               <tbody>
                 {detailData.activeTokens.map(token => (
                   <tr key={token.id} className="border-b">
@@ -58,16 +58,16 @@ export function DiagnosticsSection({ tr, lang, locale, detailData }: Diagnostics
         <p className="text-sm font-medium">{tr("状态时间线", "Status Timeline")}</p>
         {detailData?.statusEvents?.length ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-xs">
-              <thead>
-                <tr className="border-b">
-                  <th className="px-2 py-1 text-left">Time</th>
-                  <th className="px-2 py-1 text-left">From</th>
-                  <th className="px-2 py-1 text-left">To</th>
-                  <th className="px-2 py-1 text-left">Operator</th>
-                  <th className="px-2 py-1 text-left">Reason</th>
-                </tr>
-              </thead>
+                <table className="w-full min-w-[900px] text-xs">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="px-2 py-1 text-left">{tr("时间", "Time")}</th>
+                      <th className="px-2 py-1 text-left">{tr("来源", "From")}</th>
+                      <th className="px-2 py-1 text-left">{tr("目标", "To")}</th>
+                      <th className="px-2 py-1 text-left">{tr("操作者", "Operator")}</th>
+                      <th className="px-2 py-1 text-left">{tr("原因", "Reason")}</th>
+                    </tr>
+                  </thead>
               <tbody>
                 {detailData.statusEvents.map(event => (
                   <tr key={event.id} className="border-b">
@@ -97,17 +97,17 @@ export function DiagnosticsSection({ tr, lang, locale, detailData }: Diagnostics
         <p className="text-sm font-medium">{tr("Stripe Webhook 事件", "Stripe Webhook Events")}</p>
         {detailData?.webhookEvents?.length ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-xs">
-              <thead>
-                <tr className="border-b">
-                  <th className="px-2 py-1 text-left">Time</th>
-                  <th className="px-2 py-1 text-left">Event ID</th>
-                  <th className="px-2 py-1 text-left">Type</th>
-                  <th className="px-2 py-1 text-left">Outcome</th>
-                  <th className="px-2 py-1 text-left">Stripe Session</th>
-                  <th className="px-2 py-1 text-left">Appointment</th>
-                </tr>
-              </thead>
+                <table className="w-full min-w-[900px] text-xs">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="px-2 py-1 text-left">{tr("时间", "Time")}</th>
+                      <th className="px-2 py-1 text-left">{tr("事件 ID", "Event ID")}</th>
+                      <th className="px-2 py-1 text-left">{tr("类型", "Type")}</th>
+                      <th className="px-2 py-1 text-left">{tr("结果", "Outcome")}</th>
+                      <th className="px-2 py-1 text-left">{tr("Stripe 会话", "Stripe Session")}</th>
+                      <th className="px-2 py-1 text-left">{tr("预约", "Appointment")}</th>
+                    </tr>
+                  </thead>
               <tbody>
                 {detailData.webhookEvents.map(event => {
                   const outcome = toWebhookOutcome(event.type);
@@ -143,11 +143,11 @@ export function DiagnosticsSection({ tr, lang, locale, detailData }: Diagnostics
             <table className="w-full min-w-[980px] text-xs">
               <thead>
                 <tr className="border-b bg-slate-50">
-                  <th className="px-2 py-1 text-left">Time</th>
-                  <th className="px-2 py-1 text-left">Sender</th>
-                  <th className="px-2 py-1 text-left">Displayed</th>
-                  <th className="px-2 py-1 text-left">Original</th>
-                  <th className="px-2 py-1 text-left">Lang</th>
+                  <th className="px-2 py-1 text-left">{tr("时间", "Time")}</th>
+                  <th className="px-2 py-1 text-left">{tr("发送者", "Sender")}</th>
+                  <th className="px-2 py-1 text-left">{tr("展示内容", "Displayed")}</th>
+                  <th className="px-2 py-1 text-left">{tr("原文", "Original")}</th>
+                  <th className="px-2 py-1 text-left">{tr("语言", "Lang")}</th>
                 </tr>
               </thead>
               <tbody>

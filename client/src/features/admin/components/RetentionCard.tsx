@@ -148,20 +148,22 @@ export function RetentionCard({
             <div className="overflow-x-auto">
               <table className="w-full min-w-[900px] text-xs">
                 <thead>
-                  <tr className="border-b">
-                    <th className="px-2 py-1 text-left">Time</th>
-                    <th className="px-2 py-1 text-left">Mode</th>
-                    <th className="px-2 py-1 text-left">Candidates</th>
-                    <th className="px-2 py-1 text-left">Deleted</th>
-                    <th className="px-2 py-1 text-left">Policy</th>
-                    <th className="px-2 py-1 text-left">Details</th>
+                <tr className="border-b">
+                    <th className="px-2 py-1 text-left">{tr("时间", "Time")}</th>
+                    <th className="px-2 py-1 text-left">{tr("模式", "Mode")}</th>
+                    <th className="px-2 py-1 text-left">{tr("候选数量", "Candidates")}</th>
+                    <th className="px-2 py-1 text-left">{tr("删除", "Deleted")}</th>
+                    <th className="px-2 py-1 text-left">{tr("策略", "Policy")}</th>
+                    <th className="px-2 py-1 text-left">{tr("详情", "Details")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {audits.map(item => (
                     <tr key={item.id} className="border-b align-top">
                       <td className="px-2 py-1 whitespace-nowrap">{formatDate(item.createdAt, locale)}</td>
-                      <td className="px-2 py-1">{item.dryRun ? "dry-run" : "real"}</td>
+                      <td className="px-2 py-1">
+                        {item.dryRun ? tr("演练", "Dry-Run") : tr("真实", "Real")}
+                      </td>
                       <td className="px-2 py-1">
                         {String((item.detailsJson as { totalCandidates?: number })?.totalCandidates ?? "-")}
                       </td>

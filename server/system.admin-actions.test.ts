@@ -44,7 +44,7 @@ function createAdminCaller() {
   return systemRouter.createCaller({
     user: {
       id: 99,
-      role: "pro",
+      role: "admin",
     },
     req: {
       protocol: "https",

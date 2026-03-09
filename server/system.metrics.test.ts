@@ -15,7 +15,7 @@ describe("system.metrics", () => {
     const caller = systemRouter.createCaller({
       user: {
         id: 1,
-        role: "pro",
+        role: "admin",
       } as never,
     } as never);
 

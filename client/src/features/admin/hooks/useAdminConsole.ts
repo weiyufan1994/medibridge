@@ -259,12 +259,12 @@ export function useAdminConsole({
   });
 
   const risks = useMemo(
-    () => computeAdminRisks(appointmentDetailQuery.data),
-    [appointmentDetailQuery.data]
+    () => computeAdminRisks(appointmentDetailQuery.data, new Date(), lang),
+    [appointmentDetailQuery.data, lang]
   );
   const suggestions = useMemo(
-    () => computeAdminSuggestions(appointmentDetailQuery.data, risks),
-    [appointmentDetailQuery.data, risks]
+    () => computeAdminSuggestions(appointmentDetailQuery.data, risks, lang),
+    [appointmentDetailQuery.data, risks, lang]
   );
 
   const openAppointmentById = () => {

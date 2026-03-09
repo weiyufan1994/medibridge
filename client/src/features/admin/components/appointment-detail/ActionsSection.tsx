@@ -217,13 +217,13 @@ export function ActionsSection({
         ) : visitSummaryQuery.data ? (
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
             <div className="rounded bg-slate-50 p-2">
-              <p className="mb-1 text-xs font-medium text-slate-700">中文</p>
+              <p className="mb-1 text-xs font-medium text-slate-700">{tr("中文", "Chinese")}</p>
               <pre className="overflow-auto whitespace-pre-wrap text-xs">
                 {visitSummaryQuery.data.summaryZh}
               </pre>
             </div>
             <div className="rounded bg-slate-50 p-2">
-              <p className="mb-1 text-xs font-medium text-slate-700">English</p>
+              <p className="mb-1 text-xs font-medium text-slate-700">{tr("English", "English")}</p>
               <pre className="overflow-auto whitespace-pre-wrap text-xs">
                 {visitSummaryQuery.data.summaryEn}
               </pre>
@@ -238,9 +238,9 @@ export function ActionsSection({
 
       {issuedLinks ? (
         <div className="rounded border bg-slate-50 p-3 text-xs">
-          <p className="font-medium">Issued Links</p>
-          <p className="mt-1 break-all">Patient: {issuedLinks.patientLink}</p>
-          <p className="mt-1 break-all">Doctor: {issuedLinks.doctorLink}</p>
+          <p className="font-medium">{tr("签发链接", "Issued Links")}</p>
+          <p className="mt-1 break-all">{tr("患者：", "Patient: ")} {issuedLinks.patientLink}</p>
+          <p className="mt-1 break-all">{tr("医生：", "Doctor: ")} {issuedLinks.doctorLink}</p>
         </div>
       ) : null}
     </>

@@ -122,7 +122,7 @@ export default function TopHeader(props: TopHeaderProps) {
                   <LayoutDashboard className="h-4 w-4 text-slate-500" />
                   {t.dashboard}
                 </DropdownMenuItem>
-                {user?.role === "pro" || user?.role === "admin" ? (
+                {user?.role === "admin" ? (
                   <DropdownMenuItem className="rounded-lg" onClick={() => setLocation("/admin")}>
                     <Shield className="h-4 w-4 text-slate-500" />
                     {t.admin}

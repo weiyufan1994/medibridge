@@ -82,13 +82,13 @@ export function AppointmentDetailCard({
   issuedLinks,
 }: AppointmentDetailCardProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          Appointment Detail
-          {selectedAppointmentId ? ` #${selectedAppointmentId}` : ""}
-        </CardTitle>
-      </CardHeader>
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {tr("预约详情", "Appointment Detail")}
+            {selectedAppointmentId ? ` #${selectedAppointmentId}` : ""}
+          </CardTitle>
+        </CardHeader>
       <CardContent>
         {!selectedAppointmentId ? (
           <p className="text-sm text-muted-foreground">

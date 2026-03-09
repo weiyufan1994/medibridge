@@ -26,27 +26,27 @@ export function OverviewSection({
     <>
       <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
         <p>
-          <span className="font-medium">Email: </span>
+          <span className="font-medium">{tr("邮箱：", "Email: ")}</span>
           {detailData?.appointment.email}
         </p>
         <p>
-          <span className="font-medium">Status: </span>
+          <span className="font-medium">{tr("状态：", "Status: ")}</span>
           {detailData?.appointment.status}
         </p>
         <p>
-          <span className="font-medium">Payment: </span>
+          <span className="font-medium">{tr("支付：", "Payment: ")}</span>
           {detailData?.appointment.paymentStatus}
         </p>
         <p>
-          <span className="font-medium">Amount: </span>
+          <span className="font-medium">{tr("金额：", "Amount: ")}</span>
           {detailData?.appointment.amount} {detailData?.appointment.currency.toUpperCase()}
         </p>
         <p>
-          <span className="font-medium">Scheduled: </span>
+          <span className="font-medium">{tr("预约时间：", "Scheduled: ")}</span>
           {formatDate(detailData?.appointment.scheduledAt ?? null, locale)}
         </p>
         <p>
-          <span className="font-medium">Paid at: </span>
+          <span className="font-medium">{tr("支付时间：", "Paid at: ")}</span>
           {formatDate(detailData?.appointment.paidAt ?? null, locale)}
         </p>
       </div>
@@ -99,13 +99,13 @@ export function OverviewSection({
       <div className="space-y-2 rounded border p-3">
         <p className="text-sm font-medium">{tr("医生 / 分诊信息", "Doctor / Triage")}</p>
         <p className="text-sm text-muted-foreground">
-          Doctor:{" "}
+          {tr("医生：", "Doctor: ")}
           {detailData?.doctor
             ? `${detailData.doctor.name} (${detailData.doctor.departmentName})`
             : tr("未知", "Unknown")}
         </p>
         <p className="text-sm text-muted-foreground">
-          Triage summary: {detailData?.triageSession?.summary || "-"}
+          {tr("分诊总结：", "Triage summary: ")} {detailData?.triageSession?.summary || "-"}
         </p>
       </div>
 

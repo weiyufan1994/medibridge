@@ -52,10 +52,10 @@ export function AppointmentsCard({
               <thead>
                 <tr className="border-b">
                   <th className="px-2 py-2 text-left">ID</th>
-                  <th className="px-2 py-2 text-left">Email</th>
-                  <th className="px-2 py-2 text-left">Status</th>
+                  <th className="px-2 py-2 text-left">{tr("邮箱", "Email")}</th>
+                  <th className="px-2 py-2 text-left">{tr("状态", "Status")}</th>
                   <th className="px-2 py-2 text-left">{tr("支付", "Payment")}</th>
-                  <th className="px-2 py-2 text-left">Amount</th>
+                  <th className="px-2 py-2 text-left">{tr("金额", "Amount")}</th>
                   <th className="px-2 py-2 text-left">{tr("医生", "Doctor")}</th>
                   <th className="px-2 py-2 text-left">{tr("分诊会话", "Triage Session")}</th>
                   <th className="px-2 py-2 text-left">{tr("创建时间", "Created")}</th>
