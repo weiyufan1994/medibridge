@@ -35,8 +35,8 @@ export function ChatComposer({
   }, [value]);
 
   return (
-    <div className="bg-white px-4 py-3">
-      <div className="flex items-end gap-3 rounded-2xl border border-slate-200/80 bg-white px-3 py-2">
+    <div className="bg-white px-5 py-4">
+      <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 shadow-sm transition-colors focus-within:border-teal-500 focus-within:shadow-inner">
         <input
           ref={fileInputRef}
           type="file"
@@ -54,7 +54,7 @@ export function ChatComposer({
           type="button"
           variant="ghost"
           size="icon"
-          className="h-9 w-9 shrink-0 rounded-full text-slate-500 hover:bg-slate-100"
+          className="h-9 w-9 shrink-0 self-center rounded-full p-0 text-slate-700 hover:bg-slate-200/80"
           disabled={disabled}
           onClick={() => fileInputRef.current?.click()}
           aria-label="Upload medical image"
@@ -68,7 +68,7 @@ export function ChatComposer({
           placeholder={placeholder}
           rows={1}
           disabled={disabled}
-          className="min-h-[46px] max-h-[180px] resize-none border-0 bg-transparent px-0 py-2 shadow-none focus-visible:ring-0"
+          className="min-h-[46px] max-h-[180px] resize-none border-0 bg-transparent px-0 py-2 leading-6 shadow-none focus-visible:ring-0"
           onKeyDown={event => {
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
@@ -80,7 +80,7 @@ export function ChatComposer({
           type="button"
           onClick={onSend}
           disabled={disabled || !value.trim()}
-          className="h-9 w-9 shrink-0 rounded-full bg-teal-600 p-0 hover:bg-teal-700 disabled:opacity-60"
+          className="h-9 w-9 shrink-0 self-center rounded-full bg-teal-600 p-0 text-white shadow-sm transition-opacity hover:bg-teal-700 disabled:opacity-40"
           aria-label="Send message"
         >
           {isSending ? (

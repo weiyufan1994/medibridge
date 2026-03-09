@@ -1,6 +1,5 @@
 import type { RefObject } from "react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VisitMessageBubble } from "@/features/visit/components/VisitMessageBubble";
 import type { VisitMessageItem, VisitParticipantRole } from "@/features/visit/types";
@@ -9,13 +8,10 @@ type VisitMessagesListProps = {
   showInitialSkeleton: boolean;
   currentRole: VisitParticipantRole;
   messages: VisitMessageItem[];
-  summaryTitle: string;
-  summaryText: string;
   hasMoreHistory: boolean;
   isLoadingOlder: boolean;
   onLoadOlder: () => void;
   scrollContainerRef: RefObject<HTMLDivElement | null>;
-  emptyStateText: string;
   loadEarlierText: string;
   loadingEarlierText: string;
 };
@@ -24,20 +20,17 @@ export function VisitMessagesList({
   showInitialSkeleton,
   currentRole,
   messages,
-  summaryTitle,
-  summaryText,
   hasMoreHistory,
   isLoadingOlder,
   onLoadOlder,
   scrollContainerRef,
-  emptyStateText,
   loadEarlierText,
   loadingEarlierText,
 }: VisitMessagesListProps) {
   return (
-    <section className="min-h-0 flex-1">
+    <section className="min-h-0 flex-1 overflow-y-auto">
       <div ref={scrollContainerRef} className="h-full">
-        <ScrollArea className="h-full">
+        <div data-slot="scroll-area-viewport" className="h-full overflow-y-auto">
           <div className="p-5">
             {hasMoreHistory ? (
               <div className="mb-3 flex justify-center">
@@ -55,12 +48,6 @@ export function VisitMessagesList({
                 )}
               </div>
             ) : null}
-            <div className="mb-4 rounded-2xl bg-blue-50/50 px-4 py-3">
-              <p className="text-xs font-medium text-blue-900">{summaryTitle}</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-                {summaryText}
-              </p>
-            </div>
             {showInitialSkeleton ? (
               <div className="space-y-3">
                 <div className="flex justify-start">
@@ -82,14 +69,7 @@ export function VisitMessagesList({
                   <Skeleton className="h-6 w-40 rounded-full" />
                 </div>
               </div>
-            ) : messages.length === 0 ? (
-              <div className="relative flex h-[38vh] items-center justify-center">
-                <div className="absolute inset-y-4 left-1/2 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-slate-100 to-transparent" />
-                <p className="relative bg-white px-3 text-sm text-slate-400">
-                  {emptyStateText}
-                </p>
-              </div>
-            ) : (
+            ) : messages.length === 0 ? null : (
               <div className="space-y-4">
                 {messages.map((message, index) => {
                   const previous = messages[index - 1];
@@ -112,7 +92,7 @@ export function VisitMessagesList({
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </div>
     </section>
   );

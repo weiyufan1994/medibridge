@@ -32,12 +32,12 @@ export function VisitMessageBubble({
     );
   }
 
-  const isMine = message.senderType === currentRole;
-  const wrapperClass = isMine ? "justify-end" : "justify-start";
-  const bubbleClass = isMine
+  const isOwnMessage = message.senderType === currentRole;
+  const wrapperClass = isOwnMessage ? "justify-end" : "justify-start";
+  const bubbleClass = isOwnMessage
     ? "bg-teal-600 text-white"
     : "bg-slate-100 text-slate-800";
-  const timestampClass = isMine
+  const timestampClass = isOwnMessage
     ? "text-right text-[11px] text-slate-500"
     : "text-left text-[11px] text-slate-500";
   const canToggleOriginal =
@@ -54,7 +54,10 @@ export function VisitMessageBubble({
       <div className="max-w-[70%]">
         <div
           className={cn(
-            "rounded-2xl px-4 py-3 text-sm leading-relaxed",
+            "relative rounded-2xl px-4 py-3 text-sm leading-relaxed",
+            isOwnMessage
+              ? "after:absolute after:-right-1 after:bottom-3 after:h-2.5 after:w-2.5 after:rotate-45 after:bg-teal-600 after:content-['']"
+              : "after:absolute after:-left-1 after:bottom-3 after:h-2.5 after:w-2.5 after:rotate-45 after:bg-slate-100 after:content-['']",
             bubbleClass
           )}
         >
@@ -65,7 +68,7 @@ export function VisitMessageBubble({
             type="button"
             className={cn(
               "mt-1 text-[11px] underline underline-offset-2",
-              isMine ? "text-right text-slate-500" : "text-left text-slate-500"
+              isOwnMessage ? "text-right text-slate-500" : "text-left text-slate-500"
             )}
             onClick={() => setShowOriginal(current => !current)}
           >
