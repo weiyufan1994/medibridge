@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { LucideIcon } from "lucide-react";
 import TopHeader from "@/components/layout/TopHeader";
 
@@ -11,13 +12,14 @@ type DashboardLayoutProps = {
   items: DashboardNavItem[];
   activeKey: string;
   onChange: (key: string) => void;
-  children: React.ReactNode;
+  topHeaderElements?: ReactNode;
+  children: ReactNode;
 };
 
 export default function DashboardLayout(props: DashboardLayoutProps) {
   return (
     <div className="w-full h-full overflow-hidden flex flex-col bg-slate-50 text-foreground">
-      <TopHeader />
+      <TopHeader isDashboard rightElements={props.topHeaderElements} />
       <div className="flex-1 w-full h-full overflow-hidden flex gap-8 px-4 py-6 lg:px-6">
         <aside className="w-[260px] shrink-0 h-full overflow-y-auto">
           <nav className="rounded-xl border border-slate-200/80 bg-white p-2 shadow-sm">

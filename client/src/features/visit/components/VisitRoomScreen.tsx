@@ -170,7 +170,7 @@ export function VisitRoomScreen() {
     consultationTimer.status === "expired" ? t.generateSummaryNow : t.endConsultation;
 
   return (
-    <AppLayout title={pageTitle}>
+    <AppLayout title={pageTitle} isVisitRoom>
       <div className="flex h-full w-full bg-slate-50 px-4 py-4 md:px-6 md:py-6">
         {isDoctorView ? (
           <div className="mx-auto flex h-[calc(100vh-126px)] min-h-0 w-full max-w-[1240px] gap-4 md:h-[calc(100vh-148px)]">

@@ -1,6 +1,10 @@
-import { HospitalsPageHeader } from "@/features/hospitals/components/HospitalsPageHeader";
+import { ArrowLeft } from "lucide-react";
+import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
+import TopHeader from "@/components/layout/TopHeader";
 import { HospitalsBrowser } from "@/features/hospitals/components/HospitalsBrowser";
 import { useHospitals } from "@/features/hospitals/hooks/useHospitals";
+import { getHospitalsCopy } from "@/features/hospitals/copy";
 
 export default function Hospitals() {
   const {
@@ -21,10 +25,18 @@ export default function Hospitals() {
     onBackToHospitals,
     onBackToDepartments,
   } = useHospitals();
+  const copy = getHospitalsCopy(resolved);
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <HospitalsPageHeader />
+      <TopHeader subtitle={copy.pageHeader.subtitle}>
+        <Link href="/">
+          <Button variant="ghost" size="sm" className="gap-1">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            {copy.pageHeader.backToHome}
+          </Button>
+        </Link>
+      </TopHeader>
 
       <div className="max-w-5xl mx-auto py-8 px-4">
         <HospitalsBrowser

@@ -16,7 +16,11 @@ import { getHomeCopy } from "@/features/home/copy";
 import { toast } from "sonner";
 
 type TopHeaderProps = {
+  children?: ReactNode;
   rightElements?: ReactNode;
+  subtitle?: string;
+  isDashboard?: boolean;
+  isVisitRoom?: boolean;
 };
 
 function getInitials(name?: string | null, email?: string | null) {
@@ -34,6 +38,8 @@ export default function TopHeader(props: TopHeaderProps) {
   const { resolved } = useLanguage();
   const t = getHomeCopy(resolved);
   const { user, isAuthenticated, openLoginModal, logout } = useAuth();
+  const shouldShowBrowseHospitals = !props.isDashboard && !props.isVisitRoom;
+  const subtitleText = props.subtitle ?? t.brandSubtitle;
 
   const handleLogout = async () => {
     try {
@@ -53,38 +59,45 @@ export default function TopHeader(props: TopHeaderProps) {
 
   return (
     <header className="w-full px-6 h-16 flex items-center justify-between border-b border-slate-200 bg-white flex-shrink-0">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex items-center justify-center rounded-lg bg-teal-600 p-2 text-white">
-            <Stethoscope className="h-6 w-6" />
+    <Link
+      href="/"
+      aria-label="MediBridge home"
+      className="flex items-center gap-3"
+    >
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-600 text-white">
+            <Stethoscope className="h-5 w-5" />
           </div>
           <div className="flex flex-col items-start">
             <span className="block text-xl font-bold leading-none text-slate-900">
               MediBridge
             </span>
-            <span className="mt-1 block text-xs leading-tight text-slate-500">
-              {t.brandSubtitle}
+            <span className="mt-0.5 block text-xs leading-tight font-normal text-slate-500">
+              {subtitleText}
             </span>
           </div>
         </Link>
 
         <div className="flex items-center gap-2">
+          {props.children}
           {props.rightElements}
-          <button
-            type="button"
-            title={t.browseHospitals}
-            aria-label={t.browseHospitals}
-            className="rounded-full p-2 text-slate-500 transition-colors hover:bg-teal-50 hover:text-teal-600"
-            onClick={() => setLocation("/hospitals")}
-          >
-            <Building2 className="h-5 w-5" />
-          </button>
+          {shouldShowBrowseHospitals ? (
+            <button
+              type="button"
+              title={t.browseHospitals}
+              aria-label={t.browseHospitals}
+              className="h-10 w-10 inline-flex items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-teal-50 hover:text-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600/30"
+              onClick={() => setLocation("/hospitals")}
+            >
+              <Building2 className="h-5 w-5" aria-hidden="true" />
+            </button>
+          ) : null}
 
           {!isAuthenticated ? (
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="rounded-xl border-slate-300 text-slate-700 hover:bg-slate-50"
+              className="rounded-xl border-slate-300 text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-teal-600/30 focus-visible:ring-offset-0"
               onClick={openLoginModal}
             >
               {t.login}
@@ -93,7 +106,7 @@ export default function TopHeader(props: TopHeaderProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="rounded-xl p-1.5 transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600/30"
+                  className="rounded-full p-1.5 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600/30"
                   aria-label="Open account menu"
                 >
                   <Avatar className="h-9 w-9 border border-slate-200">

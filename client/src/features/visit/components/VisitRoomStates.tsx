@@ -7,7 +7,7 @@ export function VisitRoomInvalidState(input: {
   message: string;
 }) {
   return (
-    <AppLayout title={input.title}>
+    <AppLayout title={input.title} isVisitRoom>
       <div className="mx-auto max-w-3xl py-4">
         <Card className="rounded-2xl border-slate-200 p-6 text-sm text-slate-600">
           {input.message}
@@ -21,7 +21,7 @@ export function VisitRoomLoadingState(input: {
   title: string;
 }) {
   return (
-    <AppLayout title={input.title}>
+    <AppLayout title={input.title} isVisitRoom>
       <div className="mx-auto flex min-h-[60vh] max-w-3xl items-center justify-center py-4">
         <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
       </div>
@@ -34,7 +34,7 @@ export function VisitRoomErrorState(input: {
   message: string;
 }) {
   return (
-    <AppLayout title={input.title}>
+    <AppLayout title={input.title} isVisitRoom>
       <div className="mx-auto max-w-3xl py-4">
         <Card className="rounded-2xl border-slate-200 p-6 text-sm text-slate-600">
           {input.message}
