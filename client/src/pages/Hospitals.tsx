@@ -10,6 +10,7 @@ export default function Hospitals() {
   const {
     viewMode,
     selectedHospitalName,
+    selectedHospitalLevel,
     selectedDepartmentName,
     hospitals,
     hospitalsLoading,
@@ -42,6 +43,7 @@ export default function Hospitals() {
         <HospitalsBrowser
           viewMode={viewMode}
           selectedHospitalName={selectedHospitalName}
+          selectedHospitalLevel={selectedHospitalLevel}
           selectedDepartmentName={selectedDepartmentName}
           hospitals={hospitals}
           hospitalsLoading={hospitalsLoading}

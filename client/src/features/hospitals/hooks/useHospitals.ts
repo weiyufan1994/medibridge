@@ -31,6 +31,14 @@ export function useHospitals() {
     ? getLocalizedField({ lang: resolved, zh: selectedHospital.name, en: selectedHospital.nameEn })
     : "";
 
+  const selectedHospitalLevel = selectedHospital
+    ? getLocalizedField({
+        lang: resolved,
+        zh: selectedHospital.level,
+        en: selectedHospital.levelEn,
+      })
+    : "";
+
   const selectedDepartmentName = selectedDepartment
     ? getLocalizedField({ lang: resolved, zh: selectedDepartment.name, en: selectedDepartment.nameEn })
     : "";
@@ -83,6 +91,7 @@ export function useHospitals() {
   return {
     viewMode,
     selectedHospitalName,
+    selectedHospitalLevel,
     selectedDepartmentName,
     hospitals,
     hospitalsLoading,

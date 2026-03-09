@@ -2,15 +2,15 @@ import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import {
   ArrowRight,
-  Hospital,
-  Stethoscope,
-  Search,
-  ChevronRight,
   ChevronLeft,
+  ChevronRight,
+  Hospital,
   Loader2,
+  Search,
+  Stethoscope,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getLocalizedField } from "@/lib/i18n";
@@ -56,6 +56,7 @@ type DoctorWithDepartment = {
 type Props = {
   viewMode: ViewMode;
   selectedHospitalName: string;
+  selectedHospitalLevel: string;
   selectedDepartmentName: string;
   hospitals?: HospitalItem[];
   hospitalsLoading: boolean;
@@ -75,6 +76,7 @@ type Props = {
 export function HospitalsBrowser({
   viewMode,
   selectedHospitalName,
+  selectedHospitalLevel,
   selectedDepartmentName,
   hospitals,
   hospitalsLoading,
@@ -145,38 +147,36 @@ export function HospitalsBrowser({
 
   return (
     <div className="w-full">
-      <nav
-        aria-label={resolved === "en" ? "Hospital navigation" : "医院列表导航"}
-        className="flex items-center gap-2 mb-6 text-sm text-slate-500"
-      >
-        <button
-          onClick={onBackToHospitals}
-          type="button"
-          className={`hover:text-slate-900 transition-colors ${viewMode === "hospitals" ? "text-slate-900 font-semibold" : ""}`}
+      {viewMode !== "departments" && (
+        <nav
+          aria-label={resolved === "en" ? "Hospital navigation" : "医院列表导航"}
+          className="flex items-center gap-2 mb-6 text-sm text-slate-500"
         >
-          {copy.browser.breadcrumbHospitals}
-        </button>
-        {viewMode !== "hospitals" && (
-          <>
-            <ChevronRight className="w-4 h-4" />
-            <button
-              onClick={onBackToDepartments}
-              type="button"
-              className={`hover:text-slate-900 transition-colors ${viewMode === "departments" ? "text-slate-900 font-semibold" : ""}`}
-            >
-              {selectedHospitalName || copy.browser.breadcrumbDepartmentsFallback}
-            </button>
-          </>
-        )}
-        {viewMode === "doctors" && (
-          <>
-            <ChevronRight className="w-4 h-4" />
-            <span className="text-foreground font-medium">
-              {selectedDepartmentName || copy.browser.breadcrumbDoctorsFallback}
-            </span>
-          </>
-        )}
-      </nav>
+          <button
+            onClick={onBackToHospitals}
+            type="button"
+            className={`hover:text-slate-900 transition-colors ${viewMode === "hospitals" ? "text-slate-900 font-semibold" : ""}`}
+          >
+            {copy.browser.breadcrumbHospitals}
+          </button>
+          {viewMode === "doctors" && (
+            <>
+              <ChevronRight className="w-4 h-4" />
+              <button
+                onClick={onBackToDepartments}
+                type="button"
+                className="hover:text-slate-900 transition-colors"
+              >
+                {selectedHospitalName || copy.browser.breadcrumbDepartmentsFallback}
+              </button>
+              <ChevronRight className="w-4 h-4" />
+              <span className="text-foreground font-medium">
+                {selectedDepartmentName || copy.browser.breadcrumbDoctorsFallback}
+              </span>
+            </>
+          )}
+        </nav>
+      )}
 
       {viewMode === "hospitals" && (
         <section>
@@ -226,7 +226,7 @@ export function HospitalsBrowser({
               {copy.browser.noHospitalsFound}
             </p>
           )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
             {filteredHospitals.map((hospital) => {
               const hospitalName = getLocalizedField({
                 lang: resolved,
@@ -248,27 +248,31 @@ export function HospitalsBrowser({
               return (
                 <article
                   key={hospital.id}
-                  className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow border border-slate-100 flex gap-5 items-start"
+                  className="h-full bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow border border-slate-100 flex gap-5 items-start"
                   aria-label={hospitalName}
                 >
                   <div className="w-24 h-24 rounded-xl bg-teal-50/50 flex-shrink-0 flex items-center justify-center text-teal-600/60 text-xs">
                     <Hospital className="w-8 h-8 text-teal-600/60" aria-hidden="true" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-lg font-bold text-slate-900">{hospitalName}</h3>
+                  <div className="min-w-0 flex-1 flex flex-col">
+                    <h3 className="text-lg font-bold text-slate-900 line-clamp-2">
+                      {hospitalName}
+                    </h3>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {hospital.level && <Badge variant="outline">{hospitalLevel}</Badge>}
                       {hospital.city && <Badge variant="secondary">{hospitalCity}</Badge>}
                     </div>
                     <p className="text-sm text-slate-500 line-clamp-2 mt-2">{description}</p>
-                    <Button
-                      type="button"
-                      onClick={() => onSelectHospital(hospital.id)}
-                      className="mt-4 bg-teal-600 hover:bg-teal-700 text-white font-medium px-4 py-2 rounded-lg transition-colors"
-                    >
-                      {copy.browser.viewDoctors}
-                      <ArrowRight className="w-4 h-4 ml-1.5" aria-hidden="true" />
-                    </Button>
+                    <div className="mt-auto pt-4">
+                      <Button
+                        type="button"
+                        onClick={() => onSelectHospital(hospital.id)}
+                        className="bg-teal-600 hover:bg-teal-700 text-white font-medium px-4 py-2 rounded-lg transition-colors"
+                      >
+                        {copy.browser.viewDoctors}
+                        <ArrowRight className="w-4 h-4 ml-1.5" aria-hidden="true" />
+                      </Button>
+                    </div>
                   </div>
                 </article>
               );
@@ -278,30 +282,58 @@ export function HospitalsBrowser({
       )}
 
       {viewMode === "departments" && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Stethoscope className="w-6 h-6 text-primary" />
-                  {copy.browser.selectDepartmentTitle}
-                </CardTitle>
-                <CardDescription>
-                  {selectedHospitalName}
-                </CardDescription>
-              </div>
-              <Button variant="ghost" size="sm" onClick={onBackToHospitals}>
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                {copy.browser.back}
-              </Button>
+        <section>
+          <div className="mb-6">
+            <button
+              type="button"
+              onClick={onBackToHospitals}
+              aria-label={copy.browser.backToHospitals}
+              className="inline-flex items-center gap-2 h-11 px-3 rounded-md text-slate-500 hover:text-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600/30"
+            >
+              <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+              <span>{copy.browser.backToHospitals}</span>
+            </button>
+          </div>
+          <img
+            src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=2000"
+            alt={selectedHospitalName}
+            className="w-full h-64 md:h-72 object-cover rounded-2xl shadow-sm mb-8"
+          />
+          <div className="pb-8 border-b border-slate-100">
+            <div className="flex items-center gap-4 mb-2">
+              <h2 className="text-3xl font-bold text-slate-900">
+                {selectedHospitalName}
+              </h2>
+              {selectedHospitalLevel ? (
+                <Badge variant="outline" className="border-slate-300 text-slate-600">
+                  {selectedHospitalLevel}
+                </Badge>
+              ) : null}
             </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {departmentsLoading && (
-              <div className="py-12 text-center">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
-              </div>
-            )}
+            <p className="text-slate-600 leading-relaxed mt-4 max-w-4xl">
+              {copy.browser.hospitalProfileDescription}
+            </p>
+            <p className="text-slate-500 leading-relaxed mt-3 max-w-4xl">
+              {copy.browser.departmentHeroSubtitle}
+            </p>
+          </div>
+          <h3 className="text-xl font-bold text-slate-900 mb-6 mt-8">
+            {copy.browser.selectDepartmentTitle}
+          </h3>
+
+          {departmentsLoading && (
+            <div className="py-12 text-center">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
+            </div>
+          )}
+
+          {!departmentsLoading && !departments?.length && (
+            <p className="py-12 text-center text-slate-500">
+              {copy.browser.noDepartmentsFound}
+            </p>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-8">
             {departments?.map((dept) => {
               const departmentName = getLocalizedField({
                 lang: resolved,
@@ -311,26 +343,28 @@ export function HospitalsBrowser({
               return (
                 <button
                   key={dept.id}
+                  type="button"
                   onClick={() => onSelectDepartment(dept.id)}
-                  className="w-full text-left"
+                  aria-label={`${departmentName} ${copy.browser.enterDepartment}`}
+                  className="h-full min-h-[88px] w-full text-left bg-white rounded-xl p-5 border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer group flex items-start gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600/30 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50"
                 >
-                  <Card className="hover:shadow-md transition-shadow hover:border-primary/50">
-                    <CardContent className="p-5">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-lg font-semibold text-foreground">
-                            {departmentName}
-                          </h3>
-                        </div>
-                        <ChevronRight className="w-6 h-6 text-muted-foreground flex-shrink-0 ml-4" />
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center text-teal-600 flex-shrink-0 transition-colors group-hover:bg-teal-600 group-hover:text-white">
+                    <Stethoscope className="w-6 h-6" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-slate-800 group-hover:text-teal-700 transition-colors line-clamp-2 leading-tight">
+                      {departmentName}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {copy.browser.departmentCardSubtitle}
+                    </p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-teal-500 flex-shrink-0 self-start transition-colors" />
                 </button>
               );
             })}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
 
       {viewMode === "doctors" && (
@@ -346,9 +380,14 @@ export function HospitalsBrowser({
                   )}
                 </CardDescription>
               </div>
-              <Button variant="ghost" size="sm" onClick={onBackToDepartments}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onBackToDepartments}
+                aria-label={copy.browser.backToDepartments}
+              >
                 <ChevronLeft className="w-4 h-4 mr-1" />
-                {copy.browser.back}
+                {copy.browser.backToDepartments}
               </Button>
             </div>
             <div className="relative">

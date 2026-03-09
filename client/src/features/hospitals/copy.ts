@@ -20,11 +20,20 @@ const hospitalsCopyByLang = {
       doctorsCountLabel: (departmentName: string, count: number) =>
         `${departmentName} • ${count} doctors`,
       back: "Back",
+      backToDepartments: "Back to Departments",
       searchHospitalsLabel: "Search hospitals",
       searchHospitalsPlaceholder: "Search hospitals...",
       cityLabel: "City",
       allCities: "All cities",
       noHospitalsFound: "No hospitals found.",
+      noDepartmentsFound: "No departments found.",
+      backToHospitals: "Back to Hospitals",
+      departmentHeroSubtitle:
+        "Please select a specialized department for your consultation.",
+      hospitalProfileDescription:
+        "A nationally recognized tertiary hospital with strong comprehensive care and specialized expertise. We provide world-class medical services to international and local patients.",
+      enterDepartment: "Enter department",
+      departmentCardSubtitle: "Specialized consultation and treatment",
       hospitalCardDescription:
         "A nationally recognized tertiary hospital with strong comprehensive care and specialist services in oral and maxillofacial medicine.",
       viewDoctors: "View Doctors",
@@ -59,11 +68,19 @@ const hospitalsCopyByLang = {
       doctorsCountLabel: (departmentName: string, count: number) =>
         `${departmentName} • ${count} 位医生`,
       back: "返回",
+      backToDepartments: "返回科室",
       searchHospitalsLabel: "搜索医院",
       searchHospitalsPlaceholder: "搜索医院...",
       cityLabel: "城市",
       allCities: "全部城市",
       noHospitalsFound: "未找到医院。",
+      noDepartmentsFound: "未找到科室。",
+      backToHospitals: "返回医院列表",
+      departmentHeroSubtitle: "请选择用于本次咨询的专业科室。",
+      hospitalProfileDescription:
+        "这是一所全国知名的三甲医院，具备完善的综合医疗体系与专业科室布局，为国际和本地患者提供高质量的诊疗与连续性随访服务。",
+      enterDepartment: "进入科室",
+      departmentCardSubtitle: "精准专科会诊与治疗服务",
       hospitalCardDescription:
         "全国知名的综合性三甲医院，特色科室包含整形外科、口腔科、骨科等，具备完整的检查与术后随访体系。",
       viewDoctors: "查看医生",
