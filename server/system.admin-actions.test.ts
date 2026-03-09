@@ -11,7 +11,7 @@ vi.mock("./modules/doctors/repo", () => ({
   getDoctorById: vi.fn(),
 }));
 
-vi.mock("./routers/payments", () => ({
+vi.mock("./modules/payments/reinitiateCheckout", () => ({
   reinitiateCheckoutForAppointment: vi.fn(),
 }));
 
@@ -33,7 +33,7 @@ vi.mock("./modules/appointments/tokenCache", () => ({
 import * as appointmentsRepo from "./modules/appointments/repo";
 import * as visitRepo from "./modules/visit/repo";
 import * as doctorsRepo from "./modules/doctors/repo";
-import { reinitiateCheckoutForAppointment } from "./routers/payments";
+import { reinitiateCheckoutForAppointment } from "./modules/payments/reinitiateCheckout";
 import { issueAppointmentAccessLinks } from "./modules/appointments/tokenService";
 import { sendMagicLinkEmail } from "./_core/mailer";
 import { setCachedPatientAccessToken } from "./modules/appointments/tokenCache";

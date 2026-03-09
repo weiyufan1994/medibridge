@@ -4,7 +4,7 @@ import {
   parseStripeWebhookEvent,
   verifyStripeWebhookSignature,
 } from "./modules/payments/stripe";
-import { settleStripePaymentBySessionId } from "./routers/payments";
+import { settleStripePaymentBySessionId } from "./modules/payments/settlement";
 import { getDb } from "./db";
 import * as appointmentsRepo from "./modules/appointments/repo";
 import { APPOINTMENT_INVALID_TRANSITION_ERROR } from "./modules/appointments/stateMachine";
