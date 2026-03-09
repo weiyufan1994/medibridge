@@ -642,7 +642,7 @@ export default function AdminPage() {
 
   return (
     <AppLayout title={tr("管理后台", "Admin Console")}>
-      <div className="mx-auto w-full max-w-7xl space-y-6 py-2">
+      <div className="mx-auto flex-1 w-full max-w-7xl overflow-y-auto space-y-6 py-2">
         <Card>
           <CardHeader>
             <CardTitle>{tr("筛选", "Filters")}</CardTitle>
@@ -878,7 +878,7 @@ export default function AdminPage() {
                 <div className="space-y-2 rounded border p-3">
                   <p className="text-sm font-medium">{tr("诊前信息", "Intake")}</p>
                   {appointmentDetailQuery.data?.intake ? (
-                    <pre className="max-h-48 overflow-auto rounded bg-slate-50 p-2 text-xs">
+                    <pre className="rounded bg-slate-50 p-2 text-xs">
                       {JSON.stringify(appointmentDetailQuery.data.intake, null, 2)}
                     </pre>
                   ) : (
@@ -1007,7 +1007,7 @@ export default function AdminPage() {
                 <div className="space-y-2 rounded border p-3">
                   <p className="text-sm font-medium">{tr("最近会诊消息", "Recent Visit Messages")}</p>
                   {appointmentDetailQuery.data?.recentMessages?.length ? (
-                    <div className="max-h-64 overflow-auto rounded border">
+                    <div className="overflow-auto rounded border">
                       <table className="w-full min-w-[980px] text-xs">
                         <thead>
                           <tr className="border-b bg-slate-50">
@@ -1209,13 +1209,13 @@ export default function AdminPage() {
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                       <div className="rounded bg-slate-50 p-2">
                         <p className="mb-1 text-xs font-medium text-slate-700">中文</p>
-                        <pre className="max-h-44 overflow-auto whitespace-pre-wrap text-xs">
+                        <pre className="overflow-auto whitespace-pre-wrap text-xs">
                           {visitSummaryQuery.data.summaryZh}
                         </pre>
                       </div>
                       <div className="rounded bg-slate-50 p-2">
                         <p className="mb-1 text-xs font-medium text-slate-700">English</p>
-                        <pre className="max-h-44 overflow-auto whitespace-pre-wrap text-xs">
+                        <pre className="overflow-auto whitespace-pre-wrap text-xs">
                           {visitSummaryQuery.data.summaryEn}
                         </pre>
                       </div>

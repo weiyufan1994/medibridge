@@ -11,6 +11,7 @@ import {
   uniqueIndex,
   tinyint,
 } from "drizzle-orm/mysql-core";
+import { z } from "zod";
 
 /**
  * Core user table backing auth flow.
@@ -229,6 +230,17 @@ export const aiChatSessions = mysqlTable(
 export type AiChatSession = typeof aiChatSessions.$inferSelect;
 export type InsertAiChatSession = typeof aiChatSessions.$inferInsert;
 
+export const aiConsultationSessionStatusSchema = z.enum(["active", "completed"]);
+export const aiConsultationSessionSchema = z.object({
+  id: z.number().int().positive(),
+  userId: z.number().int().positive().nullable(),
+  title: z.string().trim().min(1).max(255),
+  status: aiConsultationSessionStatusSchema,
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type AiConsultationSession = z.infer<typeof aiConsultationSessionSchema>;
+
 /**
  * AI chat messages table - stores every message inside one triage session.
  */
@@ -251,6 +263,29 @@ export const aiChatMessages = mysqlTable(
 
 export type AiChatMessage = typeof aiChatMessages.$inferSelect;
 export type InsertAiChatMessage = typeof aiChatMessages.$inferInsert;
+
+/**
+ * Consultation messages table - normalized history view model for UI read-only playback.
+ */
+export const consultationMessages = mysqlTable(
+  "consultation_messages",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    sessionId: int("sessionId")
+      .notNull()
+      .references(() => aiChatSessions.id, { onDelete: "cascade" }),
+    role: mysqlEnum("role", ["user", "ai"]).notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    sessionIdx: index("consultationMessagesSessionIdx").on(table.sessionId),
+    createdAtIdx: index("consultationMessagesCreatedAtIdx").on(table.createdAt),
+  })
+);
+
+export type ConsultationMessage = typeof consultationMessages.$inferSelect;
+export type InsertConsultationMessage = typeof consultationMessages.$inferInsert;
 
 /**
  * Appointments table - reserved for future online booking feature

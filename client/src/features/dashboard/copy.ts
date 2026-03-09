@@ -9,6 +9,9 @@ export const DASHBOARD_COPY = {
     tabAccount: "Account",
     tabConsultations: "Consultations",
     tabAppointments: "My Appointments",
+    sidebarAccountOverview: "Account Overview",
+    sidebarAiConsultations: "AI Consultations",
+    sidebarMyAppointments: "My Appointments",
     accountBilling: "Account & Billing",
     unlimited: "Unlimited",
     loadingAccount: "Loading account information...",
@@ -32,6 +35,9 @@ export const DASHBOARD_COPY = {
     tabAccount: "账户状态",
     tabConsultations: "我的问诊记录",
     tabAppointments: "我的行程",
+    sidebarAccountOverview: "账户概览",
+    sidebarAiConsultations: "AI 问诊记录",
+    sidebarMyAppointments: "我的预约",
     accountBilling: "账户与计费",
     unlimited: "无限制",
     loadingAccount: "正在加载账户信息...",
@@ -139,4 +145,3 @@ export function getDashboardCopy(lang: DashboardLang) {
 export function getDashboardAppointmentCopy(lang: DashboardLang) {
   return DASHBOARD_APPOINTMENT_COPY[lang];
 }
-

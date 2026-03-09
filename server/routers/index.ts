@@ -8,6 +8,7 @@ import { authRouter } from "./auth";
 import { chatRouter } from "./chat";
 import { doctorsRouter } from "./doctors";
 import { hospitalsRouter } from "./hospitals";
+import { consultationRouter } from "./consultation";
 
 export const appRouter = router({
   system: systemRouter,
@@ -16,6 +17,7 @@ export const appRouter = router({
   chat: chatRouter,
   doctors: doctorsRouter,
   hospitals: hospitalsRouter,
+  consultation: consultationRouter,
   appointments: appointmentsRouter,
   payments: paymentsRouter,
   visit: visitRouter,

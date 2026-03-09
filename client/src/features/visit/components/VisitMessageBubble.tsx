@@ -35,8 +35,8 @@ export function VisitMessageBubble({
   const isMine = message.senderType === currentRole;
   const wrapperClass = isMine ? "justify-end" : "justify-start";
   const bubbleClass = isMine
-    ? "bg-sky-600 text-white"
-    : "border border-slate-200 bg-white text-slate-900";
+    ? "bg-teal-600 text-white"
+    : "bg-slate-100 text-slate-800";
   const timestampClass = isMine
     ? "text-right text-[11px] text-slate-500"
     : "text-left text-[11px] text-slate-500";
@@ -54,7 +54,7 @@ export function VisitMessageBubble({
       <div className="max-w-[70%]">
         <div
           className={cn(
-            "rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm",
+            "rounded-2xl px-4 py-3 text-sm leading-relaxed",
             bubbleClass
           )}
         >

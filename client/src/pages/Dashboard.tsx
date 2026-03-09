@@ -1,24 +1,43 @@
-import { Loader2 } from "lucide-react";
+import { useState } from "react";
+import { Loader2, Sparkles, Activity, Bot, User, MessageSquare, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useLanguage } from "@/contexts/LanguageContext";
-import AppLayout from "@/components/layout/AppLayout";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 import { MyAppointments } from "@/components/MyAppointments";
 import { getDashboardCopy } from "@/features/dashboard/copy";
 
 function formatDateTime(value: Date | string | null, locale?: string) {
-  if (!value) {
-    return "-";
-  }
+  if (!value) return "-";
   const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
+  if (Number.isNaN(date.getTime())) return "-";
   return date.toLocaleString(locale);
+}
+
+function StatCard(props: {
+  title: string;
+  value: string;
+  icon: React.ReactNode;
+  accent: "blue" | "emerald";
+}) {
+  const accentClasses = "bg-emerald-50 text-emerald-600";
+
+  return (
+    <Card className="rounded-xl border border-slate-200/80 bg-white shadow-sm">
+      <CardContent className="flex items-center justify-between p-6">
+        <div className="space-y-2">
+          <p className="text-sm text-gray-500">{props.title}</p>
+          <p className="text-3xl font-semibold tracking-tight text-gray-900">{props.value}</p>
+        </div>
+        <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${accentClasses}`}>
+          {props.icon}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function DashboardPage() {
@@ -26,6 +45,7 @@ export default function DashboardPage() {
   const { resolved } = useLanguage();
   const t = getDashboardCopy(resolved);
   const locale = resolved === "zh" ? "zh-CN" : "en-US";
+
   const usageQuery = trpc.ai.getUsageSummary.useQuery(undefined, {
     enabled: isAuthenticated,
   });
@@ -39,65 +59,80 @@ export default function DashboardPage() {
     usageQuery.data?.remainingToday === null || usageQuery.data?.remainingToday === undefined
       ? t.unlimited
       : String(usageQuery.data.remainingToday);
-  const displayName = user?.name || user?.email || t.fallbackUserName;
+  const displayName = user?.email || user?.name || t.fallbackUserName;
+  const [activeSection, setActiveSection] = useState<"account" | "consultations" | "appointments">(
+    "account"
+  );
+  const navItems = [
+    { key: "account", label: t.sidebarAccountOverview, icon: User },
+    { key: "consultations", label: t.sidebarAiConsultations, icon: MessageSquare },
+    { key: "appointments", label: t.sidebarMyAppointments, icon: Calendar },
+  ] as const;
 
   return (
-    <AppLayout title={t.appLayoutTitle} showBack={true}>
-      <div className="mx-auto w-full max-w-6xl space-y-6 py-2">
-        <header className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">{t.pageTitle}</h1>
-          <p className="text-sm text-muted-foreground">
-            {t.welcomeBack.replace("{{name}}", displayName)}
-          </p>
-        </header>
-
-        <Tabs defaultValue="account" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="account">{t.tabAccount}</TabsTrigger>
-            <TabsTrigger value="consultations">{t.tabConsultations}</TabsTrigger>
-            <TabsTrigger value="appointments">{t.tabAppointments}</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="account">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>{t.accountBilling}</CardTitle>
-                <Badge variant={accountPlan === "Pro" ? "default" : "secondary"}>
+    <DashboardLayout
+      items={[...navItems]}
+      activeKey={activeSection}
+      onChange={key => setActiveSection(key as "account" | "consultations" | "appointments")}
+    >
+      {activeSection === "account" ? (
+        <section className="rounded-xl border border-slate-200/80 bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="space-y-2">
+                  <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
+                    {t.welcomeBack.replace("{{name}}", displayName)}
+                  </h1>
+                  <p className="max-w-2xl text-sm leading-6 text-gray-500">
+                    {resolved === "zh"
+                      ? "这是你的健康驾驶舱，查看今日 AI 咨询额度与历史问诊数据。"
+                      : "Your health cockpit for tracking AI consultation quota and history."}
+                  </p>
+                </div>
+                <Badge className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 shadow-sm">
                   {accountPlan}
                 </Badge>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm">
-                {usageQuery.isLoading ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    {t.loadingAccount}
-                  </div>
-                ) : (
-                  <>
-                    <p>{t.remainingToday.replace("{{count}}", remainingText)}</p>
-                    <p className="text-muted-foreground">
-                      {t.totalSessions.replace(
-                        "{{count}}",
-                        String(usageQuery.data?.totalSessions ?? 0)
-                      )}
-                    </p>
-                  </>
-                )}
-                {accountPlan !== "Pro" ? (
-                  <Button type="button">{t.upgradePro}</Button>
-                ) : null}
-              </CardContent>
-            </Card>
-          </TabsContent>
+              </div>
 
-          <TabsContent value="consultations">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t.aiConsultations}</CardTitle>
-              </CardHeader>
-              <CardContent>
+              {usageQuery.isLoading ? (
+                <div className="mt-8 flex items-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t.loadingAccount}
+                </div>
+              ) : (
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  <StatCard
+                    title={t.remainingToday.replace("{{count}}", "")}
+                    value={remainingText}
+                    accent="blue"
+                    icon={<Sparkles className="h-5 w-5" />}
+                  />
+                  <StatCard
+                    title={t.totalSessions.replace("{{count}}", "")}
+                    value={String(usageQuery.data?.totalSessions ?? 0)}
+                    accent="emerald"
+                    icon={<Activity className="h-5 w-5" />}
+                  />
+                </div>
+              )}
+
+              {accountPlan !== "Pro" ? (
+                <div className="mt-6">
+                  <Button
+                    type="button"
+                    className="rounded-xl bg-teal-600 px-5 text-white hover:bg-teal-700"
+                  >
+                    {t.upgradePro}
+                  </Button>
+                </div>
+              ) : null}
+        </section>
+      ) : null}
+
+      {activeSection === "consultations" ? (
+        <Card className="rounded-xl border border-slate-200/80 bg-white shadow-sm">
+              <CardContent className="p-6">
                 {sessionsQuery.isLoading ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
+                  <div className="flex items-center gap-2 text-sm text-slate-500">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     {t.loadingConsultations}
                   </div>
@@ -106,41 +141,42 @@ export default function DashboardPage() {
                     {sessionsQuery.data.map(session => (
                       <div
                         key={session.id}
-                        className="rounded-lg border bg-background p-3 text-sm"
+                        className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm"
                       >
                         <div className="flex items-center justify-between gap-3">
-                          <p className="font-medium">
-                            {t.sessionLabel.replace("{{id}}", String(session.id))}
-                          </p>
-                          <Badge
-                            variant={
-                              session.status === "completed" ? "secondary" : "default"
-                            }
-                          >
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                              <Bot className="h-4 w-4" />
+                            </div>
+                            <div className="space-y-1">
+                              <p className="font-medium text-slate-900">
+                                {t.sessionLabel.replace("{{id}}", String(session.id))}
+                              </p>
+                              <p className="text-xs text-slate-400">
+                                {resolved === "zh"
+                                  ? "AI 诊断摘要占位，后续可展示自动总结。"
+                                  : "AI diagnostic summary placeholder for future auto-generated insight."}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge className="rounded-full border-0 bg-emerald-100 text-emerald-700">
                             {session.status}
                           </Badge>
                         </div>
-                        <p className="mt-2 text-muted-foreground">
-                          {t.createdAt.replace(
-                            "{{time}}",
-                            formatDateTime(session.createdAt, locale)
-                          )}
+                        <p className="mt-3 text-sm text-slate-500">
+                          {t.createdAt.replace("{{time}}", formatDateTime(session.createdAt, locale))}
                         </p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">{t.noConsultations}</p>
+                  <p className="text-sm text-slate-500">{t.noConsultations}</p>
                 )}
               </CardContent>
-            </Card>
-          </TabsContent>
+        </Card>
+      ) : null}
 
-          <TabsContent value="appointments">
-            <MyAppointments />
-          </TabsContent>
-        </Tabs>
-      </div>
-    </AppLayout>
+      {activeSection === "appointments" ? <MyAppointments /> : null}
+    </DashboardLayout>
   );
 }

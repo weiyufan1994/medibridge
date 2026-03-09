@@ -1,21 +1,15 @@
 import React from "react";
-import { Loader2 } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
-import { formatChinaDateTime, formatLocalDateTime } from "@/lib/appointmentTime";
+import { formatAppointmentTimes } from "@/lib/appointmentTime";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getDashboardAppointmentCopy } from "@/features/dashboard/copy";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
 
 type MyAppointmentItem = {
   id: number;
@@ -42,6 +36,8 @@ type MyAppointmentItem = {
   createdAt: Date | string;
 };
 
+type AppointmentSectionVariant = "upcoming" | "completed";
+
 function toAppointmentTypeLabel(
   type: MyAppointmentItem["appointmentType"],
   t: ReturnType<typeof getDashboardAppointmentCopy>
@@ -65,37 +61,45 @@ function toStatusLabel(
   return t.statusCanceled;
 }
 
-function toStatusBadgeVariant(status: MyAppointmentItem["status"]) {
-  if (status === "ended") return "secondary" as const;
-  if (status === "expired" || status === "refunded" || status === "canceled") {
-    return "destructive" as const;
-  }
-  return "default" as const;
-}
-
-function getPrimaryAction(
+function getHint(
   item: MyAppointmentItem,
   t: ReturnType<typeof getDashboardAppointmentCopy>
 ) {
-  if (item.status === "pending_payment") {
-    return { label: t.payNow, hint: t.hintPendingPayment };
-  }
-  if (item.status === "paid") {
-    return { label: t.enterVisitRoom, hint: t.hintPaid };
-  }
-  if (item.status === "active") {
-    return { label: t.enterVisitRoom, hint: t.hintActive };
-  }
-  if (item.status === "ended") {
-    return { label: t.viewRecord, hint: t.hintEnded };
-  }
-  return { label: t.view, hint: t.hintInactive };
+  if (item.status === "pending_payment") return t.hintPendingPayment;
+  if (item.status === "paid") return t.hintPaid;
+  if (item.status === "active") return t.hintActive;
+  if (item.status === "ended") return t.hintEnded;
+  return t.hintInactive;
 }
 
-function AppointmentRow(props: {
+function getStatusBadgeClass(variant: AppointmentSectionVariant, status: MyAppointmentItem["status"]) {
+  if (status === "paid") {
+    return "rounded-full border border-teal-100 bg-teal-50 text-teal-700";
+  }
+  if (variant === "upcoming") {
+    return "rounded-full border border-teal-100 bg-teal-50 text-teal-700";
+  }
+  if (status === "ended") {
+    return "rounded-full border-0 bg-emerald-100 text-emerald-700";
+  }
+  return "rounded-full border-0 bg-slate-100 text-slate-600";
+}
+
+function DoctorAvatar(props: { doctorName: string; imageUrl?: string | null }) {
+  return (
+    <Avatar className="h-10 w-10 border border-slate-100">
+      <AvatarImage src={props.imageUrl ?? undefined} />
+      <AvatarFallback className="bg-slate-100 text-slate-700">
+        {props.doctorName.slice(0, 1).toUpperCase()}
+      </AvatarFallback>
+    </Avatar>
+  );
+}
+
+function AppointmentCard(props: {
   item: MyAppointmentItem;
-  locale: string;
   t: ReturnType<typeof getDashboardAppointmentCopy>;
+  section: AppointmentSectionVariant;
   onPrimaryAction: (item: MyAppointmentItem) => Promise<void>;
   onResend: (appointmentId: number) => Promise<void>;
   isActing: boolean;
@@ -112,115 +116,131 @@ function AppointmentRow(props: {
     doctorQuery.data?.doctor?.nameEn ||
     doctorQuery.data?.doctor?.name ||
     props.t.doctorFallback.replace("{{id}}", String(props.item.doctorId));
-  const primaryAction = getPrimaryAction(props.item, props.t);
+  const doctorImage = doctorQuery.data?.doctor?.imageUrl;
+  const timeDisplay = formatAppointmentTimes(props.item.scheduledAt);
 
   return (
-    <TableRow>
-      <TableCell>{doctorName}</TableCell>
-      <TableCell>
-        <div className="space-y-1">
-          <p>{formatLocalDateTime(props.item.scheduledAt, props.locale)}</p>
-          <p className="text-xs text-muted-foreground">
-            {props.t.doctorTimeChina}: {formatChinaDateTime(props.item.scheduledAt, props.locale)}
-          </p>
+    <article className="rounded-xl border border-slate-200/80 bg-white shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3 p-5">
+        <div className="flex items-center gap-3">
+          <DoctorAvatar doctorName={doctorName} imageUrl={doctorImage} />
+          <div>
+            <p className="text-base font-semibold text-slate-900">{doctorName}</p>
+            <p className="text-sm text-slate-500">{toAppointmentTypeLabel(props.item.appointmentType, props.t)}</p>
+          </div>
         </div>
-      </TableCell>
-      <TableCell>{toAppointmentTypeLabel(props.item.appointmentType, props.t)}</TableCell>
-      <TableCell>
-        <Badge variant={toStatusBadgeVariant(props.item.status)}>
+        <Badge className={getStatusBadgeClass(props.section, props.item.status)}>
           {toStatusLabel(props.item.status, props.t)}
         </Badge>
-      </TableCell>
-      <TableCell className="space-x-2">
-        <Button
-          type="button"
-          size="sm"
-          variant={props.item.status === "active" ? "default" : "outline"}
-          onClick={() => {
-            void props.onPrimaryAction(props.item);
-          }}
-          disabled={props.isActing}
-        >
-          {primaryAction.label}
-        </Button>
-        {(props.item.status === "paid" || props.item.status === "active") && (
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={() => {
-              void props.onResend(props.item.id);
-            }}
-            disabled={props.isActing}
-          >
-            {props.t.resendLink}
-          </Button>
-        )}
-        <p className="mt-2 text-xs text-muted-foreground">{primaryAction.hint}</p>
-      </TableCell>
-    </TableRow>
+      </div>
+
+      <div className="px-5 pb-5">
+        <div className="grid gap-3 rounded-lg border border-slate-100 bg-teal-50/30 p-3 md:grid-cols-[1fr_auto_1fr] md:items-center">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Local Time</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">{timeDisplay.localTime}</p>
+          </div>
+          <div className="flex justify-center">
+            <ArrowRight className="h-4 w-4 text-slate-400" />
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">China Time (China) 🇨🇳</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">{timeDisplay.doctorTime}</p>
+          </div>
+        </div>
+      </div>
+
+      <Separator className="bg-slate-200/80" />
+
+      <div className="flex flex-wrap items-center justify-between gap-3 p-5">
+        <p className="text-sm text-slate-500">{getHint(props.item, props.t)}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          {props.section === "upcoming" ? (
+            <>
+              <Button
+                type="button"
+                className="rounded-lg bg-teal-600 text-white hover:bg-teal-700"
+                onClick={() => {
+                  void props.onPrimaryAction(props.item);
+                }}
+                disabled={props.isActing}
+              >
+                {props.t.enterVisitRoom}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-lg border-teal-200 text-teal-700 hover:bg-teal-50"
+                onClick={() => {
+                  void props.onResend(props.item.id);
+                }}
+                disabled={props.isActing}
+              >
+                {props.t.resendLink}
+              </Button>
+            </>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-lg border-teal-200 text-teal-700 hover:bg-teal-50"
+              onClick={() => {
+                void props.onPrimaryAction(props.item);
+              }}
+              disabled={props.isActing}
+            >
+              {props.t.viewRecord}
+            </Button>
+          )}
+        </div>
+      </div>
+    </article>
   );
 }
 
 function AppointmentSection(props: {
   title: string;
   t: ReturnType<typeof getDashboardAppointmentCopy>;
-  locale: string;
   items: MyAppointmentItem[];
+  section: AppointmentSectionVariant;
   onPrimaryAction: (item: MyAppointmentItem) => Promise<void>;
   onResend: (appointmentId: number) => Promise<void>;
   actingAppointmentId: number | null;
 }) {
   return (
-    <section className="space-y-2">
-      <h3 className="text-base font-semibold">{props.title}</h3>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{props.t.tableDoctor}</TableHead>
-            <TableHead>{props.t.tableTime}</TableHead>
-            <TableHead>{props.t.tableType}</TableHead>
-            <TableHead>{props.t.tableStatus}</TableHead>
-            <TableHead>{props.t.tableActions}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {props.items.length > 0 ? (
-            props.items.map(item => (
-              <AppointmentRow
-                key={item.id}
-                item={item}
-                locale={props.locale}
-                t={props.t}
-                onPrimaryAction={props.onPrimaryAction}
-                onResend={props.onResend}
-                isActing={props.actingAppointmentId === item.id}
-              />
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={5} className="text-muted-foreground">
-                {props.t.emptySection}
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+    <section className="space-y-3">
+      <h3 className="text-base font-semibold text-slate-900">{props.title}</h3>
+      {props.items.length > 0 ? (
+        <div className="space-y-3">
+          {props.items.map(item => (
+            <AppointmentCard
+              key={item.id}
+              item={item}
+              t={props.t}
+              section={props.section}
+              onPrimaryAction={props.onPrimaryAction}
+              onResend={props.onResend}
+              isActing={props.actingAppointmentId === item.id}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-dashed border-slate-200/80 bg-slate-50 p-4 text-sm text-slate-500">
+          {props.t.emptySection}
+        </div>
+      )}
     </section>
   );
 }
 
 export function MyAppointments() {
-  const [actingAppointmentId, setActingAppointmentId] =
-    React.useState<number | null>(null);
+  const [actingAppointmentId, setActingAppointmentId] = React.useState<number | null>(null);
   const { resolved } = useLanguage();
   const t = getDashboardAppointmentCopy(resolved);
-  const locale = resolved === "zh" ? "zh-CN" : "en-US";
   const query = trpc.appointments.listMyAppointments.useQuery();
   const resendMutation = trpc.appointments.resendLink.useMutation();
   const openRoomMutation = trpc.appointments.openMyRoom.useMutation();
-  const retryPaymentMutation =
-    trpc.payments.createCheckoutSessionForAppointment.useMutation();
+  const retryPaymentMutation = trpc.payments.createCheckoutSessionForAppointment.useMutation();
 
   const handleOpenAccess = async (item: MyAppointmentItem) => {
     setActingAppointmentId(item.id);
@@ -235,11 +255,7 @@ export function MyAppointments() {
         return;
       }
 
-      if (
-        item.status === "paid" ||
-        item.status === "active" ||
-        item.status === "ended"
-      ) {
+      if (item.status === "paid" || item.status === "active" || item.status === "ended") {
         const result = await openRoomMutation.mutateAsync({
           appointmentId: item.id,
         });
@@ -279,12 +295,12 @@ export function MyAppointments() {
 
   if (query.isLoading) {
     return (
-      <Card>
+      <Card className="rounded-xl border border-slate-200/80 bg-white shadow-sm">
         <CardHeader>
-          <CardTitle>{t.title}</CardTitle>
+          <CardTitle className="text-slate-900">{t.title}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="flex items-center gap-2 text-sm text-slate-500">
             <Loader2 className="h-4 w-4 animate-spin" />
             {t.loadingAppointments}
           </div>
@@ -295,9 +311,9 @@ export function MyAppointments() {
 
   if (query.error) {
     return (
-      <Card>
+      <Card className="rounded-xl border border-slate-200/80 bg-white shadow-sm">
         <CardHeader>
-          <CardTitle>{t.title}</CardTitle>
+          <CardTitle className="text-slate-900">{t.title}</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-destructive">{query.error.message}</p>
@@ -312,16 +328,18 @@ export function MyAppointments() {
     past: [],
   };
 
+  const completedItems = [...data.completed, ...data.past];
+
   return (
-    <Card>
+    <Card className="rounded-xl border border-slate-200/80 bg-white shadow-sm">
       <CardHeader>
-        <CardTitle>{t.title}</CardTitle>
+        <CardTitle className="text-slate-900">{t.title}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 p-6">
         <AppointmentSection
           title={t.sectionUpcoming}
           t={t}
-          locale={locale}
+          section="upcoming"
           items={data.upcoming}
           onPrimaryAction={handleOpenAccess}
           onResend={handleResend}
@@ -330,17 +348,8 @@ export function MyAppointments() {
         <AppointmentSection
           title={t.sectionCompleted}
           t={t}
-          locale={locale}
-          items={data.completed}
-          onPrimaryAction={handleOpenAccess}
-          onResend={handleResend}
-          actingAppointmentId={actingAppointmentId}
-        />
-        <AppointmentSection
-          title={t.sectionPast}
-          t={t}
-          locale={locale}
-          items={data.past}
+          section="completed"
+          items={completedItems}
           onPrimaryAction={handleOpenAccess}
           onResend={handleResend}
           actingAppointmentId={actingAppointmentId}

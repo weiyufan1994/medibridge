@@ -1,4 +1,11 @@
 const DOCTOR_TIME_ZONE = "Asia/Shanghai";
+const APPOINTMENT_DISPLAY_LOCALE = "en-US";
+
+export type AppointmentDualTimezone = {
+  localTime: string;
+  doctorTime: string;
+  isValid: boolean;
+};
 
 export function toDate(value: Date | string | null): Date | null {
   if (!value) {
@@ -9,6 +16,41 @@ export function toDate(value: Date | string | null): Date | null {
     return null;
   }
   return parsed;
+}
+
+export function formatAppointmentTimes(
+  value: Date | string | null,
+  fallback = "-"
+): AppointmentDualTimezone {
+  const date = toDate(value);
+  if (!date) {
+    return {
+      localTime: fallback,
+      doctorTime: fallback,
+      isValid: false,
+    };
+  }
+
+  const options: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  };
+
+  const localTime = new Intl.DateTimeFormat(APPOINTMENT_DISPLAY_LOCALE, options).format(date);
+  const doctorTime = new Intl.DateTimeFormat(APPOINTMENT_DISPLAY_LOCALE, {
+    ...options,
+    timeZone: DOCTOR_TIME_ZONE,
+  }).format(date);
+
+  return {
+    localTime,
+    doctorTime,
+    isValid: true,
+  };
 }
 
 export function formatLocalDateTime(

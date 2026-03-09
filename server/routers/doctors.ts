@@ -49,6 +49,16 @@ export const doctorsRouter = router({
       })
     )
     .query(async ({ input }) => {
+      const parseYearsOfExperience = (value: string | null | undefined) => {
+        if (!value || value.trim().length === 0) return null;
+        const yearsMatch = value.match(/(\d{1,2})\s*\+?\s*(years?|yrs?)/i);
+        if (yearsMatch) return Number(yearsMatch[1]);
+        const chineseMatch = value.match(/(\d{1,2})\s*年/);
+        if (chineseMatch) return Number(chineseMatch[1]);
+        const numericMatch = value.match(/\d{1,2}/);
+        return numericMatch ? Number(numericMatch[0]) : null;
+      };
+
       const limit = input.limit ?? 5;
       const normalizedKeywords = Array.from(
         new Set(
@@ -273,6 +283,19 @@ export const doctorsRouter = router({
           .map(item => ({
             ...item.result,
             reason: buildRecommendationReason(item.result),
+            title: item.result.doctor.title ?? item.result.doctor.titleEn ?? "",
+            specialty:
+              item.result.doctor.specialty ??
+              item.result.doctor.specialtyEn ??
+              item.result.doctor.expertise ??
+              item.result.doctor.expertiseEn ??
+              "",
+            biography:
+              item.result.doctor.description ??
+              item.result.doctor.experience ??
+              item.result.doctor.expertise ??
+              "",
+            yearsOfExperience: parseYearsOfExperience(item.result.doctor.experience),
           }))
           .slice(0, limit);
       } catch (error) {

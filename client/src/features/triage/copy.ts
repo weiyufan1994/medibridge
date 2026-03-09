@@ -18,6 +18,40 @@ type TriageWhatsappMessageParams = {
 
 export const TRIAGE_COPY = {
   en: {
+    common: {
+      save: "Save",
+      cancel: "Cancel",
+      edit: "Edit",
+      select_book: "Select & Book",
+      view_profile: "View Profile",
+    },
+    triage_card: {
+      summary: "Triage Summary",
+      recommended_doctors: "Recommended Doctors",
+      edit_title: "Edit Triage Summary",
+      edit_desc:
+        "Please review and modify the AI-generated summary before booking.",
+    },
+    sidebar: {
+      new_session: "New Session",
+      today: "Today",
+      previous_7_days: "Previous 7 Days",
+      older: "Older",
+    },
+    status: {
+      typing: "AI is typing...",
+      reviewing: "AI is reviewing your triage details...",
+      thinking: "AI is thinking...",
+    },
+    triage: {
+      disclaimer:
+        "AI can make mistakes. Always consult a professional doctor before making medical decisions.",
+    },
+    doctor_detail: {
+      about: "About Doctor",
+      biography: "Biography",
+      confirm_book: "Confirm & Book",
+    },
     title: "AI Triage Consultation",
     subtitle:
       "The triage nurse collects key details first, then generates a summary and doctor recommendations.",
@@ -88,6 +122,38 @@ export const TRIAGE_COPY = {
     bookingDurationFallback: "Unspecified",
   },
   zh: {
+    common: {
+      save: "保存",
+      cancel: "取消",
+      edit: "编辑",
+      select_book: "选择并预约",
+      view_profile: "查看详情",
+    },
+    triage_card: {
+      summary: "问诊摘要",
+      recommended_doctors: "推荐医生",
+      edit_title: "编辑问诊摘要",
+      edit_desc: "请在预约前检查并修改 AI 生成的摘要。",
+    },
+    sidebar: {
+      new_session: "新会话",
+      today: "今天",
+      previous_7_days: "过去 7 天",
+      older: "更早",
+    },
+    status: {
+      typing: "AI 正在输入...",
+      reviewing: "AI 正在整理分诊信息...",
+      thinking: "AI 正在思考...",
+    },
+    triage: {
+      disclaimer: "AI 可能会产生错误信息。在做出医疗决定前，请务必咨询专业医生。",
+    },
+    doctor_detail: {
+      about: "医生信息",
+      biography: "个人简介",
+      confirm_book: "确认选择并预约",
+    },
     title: "AI 预诊分诊",
     subtitle: "分诊护士先收集关键信息，再生成摘要和医生推荐。",
     placeholder: "请输入症状、持续时间、既往史等信息...",

@@ -12,6 +12,7 @@ export type TriageExtractionPrefill = {
   symptoms?: string | null;
   duration?: string | null;
   age?: number | null;
+  gender?: string | null;
   medicalHistory?: string | null;
   medications?: string | null;
   allergies?: string | null;
@@ -52,7 +53,11 @@ const SUMMARY_ALIAS_MAP: Record<string, keyof AppointmentIntake> = {
   过敏史: "allergies",
   age: "ageGroup",
   "age group": "ageGroup",
+  gender: "ageGroup",
+  sex: "ageGroup",
+  性别: "ageGroup",
   年龄段: "ageGroup",
+  "past medical history": "medicalHistory",
   "other symptoms": "otherSymptoms",
   "associated symptoms": "otherSymptoms",
   其他症状: "otherSymptoms",
@@ -103,6 +108,8 @@ export function buildIntakeDefaultsFromTriage(
     typeof input.extraction?.age === "number" && Number.isFinite(input.extraction.age)
       ? String(input.extraction.age)
       : "";
+  const gender = input.extraction?.gender?.trim() ?? "";
+  const ageAndGender = [age, gender].filter(Boolean).join(" / ");
   const extractionMedicalHistory = input.extraction?.medicalHistory?.trim() ?? "";
   const extractionMedications = input.extraction?.medications?.trim() ?? "";
   const extractionAllergies = input.extraction?.allergies?.trim() ?? "";
@@ -113,7 +120,7 @@ export function buildIntakeDefaultsFromTriage(
     ...parsed,
     chiefComplaint: symptoms || parsed.chiefComplaint || "",
     duration: duration || parsed.duration || "",
-    ageGroup: parsed.ageGroup || age,
+    ageGroup: parsed.ageGroup || ageAndGender,
     medicalHistory: extractionMedicalHistory || parsed.medicalHistory || "",
     medications: extractionMedications || parsed.medications || "",
     allergies: extractionAllergies || parsed.allergies || "",

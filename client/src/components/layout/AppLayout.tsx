@@ -1,12 +1,25 @@
 import { ReactNode } from "react";
 import { useLocation } from "wouter";
-import { ChevronLeft, Hospital, Stethoscope } from "lucide-react";
+import {
+  Building2,
+  LayoutDashboard,
+  LogOut,
+  Shield,
+  Stethoscope,
+} from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getHomeCopy } from "@/features/home/copy";
 import { Button } from "@/components/ui/button";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type AppLayoutProps = {
   title: string;
@@ -15,9 +28,19 @@ type AppLayoutProps = {
   children: ReactNode;
 };
 
+function getInitials(name?: string | null, email?: string | null) {
+  const source = (name || email || "U").trim();
+  if (!source) return "U";
+  const parts = source.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
+  return source.slice(0, 2).toUpperCase();
+}
+
 export default function AppLayout({
   title,
-  showBack = true,
+  showBack: _showBack = true,
   rightElements,
   children,
 }: AppLayoutProps) {
@@ -66,19 +89,6 @@ export default function AppLayout({
 
   const user = resolvedUser && resolvedUser.isGuest !== 1 ? resolvedUser : null;
 
-  const handleBack = () => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    if (window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-
-    setLocation("/");
-  };
-
   const handleLogout = async () => {
     try {
       await logoutMutation.mutateAsync();
@@ -98,84 +108,84 @@ export default function AppLayout({
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <header className="sticky top-0 z-40 border-b bg-card/80 backdrop-blur-sm">
-        <div className="mx-auto flex h-[84px] w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            {showBack ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9"
-                onClick={handleBack}
-                aria-label="Go back"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-            ) : null}
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary">
-              <Stethoscope className="h-6 w-6 text-primary-foreground" />
+    <div className="min-h-screen w-full flex flex-col bg-white text-foreground">
+      <header className="sticky top-0 z-50 w-full px-6 h-16 flex items-center justify-between border-b border-slate-200 bg-white flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setLocation("/")}
+            className="inline-flex appearance-none items-center gap-1 rounded-xl border-0 bg-transparent p-0 m-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600/30"
+            aria-label="Go to homepage"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 shadow-sm">
+              <Stethoscope className="h-5 w-5 text-white" />
             </div>
             <div className="min-w-0">
-              <p className="text-2xl leading-none font-bold text-foreground">
-                MediBridge
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {homeCopy.brandSubtitle}
-              </p>
+              <p className="text-2xl leading-none font-bold text-gray-900">MediBridge</p>
+              <p className="text-sm text-gray-500">{homeCopy.brandSubtitle}</p>
             </div>
-          </div>
+          </button>
 
           <div className="flex items-center gap-2">
-            {user ? (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setLocation("/dashboard")}
-                >
-                  {homeCopy.dashboard}
-                </Button>
-                {user.role === "pro" || user.role === "admin" ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setLocation("/admin")}
-                  >
-                    {homeCopy.admin}
-                  </Button>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void handleLogout()}
-                >
-                  {homeCopy.logout}
-                </Button>
-              </>
-            ) : null}
-
             {rightElements}
-
-            <Button
+            <button
               type="button"
-              variant="ghost"
-              size="sm"
+              title={homeCopy.browseHospitals}
+              aria-label={homeCopy.browseHospitals}
+              className="rounded-full p-2 text-slate-500 transition-colors hover:bg-teal-50 hover:text-teal-600"
               onClick={() => setLocation("/hospitals")}
             >
-              <Hospital className="mr-2 h-4 w-4" />
-              {homeCopy.browseHospitals}
-            </Button>
+              <Building2 className="h-5 w-5" />
+            </button>
+
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="rounded-xl p-1.5 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600/30"
+                    aria-label="Open account menu"
+                  >
+                    <Avatar className="h-9 w-9 border border-gray-200">
+                      <AvatarImage src={user.avatarUrl || user.imageUrl || undefined} />
+                      <AvatarFallback className="bg-teal-50 text-xs font-semibold text-teal-700">
+                        {getInitials(user.name, user.email)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52 rounded-xl border-gray-100 p-1.5 shadow-md">
+                  <DropdownMenuItem
+                    className="rounded-lg"
+                    onClick={() => setLocation("/dashboard")}
+                  >
+                    <LayoutDashboard className="h-4 w-4 text-gray-500" />
+                    {homeCopy.dashboard}
+                  </DropdownMenuItem>
+                  {user.role === "pro" || user.role === "admin" ? (
+                    <DropdownMenuItem
+                      className="rounded-lg"
+                      onClick={() => setLocation("/admin")}
+                    >
+                      <Shield className="h-4 w-4 text-gray-500" />
+                      {homeCopy.admin}
+                    </DropdownMenuItem>
+                  ) : null}
+                  <DropdownMenuItem
+                    className="rounded-lg"
+                    variant="destructive"
+                    onClick={() => void handleLogout()}
+                  >
+                    <LogOut className="h-4 w-4" />
+                    {homeCopy.logout}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+
             <LanguageSwitcher />
           </div>
-        </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">
+      <main className="flex-1 min-h-0 w-full overflow-y-auto flex" aria-label={title}>
         {children}
       </main>
     </div>

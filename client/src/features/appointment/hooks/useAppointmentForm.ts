@@ -36,6 +36,15 @@ export function useAppointmentForm({
   triagePrefill,
   onBooked,
 }: UseAppointmentFormParams) {
+  const toLocalDateTimeValue = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hour = String(date.getHours()).padStart(2, "0");
+    const minute = String(date.getMinutes()).padStart(2, "0");
+    return `${year}-${month}-${day}T${hour}:${minute}`;
+  };
+
   const t = getAppointmentCopy(resolved);
   const utils = trpc.useUtils();
   const meQuery = trpc.auth.me.useQuery(undefined, {
@@ -71,12 +80,7 @@ export function useAppointmentForm({
     if (!open || !doctorId) return;
 
     const defaultDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const localIso = new Date(
-      defaultDate.getTime() - defaultDate.getTimezoneOffset() * 60000
-    )
-      .toISOString()
-      .slice(0, 16);
-    setBookingScheduledAt(localIso);
+    setBookingScheduledAt(toLocalDateTimeValue(defaultDate));
   }, [open, doctorId]);
 
   useEffect(() => {

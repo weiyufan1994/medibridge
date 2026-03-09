@@ -25,6 +25,7 @@ export type TriageResult = {
     symptoms: string;
     duration: string;
     age: number | null;
+    gender?: string | null;
     urgency: "low" | "medium" | "high";
   };
 };
@@ -74,6 +75,7 @@ export function useTriageChat({
   const [quotaDialogOpen, setQuotaDialogOpen] = useState(false);
   const [quotaMessage, setQuotaMessage] = useState<string | null>(null);
   const [messageLimitReached, setMessageLimitReached] = useState(false);
+  const sendLockRef = useRef(false);
   const listEndRef = useRef<HTMLDivElement>(null);
 
   const createSessionMutation = trpc.ai.createSession.useMutation();
@@ -92,6 +94,7 @@ export function useTriageChat({
       enabled:
         triageResult?.isComplete === true && recommendationKeywords.length > 0,
       retry: 1,
+      staleTime: 5 * 60 * 1000,
     }
   );
 
@@ -255,6 +258,7 @@ export function useTriageChat({
           symptoms: string;
           duration: string;
           age: number | null;
+          gender?: string | null;
           urgency: "low" | "medium" | "high";
         };
         hitMessageLimit?: boolean;
@@ -299,6 +303,11 @@ export function useTriageChat({
                   typeof normalizedResult.extraction.age === "number"
                     ? normalizedResult.extraction.age
                     : null,
+                gender:
+                  typeof normalizedResult.extraction.gender === "string" &&
+                  normalizedResult.extraction.gender.trim().length > 0
+                    ? normalizedResult.extraction.gender.trim()
+                    : null,
                 urgency: normalizedResult.extraction.urgency,
               }
             : undefined,
@@ -320,16 +329,23 @@ export function useTriageChat({
   };
 
   const handleSend = async () => {
+    const isLoading = createSessionMutation.isPending || sendMessageMutation.isPending;
     const content = input.trim();
-    if (!content) return;
+    if (isLoading || sendLockRef.current || !content) return;
 
-    if (!disclaimerAccepted) {
-      setPendingMessage(content);
-      setDisclaimerOpen(true);
-      return;
+    sendLockRef.current = true;
+
+    try {
+      if (!disclaimerAccepted) {
+        setPendingMessage(content);
+        setDisclaimerOpen(true);
+        return;
+      }
+
+      await sendMessage(content);
+    } finally {
+      sendLockRef.current = false;
     }
-
-    await sendMessage(content);
   };
 
   const handleAcceptDisclaimer = async () => {
@@ -348,6 +364,8 @@ export function useTriageChat({
   const handleInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
+      const isLoading = createSessionMutation.isPending || sendMessageMutation.isPending;
+      if (isLoading || sendLockRef.current) return;
       void handleSend();
     }
   };
