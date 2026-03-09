@@ -10,6 +10,7 @@ import { TriageSessionsCard } from "@/features/admin/components/TriageSessionsCa
 import { RiskMetricsCard } from "@/features/admin/components/RiskMetricsCard";
 import { RetentionCard } from "@/features/admin/components/RetentionCard";
 import { AppointmentDetailCard } from "@/features/admin/components/AppointmentDetailCard";
+import { HospitalImageManagementCard } from "@/features/admin/components/HospitalImageManagementCard";
 
 export default function AdminPage() {
   const { user, loading } = useAuth();
@@ -52,6 +53,9 @@ export default function AdminPage() {
     visitSummaryQuery,
     retentionPoliciesQuery,
     retentionAuditsQuery,
+    hospitalsQuery,
+    adminHospitalImageUploadMutation,
+    adminHospitalImageClearMutation,
     refreshAdminData,
     resendPaymentMutation,
     resendAccessLinkMutation,
@@ -120,6 +124,19 @@ export default function AdminPage() {
           onRefresh={() => {
             void refreshAdminData();
           }}
+        />
+        <HospitalImageManagementCard
+          tr={tr}
+          lang={lang}
+          isLoading={hospitalsQuery.isLoading}
+          errorMessage={
+            hospitalsQuery.error?.message
+              ? toUiError(hospitalsQuery.error.message)
+              : undefined
+          }
+          hospitals={hospitalsQuery.data ?? []}
+          uploadState={adminHospitalImageUploadMutation}
+          clearState={adminHospitalImageClearMutation}
         />
 
         <AppointmentsCard

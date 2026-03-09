@@ -1,6 +1,6 @@
 import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDate } from "@/features/admin/utils/adminFormatting";
+import { formatDate, formatMoneyFromMinorUnit } from "@/features/admin/utils/adminFormatting";
 
 type TranslateFn = (zh: string, en: string) => string;
 
@@ -73,7 +73,7 @@ export function AppointmentsCard({
                     <td className="px-2 py-2">{item.status}</td>
                     <td className="px-2 py-2">{item.paymentStatus}</td>
                     <td className="px-2 py-2">
-                      {item.amount} {item.currency.toUpperCase()}
+                      {formatMoneyFromMinorUnit(item.amount, item.currency, locale)}
                     </td>
                     <td className="px-2 py-2">{item.doctorId}</td>
                     <td className="px-2 py-2">{item.triageSessionId}</td>

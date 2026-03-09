@@ -48,6 +48,32 @@ export type RunRetentionCleanupMutation = SimpleMutation & {
   mutate: (input: { dryRun: boolean }) => void;
 };
 
+export type AdminHospital = {
+  id: number;
+  name: string;
+  nameEn: string | null;
+  city: string | null;
+  cityEn: string | null;
+  level: string | null;
+  levelEn: string | null;
+  imageUrl: string | null;
+};
+
+export type UploadHospitalImageInput = {
+  hospitalId: number;
+  file: File;
+};
+
+export type HospitalImageUploadState = {
+  isPending: boolean;
+  uploadHospitalImage: (hospitalId: number, file: File) => void;
+};
+
+export type HospitalImageClearState = {
+  isPending: boolean;
+  clearHospitalImage: (hospitalId: number) => void;
+};
+
 export type VisitSummaryData = {
   summaryZh: string;
   summaryEn: string;
@@ -195,10 +221,13 @@ export type UseAdminConsoleResult = {
   visitSummaryQuery: VisitSummaryQuery;
   retentionPoliciesQuery: QueryState<AdminRetentionPolicy[]>;
   retentionAuditsQuery: QueryState<AdminRetentionAudit[]>;
+  hospitalsQuery: QueryState<AdminHospital[]>;
   refreshAdminData: () => Promise<void>;
   resendPaymentMutation: ReinitiatePaymentMutation;
   resendAccessLinkMutation: ResendAccessLinkMutation;
   issueLinksMutation: IssueLinksMutation;
+  adminHospitalImageUploadMutation: HospitalImageUploadState;
+  adminHospitalImageClearMutation: HospitalImageClearState;
   notifyDoctorFollowupMutation: NotifyDoctorFollowupMutation;
   updateStatusMutation: UpdateStatusMutation;
   generateSummaryMutation: GenerateSummaryMutation;

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { notifyOwner } from "./notification";
@@ -15,6 +16,7 @@ import * as visitRepo from "../modules/visit/repo";
 import * as adminRepo from "../modules/admin/repo";
 import { generateBilingualVisitSummary } from "../modules/admin/visitSummary";
 import { renderSimpleTextPdf } from "../modules/admin/pdf";
+import { storagePut } from "../storage";
 import {
   APPOINTMENT_STATUS_VALUES,
   PAYMENT_STATUS_VALUES,
@@ -57,6 +59,15 @@ const adminSummaryPdfInputSchema = z.object({
   appointmentId: z.number().int().positive(),
   lang: z.enum(["zh", "en"]).optional().default("zh"),
 });
+const adminHospitalImageUploadSchema = z.object({
+  hospitalId: z.number().int().positive(),
+  imageBase64: z.string().trim().min(1),
+  fileName: z.string().trim().max(255).optional(),
+  contentType: z.string().trim().max(80).optional(),
+});
+const adminHospitalImageClearSchema = z.object({
+  hospitalId: z.number().int().positive(),
+});
 const retentionPolicyTierSchema = z.enum(["free", "paid"]);
 const retentionPolicyUpsertSchema = z.object({
   tier: retentionPolicyTierSchema,
@@ -79,6 +90,55 @@ const adminAppointmentIntakeSchema = z.object({
   ageGroup: z.string().optional().default(""),
   otherSymptoms: z.string().optional().default(""),
 });
+
+const HOSPITAL_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+const HOSPITAL_IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+const HOSPITAL_IMAGE_DEFAULT_MIME = "image/jpeg";
+const HOSPITAL_IMAGE_EXT_BY_MIME: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+const DATA_URL_PREFIX_RE = /^data:([^;]+);base64,/i;
+
+const stripDataUrl = (value: string) => {
+  const match = DATA_URL_PREFIX_RE.exec(value);
+  if (!match) {
+    return {
+      value: value.trim().replace(/\s+/g, ""),
+      contentType: HOSPITAL_IMAGE_DEFAULT_MIME,
+    };
+  }
+  return {
+    value: value.slice(match[0].length).trim().replace(/\s+/g, ""),
+    contentType: match[1] || HOSPITAL_IMAGE_DEFAULT_MIME,
+  };
+};
+
+const resolveHospitalImageContentType = (inputContentType: string | undefined) => {
+  const normalized = (inputContentType ?? "").trim().toLowerCase();
+  if (HOSPITAL_IMAGE_MIME_TYPES.has(normalized)) {
+    return normalized;
+  }
+  return HOSPITAL_IMAGE_DEFAULT_MIME;
+};
+
+const resolveHospitalImageExtension = (
+  fileName: string | undefined,
+  contentType: string
+) => {
+  const fileNameExt = fileName?.trim().toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
+  if (fileNameExt) {
+    return fileNameExt;
+  }
+  return HOSPITAL_IMAGE_EXT_BY_MIME[contentType] ?? "jpg";
+};
 
 function parseIntakeFromNotes(notes: string | null | undefined) {
   const normalized = notes?.trim();
@@ -178,6 +238,78 @@ export const systemRouter = router({
         paymentStatus: input.paymentStatus,
         emailQuery: input.emailQuery,
       });
+    }),
+
+  adminHospitals: adminProcedure.query(async () => {
+    return await doctorsRepo.getAllHospitals();
+  }),
+
+  adminUploadHospitalImage: adminProcedure
+    .input(adminHospitalImageUploadSchema)
+    .mutation(async ({ input }) => {
+      const hospital = await doctorsRepo.getHospitalById(input.hospitalId);
+      if (!hospital) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Hospital not found",
+        });
+      }
+
+      const clean = stripDataUrl(input.imageBase64);
+      const contentType = resolveHospitalImageContentType(input.contentType || clean.contentType);
+      if (!HOSPITAL_IMAGE_MIME_TYPES.has(contentType)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invalid image content type",
+        });
+      }
+      const base64Pattern = /^[A-Za-z0-9+/=]+$/;
+      if (!base64Pattern.test(clean.value)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invalid image payload",
+        });
+      }
+      const imageBuffer = Buffer.from(clean.value, "base64");
+      if (imageBuffer.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Empty image payload",
+        });
+      }
+      if (imageBuffer.length > HOSPITAL_IMAGE_MAX_BYTES) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Image too large",
+        });
+      }
+
+      const extension = resolveHospitalImageExtension(input.fileName, contentType);
+      const storageKey = `hospitals/${input.hospitalId}/${Date.now()}-${randomUUID()}.${extension}`;
+      const { url } = await storagePut(storageKey, imageBuffer, contentType);
+      await doctorsRepo.setHospitalImageUrl(input.hospitalId, url);
+
+      return {
+        hospitalId: hospital.id,
+        imageUrl: url,
+      } as const;
+    }),
+
+  adminClearHospitalImage: adminProcedure
+    .input(adminHospitalImageClearSchema)
+    .mutation(async ({ input }) => {
+      const hospital = await doctorsRepo.getHospitalById(input.hospitalId);
+      if (!hospital) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Hospital not found",
+        });
+      }
+      await doctorsRepo.setHospitalImageUrl(input.hospitalId, null);
+      return {
+        hospitalId: hospital.id,
+        imageUrl: null,
+      } as const;
     }),
 
   adminTriageSessions: adminProcedure

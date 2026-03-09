@@ -69,10 +69,22 @@ export function useAdminConsole({
     if (!raw) {
       return tr("操作失败，请重试。", "Operation failed. Please retry.");
     }
-    if (raw === "RETENTION_STORAGE_UNAVAILABLE" || raw.includes("Failed query")) {
+    if (raw === "RETENTION_STORAGE_UNAVAILABLE") {
       return tr(
         "数据保留策略表不可用。请先执行数据库迁移（含 0020）。",
         "Retention storage is unavailable. Run database migrations (including 0020)."
+      );
+    }
+    if (raw.includes("Unknown column") && raw.includes("imageUrl")) {
+      return tr(
+        "医院封面字段不可用。请执行最新数据库迁移（含 0023）并重启服务。",
+        "Hospital cover field is unavailable. Run latest DB migrations (including 0023) and restart the server."
+      );
+    }
+    if (raw.includes("Failed query")) {
+      return tr(
+        "数据库结构与当前代码不一致。请执行最新数据库迁移并重启服务。",
+        "Database schema is out of sync with current code. Run latest migrations and restart the server."
       );
     }
     return raw;
@@ -125,6 +137,9 @@ export function useAdminConsole({
   const retentionPoliciesQuery = trpc.system.adminRetentionPolicies.useQuery(undefined, {
     enabled: isAdmin,
   });
+  const hospitalsQuery = trpc.system.adminHospitals.useQuery(undefined, {
+    enabled: isAdmin,
+  });
   const retentionAuditsQuery = trpc.system.adminRetentionCleanupAudits.useQuery(
     { limit: 20 },
     { enabled: isAdmin }
@@ -152,12 +167,14 @@ export function useAdminConsole({
       metricsQuery.refetch(),
       selectedAppointmentId ? appointmentDetailQuery.refetch() : Promise.resolve(),
       selectedAppointmentId ? visitSummaryQuery.refetch() : Promise.resolve(),
+      hospitalsQuery.refetch(),
       retentionPoliciesQuery.refetch(),
       retentionAuditsQuery.refetch(),
     ]);
   }, [
     appointmentDetailQuery,
     appointmentsQuery,
+    hospitalsQuery,
     metricsQuery,
     retentionAuditsQuery,
     retentionPoliciesQuery,
@@ -218,9 +235,9 @@ export function useAdminConsole({
     },
   });
   const generateSummaryMutation = trpc.system.adminGenerateVisitSummary.useMutation({
-    onSuccess: async () => {
+    onSuccess: () => {
       toast.success(tr("会后总结已生成。", "Visit summary generated."));
-      await visitSummaryQuery.refetch();
+      void visitSummaryQuery.refetch();
     },
     onError: error => {
       toast.error(toUiError(error.message));
@@ -257,6 +274,84 @@ export function useAdminConsole({
       toast.error(toUiError(error.message));
     },
   });
+  const adminUploadHospitalImageMutation = trpc.system.adminUploadHospitalImage.useMutation({
+    onSuccess: () => {
+      void hospitalsQuery.refetch();
+      toast.success(tr("医院封面上传成功。", "Hospital image uploaded."));
+    },
+    onError: error => {
+      toast.error(toUiError(error.message));
+    },
+  });
+  const adminClearHospitalImageMutation = trpc.system.adminClearHospitalImage.useMutation({
+    onSuccess: () => {
+      void hospitalsQuery.refetch();
+      toast.success(tr("医院封面已清除。", "Hospital image removed."));
+    },
+    onError: error => {
+      toast.error(toUiError(error.message));
+    },
+  });
+
+  const readImageAsDataUrl = (file: File) => {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = event => {
+        const next = String(event.target?.result ?? "");
+        if (!next) {
+          reject(new Error(tr("文件读取失败，请重试。", "Failed to read file.")));
+          return;
+        }
+        resolve(next);
+      };
+      reader.onerror = () => {
+        reject(reader.error ?? new Error(tr("文件读取失败。", "Failed to read file.")));
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const uploadHospitalImage = async (hospitalId: number, file: File) => {
+    if (!Number.isInteger(hospitalId) || hospitalId <= 0) {
+      toast.error(tr("无效的医院 ID。", "Invalid hospital ID."));
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      toast.error(tr("请选择图片文件（支持 jpg/png/webp/gif）。", "Please select an image (jpg/png/webp/gif)."));
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error(tr("图片超过 8MB，请缩小后重试。", "Image is larger than 8MB. Please compress it."));
+      return;
+    }
+    try {
+      const imageBase64 = await readImageAsDataUrl(file);
+      await adminUploadHospitalImageMutation.mutateAsync({
+        hospitalId,
+        fileName: file.name,
+        contentType: file.type,
+        imageBase64,
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : tr("上传失败，请稍后重试。", "Upload failed, please try again later.")
+      );
+    }
+  };
+
+  const clearHospitalImage = (hospitalId: number) => {
+    if (!Number.isInteger(hospitalId) || hospitalId <= 0) {
+      toast.error(tr("无效的医院 ID。", "Invalid hospital ID."));
+      return;
+    }
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(tr("确定要清除该医院的图片？", "Remove this hospital image?"))
+    ) {
+      return;
+    }
+    void adminClearHospitalImageMutation.mutateAsync({ hospitalId });
+  };
 
   const risks = useMemo(
     () => computeAdminRisks(appointmentDetailQuery.data, new Date(), lang),
@@ -542,6 +637,15 @@ export function useAdminConsole({
     resendPaymentMutation,
     resendAccessLinkMutation,
     issueLinksMutation,
+    hospitalsQuery,
+    adminHospitalImageUploadMutation: {
+      isPending: adminUploadHospitalImageMutation.isPending,
+      uploadHospitalImage,
+    },
+    adminHospitalImageClearMutation: {
+      isPending: adminClearHospitalImageMutation.isPending,
+      clearHospitalImage,
+    },
     notifyDoctorFollowupMutation,
     updateStatusMutation,
     generateSummaryMutation,

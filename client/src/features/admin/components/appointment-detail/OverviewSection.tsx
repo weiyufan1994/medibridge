@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { formatDate } from "@/features/admin/utils/adminFormatting";
+import { formatDate, formatMoneyFromMinorUnit } from "@/features/admin/utils/adminFormatting";
 import type { AdminSuggestion } from "@/features/admin/risk";
 import type { AppointmentDetailData } from "@/features/admin/types";
 
@@ -39,7 +39,11 @@ export function OverviewSection({
         </p>
         <p>
           <span className="font-medium">{tr("金额：", "Amount: ")}</span>
-          {detailData?.appointment.amount} {detailData?.appointment.currency.toUpperCase()}
+          {formatMoneyFromMinorUnit(
+            detailData?.appointment.amount ?? 0,
+            detailData?.appointment.currency ?? "USD",
+            locale
+          )}
         </p>
         <p>
           <span className="font-medium">{tr("预约时间：", "Scheduled: ")}</span>

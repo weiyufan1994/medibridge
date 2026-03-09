@@ -50,6 +50,7 @@ export const hospitals = mysqlTable("hospitals", {
   website: varchar("website", { length: 255 }),
   description: text("description"),
   descriptionEn: text("descriptionEn"),
+  imageUrl: varchar("imageUrl", { length: 500 }),
   sourceHash: varchar("sourceHash", { length: 64 }),
   translationStatus: mysqlEnum("translationStatus", [
     "pending",

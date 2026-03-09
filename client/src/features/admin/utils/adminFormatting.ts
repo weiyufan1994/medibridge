@@ -9,6 +9,30 @@ export function formatDate(value: Date | string | null, locale?: string) {
   return date.toLocaleString(locale);
 }
 
+export function formatMoneyFromMinorUnit(
+  amountMinor: number,
+  currency: string,
+  locale?: string
+) {
+  if (!Number.isFinite(amountMinor)) {
+    return "-";
+  }
+
+  const normalizedCurrency = (currency || "USD").trim().toUpperCase();
+  const amountMajor = amountMinor / 100;
+
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: normalizedCurrency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amountMajor);
+  } catch {
+    return `${amountMajor.toFixed(2)} ${normalizedCurrency}`;
+  }
+}
+
 export function stringify(value: unknown) {
   return JSON.stringify(value, null, 2);
 }

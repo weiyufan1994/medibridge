@@ -210,19 +210,19 @@ const normalizeToolChoice = (
 };
 
 const resolveApiUrl = () =>
-  ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions`
+  ENV.llmApiUrl && ENV.llmApiUrl.trim().length > 0
+    ? `${ENV.llmApiUrl.replace(/\/$/, "")}/v1/chat/completions`
     : "https://forge.manus.im/v1/chat/completions";
 
 const resolveEmbeddingsApiUrl = () =>
-  ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/embeddings`
+  ENV.llmApiUrl && ENV.llmApiUrl.trim().length > 0
+    ? `${ENV.llmApiUrl.replace(/\/$/, "")}/v1/embeddings`
     : "https://forge.manus.im/v1/embeddings";
 
 const assertApiKey = () => {
-  if (!ENV.forgeApiKey) {
+  if (!ENV.llmApiKey) {
     throw new Error(
-      "LLM API key is not configured. Set BUILT_IN_FORGE_API_KEY or FORGE_API_KEY or OPENAI_API_KEY"
+      "LLM API key is not configured. Set LLM_API_KEY or OPENAI_API_KEY"
     );
   }
 };
@@ -322,7 +322,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
+      authorization: `Bearer ${ENV.llmApiKey}`,
     },
     body: JSON.stringify(payload),
   });
@@ -353,7 +353,7 @@ export async function createEmbedding(input: string): Promise<number[]> {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
+      authorization: `Bearer ${ENV.llmApiKey}`,
     },
     body: JSON.stringify({
       model: ENV.llmEmbeddingModel,

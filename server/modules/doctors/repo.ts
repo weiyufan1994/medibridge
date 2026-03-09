@@ -235,6 +235,36 @@ export async function getAllHospitals() {
   return await db.select().from(hospitals).orderBy(hospitals.name);
 }
 
+export async function getHospitalById(hospitalId: number) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const rows = await db
+    .select()
+    .from(hospitals)
+    .where(eq(hospitals.id, hospitalId))
+    .limit(1);
+
+  return rows.length > 0 ? rows[0] : null;
+}
+
+export async function setHospitalImageUrl(
+  hospitalId: number,
+  imageUrl: string | null
+) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  await db
+    .update(hospitals)
+    .set({ imageUrl })
+    .where(eq(hospitals.id, hospitalId));
+}
+
 export async function getDepartmentsByHospital(hospitalId: number) {
   const db = await getDb();
   if (!db) {

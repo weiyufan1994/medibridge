@@ -12,6 +12,7 @@ export default function Hospitals() {
     selectedHospitalName,
     selectedHospitalLevel,
     selectedDepartmentName,
+    selectedHospitalImageUrl,
     hospitals,
     hospitalsLoading,
     departments,
@@ -44,6 +45,7 @@ export default function Hospitals() {
           viewMode={viewMode}
           selectedHospitalName={selectedHospitalName}
           selectedHospitalLevel={selectedHospitalLevel}
+          selectedHospitalImageUrl={selectedHospitalImageUrl}
           selectedDepartmentName={selectedDepartmentName}
           hospitals={hospitals}
           hospitalsLoading={hospitalsLoading}

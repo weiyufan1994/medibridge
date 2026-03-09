@@ -35,6 +35,7 @@ type HospitalInfo = {
   address: string | null;
   addressEn: string | null;
   website: string | null;
+  imageUrl: string | null;
 };
 
 type Department = {
@@ -276,6 +277,17 @@ export function DoctorDetailContent({
         className="bg-white rounded-2xl p-6 shadow-sm"
         aria-label={t("doctor.hospital_information")}
       >
+        <div className="w-full h-40 rounded-xl bg-slate-100 overflow-hidden mb-3 flex items-center justify-center">
+          {hospital.imageUrl?.trim() ? (
+            <img
+              src={hospital.imageUrl}
+              alt={hospitalNameClean}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <Hospital className="w-10 h-10 text-slate-400" aria-hidden="true" />
+          )}
+        </div>
         <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2 mb-3">
           <Hospital className="w-5 h-5 text-slate-700" aria-hidden="true" />
           {t("doctor.hospital_information")}

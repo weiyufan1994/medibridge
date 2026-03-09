@@ -26,6 +26,7 @@ type HospitalItem = {
   cityEn: string | null;
   level: string | null;
   levelEn: string | null;
+  imageUrl: string | null;
 };
 
 type DepartmentItem = {
@@ -56,6 +57,7 @@ type Props = {
   selectedHospitalName: string;
   selectedHospitalLevel: string;
   selectedDepartmentName: string;
+  selectedHospitalImageUrl?: string | null;
   hospitals?: HospitalItem[];
   hospitalsLoading: boolean;
   departments?: DepartmentItem[];
@@ -76,6 +78,7 @@ export function HospitalsBrowser({
   selectedHospitalName,
   selectedHospitalLevel,
   selectedDepartmentName,
+  selectedHospitalImageUrl,
   hospitals,
   hospitalsLoading,
   departments,
@@ -246,6 +249,7 @@ export function HospitalsBrowser({
                 zh: hospital.level,
                 en: hospital.levelEn,
               });
+              const hospitalImage = hospital.imageUrl?.trim();
               const description = copy.browser.hospitalCardDescription;
 
               return (
@@ -254,8 +258,16 @@ export function HospitalsBrowser({
                   className="h-full bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow border border-slate-100 flex gap-5 items-start"
                   aria-label={hospitalName}
                 >
-                  <div className="w-24 h-24 rounded-xl bg-teal-50/50 flex-shrink-0 flex items-center justify-center text-teal-600/60 text-xs">
-                    <Hospital className="w-8 h-8 text-teal-600/60" aria-hidden="true" />
+                  <div className="w-24 h-24 rounded-xl bg-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center text-slate-500 text-xs">
+                    {hospitalImage ? (
+                      <img
+                        src={hospitalImage}
+                        alt={hospitalName}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <Hospital className="w-8 h-8 text-slate-400" aria-hidden="true" />
+                    )}
                   </div>
                   <div className="min-w-0 flex-1 flex flex-col">
                     <h3 className="text-lg font-bold text-slate-900 line-clamp-2">
@@ -287,7 +299,10 @@ export function HospitalsBrowser({
       {viewMode === "departments" && (
         <section>
           <img
-            src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=2000"
+            src={
+              selectedHospitalImageUrl?.trim() ||
+              "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=2000"
+            }
             alt={selectedHospitalName}
             className="w-full h-64 md:h-72 object-cover rounded-2xl shadow-sm mb-8"
           />

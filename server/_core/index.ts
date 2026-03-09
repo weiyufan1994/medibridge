@@ -7,6 +7,7 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { getLocalUploadDir } from "../storage";
 import { handleStripeWebhook } from "../stripeWebhookRoute";
 import { createVisitRealtimeGateway } from "../modules/visit/realtimeGateway";
 import { startAppointmentAutoCloseWorker } from "../modules/appointments/autoCloseWorker";
@@ -36,6 +37,7 @@ async function startServer() {
   const visitRealtimeGateway = createVisitRealtimeGateway();
   const stopAppointmentAutoCloseWorker = startAppointmentAutoCloseWorker();
   app.set("trust proxy", true);
+  app.use("/uploads", express.static(getLocalUploadDir()));
   app.post(
     "/api/payments/stripe/webhook",
     express.raw({ type: "application/json" }),
