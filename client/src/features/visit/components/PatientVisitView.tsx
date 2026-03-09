@@ -19,6 +19,11 @@ export function PatientVisitView({
   effectiveCanSendMessage,
   readOnlyText,
   pollingFatalError,
+  timerLabel,
+  timerStatus,
+  timerAriaLabel,
+  showWarningBanner,
+  warningBannerText,
   showInitialSkeleton,
   messages,
   hasMoreHistory,
@@ -52,6 +57,9 @@ export function PatientVisitView({
         effectiveCanSendMessage={effectiveCanSendMessage}
         readOnlyText={readOnlyText}
         pollingFatalError={pollingFatalError}
+        timerLabel={timerLabel}
+        timerStatus={timerStatus}
+        timerAriaLabel={timerAriaLabel}
       />
 
       <section className="min-h-0 flex-1">
@@ -68,6 +76,15 @@ export function PatientVisitView({
               loadEarlierText={loadEarlierText}
               loadingEarlierText={loadingEarlierText}
             />
+            {showWarningBanner ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className="border-t border-amber-100 bg-amber-50/90 px-4 py-2 text-center text-xs text-amber-700 backdrop-blur-sm"
+              >
+                {warningBannerText}
+              </div>
+            ) : null}
             <footer className="mt-auto shrink-0 border-t border-slate-200 bg-slate-50/80 px-3 pb-3 pt-3">
               <ChatComposer
                 value={content}

@@ -6,6 +6,7 @@ import {
   type JoinedPayload,
   type SocketEventEnvelope,
   type StatusPayload,
+  type TimerPayload,
   type VisitSocketErrorPayload,
 } from "@/features/visit/hooks/useVisits.helpers";
 
@@ -16,6 +17,7 @@ type UseVisitRoomSocketParams = {
   onJoined: (payload: JoinedPayload) => void;
   onIncomingMessage: (payload: IncomingMessagePayload) => void;
   onStatus: (payload: StatusPayload) => void;
+  onTimer: (payload: TimerPayload) => void;
   onError: (payload: VisitSocketErrorPayload) => void;
   onSocketClosed: () => void;
   onReconnectingChange: (isReconnecting: boolean) => void;
@@ -30,6 +32,7 @@ export function useVisitRoomSocket({
   onJoined,
   onIncomingMessage,
   onStatus,
+  onTimer,
   onError,
   onSocketClosed,
   onReconnectingChange,
@@ -42,6 +45,7 @@ export function useVisitRoomSocket({
     onJoined,
     onIncomingMessage,
     onStatus,
+    onTimer,
     onError,
     onSocketClosed,
     onReconnectingChange,
@@ -52,6 +56,7 @@ export function useVisitRoomSocket({
       onJoined,
       onIncomingMessage,
       onStatus,
+      onTimer,
       onError,
       onSocketClosed,
       onReconnectingChange,
@@ -60,6 +65,7 @@ export function useVisitRoomSocket({
     onJoined,
     onIncomingMessage,
     onStatus,
+    onTimer,
     onError,
     onSocketClosed,
     onReconnectingChange,
@@ -143,6 +149,11 @@ export function useVisitRoomSocket({
 
         if (envelope.event === "room.status") {
           handlersRef.current.onStatus(envelope.data as StatusPayload);
+          return;
+        }
+
+        if (envelope.event === "room.timer") {
+          handlersRef.current.onTimer(envelope.data as TimerPayload);
           return;
         }
 

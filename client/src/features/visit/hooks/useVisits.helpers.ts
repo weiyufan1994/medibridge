@@ -24,6 +24,12 @@ export type IncomingMessagePayload = {
   createdAt: string;
 };
 
+export type TimerPayload = {
+  baseDurationMinutes: number;
+  extensionMinutes: number;
+  totalDurationMinutes: number;
+};
+
 export type SocketEventEnvelope = {
   event: string;
   data?: unknown;

@@ -184,6 +184,9 @@ export const appointmentAccessOutputSchema = appointmentPublicSchema.extend({
   ...appointmentParticipantSchema.shape,
   triageSummary: z.string().nullable(),
   intake: appointmentIntakeSchema.nullable(),
+  consultationDurationMinutes: z.number().int().positive(),
+  consultationExtensionMinutes: z.number().int().nonnegative(),
+  consultationTotalMinutes: z.number().int().positive(),
 });
 
 export const createOutputSchema = z.object({

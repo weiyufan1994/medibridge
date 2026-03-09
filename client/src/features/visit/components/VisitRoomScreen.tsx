@@ -15,6 +15,7 @@ import { useVisits } from "@/features/visit/hooks/useVisits";
 import { useVisitRoomAccess } from "@/features/visit/hooks/useVisitRoomAccess";
 import { useVisitRoomData } from "@/features/visit/hooks/useVisitRoomData";
 import { useNow } from "@/features/visit/hooks/useNow";
+import { useConsultationTimer } from "@/features/visit/hooks/useConsultationTimer";
 import { useVisitRoomPresentation } from "@/features/visit/hooks/useVisitRoomPresentation";
 import { getVisitCopy } from "@/features/visit/copy";
 import type { VisitSharedViewProps } from "@/features/visit/types";
@@ -43,9 +44,12 @@ export function VisitRoomScreen() {
     role,
     currentStatus,
     canSendMessage,
+    roomTimer,
+    isExtendingTimer,
     setContent,
     loadOlderMessages,
     handleSend,
+    requestTimerExtension,
     showInitialSkeleton,
   } = useVisits({
     accessInput: { token: accessInput.token },
@@ -57,9 +61,25 @@ export function VisitRoomScreen() {
   const appointmentForPresentation = appointmentQuery.data ?? {
     role: "patient" as const,
     status: "",
+    scheduledAt: null,
     triageSummary: null,
     intake: null,
+    consultationDurationMinutes: 30,
+    consultationExtensionMinutes: 0,
+    consultationTotalMinutes: 30,
   };
+  const baseDurationMinutes =
+    roomTimer?.baseDurationMinutes ?? appointmentForPresentation.consultationDurationMinutes ?? 30;
+  const extensionMinutes =
+    roomTimer?.extensionMinutes ?? appointmentForPresentation.consultationExtensionMinutes ?? 0;
+  const consultationTimer = useConsultationTimer({
+    now,
+    scheduledAt: appointmentForPresentation.scheduledAt,
+    baseDurationMinutes,
+    extensionMinutes,
+  });
+  const isWarningActive =
+    consultationTimer.status === "warning" && consultationTimer.remainingSeconds > 0;
 
   const presentation = useVisitRoomPresentation({
     resolved,
@@ -92,6 +112,7 @@ export function VisitRoomScreen() {
   }
 
   const appointment = appointmentQuery.data;
+
   const sharedViewProps: VisitSharedViewProps = {
     doctorName: presentation.doctorName,
     departmentName: presentation.departmentName,
@@ -106,6 +127,14 @@ export function VisitRoomScreen() {
     effectiveCanSendMessage: presentation.effectiveCanSendMessage,
     readOnlyText: t.readOnly,
     pollingFatalError,
+    timerLabel: consultationTimer.remainingLabel,
+    timerStatus: consultationTimer.status,
+    timerAriaLabel: t.timerAriaLabel.replace(
+      "{{time}}",
+      consultationTimer.remainingLabel
+    ),
+    showWarningBanner: isWarningActive,
+    warningBannerText: t.fiveMinWarningBanner,
     showInitialSkeleton,
     messages,
     hasMoreHistory,
@@ -131,6 +160,12 @@ export function VisitRoomScreen() {
   };
   const isDoctorView = presentation.isDoctorView;
   const onGenerateSummary = () => setSummaryModalOpen(true);
+  const onExtendTimer = () => {
+    requestTimerExtension(5);
+  };
+  const canExtendTimer = extensionMinutes < 5;
+  const endConsultationText =
+    consultationTimer.status === "expired" ? t.generateSummaryNow : t.endConsultation;
 
   return (
     <AppLayout title={pageTitle}>
@@ -141,7 +176,7 @@ export function VisitRoomScreen() {
               <DoctorVisitView
                 {...sharedViewProps}
                 canEndConsultation={!presentation.roomClosedByStatus}
-                endConsultationText={t.endConsultation}
+                endConsultationText={endConsultationText}
                 endConsultationTitle={t.endConsultationTitle}
                 endConsultationDesc={t.endConsultationDesc}
                 cancelText={t.cancel}
@@ -149,6 +184,17 @@ export function VisitRoomScreen() {
                 endingText={t.ending}
                 isEnding={false}
                 onGenerateSummary={onGenerateSummary}
+                didJustExpire={consultationTimer.didJustExpire}
+                canExtendTimer={canExtendTimer}
+                isExtendingTimer={isExtendingTimer}
+                onExtendTimer={onExtendTimer}
+                timeExceededTitle={t.timeExceededTitle}
+                timeExceededDesc={
+                  canExtendTimer ? t.timeExceededDesc : t.timeExceededDescNoExtension
+                }
+                extendFiveMinsText={t.extendFiveMins}
+                extendingText={t.extendingTimer}
+                endVisitDraftSummaryText={t.endVisitDraftSummary}
               />
             </div>
 
@@ -190,6 +236,9 @@ export function VisitRoomScreen() {
             signingText: t.medicalSummarySigning,
             signSuccessText: t.consultationEndedSuccess,
             draftFailedText: t.medicalSummaryDraftFailed,
+            draftTimeoutText: t.medicalSummaryDraftTimeout,
+            draftTimeoutHintText: t.medicalSummaryDraftTimeoutHint,
+            requiredFieldsText: t.medicalSummaryRequiredFields,
             signFailedText: t.medicalSummarySignFailed,
           }}
         />

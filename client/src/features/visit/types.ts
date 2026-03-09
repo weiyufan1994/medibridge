@@ -15,6 +15,8 @@ export type VisitMessageItem = {
   clientMessageId: string | null;
 };
 
+export type ConsultationTimerStatus = "normal" | "warning" | "expired";
+
 export type VisitSharedViewProps = {
   doctorName: string;
   departmentName: string;
@@ -29,6 +31,11 @@ export type VisitSharedViewProps = {
   effectiveCanSendMessage: boolean;
   readOnlyText: string;
   pollingFatalError: string | null;
+  timerLabel: string;
+  timerStatus: ConsultationTimerStatus;
+  timerAriaLabel: string;
+  showWarningBanner: boolean;
+  warningBannerText: string;
   showInitialSkeleton: boolean;
   messages: VisitMessageItem[];
   hasMoreHistory: boolean;

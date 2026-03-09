@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { ConsultationTimerStatus } from "@/features/visit/types";
 
 type VisitRoomHeaderProps = {
   doctorName: string;
@@ -14,8 +15,17 @@ type VisitRoomHeaderProps = {
   effectiveCanSendMessage: boolean;
   readOnlyText: string;
   pollingFatalError: string | null;
+  timerLabel: string;
+  timerStatus: ConsultationTimerStatus;
+  timerAriaLabel: string;
   rightExtra?: ReactNode;
   className?: string;
+};
+
+const TIMER_CLASS_BY_STATUS: Record<ConsultationTimerStatus, string> = {
+  normal: "bg-slate-50 text-slate-600 border-slate-200",
+  warning: "bg-amber-50 text-amber-600 border-amber-200 animate-pulse motion-reduce:animate-none",
+  expired: "bg-rose-50 text-rose-600 border-rose-200",
 };
 
 export function VisitRoomHeader({
@@ -32,6 +42,9 @@ export function VisitRoomHeader({
   effectiveCanSendMessage,
   readOnlyText,
   pollingFatalError,
+  timerLabel,
+  timerStatus,
+  timerAriaLabel,
   rightExtra = null,
   className = "shrink-0 px-5 pb-2 pt-4",
 }: VisitRoomHeaderProps) {
@@ -63,6 +76,16 @@ export function VisitRoomHeader({
           <p className="text-[11px] text-slate-400">
             {beijingTimeLabel}: {chinaNowText}
           </p>
+          <div className="mt-1 flex flex-wrap items-center justify-end gap-2">
+            <span
+              className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-mono font-medium ${TIMER_CLASS_BY_STATUS[timerStatus]}`}
+              aria-label={timerAriaLabel}
+            >
+              <span aria-hidden="true">⏱</span>
+              {timerLabel}
+            </span>
+            {rightExtra}
+          </div>
           {isReconnecting ? (
             <span className="inline-flex items-center gap-1 text-xs text-slate-500">
               <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
@@ -74,7 +97,6 @@ export function VisitRoomHeader({
               {readOnlyText}
             </span>
           ) : null}
-          {rightExtra}
         </div>
       </div>
       {pollingFatalError ? (

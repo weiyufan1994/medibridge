@@ -5,6 +5,8 @@ import type { Duplex } from "stream";
 import type { AppointmentMessage } from "../../../drizzle/schema";
 import * as appointmentsRepo from "../appointments/repo";
 import { canJoinRoom, canSendMessage } from "../appointments/chatPolicy";
+import { resolveConsultationTimerState } from "../appointments/consultationTimer";
+import { extendConsultationByDoctorTokenFlow } from "../appointments/timerActions";
 import { validateAppointmentAccessToken } from "../appointments/tokenValidation";
 import * as visitRepo from "./repo";
 import { markInSessionIfTransitioned } from "./status";
@@ -32,6 +34,10 @@ type ClientEnvelope =
   | {
       event: "message.send";
       data?: { textOriginal?: string; clientMessageId?: string };
+    }
+  | {
+      event: "room.timer.extend";
+      data?: { requestId?: string; minutes?: number };
     };
 
 function encodeCursor(createdAt: Date, id: number) {
@@ -195,6 +201,15 @@ function asErrorCode(error: unknown) {
     : "INTERNAL_SERVER_ERROR";
 }
 
+function toRoomTimerPayload(notes: string | null | undefined) {
+  const timer = resolveConsultationTimerState(notes);
+  return {
+    baseDurationMinutes: timer.baseDurationMinutes,
+    extensionMinutes: timer.extensionMinutes,
+    totalDurationMinutes: timer.totalDurationMinutes,
+  };
+}
+
 export function createVisitRealtimeGateway() {
   const rooms = new Map<number, Set<RoomConnection>>();
   const connections = new Set<RoomConnection>();
@@ -327,6 +342,7 @@ export function createVisitRealtimeGateway() {
       canSendMessage: canSend,
       recentCursor,
     });
+    sendEvent(connection, "room.timer", toRoomTimerPayload(appointment.notes));
   }
 
   async function handleMessageSend(
@@ -449,6 +465,44 @@ export function createVisitRealtimeGateway() {
     broadcastRoom(appointmentId, "message.new", toWireMessage(messageRow));
   }
 
+  async function handleTimerExtend(
+    connection: RoomConnection,
+    req: IncomingMessage,
+    payload: { requestId?: string; minutes?: number }
+  ) {
+    const appointmentId = connection.appointmentId;
+    const token = connection.token;
+    if (!appointmentId || !token) {
+      sendError(connection, "ROOM_NOT_JOINED");
+      return;
+    }
+
+    const requestId = (payload.requestId ?? "").trim();
+    if (!requestId || requestId.length > 128) {
+      sendError(connection, "BAD_REQUEST", "requestId is required");
+      return;
+    }
+
+    const minutes = Number(payload.minutes);
+    if (!Number.isInteger(minutes)) {
+      sendError(connection, "BAD_REQUEST", "minutes must be integer");
+      return;
+    }
+
+    const extended = await extendConsultationByDoctorTokenFlow({
+      appointmentId,
+      token,
+      extensionMinutes: minutes,
+      req: req as never,
+    });
+
+    broadcastRoom(appointmentId, "room.timer", {
+      baseDurationMinutes: extended.baseDurationMinutes,
+      extensionMinutes: extended.extensionMinutes,
+      totalDurationMinutes: extended.totalDurationMinutes,
+    });
+  }
+
   function startConnectionTimers(connection: RoomConnection, req: IncomingMessage) {
     connection.heartbeatTimer = setInterval(() => {
       if (connection.isClosed) {
@@ -559,6 +613,13 @@ export function createVisitRealtimeGateway() {
 
           if (envelope.event === "message.send") {
             void handleMessageSend(connection, req, envelope.data ?? {}).catch(error => {
+              sendError(connection, asErrorCode(error));
+            });
+            continue;
+          }
+
+          if (envelope.event === "room.timer.extend") {
+            void handleTimerExtend(connection, req, envelope.data ?? {}).catch(error => {
               sendError(connection, asErrorCode(error));
             });
             continue;

@@ -3,6 +3,7 @@ import * as aiRepo from "../ai/repo";
 import { buildAppointmentAccessLink } from "./linkService";
 import { validateAppointmentToken } from "./accessValidation";
 import { parseIntakeFromNotes, translateTriageSummary } from "./accessQueryActions";
+import { resolveConsultationTimerState } from "./consultationTimer";
 import { toPublicAppointment } from "./serializers";
 import { appointmentIntakeSchema } from "./schemas";
 
@@ -26,6 +27,7 @@ export async function getAppointmentAccessByToken<TIntake>(input: {
   const localizedSummary = triageSession?.summary
     ? await translateTriageSummary(triageSession.summary, input.lang)
     : null;
+  const timer = resolveConsultationTimerState(appointment.notes);
 
   return {
     ...toPublicAppointment(appointment),
@@ -39,6 +41,9 @@ export async function getAppointmentAccessByToken<TIntake>(input: {
     },
     triageSummary: localizedSummary,
     intake: parseIntakeFromNotes(appointment.notes, input.parseIntake),
+    consultationDurationMinutes: timer.baseDurationMinutes,
+    consultationExtensionMinutes: timer.extensionMinutes,
+    consultationTotalMinutes: timer.totalDurationMinutes,
   };
 }
 

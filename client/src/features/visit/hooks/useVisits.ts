@@ -11,6 +11,7 @@ import {
   mergeMessages,
   normalizeRealtimeMessage,
   type RoomMessagesPage,
+  type TimerPayload,
   type VisitSocketErrorPayload,
 } from "@/features/visit/hooks/useVisits.helpers";
 import { useVisitRoomSocket } from "@/features/visit/hooks/useVisitRoomSocket";
@@ -41,6 +42,8 @@ export function useVisits({
   const [role, setRole] = useState<VisitParticipantRole | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
   const [canSendMessageFromRoom, setCanSendMessageFromRoom] = useState<boolean | null>(null);
+  const [roomTimer, setRoomTimer] = useState<TimerPayload | null>(null);
+  const [isExtendingTimer, setIsExtendingTimer] = useState(false);
 
   const shouldAutoScrollRef = useRef(true);
   const hasHydratedInitialMessagesRef = useRef(false);
@@ -94,6 +97,8 @@ export function useVisits({
     setCurrentStatus(null);
     setCanSendMessageFromRoom(null);
     setPollingFatalError(null);
+    setRoomTimer(null);
+    setIsExtendingTimer(false);
     hasHydratedInitialMessagesRef.current = false;
     topAutoLoadLockRef.current = false;
   }, [accessInput.token]);
@@ -202,6 +207,10 @@ export function useVisits({
       setCurrentStatus(payload.currentStatus);
       setCanSendMessageFromRoom(payload.canSendMessage);
     },
+    onTimer: payload => {
+      setRoomTimer(payload);
+      setIsExtendingTimer(false);
+    },
     onError: payload => {
       const code = (payload?.code ?? "UNKNOWN_ERROR").trim();
       const message = payload?.message ?? code;
@@ -213,9 +222,14 @@ export function useVisits({
         return;
       }
 
-      if (code !== "ROOM_READ_ONLY") {
+      if (code === "CONSULTATION_EXTENSION_ALREADY_USED") {
+        toast.error(t.timerExtendAlreadyUsed);
+      } else if (code === "CONSULTATION_EXTENSION_CONFLICT") {
+        toast.error(t.timerExtendFailed);
+      } else if (code !== "ROOM_READ_ONLY") {
         toast.error(message);
       }
+      setIsExtendingTimer(false);
       setIsSending(false);
     },
     onSocketClosed: () => {
@@ -249,6 +263,22 @@ export function useVisits({
     setContent("");
   }
 
+  function requestTimerExtension(minutes = 5) {
+    if (isExtendingTimer) {
+      return false;
+    }
+    const didSend = sendEvent("room.timer.extend", {
+      requestId: getClientMsgId(),
+      minutes,
+    });
+    if (!didSend) {
+      toast.error(t.timerExtendFailed);
+      return false;
+    }
+    setIsExtendingTimer(true);
+    return true;
+  }
+
   const showInitialSkeleton = messagesInfiniteQuery.isLoading && messages.length === 0;
 
   return {
@@ -263,9 +293,12 @@ export function useVisits({
     role,
     currentStatus,
     canSendMessage: effectiveCanSend,
+    roomTimer,
+    isExtendingTimer,
     setContent,
     loadOlderMessages,
     handleSend,
+    requestTimerExtension,
     showInitialSkeleton,
   };
 }
