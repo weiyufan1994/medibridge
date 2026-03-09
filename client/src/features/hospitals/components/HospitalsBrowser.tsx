@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import {
   ArrowRight,
-  ChevronLeft,
   ChevronRight,
   Hospital,
   Loader2,
@@ -12,7 +11,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getLocalizedField } from "@/lib/i18n";
 import { getHospitalsCopy } from "@/features/hospitals/copy";
 
@@ -144,39 +142,44 @@ export function HospitalsBrowser({
       );
     });
   }, [hospitals, cityFilter, normalizedSearchQuery, resolved]);
+  const isDoctorsView = viewMode === "doctors";
 
   return (
-    <div className="w-full">
-      {viewMode !== "departments" && (
-        <nav
-          aria-label={resolved === "en" ? "Hospital navigation" : "医院列表导航"}
-          className="flex items-center gap-2 mb-6 text-sm text-slate-500"
+    <div className={isDoctorsView ? "min-h-screen bg-slate-50 w-full" : "w-full"}>
+      <nav
+        aria-label={resolved === "en" ? "Hospital navigation" : "医院列表导航"}
+        className="flex items-center gap-2 mb-6 text-sm text-slate-500"
+      >
+        <button
+          onClick={onBackToHospitals}
+          type="button"
+          className={`hover:text-slate-900 transition-colors ${viewMode === "hospitals" ? "text-slate-900 font-semibold" : ""}`}
         >
-          <button
-            onClick={onBackToHospitals}
-            type="button"
-            className={`hover:text-slate-900 transition-colors ${viewMode === "hospitals" ? "text-slate-900 font-semibold" : ""}`}
-          >
-            {copy.browser.breadcrumbHospitals}
-          </button>
-          {viewMode === "doctors" && (
-            <>
-              <ChevronRight className="w-4 h-4" />
-              <button
-                onClick={onBackToDepartments}
-                type="button"
-                className="hover:text-slate-900 transition-colors"
-              >
-                {selectedHospitalName || copy.browser.breadcrumbDepartmentsFallback}
-              </button>
-              <ChevronRight className="w-4 h-4" />
-              <span className="text-foreground font-medium">
-                {selectedDepartmentName || copy.browser.breadcrumbDoctorsFallback}
-              </span>
-            </>
-          )}
-        </nav>
-      )}
+          {copy.browser.breadcrumbHospitals}
+        </button>
+        {viewMode !== "hospitals" && (
+          <>
+            <ChevronRight className="w-4 h-4" />
+            <button
+              onClick={onBackToDepartments}
+              type="button"
+              className={`hover:text-slate-900 transition-colors ${
+                viewMode === "departments" ? "text-slate-900 font-semibold" : ""
+              }`}
+            >
+              {selectedHospitalName || copy.browser.breadcrumbDepartmentsFallback}
+            </button>
+            {viewMode === "doctors" && (
+              <>
+                <ChevronRight className="w-4 h-4" />
+                <span className="text-foreground font-medium">
+                  {selectedDepartmentName || copy.browser.breadcrumbDoctorsFallback}
+                </span>
+              </>
+            )}
+          </>
+        )}
+      </nav>
 
       {viewMode === "hospitals" && (
         <section>
@@ -283,17 +286,6 @@ export function HospitalsBrowser({
 
       {viewMode === "departments" && (
         <section>
-          <div className="mb-6">
-            <button
-              type="button"
-              onClick={onBackToHospitals}
-              aria-label={copy.browser.backToHospitals}
-              className="inline-flex items-center gap-2 h-11 px-3 rounded-md text-slate-500 hover:text-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600/30"
-            >
-              <ChevronLeft className="w-4 h-4" aria-hidden="true" />
-              <span>{copy.browser.backToHospitals}</span>
-            </button>
-          </div>
           <img
             src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=2000"
             alt={selectedHospitalName}
@@ -368,46 +360,34 @@ export function HospitalsBrowser({
       )}
 
       {viewMode === "doctors" && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <CardTitle>{copy.browser.doctorsTitle}</CardTitle>
-                <CardDescription>
-                  {copy.browser.doctorsCountLabel(
-                    selectedDepartmentName,
-                    filteredDoctors?.length || 0
-                  )}
-                </CardDescription>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onBackToDepartments}
-                aria-label={copy.browser.backToDepartments}
-              >
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                {copy.browser.backToDepartments}
-              </Button>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder={copy.browser.searchPlaceholder}
-                value={searchQuery}
-                onChange={(e) => onSearchQueryChange(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <section className="max-w-5xl mx-auto py-8 px-4">
+          <h2 className="text-3xl font-bold text-slate-900">
+            {selectedDepartmentName || copy.browser.doctorsTitle}
+          </h2>
+          <p className="text-slate-500 mt-1 mb-5">
+            {copy.browser.doctorsCountLabel(filteredDoctors?.length || 0)}
+          </p>
+          <div className="relative mb-6">
+            <label htmlFor="doctor-search" className="sr-only">
+              {copy.browser.searchDoctorsLabel}
+            </label>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <Input
+              id="doctor-search"
+              placeholder={copy.browser.searchPlaceholder}
+              value={searchQuery}
+              onChange={(e) => onSearchQueryChange(e.target.value)}
+              className="pl-10 pr-4 py-3 rounded-xl shadow-sm border-slate-200 focus:border-teal-500 focus-visible:ring-1 focus-visible:ring-teal-500 focus-visible:ring-offset-0"
+            />
+          </div>
+          <div className="space-y-4">
             {doctorsLoading && (
               <div className="py-12 text-center">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-400" />
               </div>
             )}
             {filteredDoctors && filteredDoctors.length === 0 && (
-              <div className="py-12 text-center text-muted-foreground">
+              <div className="py-12 text-center text-slate-500">
                 <p className="text-sm">{copy.browser.noDoctorsFound}</p>
               </div>
             )}
@@ -422,55 +402,50 @@ export function HospitalsBrowser({
                 zh: doctor.title,
                 en: doctor.titleEn,
               });
-              const doctorSpecialty = getLocalizedField({
-                lang: resolved,
-                zh: doctor.specialty,
-                en: doctor.specialtyEn,
-              });
               const doctorExpertise = getLocalizedField({
                 lang: resolved,
                 zh: doctor.expertise,
                 en: doctor.expertiseEn,
               });
               return (
-                <Card key={doctor.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-semibold text-lg text-foreground">{doctorName}</h4>
-                          {doctor.recommendationScore && (
-                            <Badge variant="secondary" className="text-xs">
-                              ★ {doctor.recommendationScore}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-3">{doctorTitle}</p>
-                        {doctor.specialty && (
-                          <p className="text-sm text-muted-foreground mb-2">
-                            <span className="font-medium">{copy.browser.specialtyLabel}</span>
-                            {doctorSpecialty}
-                          </p>
-                        )}
-                        {doctor.expertise && (
-                          <p className="text-sm text-muted-foreground line-clamp-3">
-                            <span className="font-medium">{copy.browser.expertiseLabel}</span>
-                            {doctorExpertise}
-                          </p>
-                        )}
-                      </div>
-                      <Link href={`/doctor/${doctor.id}`}>
-                        <Button size="sm">
-                          {copy.browser.viewProfile}
-                        </Button>
-                      </Link>
+                <article
+                  key={doctor.id}
+                  className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-slate-100 mb-4 flex flex-col sm:flex-row gap-6 items-start sm:items-center"
+                >
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-teal-50 flex-shrink-0 flex items-center justify-center text-teal-600 border border-slate-200 overflow-hidden">
+                    <Stethoscope className="w-8 h-8" aria-hidden="true" />
+                  </div>
+                  <div className="flex-1 flex flex-col gap-1 min-w-0">
+                    <div className="flex items-center gap-3">
+                      <h4 className="text-xl font-bold text-slate-900">{doctorName}</h4>
+                      {doctor.recommendationScore && (
+                        <span className="bg-amber-50 text-amber-600 px-2 py-0.5 rounded text-sm font-medium">
+                          ★ {doctor.recommendationScore}
+                        </span>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
+                    <p className="text-teal-700 font-medium text-sm">{doctorTitle}</p>
+                    <p className="line-clamp-2 text-sm text-slate-500 mt-2">
+                      <span className="font-medium text-slate-600">{copy.browser.expertiseLabel}</span>
+                      {doctorExpertise}
+                    </p>
+                  </div>
+                  <Link
+                    href={`/doctor/${doctor.id}`}
+                    className="w-full sm:w-auto focus-visible:outline-none"
+                  >
+                    <Button className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white font-medium px-6 py-2.5 rounded-xl transition-colors text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2">
+                      <span className="inline-flex items-center justify-center gap-1">
+                        {resolved === "en" ? "View Profile" : "查看医生主页"}
+                        <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                      </span>
+                    </Button>
+                  </Link>
+                </article>
               );
             })}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
     </div>
   );
