@@ -182,30 +182,28 @@ export function HospitalsBrowser({
         <section>
           <header className="mb-6">
             <h1 className="text-3xl font-bold text-slate-900">
-              选择合作医院 (Select a Hospital)
+              {copy.browser.selectHospitalTitle}
             </h1>
             <p className="text-slate-500 mt-2">
-              {resolved === "en"
-                ? "Quickly find top medical institutions by name, tier, or city."
-                : "支持搜索医院名称、等级与城市，快速找到顶尖医疗机构。"}
+              {copy.browser.selectHospitalIntro}
             </p>
           </header>
           <div className="mb-8 flex flex-col sm:flex-row gap-4">
             <label htmlFor="hospital-search" className="sr-only">
-              {resolved === "en" ? "Search hospitals" : "搜索医院"}
+              {copy.browser.searchHospitalsLabel}
             </label>
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <Input
                 id="hospital-search"
-                placeholder={resolved === "en" ? "Search hospitals..." : "搜索医院..."}
+                placeholder={copy.browser.searchHospitalsPlaceholder}
                 value={searchQuery}
                 onChange={(e) => onSearchQueryChange(e.target.value)}
                 className="pl-9 h-11 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus-visible:ring-1 focus-visible:ring-teal-500 focus-visible:ring-offset-0"
               />
             </div>
             <label htmlFor="city-filter" className="sr-only">
-              {resolved === "en" ? "City" : "城市"}
+              {copy.browser.cityLabel}
             </label>
             <select
               id="city-filter"
@@ -213,8 +211,8 @@ export function HospitalsBrowser({
               onChange={(e) => setCityFilter(e.target.value)}
               className="h-11 rounded-md border border-slate-200 bg-white px-3 text-slate-700 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-teal-500 min-w-44"
             >
-              <option value="all">{resolved === "en" ? "All cities" : "全部城市"}</option>
-              <option value="上海">上海</option>
+              <option value="all">{copy.browser.allCities}</option>
+              <option value="上海">{resolved === "en" ? "Shanghai" : "上海"}</option>
             </select>
           </div>
 
@@ -225,7 +223,7 @@ export function HospitalsBrowser({
           )}
           {!hospitalsLoading && filteredHospitals.length === 0 && (
             <p className="py-12 text-center text-slate-500">
-              {resolved === "en" ? "No hospitals found." : "未找到医院。"}
+              {copy.browser.noHospitalsFound}
             </p>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -245,10 +243,7 @@ export function HospitalsBrowser({
                 zh: hospital.level,
                 en: hospital.levelEn,
               });
-              const description =
-                resolved === "en"
-                  ? "A nationally recognized tertiary hospital with strong comprehensive care and specialist services in oral and maxillofacial medicine."
-                  : "全国知名的综合性三甲医院，特色科室包含整形外科、口腔科、骨科等，具备完整的检查与术后随访体系。";
+              const description = copy.browser.hospitalCardDescription;
 
               return (
                 <article
@@ -271,7 +266,7 @@ export function HospitalsBrowser({
                       onClick={() => onSelectHospital(hospital.id)}
                       className="mt-4 bg-teal-600 hover:bg-teal-700 text-white font-medium px-4 py-2 rounded-lg transition-colors"
                     >
-                      {resolved === "en" ? "View Doctors" : "查看医生"}
+                      {copy.browser.viewDoctors}
                       <ArrowRight className="w-4 h-4 ml-1.5" aria-hidden="true" />
                     </Button>
                   </div>
