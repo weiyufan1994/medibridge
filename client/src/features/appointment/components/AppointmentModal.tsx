@@ -567,6 +567,16 @@ export function AppointmentModal({
                       type="email"
                       value={bookingEmail}
                       onChange={event => setBookingEmail(event.target.value)}
+                      onKeyDown={event => {
+                        if (
+                          event.key === "Enter" &&
+                          !event.nativeEvent.isComposing &&
+                          canRequestOtp
+                        ) {
+                          event.preventDefault();
+                          void handleRequestOtp();
+                        }
+                      }}
                       placeholder={t.bookingEmailPlaceholder}
                       disabled={isSubmitting}
                       className="border-0 border-b border-slate-200 rounded-none px-0 focus-visible:ring-0 focus-visible:border-teal-500"
@@ -574,22 +584,35 @@ export function AppointmentModal({
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="booking-otp">{t.bookingOtpLabel}</Label>
-                    <InputOTP
-                      id="booking-otp"
-                      maxLength={6}
-                      value={bookingOtpCode}
-                      onChange={setBookingOtpCode}
-                      containerClassName="justify-start"
+                    <div
+                      onKeyDown={event => {
+                        if (
+                          event.key === "Enter" &&
+                          !event.nativeEvent.isComposing &&
+                          bookingOtpCode.length === 6
+                        ) {
+                          event.preventDefault();
+                          void handlePrimaryAction();
+                        }
+                      }}
                     >
-                      <InputOTPGroup>
-                        <InputOTPSlot index={0} />
-                        <InputOTPSlot index={1} />
-                        <InputOTPSlot index={2} />
-                        <InputOTPSlot index={3} />
-                        <InputOTPSlot index={4} />
-                        <InputOTPSlot index={5} />
-                      </InputOTPGroup>
-                    </InputOTP>
+                      <InputOTP
+                        id="booking-otp"
+                        maxLength={6}
+                        value={bookingOtpCode}
+                        onChange={setBookingOtpCode}
+                        containerClassName="justify-start"
+                      >
+                        <InputOTPGroup>
+                          <InputOTPSlot index={0} />
+                          <InputOTPSlot index={1} />
+                          <InputOTPSlot index={2} />
+                          <InputOTPSlot index={3} />
+                          <InputOTPSlot index={4} />
+                          <InputOTPSlot index={5} />
+                        </InputOTPGroup>
+                      </InputOTP>
+                    </div>
                   </div>
                   </div>
                   <div>

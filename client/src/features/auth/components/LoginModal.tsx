@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Stethoscope } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -97,59 +98,94 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{resolved === "zh" ? "邮箱登录" : "Email Sign In"}</DialogTitle>
-          <DialogDescription>
+      <DialogContent
+        className="sm:max-w-md bg-white rounded-2xl shadow-xl p-8 border-slate-100 gap-0"
+      >
+        <DialogHeader className="text-center">
+          <div className="w-12 h-12 bg-teal-50 rounded-full flex items-center justify-center text-teal-600 mx-auto mb-4">
+            <Stethoscope className="w-6 h-6" aria-hidden="true" />
+          </div>
+          <DialogTitle className="text-2xl font-bold text-slate-900">
+            {resolved === "zh" ? "登录或注册" : "Welcome to MediBridge"}
+          </DialogTitle>
+          <DialogDescription className="text-slate-500 text-sm mt-2 mb-8">
             {step === "email"
               ? resolved === "zh"
-                ? "输入邮箱发送验证码，无需密码。"
-                : "Enter your email to receive a verification code. No password required."
+                ? "输入邮箱获取验证码，无需设置密码即可快速进入。"
+                : "Enter your email to receive a secure login code."
               : resolved === "zh"
                 ? `验证码已发送至 ${trimmedEmail || "你的邮箱"}`
                 : `Code sent to ${trimmedEmail || "your email"}`}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           {step === "email" ? (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <Input
                 type="email"
                 placeholder="you@example.com"
                 value={email}
                 onChange={event => setEmail(event.target.value)}
+                onKeyDown={event => {
+                  if (
+                    event.key === "Enter" &&
+                    !event.nativeEvent.isComposing &&
+                    canRequestOtp
+                  ) {
+                    event.preventDefault();
+                    void handleRequestOtp();
+                  }
+                }}
                 disabled={requestOtpMutation.isPending || verifyOtpMutation.isPending}
+                className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl px-4 py-3 h-auto focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition-all"
               />
-              <Button className="w-full" onClick={() => void handleRequestOtp()} disabled={!canRequestOtp}>
+              <Button
+                className="w-full bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-xl py-3 h-auto mt-4 transition-colors shadow-sm focus-visible:ring-teal-500"
+                onClick={() => void handleRequestOtp()}
+                disabled={!canRequestOtp}
+              >
                 {requestOtpMutation.isPending
                   ? resolved === "zh"
                     ? "发送中..."
                     : "Sending..."
                   : resolved === "zh"
-                    ? "发送验证码"
-                    : "Send code"}
+                    ? "获取验证码"
+                    : "Send Verification Code"}
               </Button>
             </div>
           ) : (
-            <div className="space-y-3">
-              <InputOTP
-                maxLength={6}
-                value={code}
-                onChange={setCode}
-                containerClassName="justify-center"
+            <div className="space-y-4">
+              <div
+                onKeyDown={event => {
+                  if (
+                    event.key === "Enter" &&
+                    !event.nativeEvent.isComposing &&
+                    canVerifyOtp
+                  ) {
+                    event.preventDefault();
+                    void handleVerifyOtp();
+                  }
+                }}
               >
-                <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
-                  <InputOTPSlot index={4} />
-                  <InputOTPSlot index={5} />
-                </InputOTPGroup>
-              </InputOTP>
+                <InputOTP
+                  maxLength={6}
+                  value={code}
+                  onChange={setCode}
+                  containerClassName="justify-center"
+                >
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
               <Button
-                className="w-full"
+                className="w-full bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-xl py-3 h-auto transition-colors shadow-sm focus-visible:ring-teal-500"
                 onClick={() => void handleVerifyOtp()}
                 disabled={!canVerifyOtp}
               >
@@ -164,7 +200,7 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
               <Button
                 type="button"
                 variant="ghost"
-                className="w-full"
+                className="w-full text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl"
                 disabled={requestOtpMutation.isPending || verifyOtpMutation.isPending}
                 onClick={() => {
                   setCode("");
