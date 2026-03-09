@@ -23,10 +23,10 @@ export default function Hospitals() {
   } = useHospitals();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-accent/20">
+    <div className="min-h-screen bg-slate-50">
       <HospitalsPageHeader />
 
-      <div className="container py-8">
+      <div className="max-w-5xl mx-auto py-8 px-4">
         <HospitalsBrowser
           viewMode={viewMode}
           selectedHospitalName={selectedHospitalName}

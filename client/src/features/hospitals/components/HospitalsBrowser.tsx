@@ -1,9 +1,18 @@
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { Hospital, Stethoscope, Search, ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
+import {
+  ArrowRight,
+  Hospital,
+  Stethoscope,
+  Search,
+  ChevronRight,
+  ChevronLeft,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getLocalizedField } from "@/lib/i18n";
 import { getHospitalsCopy } from "@/features/hospitals/copy";
 
@@ -82,13 +91,68 @@ export function HospitalsBrowser({
   onBackToDepartments,
 }: Props) {
   const copy = getHospitalsCopy(resolved);
+  const [cityFilter, setCityFilter] = useState<"all" | string>("上海");
+
+  const normalizedSearchQuery = useMemo(
+    () => searchQuery.trim().toLowerCase(),
+    [searchQuery]
+  );
+
+  const filteredHospitals = useMemo(() => {
+    if (!hospitals) {
+      return [];
+    }
+
+    return hospitals.filter((hospital) => {
+      const hospitalName = getLocalizedField({
+        lang: resolved,
+        zh: hospital.name,
+        en: hospital.nameEn,
+      });
+      const hospitalCity = getLocalizedField({
+        lang: resolved,
+        zh: hospital.city,
+        en: hospital.cityEn,
+      });
+      const hospitalLevel = getLocalizedField({
+        lang: resolved,
+        zh: hospital.level,
+        en: hospital.levelEn,
+      });
+
+      const cityMatch =
+        cityFilter === "all" ||
+        !cityFilter ||
+        cityFilter === hospitalCity ||
+        (hospitalCity && hospitalCity.toLowerCase() === "上海".toLowerCase()) ||
+        (hospitalCity && hospitalCity.toLowerCase() === "shanghai");
+
+      if (!cityMatch) {
+        return false;
+      }
+
+      if (!normalizedSearchQuery) {
+        return true;
+      }
+
+      return (
+        hospitalName.toLowerCase().includes(normalizedSearchQuery) ||
+        hospitalCity.toLowerCase().includes(normalizedSearchQuery) ||
+        hospitalLevel.toLowerCase().includes(normalizedSearchQuery)
+      );
+    });
+  }, [hospitals, cityFilter, normalizedSearchQuery, resolved]);
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="flex items-center gap-2 mb-6 text-sm text-muted-foreground">
+    <div className="w-full">
+      <nav
+        aria-label={resolved === "en" ? "Hospital navigation" : "医院列表导航"}
+        className="flex items-center gap-2 mb-6 text-sm text-slate-500"
+      >
         <button
           onClick={onBackToHospitals}
-          className={`hover:text-foreground transition-colors ${viewMode === "hospitals" ? "text-foreground font-medium" : ""}`}
+          type="button"
+          className={`hover:text-slate-900 transition-colors ${viewMode === "hospitals" ? "text-slate-900 font-semibold" : ""}`}
         >
           {copy.browser.breadcrumbHospitals}
         </button>
@@ -97,7 +161,8 @@ export function HospitalsBrowser({
             <ChevronRight className="w-4 h-4" />
             <button
               onClick={onBackToDepartments}
-              className={`hover:text-foreground transition-colors ${viewMode === "departments" ? "text-foreground font-medium" : ""}`}
+              type="button"
+              className={`hover:text-slate-900 transition-colors ${viewMode === "departments" ? "text-slate-900 font-semibold" : ""}`}
             >
               {selectedHospitalName || copy.browser.breadcrumbDepartmentsFallback}
             </button>
@@ -111,26 +176,60 @@ export function HospitalsBrowser({
             </span>
           </>
         )}
-      </div>
+      </nav>
 
       {viewMode === "hospitals" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Hospital className="w-6 h-6 text-primary" />
-              {copy.browser.selectHospitalTitle}
-            </CardTitle>
-            <CardDescription>
-              {copy.browser.selectHospitalDescription(hospitals?.length || 0)}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {hospitalsLoading && (
-              <div className="py-12 text-center">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
-              </div>
-            )}
-            {hospitals?.map((hospital) => {
+        <section>
+          <header className="mb-6">
+            <h1 className="text-3xl font-bold text-slate-900">
+              选择合作医院 (Select a Hospital)
+            </h1>
+            <p className="text-slate-500 mt-2">
+              {resolved === "en"
+                ? "Quickly find top medical institutions by name, tier, or city."
+                : "支持搜索医院名称、等级与城市，快速找到顶尖医疗机构。"}
+            </p>
+          </header>
+          <div className="mb-8 flex flex-col sm:flex-row gap-4">
+            <label htmlFor="hospital-search" className="sr-only">
+              {resolved === "en" ? "Search hospitals" : "搜索医院"}
+            </label>
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Input
+                id="hospital-search"
+                placeholder={resolved === "en" ? "Search hospitals..." : "搜索医院..."}
+                value={searchQuery}
+                onChange={(e) => onSearchQueryChange(e.target.value)}
+                className="pl-9 h-11 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus-visible:ring-1 focus-visible:ring-teal-500 focus-visible:ring-offset-0"
+              />
+            </div>
+            <label htmlFor="city-filter" className="sr-only">
+              {resolved === "en" ? "City" : "城市"}
+            </label>
+            <select
+              id="city-filter"
+              value={cityFilter}
+              onChange={(e) => setCityFilter(e.target.value)}
+              className="h-11 rounded-md border border-slate-200 bg-white px-3 text-slate-700 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-teal-500 min-w-44"
+            >
+              <option value="all">{resolved === "en" ? "All cities" : "全部城市"}</option>
+              <option value="上海">上海</option>
+            </select>
+          </div>
+
+          {hospitalsLoading && (
+            <div className="py-12 text-center">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-400" />
+            </div>
+          )}
+          {!hospitalsLoading && filteredHospitals.length === 0 && (
+            <p className="py-12 text-center text-slate-500">
+              {resolved === "en" ? "No hospitals found." : "未找到医院。"}
+            </p>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {filteredHospitals.map((hospital) => {
               const hospitalName = getLocalizedField({
                 lang: resolved,
                 zh: hospital.name,
@@ -146,37 +245,41 @@ export function HospitalsBrowser({
                 zh: hospital.level,
                 en: hospital.levelEn,
               });
+              const description =
+                resolved === "en"
+                  ? "A nationally recognized tertiary hospital with strong comprehensive care and specialist services in oral and maxillofacial medicine."
+                  : "全国知名的综合性三甲医院，特色科室包含整形外科、口腔科、骨科等，具备完整的检查与术后随访体系。";
+
               return (
-                <button
+                <article
                   key={hospital.id}
-                  onClick={() => onSelectHospital(hospital.id)}
-                  className="w-full text-left"
+                  className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow border border-slate-100 flex gap-5 items-start"
+                  aria-label={hospitalName}
                 >
-                  <Card className="hover:shadow-md transition-shadow hover:border-primary/50">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h3 className="text-lg font-semibold text-foreground mb-1">
-                            {hospitalName}
-                          </h3>
-                          <div className="flex flex-wrap gap-2">
-                            {hospital.level && (
-                              <Badge variant="outline">{hospitalLevel}</Badge>
-                            )}
-                            {hospital.city && (
-                              <Badge variant="secondary">{hospitalCity}</Badge>
-                            )}
-                          </div>
-                        </div>
-                        <ChevronRight className="w-6 h-6 text-muted-foreground flex-shrink-0 ml-4" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </button>
+                  <div className="w-24 h-24 rounded-xl bg-teal-50/50 flex-shrink-0 flex items-center justify-center text-teal-600/60 text-xs">
+                    <Hospital className="w-8 h-8 text-teal-600/60" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-lg font-bold text-slate-900">{hospitalName}</h3>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {hospital.level && <Badge variant="outline">{hospitalLevel}</Badge>}
+                      {hospital.city && <Badge variant="secondary">{hospitalCity}</Badge>}
+                    </div>
+                    <p className="text-sm text-slate-500 line-clamp-2 mt-2">{description}</p>
+                    <Button
+                      type="button"
+                      onClick={() => onSelectHospital(hospital.id)}
+                      className="mt-4 bg-teal-600 hover:bg-teal-700 text-white font-medium px-4 py-2 rounded-lg transition-colors"
+                    >
+                      {resolved === "en" ? "View Doctors" : "查看医生"}
+                      <ArrowRight className="w-4 h-4 ml-1.5" aria-hidden="true" />
+                    </Button>
+                  </div>
+                </article>
               );
             })}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
 
       {viewMode === "departments" && (
