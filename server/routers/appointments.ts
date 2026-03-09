@@ -1,1333 +1,194 @@
-import { TRPCError } from "@trpc/server";
-import { parse as parseCookieHeader } from "cookie";
-import type { Request } from "express";
-import { z } from "zod";
-import { appointments } from "../../drizzle/schema";
-import * as aiRepo from "../modules/ai/repo";
-import * as appointmentsRepo from "../modules/appointments/repo";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
-import type { TrpcContext } from "../_core/context";
-import { createStripeCheckoutSession } from "../modules/payments/stripe";
-import { reinitiateCheckoutForAppointment } from "./payments";
-import { invokeLLM } from "../_core/llm";
+import { getPublicBaseUrl } from "../_core/getPublicBaseUrl";
+import { paymentCore } from "../modules/payments/routerApi";
 import {
-  setCachedPatientAccessToken,
-} from "../modules/appointments/tokenCache";
-import { getPublicBaseUrl } from "../core/getPublicBaseUrl";
-import { buildAppointmentAccessLink } from "../modules/appointments/linkService";
-import {
-  issueAppointmentAccessLinks,
-} from "../modules/appointments/tokenService";
-import {
-  revokeAppointmentAccessToken,
-  type VisitAccessAction,
-  validateAppointmentAccessToken,
-} from "../modules/appointments/tokenValidation";
-import {
-  APPOINTMENT_INVALID_TRANSITION_ERROR,
-  APPOINTMENT_STATUS_VALUES,
-  PAYMENT_STATUS_VALUES,
-} from "../modules/appointments/stateMachine";
-import {
-  openMyRoomWithFreshLink,
-  resendDoctorAccessLinkInDev,
-  resendPatientAccessLink,
-} from "../modules/appointments/accessLinkActions";
-
-const APPOINTMENT_TYPE_VALUES = [
-  "online_chat",
-  "video_call",
-  "in_person",
-] as const;
-const APPOINTMENT_PACKAGE_VALUES = [
-  "chat_quick_30m",
-  "chat_standard_60m",
-  "chat_extended_24h",
-  "video_quick_30m",
-  "video_standard_60m",
-  "inperson_standard_45m",
-] as const;
-
-const createScheduledAtSchema = z
-  .union([z.string().datetime(), z.date()])
-  .transform(value => (value instanceof Date ? value : new Date(value)))
-  .refine(value => !Number.isNaN(value.getTime()), "Invalid datetime");
-
-const accessInputSchema = z.object({
-  appointmentId: z.number().int().positive(),
-  token: z.string().min(16).max(512),
-});
-const accessWithLangInputSchema = accessInputSchema.extend({
-  lang: z.enum(["en", "zh"]).optional().default("en"),
-});
-
-const rescheduleInputSchema = accessInputSchema.extend({
-  newScheduledAt: createScheduledAtSchema,
-});
-
-const createInputSchema = z.object({
-  doctorId: z.number().int().positive(),
-  triageSessionId: z.number().int().positive(),
-  appointmentType: z.enum(APPOINTMENT_TYPE_VALUES),
-  scheduledAt: createScheduledAtSchema,
-  email: z
-    .string()
-    .trim()
-    .email()
-    .transform(value => value.toLowerCase()),
-  sessionId: z.string().trim().min(1).max(64).optional(),
-  intake: z
-    .object({
-      chiefComplaint: z.string().trim().max(500).optional(),
-      duration: z.string().trim().max(200).optional(),
-      medicalHistory: z.string().trim().max(1000).optional(),
-      medications: z.string().trim().max(1000).optional(),
-      allergies: z.string().trim().max(500).optional(),
-      ageGroup: z.string().trim().max(64).optional(),
-      otherSymptoms: z.string().trim().max(1000).optional(),
-    })
-    .optional(),
-});
-
-const createV2InputSchema = z.object({
-  doctorId: z.number().int().positive(),
-  contact: z
-    .object({
-      email: z
-        .string()
-        .trim()
-        .email()
-        .transform(value => value.toLowerCase())
-        .optional(),
-      phone: z.string().trim().min(6).max(32).optional(),
-    })
-    .refine(value => Boolean(value.email || value.phone), {
-      message: "email or phone is required",
-    }),
-  appointmentType: z.enum(APPOINTMENT_TYPE_VALUES).optional(),
-  packageId: z.enum(APPOINTMENT_PACKAGE_VALUES).optional(),
-  scheduledAt: createScheduledAtSchema.optional(),
-  triageSessionId: z.number().int().positive().optional(),
-  sessionId: z.string().trim().min(1).max(64).optional(),
-  intake: z
-    .object({
-      chiefComplaint: z.string().trim().max(500).optional(),
-      duration: z.string().trim().max(200).optional(),
-      medicalHistory: z.string().trim().max(1000).optional(),
-      medications: z.string().trim().max(1000).optional(),
-      allergies: z.string().trim().max(500).optional(),
-      ageGroup: z.string().trim().max(64).optional(),
-      otherSymptoms: z.string().trim().max(1000).optional(),
-    })
-    .optional(),
-});
-
-const resendLinkInputSchema = z.object({
-  appointmentId: z.number().int().positive(),
-});
-const openMyRoomInputSchema = z.object({
-  appointmentId: z.number().int().positive(),
-});
-const appointmentStatusInputSchema = z.object({
-  appointmentId: z.number().int().positive(),
-});
-const cancelInputSchema = z.object({
-  appointmentId: z.number().int().positive(),
-  reason: z.string().trim().min(1).max(256).optional(),
-});
-
-const resendInputSchema = z.object({
-  appointmentId: z.number().int().positive(),
-  email: z
-    .string()
-    .trim()
-    .email()
-    .transform(value => value.toLowerCase()),
-});
-
-const issueLinksInputSchema = z.object({
-  appointmentId: z.number().int().positive(),
-});
-
-const validateTokenOnlyInputSchema = z.object({
-  token: z.string().trim().min(16).max(2048),
-});
-
-const revokeTokenInputSchema = z
-  .object({
-    appointmentId: z.number().int().positive().optional(),
-    role: z.enum(["patient", "doctor"]).optional(),
-    token: z.string().trim().min(16).max(2048).optional(),
-    revokeReason: z.string().trim().min(1).max(256).optional(),
-  })
-  .refine(value => Boolean(value.appointmentId || value.token), {
-    message: "appointmentId or token is required",
-  });
-const completeAppointmentInputSchema = z.object({
-  appointmentId: z.number().int().positive(),
-  token: z.string().trim().min(16).max(512),
-});
-
-const appointmentPublicSchema = z.object({
-  id: z.number().int().positive(),
-  doctorId: z.number().int().positive(),
-  triageSessionId: z.number().int().positive(),
-  appointmentType: z.enum(APPOINTMENT_TYPE_VALUES),
-  scheduledAt: z.date().nullable(),
-  status: z.enum(APPOINTMENT_STATUS_VALUES),
-  paymentStatus: z.enum(PAYMENT_STATUS_VALUES),
-  amount: z.number().int().nonnegative(),
-  currency: z.string(),
-  paidAt: z.date().nullable(),
-  email: z.string().email(),
-  sessionId: z.string().nullable(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
-  lastAccessAt: z.date().nullable(),
-});
-
-const appointmentParticipantSchema = z.object({
-  role: z.enum(["patient", "doctor"]),
-  patient: z.object({
-    email: z.string().email(),
-    sessionId: z.string().nullable(),
-  }),
-  doctor: z.object({
-    id: z.number().int().positive(),
-  }),
-});
-
-const appointmentIntakeSchema = z.object({
-  chiefComplaint: z.string().optional().default(""),
-  duration: z.string().optional().default(""),
-  medicalHistory: z.string().optional().default(""),
-  medications: z.string().optional().default(""),
-  allergies: z.string().optional().default(""),
-  ageGroup: z.string().optional().default(""),
-  otherSymptoms: z.string().optional().default(""),
-});
-
-const appointmentAccessOutputSchema = appointmentPublicSchema.extend({
-  ...appointmentParticipantSchema.shape,
-  triageSummary: z.string().nullable(),
-  intake: appointmentIntakeSchema.nullable(),
-});
-
-const createOutputSchema = z.object({
-  appointmentId: z.number().int().positive(),
-  checkoutUrl: z.string().url(),
-  checkoutSessionUrl: z.string().url(),
-  status: z.enum(APPOINTMENT_STATUS_VALUES),
-  paymentStatus: z.enum(PAYMENT_STATUS_VALUES),
-  stripeSessionId: z.string().optional(),
-});
-
-const joinInfoOutputSchema = appointmentParticipantSchema.extend({
-  appointmentId: z.number().int().positive(),
-  joinUrl: z.string().url(),
-});
-
-const resendOutputSchema = z.object({
-  ok: z.literal(true),
-  devLink: z.string().url().optional(),
-});
-const openMyRoomOutputSchema = z.object({
-  appointmentId: z.number().int().positive(),
-  joinUrl: z.string().url(),
-});
-const appointmentStatusOutputSchema = z.object({
-  appointmentId: z.number().int().positive(),
-  status: z.enum(APPOINTMENT_STATUS_VALUES),
-  paymentStatus: z.enum(PAYMENT_STATUS_VALUES),
-  stripeSessionId: z.string().nullable(),
-  paidAt: z.date().nullable(),
-});
-
-const resendDoctorOutputSchema = z.object({
-  ok: z.literal(true),
-  devDoctorLink: z.string().url().optional(),
-});
-
-const issueLinksOutputSchema = z.object({
-  appointmentId: z.number().int().positive(),
-  patientLink: z.string().url(),
-  doctorLink: z.string().url(),
-  expiresAt: z.date(),
-});
-
-const accessContextOutputSchema = z.object({
-  appointmentId: z.number().int().positive(),
-  role: z.enum(["patient", "doctor"]),
-  tokenId: z.number().int().positive(),
-  tokenHash: z.string().length(64),
-  expiresAt: z.date(),
-  displayInfo: z.object({
-    patientEmail: z.string().nullable().optional(),
-    doctorId: z.number().int().nullable().optional(),
-  }),
-});
-
-const revokeTokenOutputSchema = z.object({
-  ok: z.literal(true),
-  revokedCount: z.number().int().nonnegative(),
-});
-const completeAppointmentOutputSchema = z.object({
-  appointmentId: z.number().int().positive(),
-  status: z.enum(APPOINTMENT_STATUS_VALUES),
-  paymentStatus: z.enum(PAYMENT_STATUS_VALUES),
-});
-
-const listMineInputSchema = z.object({
-  limit: z.number().int().min(1).max(100).optional().default(20),
-});
-
-const listMineOutputSchema = z.array(appointmentPublicSchema);
-
-const myAppointmentItemSchema = z.object({
-  id: z.number().int().positive(),
-  doctorId: z.number().int().positive(),
-  appointmentType: z.enum(APPOINTMENT_TYPE_VALUES),
-  scheduledAt: z.date().nullable(),
-  status: z.enum(APPOINTMENT_STATUS_VALUES),
-  paymentStatus: z.enum(PAYMENT_STATUS_VALUES),
-  createdAt: z.date(),
-});
-
-const listPackagesInputSchema = z.object({
-  appointmentType: z.enum(APPOINTMENT_TYPE_VALUES).optional(),
-});
-const appointmentPackageSchema = z.object({
-  id: z.enum(APPOINTMENT_PACKAGE_VALUES),
-  appointmentType: z.enum(APPOINTMENT_TYPE_VALUES),
-  titleZh: z.string(),
-  titleEn: z.string(),
-  descriptionZh: z.string(),
-  descriptionEn: z.string(),
-  durationMinutes: z.number().int().positive(),
-  amount: z.number().int().nonnegative(),
-  currency: z.string(),
-  isDefault: z.boolean(),
-});
-const listPackagesOutputSchema = z.array(appointmentPackageSchema);
-
-const listMyAppointmentsOutputSchema = z.object({
-  upcoming: z.array(myAppointmentItemSchema),
-  completed: z.array(myAppointmentItemSchema),
-  past: z.array(myAppointmentItemSchema),
-});
-
-const CONSULTATION_DURATION_MINUTES = 60;
-const triageSummaryTranslationCache = new Map<string, string>();
-
-type AppointmentPackageId = (typeof APPOINTMENT_PACKAGE_VALUES)[number];
-type AppointmentType = (typeof APPOINTMENT_TYPE_VALUES)[number];
-
-type AppointmentPackageDefinition = {
-  id: AppointmentPackageId;
-  appointmentType: AppointmentType;
-  titleZh: string;
-  titleEn: string;
-  descriptionZh: string;
-  descriptionEn: string;
-  durationMinutes: number;
-  amount: number;
-  currency: "usd";
-};
-
-const APPOINTMENT_PACKAGE_CATALOG: AppointmentPackageDefinition[] = [
-  {
-    id: "chat_quick_30m",
-    appointmentType: "online_chat",
-    titleZh: "图文快问（30 分钟）",
-    titleEn: "Chat Quick (30 min)",
-    descriptionZh: "适合单次明确问题，快速给出方向建议。",
-    descriptionEn: "Best for one focused question and quick guidance.",
-    durationMinutes: 30,
-    amount: 2900,
-    currency: "usd",
-  },
-  {
-    id: "chat_standard_60m",
-    appointmentType: "online_chat",
-    titleZh: "图文标准（60 分钟）",
-    titleEn: "Chat Standard (60 min)",
-    descriptionZh: "完整沟通病情与检查，适合多数初诊场景。",
-    descriptionEn: "Full case discussion for most first-visit scenarios.",
-    durationMinutes: 60,
-    amount: 4900,
-    currency: "usd",
-  },
-  {
-    id: "chat_extended_24h",
-    appointmentType: "online_chat",
-    titleZh: "图文加长（24 小时）",
-    titleEn: "Chat Extended (24h)",
-    descriptionZh: "24 小时内可多轮追问，适合复杂病情跟进。",
-    descriptionEn: "Multi-round follow-up within 24 hours.",
-    durationMinutes: 24 * 60,
-    amount: 8900,
-    currency: "usd",
-  },
-  {
-    id: "video_quick_30m",
-    appointmentType: "video_call",
-    titleZh: "视频快诊（30 分钟）",
-    titleEn: "Video Quick (30 min)",
-    descriptionZh: "短时视频沟通，聚焦核心症状判断。",
-    descriptionEn: "Short video consult focused on key symptoms.",
-    durationMinutes: 30,
-    amount: 6900,
-    currency: "usd",
-  },
-  {
-    id: "video_standard_60m",
-    appointmentType: "video_call",
-    titleZh: "视频标准（60 分钟）",
-    titleEn: "Video Standard (60 min)",
-    descriptionZh: "标准时长视频咨询，适合综合评估与答疑。",
-    descriptionEn: "Standard-length video consult for deeper evaluation.",
-    durationMinutes: 60,
-    amount: 11900,
-    currency: "usd",
-  },
-  {
-    id: "inperson_standard_45m",
-    appointmentType: "in_person",
-    titleZh: "线下面诊（45 分钟）",
-    titleEn: "In-Person Standard (45 min)",
-    descriptionZh: "线下面诊时间预留，适合需要当面评估的场景。",
-    descriptionEn: "Reserved in-person consultation slot.",
-    durationMinutes: 45,
-    amount: 14900,
-    currency: "usd",
-  },
-];
-
-const DEFAULT_PACKAGE_BY_TYPE: Record<AppointmentType, AppointmentPackageId> = {
-  online_chat: "chat_standard_60m",
-  video_call: "video_standard_60m",
-  in_person: "inperson_standard_45m",
-};
-
-function resolveAppointmentPackage(input: {
-  appointmentType: AppointmentType;
-  packageId?: AppointmentPackageId;
-}) {
-  const packageId = input.packageId ?? DEFAULT_PACKAGE_BY_TYPE[input.appointmentType];
-  const selected = APPOINTMENT_PACKAGE_CATALOG.find(item => item.id === packageId);
-  if (!selected) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "Invalid appointment package",
-    });
-  }
-  if (selected.appointmentType !== input.appointmentType) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "Package does not match appointment type",
-    });
-  }
-  return selected;
-}
-
-function computeDefaultTokenExpiry(scheduledAt: Date): Date {
-  const expiresAt = new Date(
-    scheduledAt.getTime() + CONSULTATION_DURATION_MINUTES * 60 * 1000
-  );
-  expiresAt.setDate(expiresAt.getDate() + 7);
-  return expiresAt;
-}
-
-function getSessionEmailFromContext(ctx: TrpcContext): string | null {
-  const rawCookieHeader = ctx.req.headers.cookie;
-  const cookies = rawCookieHeader ? parseCookieHeader(rawCookieHeader) : {};
-
-  const raw =
-    (typeof ctx.req.headers["x-session-email"] === "string"
-      ? ctx.req.headers["x-session-email"]
-      : undefined) ??
-    cookies.sessionEmail ??
-    cookies["session-email"] ??
-    cookies.email;
-
-  if (typeof raw !== "string") {
-    return null;
-  }
-
-  const normalized = raw.trim().toLowerCase();
-  return normalized.length > 0 ? normalized : null;
-}
-
-function toMyAppointmentItem(appointment: typeof appointments.$inferSelect) {
-  return {
-    id: appointment.id,
-    doctorId: appointment.doctorId,
-    appointmentType: appointment.appointmentType,
-    scheduledAt: appointment.scheduledAt,
-    status: appointment.status,
-    paymentStatus: appointment.paymentStatus,
-    createdAt: appointment.createdAt,
-  };
-}
-
-function classifyMyAppointments(items: Array<ReturnType<typeof toMyAppointmentItem>>) {
-  const upcoming: Array<ReturnType<typeof toMyAppointmentItem>> = [];
-  const completed: Array<ReturnType<typeof toMyAppointmentItem>> = [];
-  const past: Array<ReturnType<typeof toMyAppointmentItem>> = [];
-
-  for (const item of items) {
-    if (item.status === "pending_payment" || item.status === "paid" || item.status === "active") {
-      upcoming.push(item);
-      continue;
-    }
-
-    if (item.status === "ended") {
-      completed.push(item);
-      continue;
-    }
-
-    if (item.status === "expired" || item.status === "refunded" || item.status === "canceled") {
-      past.push(item);
-      continue;
-    }
-  }
-
-  return { upcoming, completed, past };
-}
-
-function readAssistantText(content: unknown): string {
-  if (typeof content === "string") {
-    return content;
-  }
-  if (!Array.isArray(content)) {
-    return "";
-  }
-  return content
-    .map(item =>
-      item && typeof item === "object" && "type" in item && (item as { type?: string }).type === "text"
-        ? String((item as { text?: unknown }).text ?? "")
-        : ""
-    )
-    .join("")
-    .trim();
-}
-
-async function translateTriageSummary(
-  summary: string,
-  targetLang: "en" | "zh"
-): Promise<string> {
-  const normalized = summary.trim();
-  if (!normalized) {
-    return normalized;
-  }
-
-  const hasZh = /[\u4e00-\u9fff]/.test(normalized);
-  const hasEn = /[A-Za-z]/.test(normalized);
-  if ((targetLang === "en" && !hasZh) || (targetLang === "zh" && !hasEn)) {
-    return normalized;
-  }
-
-  const cacheKey = `${targetLang}:${normalized}`;
-  const cached = triageSummaryTranslationCache.get(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
-  try {
-    const response = await invokeLLM({
-      messages: [
-        {
-          role: "system",
-          content:
-            targetLang === "en"
-              ? "Translate the medical triage summary to natural English. Keep the same fields and semicolon-separated structure. Output plain text only."
-              : "将这段医疗分诊摘要翻译成自然中文。保留原有字段和分号分隔结构。只输出纯文本。",
-        },
-        { role: "user", content: normalized },
-      ],
-      maxTokens: 400,
-      responseFormat: { type: "text" },
-    });
-
-    const translated = readAssistantText(response.choices?.[0]?.message?.content).trim();
-    if (!translated) {
-      return normalized;
-    }
-
-    triageSummaryTranslationCache.set(cacheKey, translated);
-    if (triageSummaryTranslationCache.size > 200) {
-      const first = triageSummaryTranslationCache.keys().next().value;
-      if (typeof first === "string") {
-        triageSummaryTranslationCache.delete(first);
-      }
-    }
-    return translated;
-  } catch (error) {
-    console.warn("[appointments] triage summary translation failed:", error);
-    return normalized;
-  }
-}
-
-function toPublicAppointment(appointment: typeof appointments.$inferSelect) {
-  return {
-    id: appointment.id,
-    doctorId: appointment.doctorId,
-    triageSessionId: appointment.triageSessionId,
-    appointmentType: appointment.appointmentType,
-    scheduledAt: appointment.scheduledAt,
-    status: appointment.status,
-    paymentStatus: appointment.paymentStatus,
-    amount: appointment.amount,
-    currency: appointment.currency,
-    paidAt: appointment.paidAt,
-    email: appointment.email,
-    sessionId: appointment.sessionId,
-    createdAt: appointment.createdAt,
-    updatedAt: appointment.updatedAt,
-    lastAccessAt: appointment.lastAccessAt,
-  };
-}
-
-async function getAppointmentByIdOrThrow(appointmentId: number) {
-  const appointment = await appointmentsRepo.getAppointmentById(appointmentId);
-  if (!appointment) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Appointment not found",
-    });
-  }
-
-  return appointment;
-}
-
-function assertAppointmentBelongsToCurrentUser(input: {
-  appointment: Awaited<ReturnType<typeof getAppointmentByIdOrThrow>>;
-  userId: number;
-  userEmail: string;
-}) {
-  const ownerByUserId =
-    typeof input.appointment.userId === "number" &&
-    input.appointment.userId === input.userId;
-  const ownerByEmail =
-    input.appointment.email.trim().toLowerCase() === input.userEmail;
-
-  if (!ownerByUserId && !ownerByEmail) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "You are not allowed to access this appointment",
-    });
-  }
-}
-
-export async function validateAppointmentToken(
-  appointmentId: number,
-  token: string,
-  action: VisitAccessAction = "join_room",
-  req?: Request
-) {
-  const validated = await validateAppointmentAccessToken({
-    token,
-    action,
-    expectedAppointmentId: appointmentId,
-    req,
-  });
-
-  const touchedAt = new Date();
-
-  if (validated.role === "patient") {
-    await appointmentsRepo.updateAppointmentById(validated.appointment.id, {
-      lastAccessAt: touchedAt,
-    });
-
-    return {
-      role: "patient" as const,
-      appointment: {
-        ...validated.appointment,
-        lastAccessAt: touchedAt,
-      },
-    };
-  }
-
-  await appointmentsRepo.updateAppointmentById(validated.appointment.id, {
-    doctorLastAccessAt: touchedAt,
-  });
-
-  return {
-    role: "doctor" as const,
-    appointment: {
-      ...validated.appointment,
-      doctorLastAccessAt: touchedAt,
-    },
-  };
-}
-
-function assertPatientRole(role: "patient" | "doctor") {
-  if (role !== "patient") {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "This action requires a patient magic link",
-    });
-  }
-}
-
-async function resolveInsertedAppointmentId(
-  insertResult: unknown,
-  fallbackLookup: {
-    doctorId: number;
-    email: string;
-    scheduledAt: Date;
-    triageSessionId: number;
-    status?: "draft";
-    paymentStatus?: "unpaid";
-  }
-): Promise<number> {
-  const directInsertId = Number(
-    (insertResult as { insertId?: number })?.insertId ??
-      (Array.isArray(insertResult)
-        ? (insertResult[0] as { insertId?: number } | undefined)?.insertId
-        : NaN)
-  );
-
-  if (Number.isInteger(directInsertId) && directInsertId > 0) {
-    return directInsertId;
-  }
-
-  const resolvedId =
-    await appointmentsRepo.findLatestAppointmentIdByLookup(fallbackLookup);
-
-  if (!resolvedId) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Failed to resolve appointment ID after creation",
-    });
-  }
-
-  return resolvedId;
-}
-
-async function resolveCreateInputToStoredEmail(input: {
-  email?: string;
-  phone?: string;
-}): Promise<string> {
-  if (input.email) {
-    return input.email;
-  }
-  const compactPhone = (input.phone ?? "").replace(/[^0-9+]/g, "");
-  if (!compactPhone) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "email or phone is required",
-    });
-  }
-  return `phone+${compactPhone.replace(/\+/g, "")}@medibridge.local`;
-}
-
-async function createAppointmentCheckoutFlow(input: {
-  doctorId: number;
-  triageSessionId: number;
-  appointmentType: (typeof APPOINTMENT_TYPE_VALUES)[number];
-  scheduledAt: Date;
-  email: string;
-  sessionId?: string;
-  userId?: number | null;
-  packageId?: AppointmentPackageId;
-  intake?: {
-    chiefComplaint?: string;
-    duration?: string;
-    medicalHistory?: string;
-    medications?: string;
-    allergies?: string;
-    ageGroup?: string;
-    otherSymptoms?: string;
-  };
-  req: TrpcContext["req"];
-}) {
-  const selectedPackage = resolveAppointmentPackage({
-    appointmentType: input.appointmentType,
-    packageId: input.packageId,
-  });
-  const insertResult = await appointmentsRepo.createAppointmentDraft({
-    doctorId: input.doctorId,
-    triageSessionId: input.triageSessionId,
-    appointmentType: input.appointmentType,
-    scheduledAt: input.scheduledAt,
-    sessionId: input.sessionId,
-    email: input.email,
-    amount: selectedPackage.amount,
-    currency: selectedPackage.currency,
-    userId: input.userId,
-    notes: formatIntakeToNotes(input.intake, selectedPackage),
-  });
-
-  const appointmentId = await resolveInsertedAppointmentId(insertResult, {
-    doctorId: input.doctorId,
-    email: input.email,
-    scheduledAt: input.scheduledAt,
-    triageSessionId: input.triageSessionId,
-    status: "draft",
-    paymentStatus: "unpaid",
-  });
-
-  await appointmentsRepo.insertStatusEvent({
-    appointmentId,
-    fromStatus: null,
-    toStatus: "draft",
-    operatorType: "patient",
-    operatorId: input.userId ?? null,
-      reason: "appointment_draft_created",
-      payloadJson: {
-        packageId: selectedPackage.id,
-        packageDurationMinutes: selectedPackage.durationMinutes,
-      },
-    });
-
-  const publicUrlBase = getPublicBaseUrl(input.req);
-  const checkout = createStripeCheckoutSession({
-    appointmentId,
-    amount: selectedPackage.amount,
-    currency: selectedPackage.currency,
-    successUrl: `${publicUrlBase}/payment/success`,
-    cancelUrl: `${publicUrlBase}/payment/cancel`,
-  });
-
-  const transitioned = await appointmentsRepo.markAppointmentPendingPayment({
-    appointmentId,
-    stripeSessionId: checkout.id,
-  });
-  if (transitioned && "ok" in transitioned && !transitioned.ok) {
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message: APPOINTMENT_INVALID_TRANSITION_ERROR,
-    });
-  }
-
-  return {
-    appointmentId,
-    checkoutUrl: checkout.url,
-    checkoutSessionUrl: checkout.url,
-    status: "pending_payment" as const,
-    paymentStatus: "pending" as const,
-    stripeSessionId:
-      process.env.NODE_ENV === "development" ? checkout.id : undefined,
-  };
-}
-
-function formatIntakeToNotes(
-  input?: {
-    chiefComplaint?: string;
-    duration?: string;
-    medicalHistory?: string;
-    medications?: string;
-    allergies?: string;
-    ageGroup?: string;
-    otherSymptoms?: string;
-  },
-  selectedPackage?: AppointmentPackageDefinition
-) {
-  const normalized = {
-    chiefComplaint: input?.chiefComplaint?.trim() || "",
-    duration: input?.duration?.trim() || "",
-    medicalHistory: input?.medicalHistory?.trim() || "",
-    medications: input?.medications?.trim() || "",
-    allergies: input?.allergies?.trim() || "",
-    ageGroup: input?.ageGroup?.trim() || "",
-    otherSymptoms: input?.otherSymptoms?.trim() || "",
-  };
-
-  const hasAnyField = Object.values(normalized).some(Boolean);
-  if (!hasAnyField && !selectedPackage) {
-    return null;
-  }
-
-  return JSON.stringify({
-    intakeVersion: selectedPackage ? 2 : 1,
-    packageId: selectedPackage?.id,
-    packageDurationMinutes: selectedPackage?.durationMinutes,
-    ...normalized,
-  });
-}
-
-function parseIntakeFromNotes(
-  notes: string | null | undefined
-): z.infer<typeof appointmentIntakeSchema> | null {
-  const normalized = notes?.trim();
-  if (!normalized) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(normalized) as unknown;
-    const result = appointmentIntakeSchema.safeParse(parsed);
-    if (!result.success) {
-      return null;
-    }
-
-    const hasAnyField = Object.values(result.data).some(
-      value => typeof value === "string" && value.trim().length > 0
-    );
-    return hasAnyField ? result.data : null;
-  } catch {
-    return null;
-  }
-}
+  appointmentActions,
+  appointmentCore,
+  appointmentSchemas,
+} from "../modules/appointments/routerApi";
+
+export const validateAppointmentToken = appointmentCore.validateAppointmentToken;
 
 export const appointmentsRouter = router({
   listPackages: publicProcedure
-    .input(listPackagesInputSchema)
-    .output(listPackagesOutputSchema)
-    .query(({ input }) => {
-      const rows = APPOINTMENT_PACKAGE_CATALOG.filter(item =>
-        input.appointmentType ? item.appointmentType === input.appointmentType : true
-      );
-      return rows.map(item => ({
-        ...item,
-        isDefault: DEFAULT_PACKAGE_BY_TYPE[item.appointmentType] === item.id,
-      }));
-    }),
+    .input(appointmentSchemas.listPackagesInputSchema)
+    .output(appointmentSchemas.listPackagesOutputSchema)
+    .query(({ input }) => appointmentCore.listAppointmentPackages(input)),
 
   listMine: protectedProcedure
-    .input(listMineInputSchema)
-    .output(listMineOutputSchema)
-    .query(async ({ ctx, input }) => {
-      const appointmentRows = await appointmentsRepo.listAppointmentsByUserScope({
+    .input(appointmentSchemas.listMineInputSchema)
+    .output(appointmentSchemas.listMineOutputSchema)
+    .query(async ({ ctx, input }) =>
+      appointmentActions.listMineAppointments({
         userId: ctx.user.id,
         email: ctx.user.email,
         limit: input.limit,
-      });
-      return appointmentRows.map(toPublicAppointment);
-    }),
+      })
+    ),
 
   listMyAppointments: publicProcedure
-    .output(listMyAppointmentsOutputSchema)
-    .query(async ({ ctx }) => {
-      const userEmail = ctx.user?.email?.trim().toLowerCase();
-
-      let rows: typeof appointments.$inferSelect[] = [];
-      if (ctx.user) {
-        rows = await appointmentsRepo.listAppointmentsByUserOrEmail({
-          userId: ctx.user.id,
-          email: userEmail,
-        });
-      } else {
-        const sessionEmail = getSessionEmailFromContext(ctx);
-        if (!sessionEmail) {
-          return { upcoming: [], completed: [], past: [] };
-        }
-        rows = await appointmentsRepo.listAppointmentsByEmail(sessionEmail);
-      }
-
-      const items = rows.map(toMyAppointmentItem);
-      return classifyMyAppointments(items);
-    }),
+    .output(appointmentSchemas.listMyAppointmentsOutputSchema)
+    .query(async ({ ctx }) => appointmentActions.listMyAppointmentsByContext(ctx)),
 
   create: publicProcedure
-    .input(createInputSchema)
-    .output(createOutputSchema)
-    .mutation(async ({ input, ctx }) => {
-      const currentUserEmail = ctx.user?.email?.trim().toLowerCase();
-      if (!currentUserEmail || currentUserEmail !== input.email) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "请先验证您的邮箱以确认身份",
-        });
-      }
-
-      const triageSession = await aiRepo.getAiChatSessionById(input.triageSessionId);
-      if (!triageSession || triageSession.userId !== ctx.user?.id) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Invalid triage session for appointment",
-        });
-      }
-
-      return createAppointmentCheckoutFlow({
-        doctorId: input.doctorId,
-        triageSessionId: input.triageSessionId,
-        appointmentType: input.appointmentType,
-        scheduledAt: input.scheduledAt,
-        email: input.email,
-        sessionId: input.sessionId,
+    .input(appointmentSchemas.createInputSchema)
+    .output(appointmentSchemas.createOutputSchema)
+    .mutation(async ({ input, ctx }) =>
+      appointmentActions.createCheckoutFromCreateInput({
+        createInput: input,
         userId: ctx.user?.id,
-        intake: input.intake,
+        userEmail: ctx.user?.email,
         req: ctx.req,
-      });
-    }),
+      })
+    ),
 
   createV2: publicProcedure
-    .input(createV2InputSchema)
-    .output(createOutputSchema)
-    .mutation(async ({ input, ctx }) => {
-      let triageSessionId = input.triageSessionId;
-      if (!triageSessionId) {
-        if (!ctx.user?.id) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "triageSessionId is required for anonymous booking",
-          });
-        }
-        triageSessionId = await aiRepo.createAiChatSession(ctx.user.id);
-      }
-
-      const triageSession = await aiRepo.getAiChatSessionById(triageSessionId);
-      if (!triageSession) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Invalid triage session for appointment",
-        });
-      }
-      if (ctx.user?.id && triageSession.userId && triageSession.userId !== ctx.user.id) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Invalid triage session for appointment",
-        });
-      }
-
-      const email = await resolveCreateInputToStoredEmail({
-        email: input.contact.email,
-        phone: input.contact.phone,
-      });
-      const sessionEmail = ctx.user?.email?.trim().toLowerCase();
-      if (input.contact.email && sessionEmail && sessionEmail !== input.contact.email) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "请先验证您的邮箱以确认身份",
-        });
-      }
-
-      const appointmentType = input.appointmentType ?? "online_chat";
-      const scheduledAt =
-        input.scheduledAt ?? new Date(Date.now() + 10 * 60 * 1000);
-
-      return createAppointmentCheckoutFlow({
-        doctorId: input.doctorId,
-        triageSessionId,
-        appointmentType,
-        packageId: input.packageId,
-        scheduledAt,
-        email,
-        sessionId: input.sessionId,
+    .input(appointmentSchemas.createV2InputSchema)
+    .output(appointmentSchemas.createOutputSchema)
+    .mutation(async ({ input, ctx }) =>
+      appointmentActions.createCheckoutFromCreateV2Input({
+        createInput: input,
         userId: ctx.user?.id,
-        intake: input.intake,
+        userEmail: ctx.user?.email,
         req: ctx.req,
-      });
-    }),
+      })
+    ),
 
   getStatus: publicProcedure
-    .input(appointmentStatusInputSchema)
-    .output(appointmentStatusOutputSchema)
-    .query(async ({ input }) => {
-      const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
-      return {
-        appointmentId: appointment.id,
-        status: appointment.status,
-        paymentStatus: appointment.paymentStatus,
-        stripeSessionId: appointment.stripeSessionId ?? null,
-        paidAt: appointment.paidAt ?? null,
-      };
-    }),
+    .input(appointmentSchemas.appointmentStatusInputSchema)
+    .output(appointmentSchemas.appointmentStatusOutputSchema)
+    .query(async ({ input }) => appointmentActions.getAppointmentStatus(input)),
 
   resendPaymentLink: publicProcedure
-    .input(appointmentStatusInputSchema)
-    .output(createOutputSchema)
-    .mutation(async ({ input, ctx }) => {
-      const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
-      const publicUrlBase = getPublicBaseUrl(ctx.req);
-      const result = await reinitiateCheckoutForAppointment({
-        appointment,
-        baseUrl: publicUrlBase,
-        operatorType: "patient",
+    .input(appointmentSchemas.appointmentStatusInputSchema)
+    .output(appointmentSchemas.createOutputSchema)
+    .mutation(async ({ input, ctx }) =>
+      appointmentActions.resendPaymentLinkByPatient({
+        appointmentId: input.appointmentId,
         operatorId: ctx.user?.id ?? null,
-      });
-
-      return {
-        appointmentId: result.appointmentId,
-        checkoutUrl: result.checkoutSessionUrl,
-        checkoutSessionUrl: result.checkoutSessionUrl,
-        status: result.status,
-        paymentStatus: result.paymentStatus,
-        stripeSessionId: result.stripeSessionId,
-      };
-    }),
+        req: ctx.req,
+        getBaseUrl: getPublicBaseUrl,
+        reinitiateCheckout: paymentCore.reinitiateCheckoutForAppointment,
+      })
+    ),
 
   cancel: publicProcedure
-    .input(cancelInputSchema)
-    .output(appointmentStatusOutputSchema)
-    .mutation(async ({ input, ctx }) => {
-      const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
-
-      const transitioned = await appointmentsRepo.tryTransitionAppointmentById({
-        appointmentId: appointment.id,
-        allowedFrom: ["draft", "pending_payment", "paid"],
-        toStatus: "canceled",
-        toPaymentStatus: appointment.paymentStatus === "paid" ? "failed" : "canceled",
-        operatorType: "patient",
+    .input(appointmentSchemas.cancelInputSchema)
+    .output(appointmentSchemas.appointmentStatusOutputSchema)
+    .mutation(async ({ input, ctx }) =>
+      appointmentActions.cancelAppointmentByPatientById({
+        appointmentId: input.appointmentId,
         operatorId: ctx.user?.id ?? null,
-        reason: input.reason ?? "appointment_canceled",
-      });
-
-      if (!transitioned.ok) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: APPOINTMENT_INVALID_TRANSITION_ERROR,
-        });
-      }
-
-      await appointmentsRepo.revokeAppointmentTokens({
-        appointmentId: appointment.id,
-        reason: "appointment_canceled",
-      });
-
-      const updated = await getAppointmentByIdOrThrow(appointment.id);
-      return {
-        appointmentId: updated.id,
-        status: updated.status,
-        paymentStatus: updated.paymentStatus,
-        stripeSessionId: updated.stripeSessionId ?? null,
-        paidAt: updated.paidAt ?? null,
-      };
-    }),
+        reason: input.reason,
+      })
+    ),
 
   getByToken: publicProcedure
-    .input(accessWithLangInputSchema)
-    .output(appointmentAccessOutputSchema)
-    .query(async ({ input, ctx }) => {
-      const { appointment, role } = await validateAppointmentToken(
-        input.appointmentId,
-        input.token,
-        "read_history",
-        ctx.req
-      );
-
-      const triageSession = await aiRepo.getAiChatSessionById(
-        appointment.triageSessionId
-      );
-
-      const localizedSummary = triageSession?.summary
-        ? await translateTriageSummary(triageSession.summary, input.lang)
-        : null;
-
-      return {
-        ...toPublicAppointment(appointment),
-        role,
-        patient: {
-          email: appointment.email,
-          sessionId: appointment.sessionId,
-        },
-        doctor: {
-          id: appointment.doctorId,
-        },
-        triageSummary: localizedSummary,
-        intake: parseIntakeFromNotes(appointment.notes),
-      };
-    }),
+    .input(appointmentSchemas.accessWithLangInputSchema)
+    .output(appointmentSchemas.appointmentAccessOutputSchema)
+    .query(async ({ input, ctx }) =>
+      appointmentActions.getAppointmentAccessByTokenWithDefaultIntake({
+        appointmentId: input.appointmentId,
+        token: input.token,
+        lang: input.lang,
+        req: ctx.req,
+      })
+    ),
 
   rescheduleByToken: publicProcedure
-    .input(rescheduleInputSchema)
-    .output(appointmentPublicSchema)
-    .mutation(async ({ input, ctx }) => {
-      const { appointment, role } = await validateAppointmentToken(
-        input.appointmentId,
-        input.token,
-        "join_room",
-        ctx.req
-      );
-      assertPatientRole(role);
-      const nextAccessTokenExpiresAt = computeDefaultTokenExpiry(
-        input.newScheduledAt
-      );
-
-      await appointmentsRepo.updateAppointmentById(appointment.id, {
-        scheduledAt: input.newScheduledAt,
-        status:
-          appointment.status === "ended" || appointment.status === "refunded"
-            ? appointment.status
-            : "paid",
-        updatedAt: new Date(),
-      });
-      await appointmentsRepo.updateActiveAppointmentTokenExpiry({
-        appointmentId: appointment.id,
-        expiresAt: nextAccessTokenExpiresAt,
-      });
-
-      const updated = await appointmentsRepo.getAppointmentById(appointment.id);
-      if (!updated) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Appointment disappeared after reschedule",
-        });
-      }
-
-      return toPublicAppointment(updated);
-    }),
+    .input(appointmentSchemas.rescheduleInputSchema)
+    .output(appointmentSchemas.appointmentPublicSchema)
+    .mutation(async ({ input, ctx }) =>
+      appointmentActions.rescheduleByTokenFlow({
+        appointmentId: input.appointmentId,
+        token: input.token,
+        newScheduledAt: input.newScheduledAt,
+        req: ctx.req,
+      })
+    ),
 
   joinInfoByToken: publicProcedure
-    .input(accessInputSchema)
-    .output(joinInfoOutputSchema)
-    .query(async ({ input, ctx }) => {
-      const { appointment, role } = await validateAppointmentToken(
-        input.appointmentId,
-        input.token,
-        "join_room",
-        ctx.req
-      );
-
-      return {
-        appointmentId: appointment.id,
-        joinUrl: buildAppointmentAccessLink({
-          appointmentId: appointment.id,
-          token: input.token,
-        }),
-        role,
-        patient: {
-          email: appointment.email,
-          sessionId: appointment.sessionId,
-        },
-        doctor: {
-          id: appointment.doctorId,
-        },
-      };
-    }),
-
-  issueAccessLinks: protectedProcedure
-    .input(issueLinksInputSchema)
-    .output(issueLinksOutputSchema)
-    .mutation(async ({ input, ctx }) => {
-      const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
-      const issued = await issueAppointmentAccessLinks({
-        appointmentId: appointment.id,
-        createdBy: `user:${ctx.user.id}`,
-      });
-
-      setCachedPatientAccessToken(
-        appointment.id,
-        issued.patient.token,
-        issued.expiresAt
-      );
-
-      return {
-        appointmentId: appointment.id,
-        patientLink: issued.patientLink,
-        doctorLink: issued.doctorLink,
-        expiresAt: issued.expiresAt,
-      };
-    }),
-
-  openMyRoom: protectedProcedure
-    .input(openMyRoomInputSchema)
-    .output(openMyRoomOutputSchema)
-    .mutation(async ({ input, ctx }) => {
-      const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
-      const userEmail = ctx.user.email?.trim().toLowerCase();
-      if (!userEmail) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "Please bind an email before opening appointment room",
-        });
-      }
-      assertAppointmentBelongsToCurrentUser({
-        appointment,
-        userId: ctx.user.id,
-        userEmail,
-      });
-
-      return openMyRoomWithFreshLink({
-        appointment,
-        userId: ctx.user.id,
-      });
-    }),
-
-  validateAccessToken: publicProcedure
-    .input(validateTokenOnlyInputSchema)
-    .output(accessContextOutputSchema)
-    .query(async ({ input, ctx }) => {
-      const result = await validateAppointmentAccessToken({
+    .input(appointmentSchemas.accessInputSchema)
+    .output(appointmentSchemas.joinInfoOutputSchema)
+    .query(async ({ input, ctx }) =>
+      appointmentActions.getJoinInfoByToken({
+        appointmentId: input.appointmentId,
         token: input.token,
         req: ctx.req,
-      });
+      })
+    ),
 
-      return {
-        appointmentId: result.appointmentId,
-        role: result.role,
-        tokenId: result.tokenId,
-        tokenHash: result.tokenHash,
-        expiresAt: result.expiresAt,
-        displayInfo: result.displayInfo,
-      };
-    }),
+  issueAccessLinks: protectedProcedure
+    .input(appointmentSchemas.issueLinksInputSchema)
+    .output(appointmentSchemas.issueLinksOutputSchema)
+    .mutation(async ({ input, ctx }) =>
+      appointmentActions.issueAccessLinksForAppointmentById({
+        appointmentId: input.appointmentId,
+        createdBy: `user:${ctx.user.id}`,
+      })
+    ),
+
+  openMyRoom: protectedProcedure
+    .input(appointmentSchemas.openMyRoomInputSchema)
+    .output(appointmentSchemas.openMyRoomOutputSchema)
+    .mutation(async ({ input, ctx }) =>
+      appointmentActions.openMyRoomForCurrentUserById({
+        appointmentId: input.appointmentId,
+        userId: ctx.user.id,
+        userEmail: ctx.user.email,
+      })
+    ),
+
+  validateAccessToken: publicProcedure
+    .input(appointmentSchemas.validateTokenOnlyInputSchema)
+    .output(appointmentSchemas.accessContextOutputSchema)
+    .query(async ({ input, ctx }) =>
+      appointmentCore.validateAccessTokenContext({
+        token: input.token,
+        req: ctx.req,
+      })
+    ),
 
   revokeAccessToken: protectedProcedure
-    .input(revokeTokenInputSchema)
-    .output(revokeTokenOutputSchema)
-    .mutation(async ({ input }) => {
-      const revokedCount = await revokeAppointmentAccessToken({
+    .input(appointmentSchemas.revokeTokenInputSchema)
+    .output(appointmentSchemas.revokeTokenOutputSchema)
+    .mutation(async ({ input }) =>
+      appointmentCore.revokeAccessTokenByInput({
         appointmentId: input.appointmentId,
         role: input.role,
         token: input.token,
-        reason: input.revokeReason,
-      });
-
-      return { ok: true as const, revokedCount };
-    }),
+        revokeReason: input.revokeReason,
+      })
+    ),
 
   completeAppointment: publicProcedure
-    .input(completeAppointmentInputSchema)
-    .output(completeAppointmentOutputSchema)
-    .mutation(async ({ input, ctx }) => {
-      const { appointment, role } = await validateAppointmentToken(
-        input.appointmentId,
-        input.token,
-        "send_message",
-        ctx.req
-      );
-
-      if (role !== "doctor") {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "Only doctor can complete appointment",
-        });
-      }
-
-      const transitioned = await appointmentsRepo.tryTransitionAppointmentById({
-        appointmentId: appointment.id,
-        allowedFrom: ["paid", "active"],
-        toStatus: "ended",
-        toPaymentStatus: "paid",
-        operatorType: "doctor",
+    .input(appointmentSchemas.completeAppointmentInputSchema)
+    .output(appointmentSchemas.completeAppointmentOutputSchema)
+    .mutation(async ({ input, ctx }) =>
+      appointmentActions.completeAppointmentByTokenFlow({
+        appointmentId: input.appointmentId,
+        token: input.token,
         operatorId: ctx.user?.id ?? null,
-        reason: "doctor_completed_consultation",
-      });
-
-      if (!transitioned.ok) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: APPOINTMENT_INVALID_TRANSITION_ERROR,
-        });
-      }
-
-      const updated = await getAppointmentByIdOrThrow(appointment.id);
-      return {
-        appointmentId: updated.id,
-        status: updated.status,
-        paymentStatus: updated.paymentStatus,
-      };
-    }),
+        req: ctx.req,
+      })
+    ),
 
   resendLink: publicProcedure
-    .input(resendLinkInputSchema)
-    .output(resendOutputSchema)
-    .mutation(async ({ input }) => {
-      const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
-      return resendPatientAccessLink({ appointment });
-    }),
+    .input(appointmentSchemas.resendLinkInputSchema)
+    .output(appointmentSchemas.resendOutputSchema)
+    .mutation(async ({ input }) =>
+      appointmentActions.resendPatientAccessLinkById({
+        appointmentId: input.appointmentId,
+      })
+    ),
 
   resendDoctorLink: publicProcedure
-    .input(resendInputSchema)
-    .output(resendDoctorOutputSchema)
-    .mutation(async ({ input }) => {
-      const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
-      return resendDoctorAccessLinkInDev({
-        appointment,
+    .input(appointmentSchemas.resendInputSchema)
+    .output(appointmentSchemas.resendDoctorOutputSchema)
+    .mutation(async ({ input }) =>
+      appointmentActions.resendDoctorAccessLinkInDevById({
+        appointmentId: input.appointmentId,
         email: input.email,
-      });
-    }),
+      })
+    ),
 });
