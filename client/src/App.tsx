@@ -8,7 +8,7 @@ import NotFound from "@/pages/NotFound";
 import { useEffect } from "react";
 import { Route, Switch } from "wouter";
 import { Loader2 } from "lucide-react";
-import ErrorBoundary from "@/layout/ErrorBoundary";
+import ErrorBoundary from "@/components/layout/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { LanguageProvider, useLanguage } from "./contexts/LanguageContext";
 import Home from "./pages/Home";
