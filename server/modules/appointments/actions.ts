@@ -21,5 +21,7 @@ export {
 export { cancelAppointmentByPatientById } from "./statusActions";
 export {
   completeAppointmentByTokenFlow,
+  generateMedicalSummaryDraftByTokenFlow,
   rescheduleByTokenFlow,
+  signMedicalSummaryByTokenFlow,
 } from "./workflowActions";

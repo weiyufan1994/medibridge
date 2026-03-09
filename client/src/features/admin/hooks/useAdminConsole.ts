@@ -48,6 +48,7 @@ export function useAdminConsole({
     "paid",
     "active",
     "ended",
+    "completed",
     "expired",
     "refunded",
     "canceled",
@@ -87,6 +88,7 @@ export function useAdminConsole({
         | "paid"
         | "active"
         | "ended"
+        | "completed"
         | "expired"
         | "refunded"
         | "canceled"
@@ -295,6 +297,7 @@ export function useAdminConsole({
         | "paid"
         | "active"
         | "ended"
+        | "completed"
         | "expired"
         | "refunded"
         | "canceled",
@@ -390,7 +393,13 @@ export function useAdminConsole({
       toast.error(tr("请先加载预约详情。", "Load appointment detail first."));
       return false;
     }
-    const blockedStatuses = new Set(["paid", "active", "ended", "refunded"]);
+    const blockedStatuses = new Set([
+      "paid",
+      "active",
+      "ended",
+      "completed",
+      "refunded",
+    ]);
     if (detail.paymentStatus === "paid" || blockedStatuses.has(detail.status)) {
       toast.error(
         tr(

@@ -1,14 +1,9 @@
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { getPublicBaseUrl } from "../_core/getPublicBaseUrl";
 import { paymentCore } from "../modules/payments/routerApi";
-import {
-  appointmentActions,
-  appointmentCore,
-  appointmentSchemas,
-} from "../modules/appointments/routerApi";
+import { appointmentActions, appointmentCore, appointmentSchemas } from "../modules/appointments/routerApi";
 
 export const validateAppointmentToken = appointmentCore.validateAppointmentToken;
-
 export const appointmentsRouter = router({
   listPackages: publicProcedure
     .input(appointmentSchemas.listPackagesInputSchema)
@@ -169,6 +164,36 @@ export const appointmentsRouter = router({
         appointmentId: input.appointmentId,
         token: input.token,
         operatorId: ctx.user?.id ?? null,
+        req: ctx.req,
+      })
+    ),
+
+  generateMedicalSummaryDraft: publicProcedure
+    .input(appointmentSchemas.generateMedicalSummaryDraftInputSchema)
+    .output(appointmentSchemas.medicalSummaryDraftOutputSchema)
+    .mutation(async ({ input, ctx }) =>
+      appointmentActions.generateMedicalSummaryDraftByTokenFlow({
+        appointmentId: input.appointmentId,
+        token: input.token,
+        lang: input.lang,
+        forceRegenerate: input.forceRegenerate,
+        req: ctx.req,
+      })
+    ),
+
+  signMedicalSummary: publicProcedure
+    .input(appointmentSchemas.signMedicalSummaryInputSchema)
+    .output(appointmentSchemas.completeAppointmentOutputSchema)
+    .mutation(async ({ input, ctx }) =>
+      appointmentActions.signMedicalSummaryByTokenFlow({
+        appointmentId: input.appointmentId,
+        token: input.token,
+        operatorId: ctx.user?.id ?? null,
+        chiefComplaint: input.chiefComplaint,
+        historyOfPresentIllness: input.historyOfPresentIllness,
+        pastMedicalHistory: input.pastMedicalHistory,
+        assessmentDiagnosis: input.assessmentDiagnosis,
+        planRecommendations: input.planRecommendations,
         req: ctx.req,
       })
     ),

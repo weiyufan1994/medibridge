@@ -221,7 +221,7 @@ export async function handleStripeWebhook(req: Request, res: Response) {
 
         const transitioned = await appointmentsRepo.tryTransitionAppointmentById({
           appointmentId: targetAppointment,
-          allowedFrom: ["paid", "active", "ended"],
+          allowedFrom: ["paid", "active", "ended", "completed"],
           toStatus: "refunded",
           toPaymentStatus: "refunded",
           operatorType: "webhook",

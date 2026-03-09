@@ -12,7 +12,12 @@ import {
 
 const TOKEN_RESEND_COOLDOWN_MS = 60_000;
 const RESEND_ALLOWED_STATUS = new Set<string>(["paid", "active"]);
-const OPEN_ROOM_ALLOWED_STATUS = new Set<string>(["paid", "active", "ended"]);
+const OPEN_ROOM_ALLOWED_STATUS = new Set<string>([
+  "paid",
+  "active",
+  "ended",
+  "completed",
+]);
 
 type AppointmentRecord = typeof appointments.$inferSelect;
 
@@ -153,7 +158,11 @@ export async function resendPatientAccessLink(input: {
       message: "Cannot resend link for refunded appointment",
     });
   }
-  if (appointment.status === "canceled" || appointment.status === "ended") {
+  if (
+    appointment.status === "canceled" ||
+    appointment.status === "ended" ||
+    appointment.status === "completed"
+  ) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Cannot resend link for closed appointment",

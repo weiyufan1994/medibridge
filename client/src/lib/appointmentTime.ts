@@ -20,7 +20,8 @@ export function toDate(value: Date | string | null): Date | null {
 
 export function formatAppointmentTimes(
   value: Date | string | null,
-  fallback = "-"
+  fallback = "-",
+  locale: string = APPOINTMENT_DISPLAY_LOCALE
 ): AppointmentDualTimezone {
   const date = toDate(value);
   if (!date) {
@@ -32,16 +33,12 @@ export function formatAppointmentTimes(
   }
 
   const options: Intl.DateTimeFormatOptions = {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
+    dateStyle: "medium",
+    timeStyle: "short",
   };
 
-  const localTime = new Intl.DateTimeFormat(APPOINTMENT_DISPLAY_LOCALE, options).format(date);
-  const doctorTime = new Intl.DateTimeFormat(APPOINTMENT_DISPLAY_LOCALE, {
+  const localTime = new Intl.DateTimeFormat(locale, options).format(date);
+  const doctorTime = new Intl.DateTimeFormat(locale, {
     ...options,
     timeZone: DOCTOR_TIME_ZONE,
   }).format(date);

@@ -108,6 +108,7 @@ const ADMIN_ALLOWED_TRANSITION_FROM: AppointmentStatus[] = [
   "paid",
   "active",
   "ended",
+  "completed",
   "expired",
   "refunded",
   "canceled",

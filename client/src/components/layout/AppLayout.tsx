@@ -113,15 +113,19 @@ export default function AppLayout({
           <button
             type="button"
             onClick={() => setLocation("/")}
-            className="inline-flex appearance-none items-center gap-0 rounded-xl border-0 bg-transparent p-0 m-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600/30"
+            className="inline-flex appearance-none items-center gap-2.5 rounded-xl border-0 bg-transparent p-0 m-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600/30"
             aria-label="Go to homepage"
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 shadow-sm">
               <Stethoscope className="h-5 w-5 text-white" />
             </div>
-            <div className="min-w-0">
-              <p className="-ml-[1px] text-2xl font-bold leading-none tracking-tight text-gray-900">MediBridge</p>
-              <p className="text-sm text-gray-500">{homeCopy.brandSubtitle}</p>
+            <div className="min-w-0 flex flex-col items-start">
+              <span className="block text-2xl font-bold leading-none text-gray-900">
+                MediBridge
+              </span>
+              <span className="mt-0.5 block text-sm leading-tight text-gray-500">
+                {homeCopy.brandSubtitle}
+              </span>
             </div>
           </button>
 

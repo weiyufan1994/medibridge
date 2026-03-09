@@ -31,7 +31,9 @@ export async function rescheduleAppointmentByToken(input: {
   await appointmentsRepo.updateAppointmentById(input.appointmentId, {
     scheduledAt: input.newScheduledAt,
     status:
-      input.currentStatus === "ended" || input.currentStatus === "refunded"
+      input.currentStatus === "ended" ||
+      input.currentStatus === "completed" ||
+      input.currentStatus === "refunded"
         ? input.currentStatus
         : "paid",
     updatedAt: new Date(),

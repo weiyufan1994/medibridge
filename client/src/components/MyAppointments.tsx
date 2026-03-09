@@ -22,6 +22,7 @@ type MyAppointmentItem = {
     | "paid"
     | "active"
     | "ended"
+    | "completed"
     | "expired"
     | "refunded"
     | "canceled";
@@ -56,6 +57,7 @@ function toStatusLabel(
   if (status === "paid") return t.statusPaid;
   if (status === "active") return t.statusActive;
   if (status === "ended") return t.statusEnded;
+  if (status === "completed") return t.statusCompleted;
   if (status === "expired") return t.statusExpired;
   if (status === "refunded") return t.statusRefunded;
   return t.statusCanceled;
@@ -68,7 +70,7 @@ function getHint(
   if (item.status === "pending_payment") return t.hintPendingPayment;
   if (item.status === "paid") return t.hintPaid;
   if (item.status === "active") return t.hintActive;
-  if (item.status === "ended") return t.hintEnded;
+  if (item.status === "ended" || item.status === "completed") return t.hintEnded;
   return t.hintInactive;
 }
 
@@ -79,7 +81,7 @@ function getStatusBadgeClass(variant: AppointmentSectionVariant, status: MyAppoi
   if (variant === "upcoming") {
     return "rounded-full border border-teal-100 bg-teal-50 text-teal-700";
   }
-  if (status === "ended") {
+  if (status === "ended" || status === "completed") {
     return "rounded-full border-0 bg-emerald-100 text-emerald-700";
   }
   return "rounded-full border-0 bg-slate-100 text-slate-600";
@@ -99,6 +101,7 @@ function DoctorAvatar(props: { doctorName: string; imageUrl?: string | null }) {
 function AppointmentCard(props: {
   item: MyAppointmentItem;
   t: ReturnType<typeof getDashboardAppointmentCopy>;
+  resolved: "en" | "zh";
   section: AppointmentSectionVariant;
   onPrimaryAction: (item: MyAppointmentItem) => Promise<void>;
   onResend: (appointmentId: number) => Promise<void>;
@@ -113,11 +116,16 @@ function AppointmentCard(props: {
   );
 
   const doctorName =
-    doctorQuery.data?.doctor?.nameEn ||
-    doctorQuery.data?.doctor?.name ||
-    props.t.doctorFallback.replace("{{id}}", String(props.item.doctorId));
+    props.resolved === "zh"
+      ? doctorQuery.data?.doctor?.name ||
+        doctorQuery.data?.doctor?.nameEn ||
+        props.t.doctorFallback.replace("{{id}}", String(props.item.doctorId))
+      : doctorQuery.data?.doctor?.nameEn ||
+        doctorQuery.data?.doctor?.name ||
+        props.t.doctorFallback.replace("{{id}}", String(props.item.doctorId));
   const doctorImage = doctorQuery.data?.doctor?.imageUrl;
-  const timeDisplay = formatAppointmentTimes(props.item.scheduledAt);
+  const locale = props.resolved === "zh" ? "zh-CN" : "en-US";
+  const timeDisplay = formatAppointmentTimes(props.item.scheduledAt, "-", locale);
 
   return (
     <article className="rounded-xl border border-slate-200/80 bg-white shadow-sm">
@@ -137,14 +145,14 @@ function AppointmentCard(props: {
       <div className="px-5 pb-5">
         <div className="grid gap-3 rounded-lg border border-slate-100 bg-teal-50/30 p-3 md:grid-cols-[1fr_auto_1fr] md:items-center">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Local Time</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{props.t.localTimeLabel}</p>
             <p className="mt-1 text-sm font-semibold text-slate-900">{timeDisplay.localTime}</p>
           </div>
           <div className="flex justify-center">
             <ArrowRight className="h-4 w-4 text-slate-400" />
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">China Time (China) 🇨🇳</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{props.t.chinaTimeLabel}</p>
             <p className="mt-1 text-sm font-semibold text-slate-900">{timeDisplay.doctorTime}</p>
           </div>
         </div>
@@ -201,6 +209,7 @@ function AppointmentCard(props: {
 function AppointmentSection(props: {
   title: string;
   t: ReturnType<typeof getDashboardAppointmentCopy>;
+  resolved: "en" | "zh";
   items: MyAppointmentItem[];
   section: AppointmentSectionVariant;
   onPrimaryAction: (item: MyAppointmentItem) => Promise<void>;
@@ -217,6 +226,7 @@ function AppointmentSection(props: {
               key={item.id}
               item={item}
               t={props.t}
+              resolved={props.resolved}
               section={props.section}
               onPrimaryAction={props.onPrimaryAction}
               onResend={props.onResend}
@@ -255,7 +265,12 @@ export function MyAppointments() {
         return;
       }
 
-      if (item.status === "paid" || item.status === "active" || item.status === "ended") {
+      if (
+        item.status === "paid" ||
+        item.status === "active" ||
+        item.status === "ended" ||
+        item.status === "completed"
+      ) {
         const result = await openRoomMutation.mutateAsync({
           appointmentId: item.id,
         });
@@ -339,6 +354,7 @@ export function MyAppointments() {
         <AppointmentSection
           title={t.sectionUpcoming}
           t={t}
+          resolved={resolved}
           section="upcoming"
           items={data.upcoming}
           onPrimaryAction={handleOpenAccess}
@@ -348,6 +364,7 @@ export function MyAppointments() {
         <AppointmentSection
           title={t.sectionCompleted}
           t={t}
+          resolved={resolved}
           section="completed"
           items={completedItems}
           onPrimaryAction={handleOpenAccess}

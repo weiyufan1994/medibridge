@@ -8,6 +8,8 @@ vi.mock("./modules/appointments/repo", () => ({
   tryTransitionAppointmentById: vi.fn(),
   insertStatusEvent: vi.fn(),
   getAppointmentById: vi.fn(),
+  getMedicalSummaryByAppointmentId: vi.fn(),
+  upsertMedicalSummaryByAppointmentId: vi.fn(),
   getAppointmentTokenCooldownRemainingSeconds: vi.fn(),
   updateAppointmentById: vi.fn(),
   revokeAppointmentTokens: vi.fn(),
@@ -27,6 +29,9 @@ vi.mock("./modules/ai/repo", () => ({
   getAiChatSessionById: vi.fn(),
   createAiChatSession: vi.fn(),
 }));
+vi.mock("./modules/visit/repo", () => ({
+  getRecentMessages: vi.fn(),
+}));
 
 vi.mock("./modules/payments/stripe", () => ({
   createStripeCheckoutSession: vi.fn(),
@@ -34,6 +39,7 @@ vi.mock("./modules/payments/stripe", () => ({
 
 import * as appointmentsRepo from "./modules/appointments/repo";
 import * as aiRepo from "./modules/ai/repo";
+import * as visitRepo from "./modules/visit/repo";
 import { createStripeCheckoutSession } from "./modules/payments/stripe";
 import { sendMagicLinkEmail } from "./_core/mailer";
 import { issueAppointmentAccessLinks } from "./modules/appointments/tokenService";
@@ -116,6 +122,7 @@ describe("appointments router", () => {
       userId: 1,
       status: "completed",
     } as never);
+    vi.mocked(visitRepo.getRecentMessages).mockResolvedValue([] as never);
 
     vi.mocked(createStripeCheckoutSession).mockReturnValue({
       id: "cs_test_abc",
@@ -560,6 +567,210 @@ describe("appointments router", () => {
       caller.completeAppointment({
         appointmentId: 5003,
         token: "doctor_token_abcdef123456",
+      })
+    ).rejects.toThrow("APPOINTMENT_INVALID_STATUS_TRANSITION");
+  });
+
+  it("generateMedicalSummaryDraft allows doctor token and returns fallback draft", async () => {
+    vi.mocked(validateAppointmentAccessToken).mockResolvedValue({
+      appointmentId: 7001,
+      role: "doctor",
+      tokenId: 201,
+      tokenHash: "f".repeat(64),
+      expiresAt: new Date("2026-03-08T00:00:00.000Z"),
+      displayInfo: { patientEmail: "user@example.com", doctorId: 11 },
+      appointment: {
+        id: 7001,
+        doctorId: 11,
+        triageSessionId: 99,
+        appointmentType: "online_chat",
+        scheduledAt: new Date("2026-03-03T09:00:00.000Z"),
+        status: "active",
+        paymentStatus: "paid",
+        amount: 4900,
+        currency: "usd",
+        paidAt: new Date("2026-03-03T08:00:00.000Z"),
+        email: "user@example.com",
+        sessionId: null,
+        userId: 1,
+        notes: null,
+        lastAccessAt: null,
+        doctorLastAccessAt: null,
+        stripeSessionId: "cs_paid",
+        createdAt: new Date("2026-03-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+    } as never);
+    vi.mocked(appointmentsRepo.getMedicalSummaryByAppointmentId).mockResolvedValue(
+      null as never
+    );
+
+    const caller = appointmentsRouter.createCaller(createTestContext());
+    const result = await caller.generateMedicalSummaryDraft({
+      appointmentId: 7001,
+      token: "doctor_token_7001_123456",
+      lang: "en",
+    });
+
+    expect(result.source).toBe("fallback");
+    expect(result.chiefComplaint.length).toBeGreaterThan(0);
+  });
+
+  it("generateMedicalSummaryDraft rejects non-doctor token", async () => {
+    vi.mocked(validateAppointmentAccessToken).mockResolvedValue({
+      appointmentId: 7002,
+      role: "patient",
+      tokenId: 202,
+      tokenHash: "g".repeat(64),
+      expiresAt: new Date("2026-03-08T00:00:00.000Z"),
+      displayInfo: { patientEmail: "user@example.com", doctorId: 11 },
+      appointment: {
+        id: 7002,
+        doctorId: 11,
+        triageSessionId: 99,
+        appointmentType: "online_chat",
+        scheduledAt: new Date("2026-03-03T09:00:00.000Z"),
+        status: "active",
+        paymentStatus: "paid",
+        amount: 4900,
+        currency: "usd",
+        paidAt: new Date("2026-03-03T08:00:00.000Z"),
+        email: "user@example.com",
+        sessionId: null,
+        userId: 1,
+        notes: null,
+        lastAccessAt: null,
+        doctorLastAccessAt: null,
+        stripeSessionId: "cs_paid",
+        createdAt: new Date("2026-03-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+    } as never);
+
+    const caller = appointmentsRouter.createCaller(createTestContext());
+    await expect(
+      caller.generateMedicalSummaryDraft({
+        appointmentId: 7002,
+        token: "patient_token_7002_123456",
+        lang: "en",
+      })
+    ).rejects.toThrow("Only doctor can generate medical summary draft");
+  });
+
+  it("signMedicalSummary persists summary and marks appointment completed", async () => {
+    vi.mocked(validateAppointmentAccessToken).mockResolvedValue({
+      appointmentId: 7003,
+      role: "doctor",
+      tokenId: 203,
+      tokenHash: "h".repeat(64),
+      expiresAt: new Date("2026-03-08T00:00:00.000Z"),
+      displayInfo: { patientEmail: "user@example.com", doctorId: 11 },
+      appointment: {
+        id: 7003,
+        doctorId: 11,
+        triageSessionId: 99,
+        appointmentType: "online_chat",
+        scheduledAt: new Date("2026-03-03T09:00:00.000Z"),
+        status: "active",
+        paymentStatus: "paid",
+        amount: 4900,
+        currency: "usd",
+        paidAt: new Date("2026-03-03T08:00:00.000Z"),
+        email: "user@example.com",
+        sessionId: null,
+        userId: 1,
+        notes: null,
+        lastAccessAt: null,
+        doctorLastAccessAt: null,
+        stripeSessionId: "cs_paid",
+        createdAt: new Date("2026-03-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+    } as never);
+    vi.mocked(appointmentsRepo.tryTransitionAppointmentById).mockResolvedValue({
+      ok: true,
+      reason: "updated",
+    } as never);
+    vi.mocked(appointmentsRepo.upsertMedicalSummaryByAppointmentId).mockResolvedValue(
+      { id: 99 } as never
+    );
+    vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue({
+      id: 7003,
+      status: "completed",
+      paymentStatus: "paid",
+    } as never);
+
+    const caller = appointmentsRouter.createCaller(createTestContext());
+    const result = await caller.signMedicalSummary({
+      appointmentId: 7003,
+      token: "doctor_token_7003_123456",
+      chiefComplaint: "Cough for 3 days",
+      historyOfPresentIllness: "Intermittent dry cough with mild fever.",
+      pastMedicalHistory: "No chronic disease reported.",
+      assessmentDiagnosis: "Likely upper respiratory tract infection.",
+      planRecommendations: "Hydration, rest, and follow-up if symptoms worsen.",
+    });
+
+    expect(result).toMatchObject({
+      appointmentId: 7003,
+      status: "completed",
+      paymentStatus: "paid",
+    });
+    expect(appointmentsRepo.tryTransitionAppointmentById).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appointmentId: 7003,
+        allowedFrom: ["paid", "active", "ended", "completed"],
+        toStatus: "completed",
+      })
+    );
+    expect(appointmentsRepo.upsertMedicalSummaryByAppointmentId).toHaveBeenCalled();
+  });
+
+  it("signMedicalSummary rejects invalid status transition", async () => {
+    vi.mocked(validateAppointmentAccessToken).mockResolvedValue({
+      appointmentId: 7004,
+      role: "doctor",
+      tokenId: 204,
+      tokenHash: "i".repeat(64),
+      expiresAt: new Date("2026-03-08T00:00:00.000Z"),
+      displayInfo: { patientEmail: "user@example.com", doctorId: 11 },
+      appointment: {
+        id: 7004,
+        doctorId: 11,
+        triageSessionId: 99,
+        appointmentType: "online_chat",
+        scheduledAt: new Date("2026-03-03T09:00:00.000Z"),
+        status: "ended",
+        paymentStatus: "paid",
+        amount: 4900,
+        currency: "usd",
+        paidAt: new Date("2026-03-03T08:00:00.000Z"),
+        email: "user@example.com",
+        sessionId: null,
+        userId: 1,
+        notes: null,
+        lastAccessAt: null,
+        doctorLastAccessAt: null,
+        stripeSessionId: "cs_paid",
+        createdAt: new Date("2026-03-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+    } as never);
+    vi.mocked(appointmentsRepo.tryTransitionAppointmentById).mockResolvedValue({
+      ok: false,
+      reason: "illegal_transition",
+    } as never);
+
+    const caller = appointmentsRouter.createCaller(createTestContext());
+    await expect(
+      caller.signMedicalSummary({
+        appointmentId: 7004,
+        token: "doctor_token_7004_123456",
+        chiefComplaint: "Cough for 3 days",
+        historyOfPresentIllness: "Intermittent dry cough with mild fever.",
+        pastMedicalHistory: "No chronic disease reported.",
+        assessmentDiagnosis: "Likely upper respiratory tract infection.",
+        planRecommendations: "Hydration, rest, and follow-up if symptoms worsen.",
       })
     ).rejects.toThrow("APPOINTMENT_INVALID_STATUS_TRANSITION");
   });

@@ -68,7 +68,7 @@ export function PatientVisitView({
               loadEarlierText={loadEarlierText}
               loadingEarlierText={loadingEarlierText}
             />
-            <footer className="mt-auto shrink-0 px-3 pb-3 pt-2">
+            <footer className="mt-auto shrink-0 border-t border-slate-200 bg-slate-50/80 px-3 pb-3 pt-3">
               <ChatComposer
                 value={content}
                 onChange={onChangeContent}

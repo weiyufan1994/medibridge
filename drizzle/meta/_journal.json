@@ -155,6 +155,13 @@
       "when": 1772940000000,
       "tag": "0021_appointment_messages_composite_index",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "5",
+      "when": 1773060000000,
+      "tag": "0022_appointment_medical_summary_and_completed_status",
+      "breakpoints": true
     }
   ]
 }

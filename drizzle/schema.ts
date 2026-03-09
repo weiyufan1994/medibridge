@@ -312,6 +312,7 @@ export const appointments = mysqlTable(
       "paid",
       "active",
       "ended",
+      "completed",
       "expired",
       "refunded",
       "canceled",
@@ -515,6 +516,40 @@ export const appointmentVisitSummaries = mysqlTable(
 export type AppointmentVisitSummary = typeof appointmentVisitSummaries.$inferSelect;
 export type InsertAppointmentVisitSummary =
   typeof appointmentVisitSummaries.$inferInsert;
+
+/**
+ * Structured medical summary table - stores doctor-reviewed SOAP summary per appointment.
+ */
+export const appointmentMedicalSummaries = mysqlTable(
+  "appointment_medical_summaries",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    appointmentId: int("appointmentId")
+      .notNull()
+      .references(() => appointments.id, { onDelete: "cascade" }),
+    chiefComplaint: text("chiefComplaint").notNull(),
+    historyOfPresentIllness: text("historyOfPresentIllness").notNull(),
+    pastMedicalHistory: text("pastMedicalHistory").notNull(),
+    assessmentDiagnosis: text("assessmentDiagnosis").notNull(),
+    planRecommendations: text("planRecommendations").notNull(),
+    source: varchar("source", { length: 32 }).notNull().default("doctor_reviewed_ai_draft"),
+    signedBy: int("signedBy").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    appointmentUk: uniqueIndex("appointmentMedicalSummariesAppointmentUk").on(
+      table.appointmentId
+    ),
+    createdAtIdx: index("appointmentMedicalSummariesCreatedAtIdx").on(table.createdAt),
+  })
+);
+
+export type AppointmentMedicalSummary = typeof appointmentMedicalSummaries.$inferSelect;
+export type InsertAppointmentMedicalSummary =
+  typeof appointmentMedicalSummaries.$inferInsert;
 
 /**
  * Retention policy table - configurable retention days by tier.

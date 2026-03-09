@@ -102,7 +102,8 @@ export function buildVisitRoomPresentation(input: VisitRoomPresentationInput) {
     : doctorRoleFallback;
 
   const liveStatus = input.currentStatus ?? "connecting";
-  const roomClosedByStatus = input.appointment.status === "ended";
+  const roomClosedByStatus =
+    input.appointment.status === "ended" || input.appointment.status === "completed";
   const effectiveCanSendMessage = input.canSendMessage && !roomClosedByStatus;
   const composerHint = effectiveCanSendMessage
     ? input.t.composerHint

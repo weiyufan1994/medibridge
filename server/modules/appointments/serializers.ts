@@ -45,7 +45,7 @@ export function classifyMyAppointments(items: MyAppointmentItem[]) {
       continue;
     }
 
-    if (item.status === "ended") {
+    if (item.status === "ended" || item.status === "completed") {
       completed.push(item);
       continue;
     }

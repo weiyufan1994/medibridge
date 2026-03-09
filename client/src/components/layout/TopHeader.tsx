@@ -53,13 +53,17 @@ export default function TopHeader(props: TopHeaderProps) {
 
   return (
     <header className="w-full px-6 h-16 flex items-center justify-between border-b border-slate-200 bg-white flex-shrink-0">
-        <Link href="/" className="flex items-center gap-0">
+        <Link href="/" className="flex items-center gap-2.5">
           <div className="flex items-center justify-center rounded-lg bg-teal-600 p-2 text-white">
             <Stethoscope className="h-6 w-6" />
           </div>
-          <div className="flex flex-col">
-            <span className="-ml-[1px] text-xl font-bold leading-none tracking-tight text-slate-900">MediBridge</span>
-            <span className="mt-1 text-xs text-slate-500">{t.brandSubtitle}</span>
+          <div className="flex flex-col items-start">
+            <span className="block text-xl font-bold leading-none text-slate-900">
+              MediBridge
+            </span>
+            <span className="mt-1 block text-xs leading-tight text-slate-500">
+              {t.brandSubtitle}
+            </span>
           </div>
         </Link>
 

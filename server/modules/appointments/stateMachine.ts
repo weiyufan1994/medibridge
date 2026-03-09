@@ -6,6 +6,7 @@ export const APPOINTMENT_STATUS_VALUES = [
   "paid",
   "active",
   "ended",
+  "completed",
   "expired",
   "refunded",
   "canceled",
@@ -38,15 +39,17 @@ export const CHECKOUT_REINIT_BLOCKED_STATUSES: AppointmentStatus[] = [
   "paid",
   "active",
   "ended",
+  "completed",
   "refunded",
 ];
 
 const ALLOWED_STATUS_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
   draft: ["pending_payment", "canceled"],
   pending_payment: ["paid", "expired", "canceled"],
-  paid: ["active", "ended", "refunded", "canceled"],
-  active: ["ended", "refunded", "canceled"],
-  ended: ["refunded"],
+  paid: ["active", "ended", "completed", "refunded", "canceled"],
+  active: ["ended", "completed", "refunded", "canceled"],
+  ended: ["completed", "refunded"],
+  completed: ["refunded"],
   expired: [],
   refunded: [],
   canceled: [],
@@ -58,6 +61,7 @@ const ALLOWED_PAYMENT_BY_STATUS: Record<AppointmentStatus, PaymentStatus[]> = {
   paid: ["paid"],
   active: ["paid"],
   ended: ["paid"],
+  completed: ["paid"],
   expired: ["expired", "failed"],
   refunded: ["refunded"],
   canceled: ["canceled", "failed", "unpaid"],
@@ -124,7 +128,12 @@ export function ensureAppointmentStatusAllowsVisitV2(input: {
     });
   }
 
-  if (input.status !== "paid" && input.status !== "active") {
+  if (
+    input.status !== "paid" &&
+    input.status !== "active" &&
+    input.status !== "ended" &&
+    input.status !== "completed"
+  ) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: APPOINTMENT_NOT_ALLOWED_ERROR,

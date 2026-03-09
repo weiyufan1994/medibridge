@@ -127,6 +127,30 @@ export const completeAppointmentInputSchema = z.object({
   token: z.string().trim().min(16).max(512),
 });
 
+const summarySectionDraftSchema = z.string().trim().max(4000).default("");
+const summarySectionSignSchema = z.string().trim().min(1).max(4000);
+
+export const generateMedicalSummaryDraftInputSchema = accessWithLangInputSchema.extend({
+  forceRegenerate: z.boolean().optional().default(false),
+});
+
+export const medicalSummaryDraftOutputSchema = z.object({
+  chiefComplaint: summarySectionDraftSchema,
+  historyOfPresentIllness: summarySectionDraftSchema,
+  pastMedicalHistory: summarySectionDraftSchema,
+  assessmentDiagnosis: summarySectionDraftSchema,
+  planRecommendations: summarySectionDraftSchema,
+  source: z.enum(["llm", "fallback", "saved"]),
+});
+
+export const signMedicalSummaryInputSchema = accessInputSchema.extend({
+  chiefComplaint: summarySectionSignSchema,
+  historyOfPresentIllness: summarySectionSignSchema,
+  pastMedicalHistory: summarySectionSignSchema,
+  assessmentDiagnosis: summarySectionSignSchema,
+  planRecommendations: summarySectionSignSchema,
+});
+
 export const appointmentPublicSchema = z.object({
   id: z.number().int().positive(),
   doctorId: z.number().int().positive(),

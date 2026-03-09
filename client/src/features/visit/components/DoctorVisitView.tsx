@@ -1,14 +1,8 @@
 import { ChatComposer } from "@/features/visit/components/ChatComposer";
 import { EndConsultationDialog } from "@/features/visit/components/EndConsultationDialog";
-import { TriageSummarySidebar } from "@/features/visit/components/TriageSummarySidebar";
 import { VisitRoomHeader } from "@/features/visit/components/VisitRoomHeader";
 import { VisitMessagesList } from "@/features/visit/components/VisitMessagesList";
 import type { VisitSharedViewProps } from "@/features/visit/types";
-
-type IntakeItem = {
-  label: string;
-  value: string | undefined;
-};
 
 type DoctorVisitViewProps = VisitSharedViewProps & {
   canEndConsultation: boolean;
@@ -19,14 +13,7 @@ type DoctorVisitViewProps = VisitSharedViewProps & {
   confirmEndText: string;
   endingText: string;
   isEnding: boolean;
-  onEndConsultation: () => void;
-  doctorWorkbenchTitle: string;
-  triageSidebarTitle: string;
-  triageRecommendationTitle: string;
-  hasTriageData: boolean;
-  intakeItems: IntakeItem[];
-  triageSummary: string;
-  aiTriageSummaryEmpty: string;
+  onGenerateSummary: () => void;
 };
 
 export function DoctorVisitView({
@@ -51,7 +38,7 @@ export function DoctorVisitView({
   confirmEndText,
   endingText,
   isEnding,
-  onEndConsultation,
+  onGenerateSummary,
   showInitialSkeleton,
   messages,
   hasMoreHistory,
@@ -68,13 +55,6 @@ export function DoctorVisitView({
   composerPlaceholder,
   composerHint,
   onSelectAttachment,
-  doctorWorkbenchTitle,
-  triageSidebarTitle,
-  triageRecommendationTitle,
-  hasTriageData,
-  intakeItems,
-  triageSummary,
-  aiTriageSummaryEmpty,
 }: DoctorVisitViewProps) {
   return (
     <>
@@ -103,7 +83,7 @@ export function DoctorVisitView({
             confirmEndText={confirmEndText}
             endingText={endingText}
             isEnding={isEnding}
-            onEndConsultation={onEndConsultation}
+            onGenerateSummary={onGenerateSummary}
           />
         }
       />
@@ -122,7 +102,7 @@ export function DoctorVisitView({
               loadEarlierText={loadEarlierText}
               loadingEarlierText={loadingEarlierText}
             />
-            <footer className="mt-auto shrink-0 bg-slate-50/50 pt-3">
+            <footer className="mt-auto shrink-0 border-t border-slate-200 bg-slate-50/80 px-3 pb-3 pt-3">
               <div className="mx-auto w-full max-w-3xl">
                 <ChatComposer
                   value={content}
@@ -133,20 +113,11 @@ export function DoctorVisitView({
                   placeholder={composerPlaceholder}
                   hint={composerHint}
                   onSelectAttachment={onSelectAttachment}
+                  tone="embedded"
                 />
               </div>
             </footer>
           </div>
-
-          <TriageSummarySidebar
-            doctorWorkbenchTitle={doctorWorkbenchTitle}
-            triageSidebarTitle={triageSidebarTitle}
-            triageRecommendationTitle={triageRecommendationTitle}
-            hasTriageData={hasTriageData}
-            intakeItems={intakeItems}
-            triageSummary={triageSummary}
-            aiTriageSummaryEmpty={aiTriageSummaryEmpty}
-          />
         </div>
       </section>
     </>

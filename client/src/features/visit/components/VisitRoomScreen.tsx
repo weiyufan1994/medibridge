@@ -1,9 +1,11 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import AppLayout from "@/components/layout/AppLayout";
 import { DoctorVisitView } from "@/features/visit/components/DoctorVisitView";
+import { MedicalSummaryModal } from "@/features/visit/components/MedicalSummaryModal";
 import { PatientVisitView } from "@/features/visit/components/PatientVisitView";
+import { TriageSummarySidebar } from "@/features/visit/components/TriageSummarySidebar";
 import {
   VisitRoomErrorState,
   VisitRoomInvalidState,
@@ -24,13 +26,11 @@ export function VisitRoomScreen() {
   const { validInput, accessInput } = useVisitRoomAccess(resolved);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const { appointmentQuery, doctorQuery, completeAppointmentMutation } =
-    useVisitRoomData({
-      accessInput,
-      validInput,
-      consultationEndedSuccessText: t.consultationEndedSuccess,
-      consultationEndFailedText: t.consultationEndFailed,
-    });
+  const { appointmentQuery, doctorQuery } = useVisitRoomData({
+    accessInput,
+    validInput,
+  });
+  const [summaryModalOpen, setSummaryModalOpen] = useState(false);
 
   const {
     content,
@@ -54,6 +54,25 @@ export function VisitRoomScreen() {
     resolved,
   });
   const now = useNow();
+  const appointmentForPresentation = appointmentQuery.data ?? {
+    role: "patient" as const,
+    status: "",
+    triageSummary: null,
+    intake: null,
+  };
+
+  const presentation = useVisitRoomPresentation({
+    resolved,
+    t,
+    now,
+    appointment: appointmentForPresentation,
+    doctorData: doctorQuery.data ?? null,
+    role,
+    currentStatus,
+    canSendMessage,
+    isSending,
+    pollingFatalError,
+  });
 
   if (!validInput) {
     return <VisitRoomInvalidState title={pageTitle} message={t.invalidToken} />;
@@ -73,19 +92,6 @@ export function VisitRoomScreen() {
   }
 
   const appointment = appointmentQuery.data;
-  const doctorData = doctorQuery.data;
-  const presentation = useVisitRoomPresentation({
-    resolved,
-    t,
-    now,
-    appointment,
-    doctorData: doctorData ?? null,
-    role,
-    currentStatus,
-    canSendMessage,
-    isSending,
-    pollingFatalError,
-  });
   const sharedViewProps: VisitSharedViewProps = {
     doctorName: presentation.doctorName,
     departmentName: presentation.departmentName,
@@ -124,29 +130,29 @@ export function VisitRoomScreen() {
     },
   };
   const isDoctorView = presentation.isDoctorView;
-  const isEnding = completeAppointmentMutation.isPending;
-  const onEndConsultation = () =>
-    void completeAppointmentMutation.mutateAsync({
-      appointmentId: appointment.id,
-      token: accessInput.token,
-    });
+  const onGenerateSummary = () => setSummaryModalOpen(true);
 
   return (
     <AppLayout title={pageTitle}>
-      <div className="flex h-full w-full bg-slate-50 px-4 py-5 md:py-7">
-        <div className="mx-auto flex h-[calc(100vh-120px)] min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-          {isDoctorView ? (
-            <DoctorVisitView
-              {...sharedViewProps}
-              canEndConsultation={!presentation.roomClosedByStatus}
-              endConsultationText={t.endConsultation}
-              endConsultationTitle={t.endConsultationTitle}
-              endConsultationDesc={t.endConsultationDesc}
-              cancelText={t.cancel}
-              confirmEndText={t.confirmEnd}
-              endingText={t.ending}
-              isEnding={isEnding}
-              onEndConsultation={onEndConsultation}
+      <div className="flex h-full w-full bg-slate-50 px-4 py-4 md:px-6 md:py-6">
+        {isDoctorView ? (
+          <div className="mx-auto flex h-[calc(100vh-126px)] min-h-0 w-full max-w-[1240px] gap-4 md:h-[calc(100vh-148px)]">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-md ring-1 ring-slate-100">
+              <DoctorVisitView
+                {...sharedViewProps}
+                canEndConsultation={!presentation.roomClosedByStatus}
+                endConsultationText={t.endConsultation}
+                endConsultationTitle={t.endConsultationTitle}
+                endConsultationDesc={t.endConsultationDesc}
+                cancelText={t.cancel}
+                confirmEndText={t.confirmEnd}
+                endingText={t.ending}
+                isEnding={false}
+                onGenerateSummary={onGenerateSummary}
+              />
+            </div>
+
+            <TriageSummarySidebar
               doctorWorkbenchTitle={presentation.doctorWorkbenchTitle}
               triageSidebarTitle={presentation.triageSidebarTitle}
               triageRecommendationTitle={presentation.triageRecommendationTitle}
@@ -155,11 +161,39 @@ export function VisitRoomScreen() {
               triageSummary={presentation.triageSummary}
               aiTriageSummaryEmpty={t.aiTriageSummaryEmpty}
             />
-          ) : (
+          </div>
+        ) : (
+          <div className="mx-auto flex h-[calc(100vh-126px)] min-h-0 w-full max-w-[960px] flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-md ring-1 ring-slate-100 md:h-[calc(100vh-148px)]">
             <PatientVisitView {...sharedViewProps} />
-          )}
-        </div>
+          </div>
+        )}
       </div>
+      {isDoctorView ? (
+        <MedicalSummaryModal
+          open={summaryModalOpen}
+          onOpenChange={setSummaryModalOpen}
+          visitId={appointment.id}
+          token={accessInput.token}
+          lang={resolved}
+          copy={{
+            title: t.reviewMedicalSummaryTitle,
+            aiDisclaimer: t.medicalSummaryAIDisclaimer,
+            chiefComplaintLabel: t.medicalSummaryChiefComplaint,
+            hpiLabel: t.medicalSummaryHpi,
+            pmhLabel: t.medicalSummaryPmh,
+            assessmentLabel: t.medicalSummaryAssessment,
+            planLabel: t.medicalSummaryPlan,
+            cancelText: t.medicalSummaryCancel,
+            regenerateText: t.medicalSummaryRegenerate,
+            signText: t.medicalSummarySign,
+            generatingText: t.medicalSummaryGenerating,
+            signingText: t.medicalSummarySigning,
+            signSuccessText: t.consultationEndedSuccess,
+            draftFailedText: t.medicalSummaryDraftFailed,
+            signFailedText: t.medicalSummarySignFailed,
+          }}
+        />
+      ) : null}
     </AppLayout>
   );
 }

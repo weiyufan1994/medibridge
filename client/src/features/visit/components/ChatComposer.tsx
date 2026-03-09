@@ -36,15 +36,19 @@ export function ChatComposer({
     textarea.style.height = `${Math.min(textarea.scrollHeight, 180)}px`;
   }, [value]);
 
+  const wrapperClass =
+    tone === "embedded"
+      ? "flex items-end gap-2.5 rounded-2xl border border-slate-300 bg-white px-3 py-2.5 shadow-sm transition focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/25"
+      : "flex items-end gap-3 rounded-2xl border border-slate-300 bg-slate-50/90 px-3 py-2.5 shadow-sm transition focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/20";
+
+  const hintClass =
+    tone === "embedded"
+      ? "mt-1.5 px-1 text-right text-xs text-slate-600"
+      : "mt-2 text-right text-xs text-slate-600";
+
   return (
-    <div className={tone === "embedded" ? "bg-transparent px-2 py-2" : "bg-white px-5 py-4"}>
-      <div
-        className={
-          tone === "embedded"
-            ? "flex items-center gap-3 rounded-xl px-3 py-2 transition-colors"
-            : "flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 shadow-sm transition-colors focus-within:border-teal-500 focus-within:shadow-inner"
-        }
-      >
+    <div className={tone === "embedded" ? "bg-transparent" : "bg-white px-5 py-4"}>
+      <div className={wrapperClass}>
         <input
           ref={fileInputRef}
           type="file"
@@ -62,7 +66,7 @@ export function ChatComposer({
           type="button"
           variant="ghost"
           size="icon"
-          className="h-9 w-9 shrink-0 items-center self-center rounded-full p-0 text-slate-700 hover:bg-slate-200/80"
+          className="h-11 w-11 shrink-0 self-center rounded-full p-0 text-slate-700 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-teal-500/40"
           disabled={disabled}
           onClick={() => fileInputRef.current?.click()}
           aria-label="Upload medical image"
@@ -76,7 +80,7 @@ export function ChatComposer({
           placeholder={placeholder}
           rows={1}
           disabled={disabled}
-          className="min-h-[46px] max-h-[180px] resize-none border-0 bg-transparent px-0 py-2 leading-6 shadow-none focus-visible:ring-0"
+          className="min-h-[48px] max-h-[180px] resize-none border-0 bg-transparent px-0 py-2 leading-6 text-slate-800 shadow-none placeholder:text-slate-500 focus-visible:ring-0"
           onKeyDown={event => {
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
@@ -88,7 +92,7 @@ export function ChatComposer({
           type="button"
           onClick={onSend}
           disabled={disabled || !value.trim()}
-          className="h-9 w-9 shrink-0 items-center self-center rounded-full bg-teal-600 p-0 text-white shadow-sm transition-opacity hover:bg-teal-700 disabled:opacity-40"
+          className="h-11 w-11 shrink-0 self-center rounded-full bg-teal-600 p-0 text-white shadow-sm transition-opacity hover:bg-teal-700 focus-visible:ring-2 focus-visible:ring-teal-500/40 disabled:opacity-40"
           aria-label="Send message"
         >
           {isSending ? (
@@ -98,7 +102,7 @@ export function ChatComposer({
           )}
         </Button>
       </div>
-      <p className={tone === "embedded" ? "mt-1 px-1 text-right text-xs text-slate-500" : "mt-2 text-right text-xs text-slate-500"}>
+      <p className={hintClass}>
         {hint}
       </p>
     </div>

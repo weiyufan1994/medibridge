@@ -6,7 +6,10 @@ type ChatPolicyContext = {
 };
 
 export function canJoinRoom(context: ChatPolicyContext): boolean {
-  if (context.status === "ended" && context.paymentStatus === "paid") {
+  if (
+    (context.status === "ended" || context.status === "completed") &&
+    context.paymentStatus === "paid"
+  ) {
     return true;
   }
 

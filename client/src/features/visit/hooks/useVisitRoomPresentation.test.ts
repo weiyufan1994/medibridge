@@ -72,4 +72,29 @@ describe("buildVisitRoomPresentation", () => {
     expect(result.departmentName).toBe(t.departmentFallback);
     expect(result.hasTriageData).toBe(false);
   });
+
+  it("treats completed as read-only status", () => {
+    const t = getVisitCopy("en");
+    const result = buildVisitRoomPresentation({
+      resolved: "en",
+      t,
+      now: new Date("2026-03-01T08:00:00.000Z"),
+      appointment: {
+        role: "doctor",
+        status: "completed",
+        triageSummary: null,
+        intake: null,
+      },
+      doctorData: null,
+      role: "doctor",
+      currentStatus: "completed",
+      canSendMessage: true,
+      isSending: false,
+      pollingFatalError: null,
+    });
+
+    expect(result.roomClosedByStatus).toBe(true);
+    expect(result.effectiveCanSendMessage).toBe(false);
+    expect(result.composerHint).toContain("completed");
+  });
 });
