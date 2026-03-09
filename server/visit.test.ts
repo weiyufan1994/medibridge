@@ -14,8 +14,10 @@ vi.mock("./modules/visit/repo", () => ({
   getPatientSession: vi.fn(),
 }));
 
-vi.mock("./routers/appointments", () => ({
-  validateAppointmentToken: vi.fn(),
+vi.mock("./modules/appointments/routerApi", () => ({
+  appointmentCore: {
+    validateAppointmentToken: vi.fn(),
+  },
 }));
 
 vi.mock("./modules/appointments/tokenValidation", () => ({
@@ -30,7 +32,7 @@ vi.mock("./modules/appointments/repo", () => ({
 
 import * as visitRepo from "./modules/visit/repo";
 import * as appointmentsRepo from "./modules/appointments/repo";
-import { validateAppointmentToken } from "./routers/appointments";
+import { appointmentCore } from "./modules/appointments/routerApi";
 import { validateAppointmentAccessToken } from "./modules/appointments/tokenValidation";
 import { visitRouter } from "./routers/visit";
 
@@ -60,7 +62,7 @@ describe("visit router", () => {
       role: "patient",
       appointment: { id: 9001 },
     } as never);
-    vi.mocked(validateAppointmentToken).mockResolvedValue({
+    vi.mocked(appointmentCore.validateAppointmentToken).mockResolvedValue({
       role: "patient",
       appointment: {
         id: 9001,
@@ -106,7 +108,7 @@ describe("visit router", () => {
       limit: 50,
     });
 
-    expect(validateAppointmentToken).toHaveBeenCalledWith(
+    expect(appointmentCore.validateAppointmentToken).toHaveBeenCalledWith(
       9001,
       "patient_token_1234567890",
       "read_history",
