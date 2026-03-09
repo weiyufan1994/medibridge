@@ -5,6 +5,10 @@ import { setCachedPatientAccessToken } from "./tokenCache";
 import { buildAppointmentAccessLink } from "./linkService";
 import * as appointmentsRepo from "./repo";
 import { issueAppointmentAccessLinks } from "./tokenService";
+import {
+  assertAppointmentBelongsToCurrentUser,
+  getAppointmentByIdOrThrow,
+} from "./accessValidation";
 
 const TOKEN_RESEND_COOLDOWN_MS = 60_000;
 const RESEND_ALLOWED_STATUS = new Set<string>(["paid", "active"]);
@@ -68,6 +72,67 @@ export async function openMyRoomWithFreshLink(input: {
       token: issued.patient.token,
     }),
   };
+}
+
+export async function openMyRoomForCurrentUser(input: {
+  appointment: AppointmentRecord;
+  userId: number;
+  userEmail?: string | null;
+}) {
+  const userEmail = input.userEmail?.trim().toLowerCase();
+  if (!userEmail) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Please bind an email before opening appointment room",
+    });
+  }
+
+  assertAppointmentBelongsToCurrentUser({
+    appointment: input.appointment,
+    userId: input.userId,
+    userEmail,
+  });
+
+  return openMyRoomWithFreshLink({
+    appointment: input.appointment,
+    userId: input.userId,
+  });
+}
+
+export async function issueAccessLinksForAppointment(input: {
+  appointment: AppointmentRecord;
+  createdBy: string;
+}) {
+  const { appointment, createdBy } = input;
+
+  const issued = await issueAppointmentAccessLinks({
+    appointmentId: appointment.id,
+    createdBy,
+  });
+
+  setCachedPatientAccessToken(
+    appointment.id,
+    issued.patient.token,
+    issued.expiresAt
+  );
+
+  return {
+    appointmentId: appointment.id,
+    patientLink: issued.patientLink,
+    doctorLink: issued.doctorLink,
+    expiresAt: issued.expiresAt,
+  };
+}
+
+export async function issueAccessLinksForAppointmentById(input: {
+  appointmentId: number;
+  createdBy: string;
+}) {
+  const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
+  return issueAccessLinksForAppointment({
+    appointment,
+    createdBy: input.createdBy,
+  });
 }
 
 export async function resendPatientAccessLink(input: {
@@ -137,6 +202,13 @@ export async function resendPatientAccessLink(input: {
   };
 }
 
+export async function resendPatientAccessLinkById(input: {
+  appointmentId: number;
+}) {
+  const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
+  return resendPatientAccessLink({ appointment });
+}
+
 export async function resendDoctorAccessLinkInDev(input: {
   appointment: AppointmentRecord;
   email: string;
@@ -181,4 +253,28 @@ export async function resendDoctorAccessLinkInDev(input: {
     ok: true as const,
     devDoctorLink: doctorLink,
   };
+}
+
+export async function resendDoctorAccessLinkInDevById(input: {
+  appointmentId: number;
+  email: string;
+}) {
+  const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
+  return resendDoctorAccessLinkInDev({
+    appointment,
+    email: input.email,
+  });
+}
+
+export async function openMyRoomForCurrentUserById(input: {
+  appointmentId: number;
+  userId: number;
+  userEmail?: string | null;
+}) {
+  const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
+  return openMyRoomForCurrentUser({
+    appointment,
+    userId: input.userId,
+    userEmail: input.userEmail,
+  });
 }

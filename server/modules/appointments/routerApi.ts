@@ -1,8 +1,14 @@
-export { listAppointmentPackages } from "./packageCatalog";
-export { validateAppointmentToken } from "./accessValidation";
-export {
+import * as appointmentActions from "./actions";
+import * as appointmentSchemas from "./schemas";
+import { listAppointmentPackages } from "./packageCatalog";
+import { validateAppointmentToken } from "./accessValidation";
+import { revokeAccessTokenByInput, validateAccessTokenContext } from "./tokenActions";
+
+export const appointmentCore = {
+  listAppointmentPackages,
+  validateAppointmentToken,
   revokeAccessTokenByInput,
   validateAccessTokenContext,
-} from "./tokenActions";
-export * from "./actions";
-export * from "./schemas";
+};
+
+export { appointmentActions, appointmentSchemas };
