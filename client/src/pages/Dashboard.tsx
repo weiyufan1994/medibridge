@@ -9,6 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { MyAppointments } from "@/components/MyAppointments";
 import { getDashboardCopy } from "@/features/dashboard/copy";
+import PricingModal from "@/features/dashboard/components/PricingModal";
 
 function formatDateTime(value: Date | string | null, locale?: string) {
   if (!value) return "-";
@@ -63,6 +64,7 @@ export default function DashboardPage() {
   const [activeSection, setActiveSection] = useState<"account" | "consultations" | "appointments">(
     "account"
   );
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const navItems = [
     { key: "account", label: t.sidebarAccountOverview, icon: User },
     { key: "consultations", label: t.sidebarAiConsultations, icon: MessageSquare },
@@ -120,6 +122,7 @@ export default function DashboardPage() {
                   <Button
                     type="button"
                     className="rounded-xl bg-teal-600 px-5 text-white hover:bg-teal-700"
+                    onClick={() => setIsPricingModalOpen(true)}
                   >
                     {t.upgradePro}
                   </Button>
@@ -127,6 +130,11 @@ export default function DashboardPage() {
               ) : null}
         </section>
       ) : null}
+
+      <PricingModal
+        open={isPricingModalOpen}
+        onClose={() => setIsPricingModalOpen(false)}
+      />
 
       {activeSection === "consultations" ? (
         <Card className="rounded-xl border border-slate-200/80 bg-white shadow-sm">
