@@ -127,6 +127,7 @@ export function VisitRoomScreen() {
     reconnectingText: t.reconnecting,
     effectiveCanSendMessage: presentation.effectiveCanSendMessage,
     readOnlyText: t.readOnly,
+    backToAppointmentsText: t.backToAppointments,
     pollingFatalError,
     timerLabel: consultationTimer.remainingLabel,
     timerStatus: consultationTimer.status,

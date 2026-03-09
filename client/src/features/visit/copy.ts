@@ -8,7 +8,7 @@ const visitCopyByLang = {
     sendFailed: "Failed to send message. Please retry.",
     composerPlaceholder: "Type your message and describe your concern...",
     composerHint: "Enter to send, Shift+Enter for new line",
-    composerReadOnlyHint: "Read-only ({{status}})",
+    composerReadOnlyHint: "Consultation ended. Chat is read-only.",
     historyRetentionNote: "聊天记录保留 7 天",
     intakeTitle: "Pre-visit Intake",
     intakeEmpty: "No structured intake provided.",
@@ -30,6 +30,7 @@ const visitCopyByLang = {
     readOnly: "Read only",
     reconnecting: "Reconnecting...",
     doctorTimeChina: "Doctor time (China)",
+    backToAppointments: "Back to Appointments",
     roomStatus: "Room status",
     timerAriaLabel: "Consultation time remaining {{time}}",
     fiveMinWarningBanner:
@@ -90,7 +91,7 @@ const visitCopyByLang = {
     sendFailed: "发送失败，请重试。",
     composerPlaceholder: "输入消息，描述你的问题...",
     composerHint: "Enter 发送，Shift+Enter 换行",
-    composerReadOnlyHint: "只读（{{status}}）",
+    composerReadOnlyHint: "会诊已结束，当前为只读模式。",
     historyRetentionNote: "聊天记录保留 7 天",
     intakeTitle: "诊前结构化信息",
     intakeEmpty: "暂无结构化诊前信息。",
@@ -112,6 +113,7 @@ const visitCopyByLang = {
     readOnly: "只读",
     reconnecting: "重连中...",
     doctorTimeChina: "医生时间（中国）",
+    backToAppointments: "返回预约列表",
     roomStatus: "房间状态",
     timerAriaLabel: "会诊剩余时间 {{time}}",
     fiveMinWarningBanner:

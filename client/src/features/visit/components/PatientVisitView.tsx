@@ -1,6 +1,8 @@
+import { ArrowLeft } from "lucide-react";
 import { ChatComposer } from "@/features/visit/components/ChatComposer";
 import { VisitRoomHeader } from "@/features/visit/components/VisitRoomHeader";
 import { VisitMessagesList } from "@/features/visit/components/VisitMessagesList";
+import { useLocation } from "wouter";
 import type { VisitSharedViewProps } from "@/features/visit/types";
 
 type PatientVisitViewProps = VisitSharedViewProps;
@@ -14,6 +16,7 @@ export function PatientVisitView({
   localNowText,
   beijingTimeLabel,
   chinaNowText,
+  backToAppointmentsText,
   isReconnecting,
   reconnectingText,
   effectiveCanSendMessage,
@@ -41,8 +44,28 @@ export function PatientVisitView({
   composerHint,
   onSelectAttachment,
 }: PatientVisitViewProps) {
+  const [, setLocation] = useLocation();
+  const goBackToAppointments = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    setLocation("/dashboard");
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col rounded-2xl bg-white">
+      <div className="px-5 pt-4">
+        <button
+          type="button"
+          className="flex items-center gap-1 text-sm text-slate-500 hover:text-teal-600 transition-colors mb-4 w-fit cursor-pointer"
+          onClick={goBackToAppointments}
+          aria-label={backToAppointmentsText}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {backToAppointmentsText}
+        </button>
+      </div>
       <VisitRoomHeader
         doctorName={doctorName}
         departmentName={departmentName}
@@ -60,6 +83,8 @@ export function PatientVisitView({
         timerLabel={timerLabel}
         timerStatus={timerStatus}
         timerAriaLabel={timerAriaLabel}
+        showReadOnlyTag={false}
+        className="shrink-0 px-5 pb-2 pt-0"
       />
 
       <section className="min-h-0 flex-1">
@@ -95,6 +120,7 @@ export function PatientVisitView({
                 placeholder={composerPlaceholder}
                 hint={composerHint}
                 onSelectAttachment={onSelectAttachment}
+                readOnlyMode={!effectiveCanSendMessage}
                 tone="embedded"
               />
             </footer>

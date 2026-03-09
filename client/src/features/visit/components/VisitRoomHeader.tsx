@@ -20,6 +20,7 @@ type VisitRoomHeaderProps = {
   timerAriaLabel: string;
   rightExtra?: ReactNode;
   className?: string;
+  showReadOnlyTag?: boolean;
 };
 
 const TIMER_CLASS_BY_STATUS: Record<ConsultationTimerStatus, string> = {
@@ -47,6 +48,7 @@ export function VisitRoomHeader({
   timerAriaLabel,
   rightExtra = null,
   className = "shrink-0 px-5 pb-2 pt-4",
+  showReadOnlyTag = true,
 }: VisitRoomHeaderProps) {
   return (
     <header className={className}>
@@ -92,7 +94,7 @@ export function VisitRoomHeader({
               {reconnectingText}
             </span>
           ) : null}
-          {!effectiveCanSendMessage ? (
+          {!effectiveCanSendMessage && showReadOnlyTag ? (
             <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] text-slate-600">
               {readOnlyText}
             </span>

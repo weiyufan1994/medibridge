@@ -13,6 +13,7 @@ type ChatComposerProps = {
   placeholder: string;
   onSelectAttachment?: (file: File) => void;
   tone?: "default" | "embedded";
+  readOnlyMode?: boolean;
 };
 
 export function ChatComposer({
@@ -25,6 +26,7 @@ export function ChatComposer({
   placeholder,
   onSelectAttachment,
   tone = "default",
+  readOnlyMode = false,
 }: ChatComposerProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -36,10 +38,16 @@ export function ChatComposer({
     textarea.style.height = `${Math.min(textarea.scrollHeight, 180)}px`;
   }, [value]);
 
+  const readOnlyWrapperClass = readOnlyMode ? "bg-slate-100 opacity-60 cursor-not-allowed" : "";
+  const outerClass =
+    tone === "embedded"
+      ? `bg-transparent ${readOnlyWrapperClass}`
+      : `bg-white px-5 py-4 ${readOnlyWrapperClass}`;
+
   const wrapperClass =
     tone === "embedded"
-      ? "flex items-end gap-2.5 rounded-2xl border border-slate-300 bg-white px-3 py-2.5 shadow-sm transition focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/25"
-      : "flex items-end gap-3 rounded-2xl border border-slate-300 bg-slate-50/90 px-3 py-2.5 shadow-sm transition focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/20";
+      ? `flex items-end gap-2.5 rounded-2xl border border-slate-300 bg-white px-3 py-2.5 shadow-sm transition focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/25 ${readOnlyWrapperClass}`
+      : `flex items-end gap-3 rounded-2xl border border-slate-300 bg-slate-50/90 px-3 py-2.5 shadow-sm transition focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/20 ${readOnlyWrapperClass}`;
 
   const hintClass =
     tone === "embedded"
@@ -47,7 +55,7 @@ export function ChatComposer({
       : "mt-2 text-right text-xs text-slate-600";
 
   return (
-    <div className={tone === "embedded" ? "bg-transparent" : "bg-white px-5 py-4"}>
+    <div className={outerClass}>
       <div className={wrapperClass}>
         <input
           ref={fileInputRef}

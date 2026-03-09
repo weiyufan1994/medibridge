@@ -180,10 +180,23 @@ const appointmentParticipantSchema = z.object({
   }),
 });
 
+const appointmentMedicalSummarySchema = z.object({
+  chiefComplaint: z.string(),
+  historyOfPresentIllness: z.string(),
+  pastMedicalHistory: z.string(),
+  assessmentDiagnosis: z.string(),
+  planRecommendations: z.string(),
+  source: z.string(),
+  signedBy: z.number().int().positive().nullable(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
 export const appointmentAccessOutputSchema = appointmentPublicSchema.extend({
   ...appointmentParticipantSchema.shape,
   triageSummary: z.string().nullable(),
   intake: appointmentIntakeSchema.nullable(),
+  medicalSummary: appointmentMedicalSummarySchema.nullable(),
   consultationDurationMinutes: z.number().int().positive(),
   consultationExtensionMinutes: z.number().int().nonnegative(),
   consultationTotalMinutes: z.number().int().positive(),

@@ -30,6 +30,7 @@ export type VisitSharedViewProps = {
   reconnectingText: string;
   effectiveCanSendMessage: boolean;
   readOnlyText: string;
+  backToAppointmentsText: string;
   pollingFatalError: string | null;
   timerLabel: string;
   timerStatus: ConsultationTimerStatus;

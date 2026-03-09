@@ -69,7 +69,7 @@ describe("buildVisitRoomPresentation", () => {
     expect(result.roomClosedByStatus).toBe(true);
     expect(result.effectiveCanSendMessage).toBe(false);
     expect(result.composerDisabled).toBe(true);
-    expect(result.composerHint).toContain("ended");
+    expect(result.composerHint).toBe(t.composerReadOnlyHint);
     expect(result.doctorName).toBe(t.assignedDoctorFallback);
     expect(result.departmentName).toBe(t.departmentFallback);
     expect(result.hasTriageData).toBe(false);
@@ -98,7 +98,7 @@ describe("buildVisitRoomPresentation", () => {
 
     expect(result.roomClosedByStatus).toBe(true);
     expect(result.effectiveCanSendMessage).toBe(false);
-    expect(result.composerHint).toContain("completed");
+    expect(result.composerHint).toBe(t.composerReadOnlyHint);
   });
 
   it("shows time-exceeded status text when timer expires", () => {

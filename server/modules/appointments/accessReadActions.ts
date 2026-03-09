@@ -1,5 +1,6 @@
 import type { Request } from "express";
 import * as aiRepo from "../ai/repo";
+import * as appointmentsRepo from "./repo";
 import { buildAppointmentAccessLink } from "./linkService";
 import { validateAppointmentToken } from "./accessValidation";
 import { parseIntakeFromNotes, translateTriageSummary } from "./accessQueryActions";
@@ -24,6 +25,7 @@ export async function getAppointmentAccessByToken<TIntake>(input: {
   );
 
   const triageSession = await aiRepo.getAiChatSessionById(appointment.triageSessionId);
+  const medicalSummary = await appointmentsRepo.getMedicalSummaryByAppointmentId(appointment.id);
   const localizedSummary = triageSession?.summary
     ? await translateTriageSummary(triageSession.summary, input.lang)
     : null;
@@ -41,6 +43,19 @@ export async function getAppointmentAccessByToken<TIntake>(input: {
     },
     triageSummary: localizedSummary,
     intake: parseIntakeFromNotes(appointment.notes, input.parseIntake),
+    medicalSummary: medicalSummary
+      ? {
+          chiefComplaint: medicalSummary.chiefComplaint,
+          historyOfPresentIllness: medicalSummary.historyOfPresentIllness,
+          pastMedicalHistory: medicalSummary.pastMedicalHistory,
+          assessmentDiagnosis: medicalSummary.assessmentDiagnosis,
+          planRecommendations: medicalSummary.planRecommendations,
+          source: medicalSummary.source,
+          signedBy: medicalSummary.signedBy ?? null,
+          createdAt: medicalSummary.createdAt,
+          updatedAt: medicalSummary.updatedAt,
+        }
+      : null,
     consultationDurationMinutes: timer.baseDurationMinutes,
     consultationExtensionMinutes: timer.extensionMinutes,
     consultationTotalMinutes: timer.totalDurationMinutes,

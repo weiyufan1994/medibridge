@@ -52,10 +52,6 @@ export type VisitRoomPresentationInput = {
   pollingFatalError: string | null;
 };
 
-function interpolateStatus(template: string, status: string) {
-  return template.replace("{{status}}", status);
-}
-
 function isClosedStatus(status: string | null | undefined) {
   return status === "ended" || status === "completed";
 }
@@ -121,13 +117,12 @@ export function buildVisitRoomPresentation(input: VisitRoomPresentationInput) {
       })
     : doctorRoleFallback;
 
-  const liveStatus = input.currentStatus ?? "connecting";
   const roomClosedByStatus =
     isClosedStatus(input.appointment.status) || isClosedStatus(input.currentStatus);
   const effectiveCanSendMessage = input.canSendMessage && !roomClosedByStatus;
   const composerHint = effectiveCanSendMessage
     ? input.t.composerHint
-    : interpolateStatus(input.t.composerReadOnlyHint, liveStatus);
+    : input.t.composerReadOnlyHint;
   const composerDisabled =
     input.isSending || !effectiveCanSendMessage || Boolean(input.pollingFatalError);
 
