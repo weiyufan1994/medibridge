@@ -15,7 +15,6 @@ This file is the placement and dependency contract used by `architecture-guard`.
 | `server/modules/*` | Domain business logic and persistence coordination |
 | `server/routers/*` | tRPC router/input-output boundary layer |
 | `server/_core/*` | Runtime infrastructure (context, trpc bootstrap, env, adapters) |
-| `server/core/*` | Transitional shared helpers for server; prefer migration into `_core` |
 | `shared/*` | Cross-runtime types/constants/validators |
 | `drizzle/*` | Database schema and migrations |
 | `scripts/*` | Operational or data maintenance scripts |
@@ -54,7 +53,6 @@ This file is the placement and dependency contract used by `architecture-guard`.
 - `server/routers/*` may import from:
   - `server/modules/*`
   - `server/_core/*`
-  - `server/core/*` (temporary compatibility)
   - `shared/*`
 - `server/modules/*` may import from:
   - same module subtree
@@ -66,9 +64,11 @@ This file is the placement and dependency contract used by `architecture-guard`.
   - `drizzle/*`
   - external packages
 
-## Current transitional exceptions
+## PR mandatory review checklist
 
-1. `server/core/getPublicBaseUrl.ts` is still referenced by routers and `_core/systemRouter.ts`.
-2. Some route files are still large and contain mixed orchestration/business behavior.
-
-These exceptions are allowed short-term but should be reduced in planned refactors.
+- 文件放置是否符合本架构文档的模块边界（frontend/backed/core/module 划分）。
+- 是否有新增/修改 `server/routers/*` 的场景，是否只依赖对应 `module/routerApi.ts`（例如 `server/modules/appointments/routerApi.ts`）。
+- 是否仍存在遗留目录 `server/core/*` 或 `client/src/layout/*`；如存在需先清理或在 PR 中说明例外。
+- `pages` 到 `features` 的边界是否被保持（`client/src/features/*` 不应 import `@/pages/*`）。
+- 是否已执行 `pnpm lint:imports` 与 `pnpm test:router-boundary`。
+- 是否补齐必要测试（尤其边界与关键行为测试）。

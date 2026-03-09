@@ -1,0 +1,27 @@
+{
+  "root": true,
+  "ignorePatterns": ["dist", "node_modules", "build", "vite.config.ts", "drizzle", "scripts"],
+  "rules": {
+    "no-restricted-imports": [
+      "off"
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["client/src/features/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@/pages", "@/pages/*", "@/pages/**/*"],
+                "message": "features must not import from pages. Place reusable UI in components, lib, or ui."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
