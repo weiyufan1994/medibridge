@@ -89,6 +89,7 @@ export function VisitRoomScreen() {
     doctorData: doctorQuery.data ?? null,
     role,
     currentStatus,
+    timerStatus: consultationTimer.status,
     canSendMessage,
     isSending,
     pollingFatalError,

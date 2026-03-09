@@ -25,6 +25,7 @@ describe("buildVisitRoomPresentation", () => {
       },
       role: "doctor",
       currentStatus: "active",
+      timerStatus: "normal",
       canSendMessage: true,
       isSending: false,
       pollingFatalError: null,
@@ -58,6 +59,7 @@ describe("buildVisitRoomPresentation", () => {
       doctorData: null,
       role: null,
       currentStatus: "ended",
+      timerStatus: "normal",
       canSendMessage: true,
       isSending: false,
       pollingFatalError: "TOKEN_EXPIRED",
@@ -88,6 +90,7 @@ describe("buildVisitRoomPresentation", () => {
       doctorData: null,
       role: "doctor",
       currentStatus: "completed",
+      timerStatus: "normal",
       canSendMessage: true,
       isSending: false,
       pollingFatalError: null,
@@ -96,5 +99,54 @@ describe("buildVisitRoomPresentation", () => {
     expect(result.roomClosedByStatus).toBe(true);
     expect(result.effectiveCanSendMessage).toBe(false);
     expect(result.composerHint).toContain("completed");
+  });
+
+  it("shows time-exceeded status text when timer expires", () => {
+    const t = getVisitCopy("zh");
+    const result = buildVisitRoomPresentation({
+      resolved: "zh",
+      t,
+      now: new Date("2026-03-01T08:00:00.000Z"),
+      appointment: {
+        role: "doctor",
+        status: "active",
+        triageSummary: null,
+        intake: null,
+      },
+      doctorData: null,
+      role: "doctor",
+      currentStatus: "active",
+      timerStatus: "expired",
+      canSendMessage: true,
+      isSending: false,
+      pollingFatalError: null,
+    });
+
+    expect(result.consultationLiveText).toBe("会诊超时");
+  });
+
+  it("treats currentStatus completed as room-closed even when appointment status lags", () => {
+    const t = getVisitCopy("en");
+    const result = buildVisitRoomPresentation({
+      resolved: "en",
+      t,
+      now: new Date("2026-03-01T08:00:00.000Z"),
+      appointment: {
+        role: "patient",
+        status: "active",
+        triageSummary: null,
+        intake: null,
+      },
+      doctorData: null,
+      role: "patient",
+      currentStatus: "completed",
+      timerStatus: "expired",
+      canSendMessage: true,
+      isSending: false,
+      pollingFatalError: null,
+    });
+
+    expect(result.roomClosedByStatus).toBe(true);
+    expect(result.consultationLiveText).toBe("Consultation Ended");
   });
 });

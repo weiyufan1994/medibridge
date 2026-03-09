@@ -4,6 +4,7 @@ import { enUS, zhCN } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
 import { getLocalizedField } from "@/lib/i18n";
 import { getVisitCopy } from "@/features/visit/copy";
+import type { ConsultationTimerStatus } from "@/features/visit/types";
 
 type VisitCopy = ReturnType<typeof getVisitCopy>;
 
@@ -45,6 +46,7 @@ export type VisitRoomPresentationInput = {
   doctorData: DoctorDataForView;
   role: "patient" | "doctor" | null;
   currentStatus: string | null;
+  timerStatus: ConsultationTimerStatus;
   canSendMessage: boolean;
   isSending: boolean;
   pollingFatalError: string | null;
@@ -52,6 +54,24 @@ export type VisitRoomPresentationInput = {
 
 function interpolateStatus(template: string, status: string) {
   return template.replace("{{status}}", status);
+}
+
+function isClosedStatus(status: string | null | undefined) {
+  return status === "ended" || status === "completed";
+}
+
+function getConsultationStatusText(input: {
+  resolved: "en" | "zh";
+  roomClosedByStatus: boolean;
+  timerStatus: ConsultationTimerStatus;
+}) {
+  if (input.roomClosedByStatus) {
+    return input.resolved === "zh" ? "会诊已结束" : "Consultation Ended";
+  }
+  if (input.timerStatus === "expired") {
+    return input.resolved === "zh" ? "会诊超时" : "Time Exceeded";
+  }
+  return input.resolved === "zh" ? "会诊进行中" : "Consultation Live";
 }
 
 function getDoctorUiLabel(
@@ -103,7 +123,7 @@ export function buildVisitRoomPresentation(input: VisitRoomPresentationInput) {
 
   const liveStatus = input.currentStatus ?? "connecting";
   const roomClosedByStatus =
-    input.appointment.status === "ended" || input.appointment.status === "completed";
+    isClosedStatus(input.appointment.status) || isClosedStatus(input.currentStatus);
   const effectiveCanSendMessage = input.canSendMessage && !roomClosedByStatus;
   const composerHint = effectiveCanSendMessage
     ? input.t.composerHint
@@ -118,7 +138,11 @@ export function buildVisitRoomPresentation(input: VisitRoomPresentationInput) {
     locale: dateLocale,
   });
 
-  const consultationLiveText = input.resolved === "zh" ? "会诊进行中" : "Consultation Live";
+  const consultationLiveText = getConsultationStatusText({
+    resolved: input.resolved,
+    roomClosedByStatus,
+    timerStatus: input.timerStatus,
+  });
   const doctorTitleDisplay = doctorTitle || doctorRoleFallback;
   const localTimeLabel = input.resolved === "zh" ? "当地时间" : "Local";
   const beijingTimeLabel = input.resolved === "zh" ? "北京时间" : "Beijing";
