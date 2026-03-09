@@ -5,7 +5,6 @@ import { z } from "zod";
 import { appointments } from "../../drizzle/schema";
 import * as aiRepo from "../modules/ai/repo";
 import * as appointmentsRepo from "../modules/appointments/repo";
-import { sendMagicLinkEmail } from "../_core/mailer";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import type { TrpcContext } from "../_core/context";
 import { createStripeCheckoutSession } from "../modules/payments/stripe";
@@ -29,6 +28,11 @@ import {
   APPOINTMENT_STATUS_VALUES,
   PAYMENT_STATUS_VALUES,
 } from "../modules/appointments/stateMachine";
+import {
+  openMyRoomWithFreshLink,
+  resendDoctorAccessLinkInDev,
+  resendPatientAccessLink,
+} from "../modules/appointments/accessLinkActions";
 
 const APPOINTMENT_TYPE_VALUES = [
   "online_chat",
@@ -313,9 +317,6 @@ const listMyAppointmentsOutputSchema = z.object({
 });
 
 const CONSULTATION_DURATION_MINUTES = 60;
-const TOKEN_RESEND_COOLDOWN_MS = 60_000;
-const RESEND_ALLOWED_STATUS = new Set<string>(["paid", "active"]);
-const OPEN_ROOM_ALLOWED_STATUS = new Set<string>(["paid", "active", "ended"]);
 const triageSummaryTranslationCache = new Map<string, string>();
 
 type AppointmentPackageId = (typeof APPOINTMENT_PACKAGE_VALUES)[number];
@@ -435,10 +436,6 @@ function computeDefaultTokenExpiry(scheduledAt: Date): Date {
   );
   expiresAt.setDate(expiresAt.getDate() + 7);
   return expiresAt;
-}
-
-function getDevAppointmentAccessLink(appointmentId: number, token: string): string {
-  return `http://localhost:3000/visit/${appointmentId}?t=${encodeURIComponent(token)}`;
 }
 
 function getSessionEmailFromContext(ctx: TrpcContext): string | null {
@@ -671,27 +668,6 @@ function assertPatientRole(role: "patient" | "doctor") {
       message: "This action requires a patient magic link",
     });
   }
-}
-
-async function assertResendCooldown(input: {
-  appointmentId: number;
-  role: appointmentsRepo.AppointmentTokenRole;
-}) {
-  const remainingSeconds =
-    await appointmentsRepo.getAppointmentTokenCooldownRemainingSeconds({
-      appointmentId: input.appointmentId,
-      role: input.role,
-      cooldownSeconds: Math.floor(TOKEN_RESEND_COOLDOWN_MS / 1000),
-    });
-
-  if (remainingSeconds <= 0) {
-    return;
-  }
-
-  throw new TRPCError({
-    code: "TOO_MANY_REQUESTS",
-    message: `Please wait ${remainingSeconds} seconds before resending again`,
-  });
 }
 
 async function resolveInsertedAppointmentId(
@@ -1254,31 +1230,10 @@ export const appointmentsRouter = router({
         userEmail,
       });
 
-      if (!OPEN_ROOM_ALLOWED_STATUS.has(appointment.status)) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: `Cannot open room when appointment status is ${appointment.status}`,
-        });
-      }
-      if (appointment.paymentStatus !== "paid") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Cannot open visit room before payment is completed",
-        });
-      }
-
-      const issued = await issueAppointmentAccessLinks({
-        appointmentId: appointment.id,
-        createdBy: `self_open_room:${ctx.user.id}`,
+      return openMyRoomWithFreshLink({
+        appointment,
+        userId: ctx.user.id,
       });
-
-      return {
-        appointmentId: appointment.id,
-        joinUrl: buildAppointmentAccessLink({
-          appointmentId: appointment.id,
-          token: issued.patient.token,
-        }),
-      };
     }),
 
   validateAccessToken: publicProcedure
@@ -1362,112 +1317,17 @@ export const appointmentsRouter = router({
     .output(resendOutputSchema)
     .mutation(async ({ input }) => {
       const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
-
-      if (appointment.status === "expired") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Cannot resend link for expired appointment",
-        });
-      }
-
-      if (appointment.status === "refunded") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Cannot resend link for refunded appointment",
-        });
-      }
-      if (appointment.status === "canceled" || appointment.status === "ended") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Cannot resend link for closed appointment",
-        });
-      }
-
-      if (appointment.paymentStatus !== "paid") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Cannot resend visit link before payment is completed",
-        });
-      }
-
-      if (!RESEND_ALLOWED_STATUS.has(appointment.status)) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: `Cannot resend link when appointment status is ${appointment.status}`,
-        });
-      }
-
-      await assertResendCooldown({
-        appointmentId: appointment.id,
-        role: "patient",
-      });
-
-      const issued = await issueAppointmentAccessLinks({
-        appointmentId: appointment.id,
-        createdBy: "resend_link",
-      });
-
-      setCachedPatientAccessToken(
-        appointment.id,
-        issued.patient.token,
-        issued.expiresAt
-      );
-      const link = issued.patientLink;
-      await sendMagicLinkEmail(appointment.email, link);
-      if (process.env.NODE_ENV === "development") {
-        console.log("DEV ACCESS LINK:");
-        console.log(getDevAppointmentAccessLink(appointment.id, issued.patient.token));
-      }
-
-      return {
-        ok: true as const,
-        devLink: process.env.NODE_ENV === "development" ? link : undefined,
-      };
+      return resendPatientAccessLink({ appointment });
     }),
 
   resendDoctorLink: publicProcedure
     .input(resendInputSchema)
     .output(resendDoctorOutputSchema)
     .mutation(async ({ input }) => {
-      if (process.env.NODE_ENV !== "development") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Resending doctor link is only enabled in development",
-        });
-      }
-
       const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
-      if (appointment.email.toLowerCase() !== input.email) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "Email does not match appointment",
-        });
-      }
-
-      if (appointment.paymentStatus !== "paid") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Cannot resend visit link before payment is completed",
-        });
-      }
-
-      await assertResendCooldown({
-        appointmentId: appointment.id,
-        role: "doctor",
+      return resendDoctorAccessLinkInDev({
+        appointment,
+        email: input.email,
       });
-
-      const issued = await issueAppointmentAccessLinks({
-        appointmentId: appointment.id,
-        createdBy: "resend_doctor_link",
-      });
-
-      const doctorLink = issued.doctorLink;
-
-      console.log(`[Appointments][DEV] Doctor link: ${doctorLink}`);
-
-      return {
-        ok: true as const,
-        devDoctorLink: doctorLink,
-      };
     }),
 });

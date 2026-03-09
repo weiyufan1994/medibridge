@@ -6,7 +6,7 @@ import type { VisitMessageItem, VisitParticipantRole } from "@/features/visit/ty
 
 type VisitMessagesListProps = {
   showInitialSkeleton: boolean;
-  currentRole: VisitParticipantRole;
+  viewerRole: VisitParticipantRole;
   messages: VisitMessageItem[];
   hasMoreHistory: boolean;
   isLoadingOlder: boolean;
@@ -18,7 +18,7 @@ type VisitMessagesListProps = {
 
 export function VisitMessagesList({
   showInitialSkeleton,
-  currentRole,
+  viewerRole,
   messages,
   hasMoreHistory,
   isLoadingOlder,
@@ -83,7 +83,7 @@ export function VisitMessagesList({
                     <VisitMessageBubble
                       key={message.id}
                       message={message}
-                      currentRole={currentRole}
+                      viewerRole={viewerRole}
                       compactWithPrev={compactWithPrev}
                       showTimestamp={showTimestamp}
                     />
