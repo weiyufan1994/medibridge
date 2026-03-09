@@ -1,13 +1,47 @@
+import { useState } from "react";
 import { useRoute, Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Stethoscope } from "lucide-react";
-import { Loader2 } from "lucide-react";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import AppLayout from "@/components/layout/AppLayout";
+import { AppointmentModal } from "@/features/appointment/components/AppointmentModal";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { DoctorDetailContent } from "@/features/hospitals/components/DoctorDetailContent";
 import { useDoctorDetail } from "@/features/hospitals/hooks/useDoctorDetail";
 import { getHospitalsCopy } from "@/features/hospitals/copy";
+
+type TranslationFn = (key: string, fallback?: string) => string;
+
+function useTranslation(): TranslationFn {
+  const { resolved } = useLanguage();
+  const copy = getHospitalsCopy(resolved);
+  const doctorDetail = copy.doctorDetail;
+
+  return (key: string, fallback = "") => {
+    const dictionary: Record<string, string> = {
+      "doctor.page_title": doctorDetail.pageTitle,
+      "doctor.book_appointment": doctorDetail.bookAppointment,
+      "doctor.consultation_service": doctorDetail.consultationService,
+      "doctor.expertise": doctorDetail.expertise,
+      "doctor.ratings": doctorDetail.ratings,
+      "doctor.hospital_information": doctorDetail.hospitalInformation,
+      "doctor.secure_payment_guarantee": doctorDetail.securePaymentGuarantee,
+      "doctor.satisfaction": doctorDetail.satisfactionLabel,
+      "doctor.attitude": doctorDetail.attitudeLabel,
+      "doctor.recommendation": doctorDetail.recommendationLabel,
+      "doctor.hospital_website": doctorDetail.hospitalWebsite,
+      "doctor.view_on_haodf": doctorDetail.viewOnHaodf,
+      "doctor.default_name": doctorDetail.defaultDoctorName,
+      "doctor.back_navigation": doctorDetail.backNavigation,
+      "doctor.booking_panel_aria": doctorDetail.bookingPanelAria,
+      "common.no_details": doctorDetail.noDataYet,
+      "common.no_data_yet": doctorDetail.noDataYet,
+      "common.no_statistics": doctorDetail.noStatistics,
+      "doctor.hero_profile_aria": doctorDetail.heroProfileAria,
+    };
+
+    return dictionary[key] || fallback || key;
+  };
+}
 
 export default function DoctorDetail() {
   const [, params] = useRoute("/doctor/:id");
@@ -15,6 +49,8 @@ export default function DoctorDetail() {
   const doctorId = params?.id ? parseInt(params.id) : 0;
   const { resolved } = useLanguage();
   const copy = getHospitalsCopy(resolved);
+  const t = useTranslation();
+  const [bookingOpen, setBookingOpen] = useState(false);
 
   const handleGoBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
@@ -28,63 +64,84 @@ export default function DoctorDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-accent/20 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
+      <AppLayout title={t("doctor.page_title")}>
+        <main className="bg-slate-50 min-h-screen w-full flex-1">
+          <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+          </div>
+        </main>
+      </AppLayout>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-accent/20">
-        <div className="container py-12">
-          <Card>
-            <CardContent className="p-12 text-center">
-              <p className="text-muted-foreground">{copy.doctorDetail.notFound}</p>
+      <AppLayout title={t("doctor.page_title")}>
+        <main className="bg-slate-50 min-h-screen w-full flex-1">
+          <div className="w-full max-w-4xl mx-auto py-8 px-4 sm:px-6">
+            <nav
+              aria-label={t("doctor.back_navigation")}
+              className="mb-3"
+            >
+              <button
+                type="button"
+                onClick={handleGoBack}
+                className="inline-flex items-center text-slate-500 hover:text-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 rounded"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" aria-hidden="true" />
+                {t("doctor.back_navigation")}
+              </button>
+            </nav>
+
+            <section className="bg-white rounded-2xl p-10 shadow-sm border border-slate-100 text-center">
+              <p className="text-slate-500">{copy.doctorDetail.notFound}</p>
               <Link href="/">
-                <Button variant="link" className="mt-4">{copy.doctorDetail.backToHome}</Button>
+                <Button variant="link" className="mt-4">
+                  {copy.doctorDetail.backToHome}
+                </Button>
               </Link>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+            </section>
+          </div>
+        </main>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-accent/20">
-      {/* Header */}
-      <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-                <Stethoscope className="w-6 h-6 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">MediBridge</h1>
-                <p className="text-sm text-muted-foreground">{copy.doctorDetail.subtitle}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={handleGoBack}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                {copy.doctorDetail.back}
-              </Button>
-              <LanguageSwitcher />
-              <Link href="/">
-                <Button variant="ghost" size="sm">
-                  {copy.doctorDetail.backToHome}
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
+    <AppLayout title={t("doctor.page_title")}>
+      <main className="bg-slate-50 min-h-screen w-full flex-1">
+        <div className="w-full max-w-4xl mx-auto py-8 px-4 sm:px-6">
+          <nav
+            aria-label={t("doctor.back_navigation")}
+          >
+            <button
+              type="button"
+              onClick={handleGoBack}
+              className="inline-flex items-center text-slate-500 hover:text-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 rounded"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" aria-hidden="true" />
+              {t("doctor.back_navigation")}
+            </button>
+          </nav>
 
-      <div className="container py-8">
-        <DoctorDetailContent data={data} resolved={resolved} />
-      </div>
-    </div>
+          <section className="flex flex-col gap-4 mt-4">
+            <DoctorDetailContent
+              data={data}
+              resolved={resolved}
+              t={t}
+              onBookAppointment={() => setBookingOpen(true)}
+            />
+          </section>
+        </div>
+      </main>
+
+      <AppointmentModal
+        open={bookingOpen}
+        onOpenChange={setBookingOpen}
+        doctorId={data.doctor.id}
+        sessionId=""
+        resolved={resolved}
+      />
+    </AppLayout>
   );
 }

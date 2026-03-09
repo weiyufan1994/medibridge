@@ -1,11 +1,5 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Hospital, Stethoscope, Star, ThumbsUp, Calendar, ExternalLink, Globe } from "lucide-react";
-import { getLocalizedField } from "@/lib/i18n";
-import { AppointmentModal } from "@/features/appointment/components/AppointmentModal";
+import { Hospital, Stethoscope, Star, ThumbsUp, Globe, ExternalLink, User } from "lucide-react";
+import { getLocalizedField, MISSING_TRANSLATION, MISSING_TRANSLATION_ZH } from "@/lib/i18n";
 
 type Lang = "zh" | "en";
 
@@ -54,16 +48,50 @@ type DoctorDetailData = {
   department: Department;
 };
 
+type TranslationFn = (key: string, fallback?: string) => string;
+
 type Props = {
   data: DoctorDetailData;
   resolved: Lang;
+  t: TranslationFn;
+  onBookAppointment: () => void;
 };
 
-export function DoctorDetailContent({ data, resolved }: Props) {
+const cleanupText = (value?: string | null): string => {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) {
+    return "";
+  }
+  if (trimmed === "(页面未显示)") {
+    return "";
+  }
+  if (trimmed === "翻译处理中" || trimmed === MISSING_TRANSLATION_ZH) {
+    return "";
+  }
+  if (trimmed === "Translation in progress" || trimmed === MISSING_TRANSLATION) {
+    return "";
+  }
+  return trimmed;
+};
+
+export function DoctorDetailContent({
+  data,
+  resolved,
+  t,
+  onBookAppointment,
+}: Props) {
   const { doctor, hospital, department } = data;
-  const [bookingOpen, setBookingOpen] = useState(false);
-  const doctorName = getLocalizedField({ lang: resolved, zh: doctor.name, en: doctor.nameEn });
-  const doctorTitle = getLocalizedField({ lang: resolved, zh: doctor.title, en: doctor.titleEn });
+
+  const doctorName = getLocalizedField({
+    lang: resolved,
+    zh: doctor.name,
+    en: doctor.nameEn,
+  });
+  const doctorTitle = getLocalizedField({
+    lang: resolved,
+    zh: doctor.title,
+    en: doctor.titleEn,
+  });
   const doctorSpecialty = getLocalizedField({
     lang: resolved,
     zh: doctor.specialty,
@@ -74,29 +102,33 @@ export function DoctorDetailContent({ data, resolved }: Props) {
     zh: doctor.expertise,
     en: doctor.expertiseEn,
   });
-  const hospitalName = getLocalizedField({ lang: resolved, zh: hospital.name, en: hospital.nameEn });
+
+  const hospitalName = getLocalizedField({
+    lang: resolved,
+    zh: hospital.name,
+    en: hospital.nameEn,
+  });
   const departmentName = getLocalizedField({
     lang: resolved,
     zh: department.name,
     en: department.nameEn,
   });
-  const hospitalCity = getLocalizedField({ lang: resolved, zh: hospital.city, en: hospital.cityEn });
-  const hospitalLevel = getLocalizedField({ lang: resolved, zh: hospital.level, en: hospital.levelEn });
+  const hospitalCity = getLocalizedField({
+    lang: resolved,
+    zh: hospital.city,
+    en: hospital.cityEn,
+  });
+  const hospitalLevel = getLocalizedField({
+    lang: resolved,
+    zh: hospital.level,
+    en: hospital.levelEn,
+  });
   const hospitalAddress = getLocalizedField({
     lang: resolved,
     zh: hospital.address,
     en: hospital.addressEn,
   });
-  const consultation = getLocalizedField({
-    lang: resolved,
-    zh: doctor.onlineConsultation,
-    en: doctor.onlineConsultationEn,
-  });
-  const appointment = getLocalizedField({
-    lang: resolved,
-    zh: doctor.appointmentAvailable,
-    en: doctor.appointmentAvailableEn,
-  });
+
   const satisfaction = getLocalizedField({
     lang: resolved,
     zh: doctor.satisfactionRate,
@@ -108,186 +140,192 @@ export function DoctorDetailContent({ data, resolved }: Props) {
     en: doctor.attitudeScoreEn,
   });
 
+  const doctorDisplayName = cleanupText(doctorName);
+  const doctorDisplayTitle = cleanupText(doctorTitle);
+  const doctorSpecialtyClean = cleanupText(doctorSpecialty);
+  const doctorExpertiseClean = cleanupText(doctorExpertise);
+  const hospitalNameClean = cleanupText(hospitalName);
+  const departmentNameClean = cleanupText(departmentName);
+  const hospitalCityClean = cleanupText(hospitalCity);
+  const hospitalLevelClean = cleanupText(hospitalLevel);
+  const hospitalAddressClean = cleanupText(hospitalAddress);
+  const satisfactionClean = cleanupText(satisfaction);
+  const attitudeClean = cleanupText(attitude);
+  const recommendationClean = cleanupText(
+    doctor.recommendationScore === null || doctor.recommendationScore === undefined
+      ? ""
+      : String(doctor.recommendationScore)
+  );
+
+  const avatarInitial = doctorDisplayName ? doctorDisplayName.charAt(0).toUpperCase() : "";
+  const expertiseItems = [doctorSpecialtyClean, doctorExpertiseClean].filter(Boolean);
+
+  const isValidRating = (value: string): boolean => {
+    const parsed = Number.parseFloat(value);
+    if (Number.isNaN(parsed)) {
+      return false;
+    }
+    return parsed > 0;
+  };
+
+  const ratings = [
+    {
+      key: "Satisfaction",
+      label: t("doctor.satisfaction"),
+      value: satisfactionClean,
+      icon: <ThumbsUp className="w-4 h-4 text-slate-500" aria-hidden="true" />,
+    },
+    {
+      key: "Attitude",
+      label: t("doctor.attitude"),
+      value: attitudeClean,
+      icon: <Star className="w-4 h-4 text-slate-500" aria-hidden="true" />,
+    },
+    {
+      key: "Recommendation",
+      label: t("doctor.recommendation"),
+      value: recommendationClean,
+      icon: <ThumbsUp className="w-4 h-4 text-slate-500" aria-hidden="true" />,
+    },
+  ]
+    .map(item => ({
+      ...item,
+      hasNumericValue: isValidRating(item.value),
+    }))
+    .filter(item => item.hasNumericValue);
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <CardTitle className="text-3xl mb-1">{doctorName}</CardTitle>
-              <CardDescription className="text-lg">{doctorTitle}</CardDescription>
-            </div>
-            {doctor.recommendationScore && (
-              <div className="flex items-center gap-2 bg-secondary/10 px-4 py-2 rounded-lg">
-                <Star className="w-5 h-5 text-secondary fill-secondary" />
-                <span className="text-xl font-bold text-secondary">{doctor.recommendationScore}</span>
-              </div>
+    <div className="space-y-6">
+      <section
+        className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6"
+        aria-label={t("doctor.hero_profile_aria")}
+      >
+        <div className="w-24 h-24 rounded-full bg-teal-50 flex items-center justify-center text-teal-700 flex-shrink-0 text-4xl font-bold">
+          {avatarInitial ? <span aria-hidden="true">{avatarInitial}</span> : <User className="w-10 h-10" aria-hidden="true" />}
+        </div>
+        <div className="min-w-0">
+          <h1 className="text-3xl font-bold text-slate-900 leading-tight">
+            {doctorDisplayName || t("doctor.default_name")}
+          </h1>
+          {doctorDisplayTitle && <p className="mt-2 text-slate-600">{doctorDisplayTitle}</p>}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {hospitalNameClean && (
+              <span className="inline-flex items-center gap-2 bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-sm">
+                <Hospital className="w-4 h-4" aria-hidden="true" />
+                {hospitalNameClean}
+              </span>
+            )}
+            {departmentNameClean && (
+              <span className="inline-flex items-center gap-2 bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-sm">
+                {departmentNameClean}
+              </span>
             )}
           </div>
-          <div className="flex flex-wrap gap-2 mt-4">
-            <Badge variant="outline" className="flex items-center gap-1">
-              <Hospital className="w-3 h-3" />
-              {hospitalName}
-            </Badge>
-            <Badge variant="outline">{departmentName}</Badge>
-          </div>
+        </div>
+        <div className="flex flex-col items-start sm:items-end gap-3 w-full sm:w-auto border-t sm:border-t-0 pt-4 sm:pt-0 border-slate-100">
+          <button
+            type="button"
+            onClick={onBookAppointment}
+            className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white font-medium px-8 py-2.5 rounded-xl transition-colors shadow-sm whitespace-nowrap"
+          >
+            {t("doctor.book_appointment")}
+          </button>
+        </div>
+      </section>
 
-          <div className="flex flex-wrap gap-3 mt-6">
-            <Button
-              size="lg"
-              className="flex-1 sm:flex-none"
-              onClick={() => setBookingOpen(true)}
-            >
-              <Calendar className="w-4 h-4 mr-2" />
-              Book Appointment
-            </Button>
+      <section className="bg-white rounded-2xl p-6 shadow-sm mb-6" aria-label={t("doctor.expertise")}>
+        <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2 mb-3">
+          <Stethoscope className="w-5 h-5 text-slate-700" aria-hidden="true" />
+          {t("doctor.expertise")}
+        </h2>
+        <div className="space-y-2 text-slate-700">
+          {expertiseItems.length > 0 ? (
+            expertiseItems.map(item => <p key={item}>{item}</p>)
+          ) : (
+            <p className="text-sm text-slate-400 italic">{t("common.no_details", "暂无详细介绍")}</p>
+          )}
+        </div>
+      </section>
+
+      <section className="bg-white rounded-2xl p-6 shadow-sm mb-6" aria-label={t("doctor.ratings")}>
+        <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2 mb-3">
+          <Star className="w-5 h-5 text-slate-700" aria-hidden="true" />
+          {t("doctor.ratings")}
+        </h2>
+        {ratings.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {ratings.map(item => (
+              <article className="bg-slate-50 rounded-lg p-4" key={item.key}>
+                <div className="flex items-center gap-2 mb-1">
+                  {item.icon}
+                  <p className="text-xs text-slate-500">{item.label}</p>
+                </div>
+                <p className="flex items-center gap-1 text-2xl font-bold text-slate-900">
+                  <span>{item.value}</span>
+                  <Star className="w-4 h-4 fill-amber-400 text-amber-400" aria-hidden="true" />
+                </p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400 italic">{t("common.no_statistics")}</p>
+        )}
+      </section>
+
+      <section
+        className="bg-white rounded-2xl p-6 shadow-sm"
+        aria-label={t("doctor.hospital_information")}
+      >
+        <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2 mb-3">
+          <Hospital className="w-5 h-5 text-slate-700" aria-hidden="true" />
+          {t("doctor.hospital_information")}
+        </h2>
+        <div className="space-y-3">
+          <p className="font-medium text-slate-800">{hospitalNameClean}</p>
+          <div className="flex flex-wrap gap-2">
+            {hospitalLevelClean && (
+              <span className="inline-flex items-center bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-sm">
+                {hospitalLevelClean}
+              </span>
+            )}
+            {hospitalCityClean && (
+              <span className="inline-flex items-center bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-sm">
+                {hospitalCityClean}
+              </span>
+            )}
+          </div>
+          {hospitalAddressClean ? (
+            <p className="text-sm text-slate-600">{hospitalAddressClean}</p>
+          ) : (
+            <p className="text-sm italic text-slate-500">{t("common.no_data_yet")}</p>
+          )}
+          <div className="pt-2 flex flex-wrap gap-3">
             {hospital.website && (
-              <Button variant="outline" size="lg" asChild>
-                <a href={hospital.website} target="_blank" rel="noopener noreferrer">
-                  <Globe className="w-4 h-4 mr-2" />
-                  Hospital Website
-                  <ExternalLink className="w-3 h-3 ml-1" />
-                </a>
-              </Button>
+              <a
+                href={hospital.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-teal-700 hover:text-teal-800 inline-flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 rounded"
+              >
+                {t("doctor.hospital_website")}
+                <Globe className="w-4 h-4 ml-1" aria-hidden="true" />
+                <ExternalLink className="w-3 h-3 ml-1" aria-hidden="true" />
+              </a>
             )}
             {doctor.haodafUrl && (
-              <Button variant="outline" size="lg" asChild>
-                <a href={doctor.haodafUrl} target="_blank" rel="noopener noreferrer">
-                  View on Haodf
-                  <ExternalLink className="w-3 h-3 ml-2" />
-                </a>
-              </Button>
+              <a
+                href={doctor.haodafUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-teal-700 hover:text-teal-800 inline-flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 rounded"
+              >
+                {t("doctor.view_on_haodf")}
+                <ExternalLink className="w-3 h-3 ml-1" aria-hidden="true" />
+              </a>
             )}
           </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {doctor.specialty && (
-            <div>
-              <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
-                <Stethoscope className="w-5 h-5 text-primary" />
-                Specialty
-              </h3>
-              <div className="space-y-2">
-                <p className="text-foreground font-medium">{doctorSpecialty}</p>
-              </div>
-            </div>
-          )}
-
-          <Separator />
-
-          {doctor.expertise && (
-            <div>
-              <h3 className="font-semibold text-foreground mb-2">Areas of Expertise</h3>
-              <div className="space-y-2">
-                <p className="text-foreground font-medium">{doctorExpertise}</p>
-              </div>
-            </div>
-          )}
-
-          <Separator />
-
-          <div>
-            <h3 className="font-semibold text-foreground mb-3">Patient Ratings</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {doctor.satisfactionRate && (
-                <div className="bg-accent/30 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <ThumbsUp className="w-4 h-4 text-primary" />
-                    <span className="text-sm text-muted-foreground">Satisfaction</span>
-                  </div>
-                  <p className="text-lg font-semibold text-foreground">{satisfaction}</p>
-                </div>
-              )}
-              {doctor.attitudeScore && (
-                <div className="bg-accent/30 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Star className="w-4 h-4 text-primary" />
-                    <span className="text-sm text-muted-foreground">Attitude</span>
-                  </div>
-                  <p className="text-lg font-semibold text-foreground">{attitude}</p>
-                </div>
-              )}
-              {doctor.recommendationScore && (
-                <div className="bg-accent/30 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <ThumbsUp className="w-4 h-4 text-primary" />
-                    <span className="text-sm text-muted-foreground">Recommendation</span>
-                  </div>
-                  <p className="text-lg font-semibold text-foreground">{doctor.recommendationScore}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <Separator />
-
-          <div>
-            <h3 className="font-semibold text-foreground mb-3">Services Available</h3>
-            <div className="flex flex-wrap gap-2">
-              {doctor.onlineConsultation && (
-                <Badge variant="secondary" className="py-2 px-4">
-                  Online Consultation: {consultation}
-                </Badge>
-              )}
-              {doctor.appointmentAvailable && (
-                <Badge variant="secondary" className="py-2 px-4">
-                  Appointment: {appointment}
-                </Badge>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Hospital className="w-5 h-5 text-primary" />
-            Hospital Information
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h4 className="font-semibold text-foreground mb-1">{hospitalName}</h4>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {hospital.level && <Badge variant="outline">{hospitalLevel}</Badge>}
-            {hospital.city && <Badge variant="outline">{hospitalCity}</Badge>}
-          </div>
-          {hospital.address && (
-            <p className="text-sm text-muted-foreground">{hospitalAddress}</p>
-          )}
-          {hospital.website && (
-            <Button variant="link" className="px-0 h-auto" asChild>
-              <a href={hospital.website} target="_blank" rel="noopener noreferrer">
-                Visit Hospital Website
-                <ExternalLink className="w-3 h-3 ml-1" />
-              </a>
-            </Button>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="bg-primary/5 border-primary/20">
-        <CardContent className="p-6 text-center">
-          <h3 className="text-xl font-semibold mb-2">Ready to Book an Appointment?</h3>
-          <p className="text-muted-foreground mb-4">
-            Connect with Dr. {doctorName} for a professional triage consultation
-          </p>
-          <Button size="lg">
-            <Calendar className="w-4 h-4 mr-2" />
-            Schedule Consultation
-          </Button>
-        </CardContent>
-      </Card>
-
-      <AppointmentModal
-        open={bookingOpen}
-        onOpenChange={setBookingOpen}
-        doctorId={doctor.id}
-        sessionId=""
-        resolved={resolved}
-      />
+        </div>
+      </section>
     </div>
   );
 }
