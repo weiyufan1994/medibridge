@@ -63,6 +63,22 @@ pnpm test
 - `drizzle/*.sql` + `drizzle/meta/*`: migration and snapshots
 - `shared/*`: cross-runtime constants and shared types
 
+### Email (Resend) Configuration
+- `RESEND_API_KEY`: Resend API key used in production.
+- `RESEND_FROM`: optional, overrides `MAIL_FROM` for sender address.
+- `MAIL_FROM`: fallback sender address (e.g. `MediBridge <no-reply@your-domain.com>`).
+
+Minimal production setup checklist:
+1. Configure DNS for your sending domain in Resend (SPF/DKIM/DMARC as required by your provider dashboard).
+2. Set `RESEND_API_KEY` and `MAIL_FROM`/`RESEND_FROM` in `.env`.
+3. Ensure `NODE_ENV=production` when deploying.
+4. Send a test link and verify delivery in Resend logs.
+
+Common failures:
+- `401` / `403`: invalid or revoked API key, or sender domain mismatch.
+- `422`: invalid `from`/recipient format or message payload rejected by provider.
+- `4xx/5xx` with empty body: transient provider issue or temporary invalid domain status.
+
 ## Account & Access Architecture (Progressive Profiling)
 
 ### Identity Ladder
