@@ -30,11 +30,16 @@ vi.mock("./modules/appointments/repo", () => ({
   updateAppointmentById: vi.fn(),
 }));
 
+vi.mock("./modules/visit/translation", () => ({
+  translateVisitMessage: vi.fn(),
+}));
+
 import * as visitRepo from "./modules/visit/repo";
 import * as appointmentsRepo from "./modules/appointments/repo";
 import { appointmentCore } from "./modules/appointments/routerApi";
 import { validateAppointmentAccessToken } from "./modules/appointments/tokenValidation";
 import { visitRouter } from "./routers/visit";
+import { translateVisitMessage } from "./modules/visit/translation";
 
 function createTestContext(): TrpcContext {
   return {
@@ -54,6 +59,13 @@ function encodeTestCursor(createdAt: Date, id: number) {
 describe("visit router", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(translateVisitMessage).mockImplementation(async input => ({
+      originalContent: input.content.trim(),
+      translatedContent: input.content.trim(),
+      sourceLanguage: input.sourceLanguage ?? "en",
+      targetLanguage: input.targetLanguage ?? "en",
+      translationProvider: "identity",
+    }) as never);
     vi.mocked(appointmentsRepo.markAppointmentInSessionIfNeeded).mockResolvedValue(
       null as never
     );
@@ -346,6 +358,48 @@ describe("visit router", () => {
         fromStatus: "paid",
         toStatus: "active",
         reason: "first_visit_message",
+      })
+    );
+  });
+
+  it("sendMessageByToken uses translated content and stores source/target languages", async () => {
+    vi.mocked(visitRepo.getMessageByClientMessageId).mockResolvedValue(null as never);
+    vi.mocked(visitRepo.createMessage).mockResolvedValue({ insertId: 120 } as never);
+    vi.mocked(translateVisitMessage).mockResolvedValue({
+      originalContent: "我今天有点发烧",
+      translatedContent: "I have a bit of fever today.",
+      sourceLanguage: "zh",
+      targetLanguage: "en",
+      translationProvider: "llm",
+    } as never);
+
+    const caller = visitRouter.createCaller(createTestContext());
+    await caller.sendMessageByToken({
+      appointmentId: 9001,
+      token: "patient_token_1234567890",
+      content: "我今天有点发烧",
+      sourceLanguage: "auto",
+      targetLanguage: "en",
+      clientMessageId: "msg-translated",
+    });
+
+    expect(translateVisitMessage).toHaveBeenCalledWith({
+      content: "我今天有点发烧",
+      sourceLanguage: "auto",
+      targetLanguage: "en",
+    });
+    expect(visitRepo.createMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appointmentId: 9001,
+        content: "I have a bit of fever today.",
+        originalContent: "我今天有点发烧",
+        translatedContent: "I have a bit of fever today.",
+        sourceLanguage: "zh",
+        targetLanguage: "en",
+        translationProvider: "llm",
+        clientMessageId: "msg-translated",
+        userId: null,
+        senderType: "patient",
       })
     );
   });

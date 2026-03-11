@@ -51,7 +51,7 @@ export function computeConsultationTimerState(
   const totalDurationSeconds = baseDurationSeconds + extensionSeconds;
 
   const elapsedSeconds = scheduledAt
-    ? Math.floor((input.now.getTime() - scheduledAt.getTime()) / 1000)
+    ? Math.max(0, Math.floor((input.now.getTime() - scheduledAt.getTime()) / 1000))
     : 0;
   const rawRemainingSeconds = totalDurationSeconds - elapsedSeconds;
   const remainingSeconds = Math.max(0, rawRemainingSeconds);

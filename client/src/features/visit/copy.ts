@@ -4,6 +4,8 @@ const visitCopyByLang = {
   en: {
     invalidToken: "Missing or invalid token.",
     appointmentNotFound: "Appointment not found.",
+    appointmentNotAllowed: "This appointment is not available for visit room access.",
+    appointmentNotStarted: "Consultation has not started yet. Please enter at the scheduled time.",
     noMessages: "No messages yet. Start your consultation below.",
     sendFailed: "Failed to send message. Please retry.",
     composerPlaceholder: "Type your message and describe your concern...",
@@ -49,6 +51,7 @@ const visitCopyByLang = {
     consultationEndFailed: "Failed to end consultation.",
     endConsultation: "End Visit",
     generateSummaryNow: "Generate Summary",
+    continueSummary: "Continue Summary",
     endConsultationTitle: "End Visit & Generate Record",
     endConsultationDesc:
       "The consultation will be closed to new messages. Our AI will automatically generate a medical summary based on this conversation for your review.",
@@ -76,6 +79,10 @@ const visitCopyByLang = {
       "You can continue writing this summary manually and sign/send to the patient.",
     medicalSummaryRequiredFields: "Please complete all required sections before signing.",
     medicalSummarySignFailed: "Failed to sign medical summary.",
+    roomClosedReturnTitle: "Consultation ended",
+    roomClosedReturnDesc:
+      "The doctor has ended this visit and is preparing your medical summary. Please return to your appointments list.",
+    roomClosedReturnAction: "Back to Appointments",
     aiTriageSummaryTitle: "AI Triage Summary",
     aiTriageSummaryEmpty: "No triage summary available.",
     patientContextTitle: "Patient Context",
@@ -87,6 +94,8 @@ const visitCopyByLang = {
   zh: {
     invalidToken: "链接无效或已缺失。",
     appointmentNotFound: "未找到会诊预约。",
+    appointmentNotAllowed: "当前预约状态不可进入会诊室。",
+    appointmentNotStarted: "会诊尚未开始，请在预约时间进入。",
     noMessages: "暂无消息，请在下方开始会诊。",
     sendFailed: "发送失败，请重试。",
     composerPlaceholder: "输入消息，描述你的问题...",
@@ -131,6 +140,7 @@ const visitCopyByLang = {
     consultationEndFailed: "结束会诊失败。",
     endConsultation: "结束会诊",
     generateSummaryNow: "生成总结",
+    continueSummary: "继续完善摘要",
     endConsultationTitle: "结束会诊并生成病历摘要",
     endConsultationDesc:
       "会诊结束后，将不再接收新消息。我们的 AI 会基于本次对话自动生成医疗摘要，供您审核。",
@@ -155,6 +165,9 @@ const visitCopyByLang = {
     medicalSummaryDraftTimeoutHint: "你可以继续手动填写该小结，然后签发并发送给患者。",
     medicalSummaryRequiredFields: "请先完整填写所有必填内容后再签发。",
     medicalSummarySignFailed: "签发病历失败。",
+    roomClosedReturnTitle: "会诊已结束",
+    roomClosedReturnDesc: "医生已结束会诊，正在整理并签发医疗摘要。请先返回预约列表查看后续状态。",
+    roomClosedReturnAction: "返回预约列表",
     aiTriageSummaryTitle: "AI 分诊摘要",
     aiTriageSummaryEmpty: "暂无分诊摘要。",
     patientContextTitle: "患者背景",

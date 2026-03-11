@@ -1,4 +1,5 @@
 import type { VisitMessageItem, VisitParticipantRole } from "@/features/visit/types";
+import type { ResolvedLanguage } from "@/contexts/LanguageContext";
 
 export type JoinedPayload = {
   appointmentId: number;
@@ -40,6 +41,11 @@ export type VisitSocketErrorPayload = {
   message?: string;
 };
 
+export type VisitMessageDisplayLines = {
+  primary: string;
+  secondary: string | null;
+};
+
 export type RoomMessagesPage = {
   appointmentId: number;
   role: VisitParticipantRole;
@@ -52,6 +58,18 @@ export const RECONNECT_DELAYS_MS = [1000, 2500, 5000, 10000] as const;
 
 export function getClientMsgId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function buildOutgoingMessagePayload(input: {
+  textOriginal: string;
+  clientMessageId: string;
+}) {
+  return {
+    textOriginal: input.textOriginal,
+    clientMessageId: input.clientMessageId,
+    // Let server infer opposite language from source text to keep bilingual display consistent.
+    targetLanguage: "auto" as const,
+  };
 }
 
 export function toDate(value: Date | string): Date {
@@ -97,6 +115,66 @@ export function normalizeRealtimeMessage(
   };
 }
 
+function normalizeLanguage(language: string) {
+  const normalized = (language || "auto").trim().toLowerCase();
+  if (
+    normalized === "zh-cn" ||
+    normalized === "zh-hans" ||
+    normalized === "zh-hant" ||
+    normalized === "cn"
+  ) {
+    return "zh";
+  }
+  if (normalized === "en-us" || normalized === "en-gb") {
+    return "en";
+  }
+  return normalized;
+}
+
+export function inferTargetLanguage(message: VisitMessageItem): string {
+  const sourceLanguage = normalizeLanguage(message.sourceLanguage);
+  const targetLanguage = normalizeLanguage(message.targetLanguage);
+
+  if (targetLanguage !== "auto") {
+    return targetLanguage;
+  }
+
+  if (sourceLanguage !== "auto" && sourceLanguage.length > 0) {
+    return sourceLanguage === "zh" ? "en" : "zh";
+  }
+
+  const isChinese = /[\u4e00-\u9fff]/.test(message.originalContent || "");
+  return isChinese ? "en" : "zh";
+}
+
+export function getVisitMessageDisplayLines(
+  message: VisitMessageItem,
+  resolved: ResolvedLanguage
+): VisitMessageDisplayLines {
+  const primary = message.originalContent || message.content || "";
+  const translated = message.translatedContent || message.originalContent || "";
+  const targetLanguage = inferTargetLanguage(message);
+
+  const hasMeaningfulTranslation =
+    translated.trim() &&
+    translated.trim() !== primary.trim();
+
+  if (
+    !hasMeaningfulTranslation ||
+    targetLanguage !== resolved
+  ) {
+    return {
+      primary,
+      secondary: null,
+    };
+  }
+
+  return {
+    primary,
+    secondary: translated,
+  };
+}
+
 export function flattenHistoryPages(pages: RoomMessagesPage[]): VisitMessageItem[] {
   return [...pages]
     .reverse()
@@ -113,6 +191,7 @@ export function isFatalCode(code: string) {
     code === "TOKEN_EXPIRED" ||
     code === "TOKEN_REVOKED" ||
     code === "TOKEN_INVALID" ||
+    code === "APPOINTMENT_NOT_STARTED" ||
     code === "APPOINTMENT_NOT_ALLOWED"
   );
 }

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildOutgoingMessagePayload,
   flattenHistoryPages,
+  inferTargetLanguage,
   getWsUrl,
+  getVisitMessageDisplayLines,
   isFatalCode,
   mergeMessages,
   normalizeRealtimeMessage,
@@ -28,6 +31,19 @@ function makeMessage(
 }
 
 describe("useVisits helpers", () => {
+  it("buildOutgoingMessagePayload always uses auto target language", () => {
+    expect(
+      buildOutgoingMessagePayload({
+        textOriginal: "Hello",
+        clientMessageId: "cmid-1",
+      })
+    ).toEqual({
+      textOriginal: "Hello",
+      clientMessageId: "cmid-1",
+      targetLanguage: "auto",
+    });
+  });
+
   it("mergeMessages deduplicates by id and sorts by createdAt then id", () => {
     const existing = [
       makeMessage(2, "doctor", new Date("2026-01-01T10:00:00.000Z")),
@@ -107,7 +123,79 @@ describe("useVisits helpers", () => {
 
   it("isFatalCode and getWsUrl return expected values in node env", () => {
     expect(isFatalCode("TOKEN_EXPIRED")).toBe(true);
+    expect(isFatalCode("APPOINTMENT_NOT_STARTED")).toBe(true);
     expect(isFatalCode("ROOM_READ_ONLY")).toBe(false);
     expect(getWsUrl()).toBe("");
+  });
+
+  it("getVisitMessageDisplayLines shows translation only when resolved language matches target", () => {
+    const message = {
+      ...makeMessage(1, "patient", new Date("2026-01-01T10:00:00.000Z")),
+      sourceLanguage: "en",
+      targetLanguage: "zh",
+      originalContent: "I have a fever",
+      translatedContent: "我发烧了",
+    };
+
+    expect(getVisitMessageDisplayLines(message, "zh")).toEqual({
+      primary: "I have a fever",
+      secondary: "我发烧了",
+    });
+    expect(getVisitMessageDisplayLines(message, "en")).toEqual({
+      primary: "I have a fever",
+      secondary: null,
+    });
+  });
+
+  it("getVisitMessageDisplayLines avoids duplicate line when translation equals original", () => {
+    const message = {
+      ...makeMessage(1, "patient", new Date("2026-01-01T10:00:00.000Z")),
+      sourceLanguage: "en",
+      targetLanguage: "zh",
+      originalContent: "Hello",
+      translatedContent: "Hello",
+    };
+
+    expect(getVisitMessageDisplayLines(message, "zh")).toEqual({
+      primary: "Hello",
+      secondary: null,
+    });
+  });
+
+  it("getVisitMessageDisplayLines supports auto source/target legacy messages", () => {
+    const message = {
+      ...makeMessage(1, "patient", new Date("2026-01-01T10:00:00.000Z")),
+      sourceLanguage: "auto",
+      targetLanguage: "auto",
+      originalContent: "我发烧了",
+      translatedContent: "I have a fever",
+    };
+
+    expect(getVisitMessageDisplayLines(message, "en")).toEqual({
+      primary: "我发烧了",
+      secondary: "I have a fever",
+    });
+    expect(getVisitMessageDisplayLines(message, "zh")).toEqual({
+      primary: "我发烧了",
+      secondary: null,
+    });
+  });
+
+  it("inferTargetLanguage resolves aliased languages for auto target", () => {
+    expect(
+      inferTargetLanguage({
+        ...makeMessage(1, "patient", new Date("2026-01-01T10:00:00.000Z")),
+        sourceLanguage: "zh-CN",
+        targetLanguage: "auto",
+      })
+    ).toBe("en");
+
+    expect(
+      inferTargetLanguage({
+        ...makeMessage(1, "patient", new Date("2026-01-01T10:00:00.000Z")),
+        sourceLanguage: "en-US",
+        targetLanguage: "auto",
+      })
+    ).toBe("zh");
   });
 });

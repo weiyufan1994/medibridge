@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VisitMessageBubble } from "@/features/visit/components/VisitMessageBubble";
 import type { VisitMessageItem, VisitParticipantRole } from "@/features/visit/types";
+import type { ResolvedLanguage } from "@/contexts/LanguageContext";
 
 type VisitMessagesListProps = {
   showInitialSkeleton: boolean;
@@ -14,6 +15,7 @@ type VisitMessagesListProps = {
   scrollContainerRef: RefObject<HTMLDivElement | null>;
   loadEarlierText: string;
   loadingEarlierText: string;
+  resolved: ResolvedLanguage;
 };
 
 export function VisitMessagesList({
@@ -26,6 +28,7 @@ export function VisitMessagesList({
   scrollContainerRef,
   loadEarlierText,
   loadingEarlierText,
+  resolved,
 }: VisitMessagesListProps) {
   return (
     <section className="min-h-0 flex-1 overflow-y-auto">
@@ -86,6 +89,7 @@ export function VisitMessagesList({
                       rightAlignRole={rightAlignRole}
                       compactWithPrev={compactWithPrev}
                       showTimestamp={showTimestamp}
+                      resolved={resolved}
                     />
                   );
                 })}

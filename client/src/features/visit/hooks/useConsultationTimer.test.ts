@@ -58,6 +58,19 @@ describe("consultation timer", () => {
     expect(timer.remainingLabel).toBe("04:00");
   });
 
+  it("does not exceed total duration before scheduled start time", () => {
+    const timer = computeConsultationTimerState({
+      now: new Date("2026-03-01T09:30:00.000Z"),
+      scheduledAt,
+      baseDurationMinutes: 30,
+      extensionMinutes: 0,
+    });
+
+    expect(timer.status).toBe("normal");
+    expect(timer.remainingSeconds).toBe(30 * 60);
+    expect(timer.remainingLabel).toBe("30:00");
+  });
+
   it("detects transition into expired only on boundary crossing", () => {
     expect(didTransitionToExpired("warning", "expired")).toBe(true);
     expect(didTransitionToExpired("normal", "expired")).toBe(true);

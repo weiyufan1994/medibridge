@@ -8,7 +8,9 @@ import { VisitMessagesList } from "@/features/visit/components/VisitMessagesList
 import type { VisitSharedViewProps } from "@/features/visit/types";
 
 type DoctorVisitViewProps = VisitSharedViewProps & {
+  canOpenSummary: boolean;
   canEndConsultation: boolean;
+  bypassEndConfirmation: boolean;
   endConsultationText: string;
   endConsultationTitle: string;
   endConsultationDesc: string;
@@ -48,6 +50,8 @@ export function DoctorVisitView({
   showWarningBanner,
   warningBannerText,
   canEndConsultation,
+  canOpenSummary,
+  bypassEndConfirmation,
   endConsultationText,
   endConsultationTitle,
   endConsultationDesc,
@@ -81,6 +85,7 @@ export function DoctorVisitView({
   composerPlaceholder,
   composerHint,
   onSelectAttachment,
+  resolved,
 }: DoctorVisitViewProps) {
   const [timeExceededOpen, setTimeExceededOpen] = useState(false);
 
@@ -89,7 +94,7 @@ export function DoctorVisitView({
       setTimeExceededOpen(true);
     }
   }, [didJustExpire]);
-  const showGenerateSummaryButton = timerStatus === "expired";
+  const showContinueSummaryButton = bypassEndConfirmation;
 
   return (
     <>
@@ -112,8 +117,8 @@ export function DoctorVisitView({
         timerAriaLabel={timerAriaLabel}
         className="shrink-0 border-b border-slate-100 px-5 py-4"
         rightExtra={
-          showGenerateSummaryButton ? (
-            canEndConsultation ? (
+          showContinueSummaryButton ? (
+            canOpenSummary ? (
               <Button
                 type="button"
                 className="h-auto rounded-full bg-teal-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-teal-700"
@@ -152,6 +157,7 @@ export function DoctorVisitView({
               scrollContainerRef={scrollContainerRef}
               loadEarlierText={loadEarlierText}
               loadingEarlierText={loadingEarlierText}
+              resolved={resolved}
             />
             {showWarningBanner ? (
               <div

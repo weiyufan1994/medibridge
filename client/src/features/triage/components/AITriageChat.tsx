@@ -30,6 +30,13 @@ import {
 } from "@/components/ui/dialog";
 import { useTriageChat } from "@/features/triage/hooks/useTriageChat";
 import { getTriageCopy } from "@/features/triage/copy";
+import {
+  getAssistantMessageSignature,
+  getMessageContainerClass,
+  getTriageResultContainerClass,
+  resolveAnimatedAssistantSignature,
+  type TriageDisplayMessage,
+} from "@/features/triage/components/aiTriageMessagePresentation";
 import { AppointmentModal } from "@/features/appointment/components/AppointmentModal";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
@@ -303,6 +310,7 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
     quotaDialogOpen,
     quotaMessage,
     messageLimitReached,
+    reportGenerationLocked,
     bookingOpen,
     bookingDoctorId,
     listEndRef,
@@ -325,7 +333,11 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
   const [isEditSummaryOpen, setIsEditSummaryOpen] = useState(false);
   const [profileDoctor, setProfileDoctor] = useState<RecommendedDoctor | null>(null);
   const [summaryDraft, setSummaryDraft] = useState("");
+  const [animatedAssistantSignature, setAnimatedAssistantSignature] = useState<string | null>(
+    null
+  );
   const messageStreamRef = useRef<HTMLDivElement>(null);
+  const previousRenderedMessagesRef = useRef<TriageDisplayMessage[] | null>(null);
 
   const historyQuery = trpc.consultation.getHistory.useQuery(undefined, {
     staleTime: 5 * 60 * 1000,
@@ -406,9 +418,10 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
     isHistoryReadOnly ||
     selectedHistorySession?.status === "completed" ||
     triageResult?.isComplete === true ||
+    reportGenerationLocked ||
     messageLimitReached;
 
-  const displayMessages = isHistoryReadOnly
+  const displayMessages: TriageDisplayMessage[] = isHistoryReadOnly
     ? (historyMessagesQuery.data ?? []).map(message => ({
         role: message.role === "ai" ? ("assistant" as const) : ("user" as const),
         content: message.content,
@@ -428,6 +441,8 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
 
   const inputPlaceholder = isHistoryReadOnly
     ? (resolved === "zh" ? "这是历史会话（只读）..." : "This is a past session (Read-only)...")
+    : reportGenerationLocked
+      ? t.status.reviewing
     : isChatPending
       ? t.status.thinking
       : t.placeholder;
@@ -438,14 +453,6 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
       : triageResult?.summary?.trim() || "No summary available.";
 
   const recommendedDoctors = (recommendQuery.data ?? []) as RecommendedDoctor[];
-  const latestAssistantIndex = useMemo(() => {
-    for (let i = renderedMessages.length - 1; i >= 0; i -= 1) {
-      if (renderedMessages[i]?.role === "assistant") {
-        return i;
-      }
-    }
-    return -1;
-  }, [renderedMessages]);
 
   const todayItems = historyItems.filter(item => item.group === "today");
   const previousItems = historyItems.filter(item => item.group === "previous7");
@@ -455,6 +462,25 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
     if (!messageStreamRef.current) return;
     messageStreamRef.current.scrollTop = messageStreamRef.current.scrollHeight;
   }, []);
+
+  useEffect(() => {
+    const nextSignature = resolveAnimatedAssistantSignature({
+      previousMessages: previousRenderedMessagesRef.current,
+      nextMessages: renderedMessages,
+      isHistoryReadOnly,
+    });
+
+    if (nextSignature) {
+      setAnimatedAssistantSignature(nextSignature);
+    } else {
+      const latestRole = renderedMessages[renderedMessages.length - 1]?.role;
+      if (isHistoryReadOnly || renderedMessages.length === 0 || latestRole === "user") {
+        setAnimatedAssistantSignature(null);
+      }
+    }
+
+    previousRenderedMessagesRef.current = renderedMessages;
+  }, [isHistoryReadOnly, renderedMessages]);
 
   useEffect(() => {
     scrollToBottom();
@@ -629,11 +655,7 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                       key={`${message.role}-${index}`}
                       className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                     >
-                      <div
-                        className={`w-full max-w-[90%] md:max-w-[80%] ${
-                          message.role === "user" ? "self-end" : "self-start"
-                        }`}
-                      >
+                      <div className={getMessageContainerClass(message.role)}>
                         <div
                           className={
                             message.role === "user"
@@ -647,7 +669,8 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                             active={
                               !isHistoryReadOnly &&
                               message.role === "assistant" &&
-                              index === latestAssistantIndex
+                              getAssistantMessageSignature(message, index) ===
+                                animatedAssistantSignature
                             }
                             onProgress={scrollToBottom}
                           />
@@ -658,7 +681,7 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                 )}
 
                 {!isHistoryReadOnly && triageResult?.isComplete && (
-                  <div className="flex justify-start">
+                  <div className={getTriageResultContainerClass()}>
                     <div className="w-full max-w-[85%]">
                       <TriageResultCard
                         summary={effectiveSummary}
@@ -687,7 +710,7 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                   </div>
                 )}
 
-                {isChatPending && (
+                {(isChatPending || reportGenerationLocked) && (
                   <div className="flex items-center gap-2 text-sm text-slate-500">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     {t.status.reviewing}

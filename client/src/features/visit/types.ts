@@ -18,6 +18,7 @@ export type VisitMessageItem = {
 export type ConsultationTimerStatus = "normal" | "warning" | "expired";
 
 export type VisitSharedViewProps = {
+  resolved: "en" | "zh";
   doctorName: string;
   departmentName: string;
   doctorTitleDisplay: string;
@@ -53,4 +54,9 @@ export type VisitSharedViewProps = {
   composerPlaceholder: string;
   composerHint: string;
   onSelectAttachment: (file: File) => void;
+  showRoomClosedPrompt?: boolean;
+  roomClosedPromptTitle?: string;
+  roomClosedPromptDesc?: string;
+  roomClosedPromptActionText?: string;
+  onRoomClosedPromptAction?: () => void;
 };

@@ -57,6 +57,8 @@ function toErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+const DRAFT_POLL_INTERVAL_MS = 2000;
+
 export function MedicalSummaryModal({
   open,
   onOpenChange,
@@ -81,12 +83,45 @@ export function MedicalSummaryModal({
   const activeDraftRequestIdRef = useRef(0);
   const draftTimedOutRef = useRef(false);
   const isDirtyRef = useRef(false);
+  const draftPollTimerRef = useRef<number | null>(null);
+  const draftPollResolveRef = useRef<(() => void) | null>(null);
 
   const generateDraftMutation = trpc.appointments.generateMedicalSummaryDraft.useMutation();
   const signMutation = trpc.appointments.signMedicalSummary.useMutation();
   const utils = trpc.useUtils();
 
+  const clearDraftPollTimer = useCallback(() => {
+    if (draftPollTimerRef.current !== null) {
+      window.clearTimeout(draftPollTimerRef.current);
+      draftPollTimerRef.current = null;
+    }
+    if (draftPollResolveRef.current) {
+      const resolve = draftPollResolveRef.current;
+      draftPollResolveRef.current = null;
+      resolve();
+    }
+  }, []);
+
+  const waitForNextDraftPoll = useCallback(
+    () =>
+      new Promise<void>(resolve => {
+        clearDraftPollTimer();
+        draftPollResolveRef.current = () => {
+          draftPollResolveRef.current = null;
+          resolve();
+        };
+        draftPollTimerRef.current = window.setTimeout(() => {
+          draftPollTimerRef.current = null;
+          const done = draftPollResolveRef.current;
+          draftPollResolveRef.current = null;
+          done?.();
+        }, DRAFT_POLL_INTERVAL_MS);
+      }),
+    [clearDraftPollTimer]
+  );
+
   const resetDraftState = useCallback(() => {
+    clearDraftPollTimer();
     setForm(EMPTY_DRAFT_FORM);
     setErrorMessage(null);
     setStatusMessage(null);
@@ -99,7 +134,7 @@ export function MedicalSummaryModal({
     setIsDirty(false);
     isDirtyRef.current = false;
     setHasLoadedInitialDraft(false);
-  }, []);
+  }, [clearDraftPollTimer]);
 
   const applyDraft = useCallback((draft: MedicalSummaryDraftForm) => {
     setForm({
@@ -127,41 +162,71 @@ export function MedicalSummaryModal({
       setIsDraftGenerating(true);
 
       try {
-        const draft = await generateDraftMutation.mutateAsync({
-          appointmentId: visitId,
-          token,
-          lang,
-          forceRegenerate,
-        });
+        while (true) {
+          const draft = await generateDraftMutation.mutateAsync({
+            appointmentId: visitId,
+            token,
+            lang,
+            forceRegenerate,
+          });
 
-        if (
-          !shouldApplyDraftResponse({
-            requestId,
-            activeRequestId: activeDraftRequestIdRef.current,
-            draftTimedOut: draftTimedOutRef.current,
-          })
-        ) {
-          return;
-        }
-        if (isDirtyRef.current && !forceRegenerate) {
+          if (
+            !shouldApplyDraftResponse({
+              requestId,
+              activeRequestId: activeDraftRequestIdRef.current,
+              draftTimedOut: draftTimedOutRef.current,
+            })
+          ) {
+            return;
+          }
+
+          if (draft.source === "pending" && !forceRegenerate) {
+            await waitForNextDraftPoll();
+            if (
+              !shouldApplyDraftResponse({
+                requestId,
+                activeRequestId: activeDraftRequestIdRef.current,
+                draftTimedOut: draftTimedOutRef.current,
+              })
+            ) {
+              return;
+            }
+            continue;
+          }
+
+          if (isDirtyRef.current && !forceRegenerate) {
+            setIsDraftGenerating(false);
+            setRemainingSeconds(null);
+            clearDraftPollTimer();
+            return;
+          }
+
+          applyDraft(draft);
           setIsDraftGenerating(false);
           setRemainingSeconds(null);
+          clearDraftPollTimer();
           return;
         }
-
-        applyDraft(draft);
-        setIsDraftGenerating(false);
-        setRemainingSeconds(null);
       } catch (error) {
         if (requestId !== activeDraftRequestIdRef.current) {
           return;
         }
         setIsDraftGenerating(false);
         setRemainingSeconds(null);
+        clearDraftPollTimer();
         setErrorMessage(toErrorMessage(error, copy.draftFailedText));
       }
     },
-    [applyDraft, copy.draftFailedText, generateDraftMutation, lang, token, visitId]
+    [
+      applyDraft,
+      clearDraftPollTimer,
+      copy.draftFailedText,
+      generateDraftMutation,
+      lang,
+      token,
+      visitId,
+      waitForNextDraftPoll,
+    ]
   );
 
   useEffect(() => {
@@ -190,7 +255,14 @@ export function MedicalSummaryModal({
     setErrorMessage(copy.draftTimeoutText);
     setStatusMessage(copy.draftTimeoutHintText);
     setRemainingSeconds(null);
-  }, [copy.draftTimeoutHintText, copy.draftTimeoutText, isDraftGenerating, remainingSeconds]);
+    clearDraftPollTimer();
+  }, [
+    clearDraftPollTimer,
+    copy.draftTimeoutHintText,
+    copy.draftTimeoutText,
+    isDraftGenerating,
+    remainingSeconds,
+  ]);
 
   useEffect(() => {
     if (!shouldAutoLoadInitialDraft({ open, hasLoadedInitialDraft })) {
@@ -202,6 +274,8 @@ export function MedicalSummaryModal({
   useEffect(() => {
     resetDraftState();
   }, [lang, resetDraftState, token, visitId]);
+
+  useEffect(() => () => clearDraftPollTimer(), [clearDraftPollTimer]);
 
   const setField =
     (key: keyof MedicalSummaryDraftForm) =>

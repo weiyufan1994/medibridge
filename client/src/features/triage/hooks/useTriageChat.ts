@@ -7,6 +7,7 @@ import {
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { getTriageCopy } from "@/features/triage/copy";
+import { shouldLockInputForReportGeneration } from "@/features/triage/hooks/triageReportState";
 import { TRPCClientError } from "@trpc/client";
 
 export type ChatRole = "user" | "assistant";
@@ -75,6 +76,7 @@ export function useTriageChat({
   const [quotaDialogOpen, setQuotaDialogOpen] = useState(false);
   const [quotaMessage, setQuotaMessage] = useState<string | null>(null);
   const [messageLimitReached, setMessageLimitReached] = useState(false);
+  const [reportGenerationLocked, setReportGenerationLocked] = useState(false);
   const sendLockRef = useRef(false);
   const listEndRef = useRef<HTMLDivElement>(null);
 
@@ -125,10 +127,25 @@ export function useTriageChat({
       if (parsed.triageResult && typeof parsed.triageResult === "object") {
         setTriageResult(parsed.triageResult);
       }
+
+      const restoredMessages =
+        Array.isArray(parsed.messages) && parsed.messages.length > 0
+          ? parsed.messages
+          : [getInitialAssistantMessage(resolved)];
+      const restoredTriageResult =
+        parsed.triageResult && typeof parsed.triageResult === "object"
+          ? parsed.triageResult
+          : null;
+      setReportGenerationLocked(
+        shouldLockInputForReportGeneration({
+          triageResult: restoredTriageResult,
+          messages: restoredMessages,
+        })
+      );
     } catch {
       // Ignore invalid session cache
     }
-  }, []);
+  }, [resolved]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -159,6 +176,7 @@ export function useTriageChat({
     setRequestError(null);
     setPendingMessage(null);
     setMessageLimitReached(false);
+    setReportGenerationLocked(false);
     setQuotaDialogOpen(false);
     setQuotaMessage(null);
 
@@ -173,7 +191,8 @@ export function useTriageChat({
       sendMessageMutation.isPending ||
       createSessionMutation.isPending ||
       triageResult?.isComplete ||
-      messageLimitReached
+      messageLimitReached ||
+      reportGenerationLocked
     ) {
       return;
     }
@@ -272,9 +291,15 @@ export function useTriageChat({
       const hitLimit =
         normalizedResult.hitMessageLimit === true ||
         safeReply.includes(SESSION_LIMIT_REPLY);
+      const nextMessagesWithReply: ChatMessage[] = [...nextMessages, { role: "assistant", content: safeReply }];
+      const shouldLockForReportGeneration = shouldLockInputForReportGeneration({
+        triageResult: { isComplete: Boolean(normalizedResult.isComplete) },
+        messages: nextMessagesWithReply,
+      });
 
       pushAssistantMessage(safeReply);
       setMessageLimitReached(hitLimit);
+      setReportGenerationLocked(shouldLockForReportGeneration);
       setTriageResult({
         isComplete: Boolean(normalizedResult.isComplete),
         reply: safeReply,
@@ -386,6 +411,7 @@ export function useTriageChat({
     quotaDialogOpen,
     quotaMessage,
     messageLimitReached,
+    reportGenerationLocked,
     bookingOpen,
     bookingDoctorId,
     listEndRef,

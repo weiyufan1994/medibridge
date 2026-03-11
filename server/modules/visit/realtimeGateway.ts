@@ -10,6 +10,7 @@ import { extendConsultationByDoctorTokenFlow } from "../appointments/timerAction
 import { validateAppointmentAccessToken } from "../appointments/tokenValidation";
 import * as visitRepo from "./repo";
 import { markInSessionIfTransitioned } from "./status";
+import { translateVisitMessage } from "./translation";
 
 type VisitRole = "patient" | "doctor";
 type VisitSender = "patient" | "doctor" | "system";
@@ -33,7 +34,11 @@ type ClientEnvelope =
   | { event: "room.join"; data?: { token?: string } }
   | {
       event: "message.send";
-      data?: { textOriginal?: string; clientMessageId?: string };
+      data?: {
+        textOriginal?: string;
+        clientMessageId?: string;
+        targetLanguage?: string;
+      };
     }
   | {
       event: "room.timer.extend";
@@ -348,7 +353,7 @@ export function createVisitRealtimeGateway() {
   async function handleMessageSend(
     connection: RoomConnection,
     req: IncomingMessage,
-    payload: { textOriginal?: string; clientMessageId?: string }
+    payload: { textOriginal?: string; clientMessageId?: string; targetLanguage?: string }
   ) {
     const appointmentId = connection.appointmentId;
     const role = connection.role;
@@ -397,18 +402,31 @@ export function createVisitRealtimeGateway() {
     const senderType: VisitSender = role === "doctor" ? "doctor" : "patient";
     const messageUserId = role === "patient" ? (appointment.userId ?? null) : null;
     const createdAt = new Date();
+    let translatedMessage: Awaited<ReturnType<typeof translateVisitMessage>>;
+    try {
+      translatedMessage = await translateVisitMessage({
+        content: textOriginal,
+        sourceLanguage: "auto",
+        // Force opposite-language translation regardless of client locale payload,
+        // so stale clients that send same-language targets cannot disable translation.
+        targetLanguage: "auto",
+      });
+    } catch (error) {
+      sendError(connection, "INTERNAL_SERVER_ERROR", (error as Error).message || "translation failed");
+      return;
+    }
 
     try {
       const insertResult = await visitRepo.createMessage({
         appointmentId,
         userId: messageUserId,
         senderType,
-        content: textOriginal,
-        originalContent: textOriginal,
-        translatedContent: textOriginal,
-        sourceLanguage: "auto",
-        targetLanguage: "auto",
-        translationProvider: "identity",
+        content: translatedMessage.translatedContent,
+        originalContent: translatedMessage.originalContent,
+        translatedContent: translatedMessage.translatedContent,
+        sourceLanguage: translatedMessage.sourceLanguage,
+        targetLanguage: translatedMessage.targetLanguage,
+        translationProvider: translatedMessage.translationProvider,
         clientMessageId,
         createdAt,
       });
@@ -432,12 +450,12 @@ export function createVisitRealtimeGateway() {
           appointmentId,
           userId: null,
           senderType,
-          content: textOriginal,
-          originalContent: textOriginal,
-          translatedContent: textOriginal,
-          sourceLanguage: "auto",
-          targetLanguage: "auto",
-          translationProvider: "identity",
+          content: translatedMessage.translatedContent,
+          originalContent: translatedMessage.originalContent,
+          translatedContent: translatedMessage.translatedContent,
+          sourceLanguage: translatedMessage.sourceLanguage,
+          targetLanguage: translatedMessage.targetLanguage,
+          translationProvider: translatedMessage.translationProvider,
           clientMessageId,
           createdAt,
         });

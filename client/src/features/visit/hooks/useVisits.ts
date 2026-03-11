@@ -5,6 +5,7 @@ import { trpc } from "@/lib/trpc";
 import type { VisitMessageItem, VisitParticipantRole } from "@/features/visit/types";
 import { getVisitCopy } from "@/features/visit/copy";
 import {
+  buildOutgoingMessagePayload,
   flattenHistoryPages,
   getClientMsgId,
   isFatalCode,
@@ -226,7 +227,9 @@ export function useVisits({
         toast.error(t.timerExtendAlreadyUsed);
       } else if (code === "CONSULTATION_EXTENSION_CONFLICT") {
         toast.error(t.timerExtendFailed);
-      } else if (code !== "ROOM_READ_ONLY") {
+      } else if (code === "ROOM_READ_ONLY") {
+        setCanSendMessageFromRoom(false);
+      } else {
         toast.error(message);
       }
       setIsExtendingTimer(false);
@@ -251,9 +254,12 @@ export function useVisits({
     }
 
     setIsSending(true);
+    const clientMessageId = getClientMsgId();
     const didSend = sendEvent("message.send", {
-      textOriginal: nextContent,
-      clientMessageId: getClientMsgId(),
+      ...buildOutgoingMessagePayload({
+        textOriginal: nextContent,
+        clientMessageId,
+      }),
     });
     if (!didSend) {
       setIsSending(false);
@@ -281,6 +287,11 @@ export function useVisits({
 
   const showInitialSkeleton = messagesInfiniteQuery.isLoading && messages.length === 0;
 
+  function markRoomAsClosed(nextStatus: "ended" | "completed" = "ended") {
+    setCurrentStatus(nextStatus);
+    setCanSendMessageFromRoom(false);
+  }
+
   return {
     content,
     isReconnecting,
@@ -299,6 +310,7 @@ export function useVisits({
     loadOlderMessages,
     handleSend,
     requestTimerExtension,
+    markRoomAsClosed,
     showInitialSkeleton,
   };
 }

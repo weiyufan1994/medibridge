@@ -66,4 +66,33 @@ describe("visit translation service", () => {
     expect(result.sourceLanguage).toBe("en");
     expect(result.targetLanguage).toBe("zh");
   });
+
+  it("resolves auto source/target in opposite-language mode", async () => {
+    vi.mocked(invokeLLM).mockResolvedValue({
+      id: "mock",
+      created: Date.now(),
+      model: "mock-model",
+      choices: [
+        {
+          index: 0,
+          finish_reason: "stop",
+          message: {
+            role: "assistant",
+            content: "I have a fever.",
+          },
+        },
+      ],
+    } as never);
+
+    const result = await translateVisitMessage({
+      content: "我发烧了",
+      sourceLanguage: "auto",
+      targetLanguage: "auto",
+    });
+
+    expect(result.sourceLanguage).toBe("zh");
+    expect(result.targetLanguage).toBe("en");
+    expect(result.translationProvider).toBe("llm");
+    expect(result.translatedContent).toBe("I have a fever.");
+  });
 });
