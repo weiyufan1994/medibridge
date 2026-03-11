@@ -62,7 +62,13 @@ export const hospitals = mysqlTable("hospitals", {
   translationProvider: varchar("translationProvider", { length: 100 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+  }, table => ({
+    translationStatusIdx: index("hospitalsTranslationStatusIdx").on(table.translationStatus),
+    translationStatusIdIdx: index("hospitalsTranslationStatusIdIdx").on(
+      table.translationStatus,
+      table.id
+    ),
+  }));
 
 export type Hospital = typeof hospitals.$inferSelect;
 export type InsertHospital = typeof hospitals.$inferInsert;
@@ -78,22 +84,27 @@ export const departments = mysqlTable(
     name: varchar("name", { length: 255 }).notNull(),
     nameEn: varchar("nameEn", { length: 255 }),
     description: text("description"),
-    descriptionEn: text("descriptionEn"),
-    url: varchar("url", { length: 1024 }),
-    sourceHash: varchar("sourceHash", { length: 64 }),
-    translationStatus: mysqlEnum("translationStatus", [
-      "pending",
-      "done",
+  descriptionEn: text("descriptionEn"),
+  url: varchar("url", { length: 1024 }),
+  sourceHash: varchar("sourceHash", { length: 64 }),
+  translationStatus: mysqlEnum("translationStatus", [
+    "pending",
+    "done",
       "failed",
     ]).default("pending"),
     translatedAt: timestamp("translatedAt"),
     lastTranslationError: text("lastTranslationError"),
     translationProvider: varchar("translationProvider", { length: 100 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
   table => ({
     hospitalIdx: index("hospitalIdx").on(table.hospitalId),
+    translationStatusIdx: index("departmentsTranslationStatusIdx").on(table.translationStatus),
+    translationStatusIdIdx: index("departmentsTranslationStatusIdIdx").on(
+      table.translationStatus,
+      table.id
+    ),
   })
 );
 
@@ -120,8 +131,23 @@ export const doctors = mysqlTable(
     specialtyEn: text("specialtyEn"),
     expertise: text("expertise"),
     expertiseEn: text("expertiseEn"),
+    sourceDoctorId: varchar("sourceDoctorId", { length: 128 }),
     websiteUrl: varchar("websiteUrl", { length: 500 }),
     haodafUrl: varchar("haodafUrl", { length: 500 }),
+    totalPatients: varchar("totalPatients", { length: 100 }),
+    totalArticles: varchar("totalArticles", { length: 100 }),
+    totalVisits: varchar("totalVisits", { length: 100 }),
+    scrapedDate: varchar("scrapedDate", { length: 100 }),
+    scrapedStatus: varchar("scrapedStatus", { length: 64 }),
+    dataSource: varchar("dataSource", { length: 255 }),
+    educationExperience: text("educationExperience"),
+    socialRole: text("socialRole"),
+    researchAchievements: text("researchAchievements"),
+    honors: text("honors"),
+    followUpPatients: varchar("followUpPatients", { length: 100 }),
+    followUpFeedback: text("followUpFeedback"),
+    gender: varchar("gender", { length: 20 }),
+    sequenceNumber: int("sequenceNumber"),
     satisfactionRate: text("satisfactionRate"),
     satisfactionRateEn: text("satisfactionRateEn"),
     attitudeScore: text("attitudeScore"),
@@ -147,6 +173,11 @@ export const doctors = mysqlTable(
     hospitalIdx: index("hospitalIdx").on(table.hospitalId),
     departmentIdx: index("departmentIdx").on(table.departmentId),
     recommendationIdx: index("recommendationIdx").on(table.recommendationScore),
+    translationStatusIdx: index("doctorsTranslationStatusIdx").on(table.translationStatus),
+    translationStatusIdIdx: index("doctorsTranslationStatusIdIdx").on(
+      table.translationStatus,
+      table.id
+    ),
     hospitalDepartmentNameUk: uniqueIndex("doctorHospitalDepartmentNameUk").on(
       table.hospitalId,
       table.departmentId,

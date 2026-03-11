@@ -16,6 +16,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:verify:migrations": "tsx scripts/verify-migrations.ts",
     "db:repair:migration-history": "tsx scripts/repair-migration-history.ts",
+    "db:sync-journal": "tsx scripts/sync-migration-journal.ts",
     "db:migrate:safe": "tsx scripts/db-migrate-safe.ts",
     "db:push": "drizzle-kit push",
     "admin:set-role": "tsx scripts/admin-user.ts",

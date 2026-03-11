@@ -15,6 +15,14 @@ function loadJournalEntries() {
   return parsed.entries ?? [];
 }
 
+function listMigrationTags() {
+  const entries = fs.readdirSync(path.resolve("drizzle"));
+  return entries
+    .filter((name) => name.endsWith(".sql"))
+    .map(name => path.basename(name, ".sql"))
+    .sort();
+}
+
 async function verify() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
@@ -23,6 +31,29 @@ async function verify() {
 
   const journalEntries = loadJournalEntries();
   const expectedCount = journalEntries.length;
+  const migrationTags = listMigrationTags();
+  const journalTags = journalEntries.map((entry) => entry.tag).sort();
+  const missingTagsInJournalForFiles = migrationTags.filter(
+    tag => !journalTags.includes(tag)
+  );
+  const extraJournalTags = journalEntries
+    .map(entry => entry.tag)
+    .filter(tag => !migrationTags.includes(tag))
+    .sort();
+  let migrationDrift = false;
+  if (missingTagsInJournalForFiles.length > 0) {
+    console.log(
+      `- warning: local drizzle journal missing tags on disk: ${missingTagsInJournalForFiles.join(", ")}`
+    );
+    migrationDrift = true;
+  }
+  if (extraJournalTags.length > 0) {
+    console.log(
+      `- warning: local drizzle journal has extra tags not in migrations folder: ${extraJournalTags.join(", ")}`
+    );
+    migrationDrift = true;
+  }
+
   const requiredTags = [
     "0020_ops_admin_summary_retention",
     "0021_appointment_messages_composite_index",
@@ -99,6 +130,11 @@ async function verify() {
     console.log("- required tables/index: present");
     console.log(`- retention policies rows: ${retentionCount}`);
     console.log(`- required tags: ${Array.from(requiredTagSet).join(", ")}`);
+    if (migrationDrift) {
+      console.log(
+        "- migration drift: detected mismatch between journal and migration files. Resolve drift first (journal/files history sync) before pnpm db:migrate."
+      );
+    }
   } finally {
     await connection.end();
   }

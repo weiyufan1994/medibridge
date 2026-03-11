@@ -162,27 +162,6 @@
       "when": 1773060000000,
       "tag": "0022_appointment_medical_summary_and_completed_status",
       "breakpoints": true
-    },
-    {
-      "idx": 23,
-      "version": "5",
-      "when": 1773133299453,
-      "tag": "0023_hospitals_image_url",
-      "breakpoints": true
-    },
-    {
-      "idx": 24,
-      "version": "5",
-      "when": 1773133299453,
-      "tag": "0024_doctor_import_extended_columns",
-      "breakpoints": true
-    },
-    {
-      "idx": 25,
-      "version": "5",
-      "when": 1773149657325,
-      "tag": "0025_translation_status_indexes",
-      "breakpoints": true
     }
   ]
 }
