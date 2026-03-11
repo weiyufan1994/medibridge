@@ -23,6 +23,14 @@ vi.mock("./modules/appointments/tokenService", () => ({
   issueAppointmentAccessLinks: vi.fn(),
 }));
 
+vi.mock("./modules/payments/providerManager", () => ({
+  createPaymentCheckoutSession: vi.fn().mockResolvedValue({
+    provider: "stripe" as const,
+    id: "cs_mockPaid_1",
+    url: "https://medibridge.test/payment/success?mockPaid=1",
+  }),
+}));
+
 import * as appointmentsRepo from "./modules/appointments/repo";
 import { sendMagicLinkEmail } from "./_core/mailer";
 import { issueAppointmentAccessLinks } from "./modules/appointments/tokenService";

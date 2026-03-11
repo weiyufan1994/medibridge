@@ -8,7 +8,10 @@ function getSessionIdFromQuery() {
   if (typeof window === "undefined") {
     return "";
   }
-  return new URLSearchParams(window.location.search).get("session_id")?.trim() || "";
+  const params = new URLSearchParams(window.location.search);
+  return (
+    params.get("session_id")?.trim() || params.get("token")?.trim() || ""
+  );
 }
 
 export default function PaymentCancelPage() {

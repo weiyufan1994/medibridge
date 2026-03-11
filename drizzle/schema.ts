@@ -362,6 +362,9 @@ export const appointments = mysqlTable(
     ])
       .default("unpaid")
       .notNull(),
+    paymentProvider: mysqlEnum("paymentProvider", ["stripe", "paypal"])
+      .notNull()
+      .default("stripe"),
     stripeSessionId: varchar("stripeSessionId", { length: 255 }),
     amount: int("amount").notNull().default(1),
     currency: varchar("currency", { length: 8 }).notNull().default("usd"),
@@ -509,6 +512,7 @@ export type InsertAppointmentStatusEvent =
 export const stripeWebhookEvents = mysqlTable("stripe_webhook_events", {
   eventId: varchar("eventId", { length: 255 }).primaryKey(),
   type: varchar("type", { length: 100 }).notNull(),
+  provider: mysqlEnum("provider", ["stripe", "paypal"]).notNull().default("stripe"),
   stripeSessionId: varchar("stripeSessionId", { length: 255 }),
   appointmentId: int("appointmentId"),
   payloadHash: varchar("payloadHash", { length: 64 }),

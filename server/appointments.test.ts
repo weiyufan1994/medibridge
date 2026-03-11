@@ -36,15 +36,15 @@ vi.mock("./_core/llm", () => ({
   invokeLLM: vi.fn(),
 }));
 
-vi.mock("./modules/payments/stripe", () => ({
-  createStripeCheckoutSession: vi.fn(),
+vi.mock("./modules/payments/providerManager", () => ({
+  createPaymentCheckoutSession: vi.fn(),
 }));
 
 import * as appointmentsRepo from "./modules/appointments/repo";
 import * as aiRepo from "./modules/ai/repo";
 import * as visitRepo from "./modules/visit/repo";
 import { invokeLLM } from "./_core/llm";
-import { createStripeCheckoutSession } from "./modules/payments/stripe";
+import { createPaymentCheckoutSession } from "./modules/payments/providerManager";
 import { sendMagicLinkEmail } from "./_core/mailer";
 import { issueAppointmentAccessLinks } from "./modules/appointments/tokenService";
 import { validateAppointmentAccessToken } from "./modules/appointments/tokenValidation";
@@ -128,9 +128,10 @@ describe("appointments router", () => {
     } as never);
     vi.mocked(visitRepo.getRecentMessages).mockResolvedValue([] as never);
 
-    vi.mocked(createStripeCheckoutSession).mockReturnValue({
+    vi.mocked(createPaymentCheckoutSession).mockResolvedValue({
       id: "cs_test_abc",
       url: "https://checkout.mock/cs_test_abc",
+      provider: "stripe",
     });
   });
 
@@ -165,6 +166,7 @@ describe("appointments router", () => {
     expect(appointmentsRepo.markAppointmentPendingPayment).toHaveBeenCalledWith({
       appointmentId: 123,
       stripeSessionId: "cs_test_abc",
+      paymentProvider: "stripe",
     });
 
     expect(result).toMatchObject({

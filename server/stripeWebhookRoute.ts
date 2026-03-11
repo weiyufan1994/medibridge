@@ -33,6 +33,7 @@ async function recordStripeWebhookFailure(input: {
     await appointmentsRepo.insertStripeWebhookEvent({
       eventId,
       type: input.type.slice(0, 100),
+      provider: "stripe",
       stripeSessionId: input.stripeSessionId ?? null,
       appointmentId: null,
       payloadHash: input.payloadHash ?? null,
@@ -147,6 +148,7 @@ export async function handleStripeWebhook(req: Request, res: Response) {
         await appointmentsRepo.insertStripeWebhookEvent({
           eventId: event.id,
           type: event.type,
+          provider: "stripe",
           stripeSessionId,
           appointmentId,
           payloadHash,

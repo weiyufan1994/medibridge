@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import type { Request } from "express";
 import * as appointmentsRepo from "./repo";
-import { createStripeCheckoutSession } from "../payments/stripe";
+import { createPaymentCheckoutSession } from "../payments/providerManager";
 import { APPOINTMENT_INVALID_TRANSITION_ERROR } from "./stateMachine";
 import { getPublicBaseUrl } from "../../_core/getPublicBaseUrl";
 
@@ -149,7 +149,7 @@ export async function createAppointmentCheckoutFlow(input: {
   });
 
   const publicUrlBase = getPublicBaseUrl(input.req);
-  const checkout = createStripeCheckoutSession({
+  const checkout = await createPaymentCheckoutSession({
     appointmentId,
     amount: input.selectedPackage.amount,
     currency: input.selectedPackage.currency,
@@ -160,6 +160,7 @@ export async function createAppointmentCheckoutFlow(input: {
   const transitioned = await appointmentsRepo.markAppointmentPendingPayment({
     appointmentId,
     stripeSessionId: checkout.id,
+    paymentProvider: checkout.provider,
   });
   if (transitioned && "ok" in transitioned && !transitioned.ok) {
     throw new TRPCError({

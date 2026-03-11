@@ -28,6 +28,7 @@ import {
 } from "./stateMachine";
 
 export type AppointmentTokenRole = "patient" | "doctor";
+type PaymentProvider = "stripe" | "paypal";
 const ACTIVE_TOKEN_LIMIT_PER_ROLE = 5;
 type BaseDb = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 type DbExecutor = Pick<BaseDb, "select" | "insert" | "update">;
@@ -822,6 +823,7 @@ export async function tryTransitionAppointmentByStripeSessionId(input: {
 export async function markAppointmentPendingPayment(input: {
   appointmentId: number;
   stripeSessionId: string;
+  paymentProvider?: PaymentProvider;
 }) {
   return tryTransitionAppointmentById({
     appointmentId: input.appointmentId,
@@ -835,6 +837,7 @@ export async function markAppointmentPendingPayment(input: {
     },
     update: {
       stripeSessionId: input.stripeSessionId,
+      paymentProvider: input.paymentProvider ?? "stripe",
     },
   });
 }
@@ -1049,6 +1052,7 @@ export async function insertStatusEvent(input: {
 export async function insertStripeWebhookEvent(input: {
   eventId: string;
   type: string;
+  provider?: PaymentProvider;
   stripeSessionId?: string | null;
   appointmentId?: number | null;
   payloadHash?: string | null;
@@ -1059,6 +1063,7 @@ export async function insertStripeWebhookEvent(input: {
   await db.insert(stripeWebhookEvents).values({
     eventId: input.eventId,
     type: input.type,
+    provider: input.provider ?? "stripe",
     stripeSessionId: input.stripeSessionId ?? null,
     appointmentId: input.appointmentId ?? null,
     payloadHash: input.payloadHash ?? null,

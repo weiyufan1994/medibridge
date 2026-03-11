@@ -6,7 +6,7 @@ import {
   CHECKOUT_REINIT_ALLOWED_FROM,
   CHECKOUT_REINIT_BLOCKED_STATUSES,
 } from "../appointments/stateMachine";
-import { createStripeCheckoutSession } from "./stripe";
+import { createPaymentCheckoutSession } from "./providerManager";
 
 type AppointmentRow = typeof appointments.$inferSelect;
 
@@ -34,7 +34,7 @@ export async function reinitiateCheckoutForAppointment(input: {
     });
   }
 
-  const checkout = createStripeCheckoutSession({
+  const checkout = await createPaymentCheckoutSession({
     appointmentId: input.appointment.id,
     amount: input.appointment.amount,
     currency: input.appointment.currency,
@@ -60,6 +60,7 @@ export async function reinitiateCheckoutForAppointment(input: {
     },
     update: {
       stripeSessionId: checkout.id,
+      paymentProvider: checkout.provider,
     },
   });
 

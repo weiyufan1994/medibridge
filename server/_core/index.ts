@@ -9,6 +9,7 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { getLocalUploadDir } from "../storage";
 import { handleStripeWebhook } from "../stripeWebhookRoute";
+import { handlePaypalWebhook } from "../paypalWebhookRoute";
 import { createVisitRealtimeGateway } from "../modules/visit/realtimeGateway";
 import { startAppointmentAutoCloseWorker } from "../modules/appointments/autoCloseWorker";
 
@@ -43,6 +44,13 @@ async function startServer() {
     express.raw({ type: "application/json" }),
     (req, res) => {
       void handleStripeWebhook(req, res);
+    }
+  );
+  app.post(
+    "/api/payments/paypal/webhook",
+    express.raw({ type: "application/json" }),
+    (req, res) => {
+      void handlePaypalWebhook(req, res);
     }
   );
   // Configure body parser with larger size limit for file uploads
