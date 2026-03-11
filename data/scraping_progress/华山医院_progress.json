@@ -1,0 +1,205 @@
+{
+  "hospital_name": "华山医院",
+  "total_depts": 22,
+  "completed_depts": 0,
+  "departments": [
+    {
+      "dept_name": "男科",
+      "url": "https://www.haodf.com/hospital/418/keshi/5022800772.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "性病科",
+      "url": "https://www.haodf.com/hospital/418/keshi/5488907164.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "检验医学科",
+      "url": "https://www.haodf.com/hospital/418/keshi/1724.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "PET中心",
+      "url": "https://www.haodf.com/hospital/418/keshi/107281.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "放疗科",
+      "url": "https://www.haodf.com/hospital/418/keshi/2012233191.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "放射科",
+      "url": "https://www.haodf.com/hospital/418/keshi/1711.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "康复医学科",
+      "url": "https://www.haodf.com/hospital/418/keshi/1728.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "皮肤科",
+      "url": "https://www.haodf.com/hospital/418/keshi/1733.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "创伤骨科",
+      "url": "https://www.haodf.com/hospital/418/keshi/599874198.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "关节外科",
+      "url": "https://www.haodf.com/hospital/418/keshi/599874197.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "骨科-足踝外科",
+      "url": "https://www.haodf.com/hospital/418/keshi/599877146.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "脊柱外科",
+      "url": "https://www.haodf.com/hospital/418/keshi/599874199.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "运动医学科",
+      "url": "https://www.haodf.com/hospital/418/keshi/102131.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "骨科",
+      "url": "https://www.haodf.com/hospital/418/keshi/11066.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "手外科",
+      "url": "https://www.haodf.com/hospital/418/keshi/1605.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "神经外科",
+      "url": "https://www.haodf.com/hospital/418/keshi/1736.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "国际医疗中心",
+      "url": "https://www.haodf.com/hospital/418/keshi/5450694660.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "抗生素研究生",
+      "url": "https://www.haodf.com/hospital/418/keshi/1729.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "肾病科",
+      "url": "https://www.haodf.com/hospital/418/keshi/1740.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "内分泌科",
+      "url": "https://www.haodf.com/hospital/418/keshi/1732.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "感染病科",
+      "url": "https://www.haodf.com/hospital/418/keshi/43374.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    },
+    {
+      "dept_name": "神经内科",
+      "url": "https://www.haodf.com/hospital/418/keshi/1737.html",
+      "status": "pending",
+      "doctors_scraped": 0,
+      "doctors_total": 0,
+      "last_updated": null,
+      "output_file": null
+    }
+  ]
+}

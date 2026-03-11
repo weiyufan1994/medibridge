@@ -41,7 +41,7 @@ URL: https://www.haodf.com/hospital/420/keshi/1767/tuijian.html
 
 ### 5. 生成Excel文件
 将抓取结果转换为Excel格式，保存到：
-`/home/ubuntu/medibridge/data/hospitals/中山医院_呼吸科_医生信息_{YYYYMMDD}.xlsx`
+`/home/ubuntu/medibridge/data/hospitals/中山医院/呼吸科_医生详细信息_{YYYYMMDD}.xlsx`
 
 ### 6. 推送到GitHub
 ```bash

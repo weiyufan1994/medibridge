@@ -66,9 +66,9 @@ python3 /home/ubuntu/medibridge/scripts/track_progress.py
 
 ### 5. 保存数据
 
-**临时文件**：`/home/ubuntu/medibridge/data/hospitals/{医院}_{科室}_医生信息_临时.txt`
+**临时文件**：`/home/ubuntu/medibridge/data/hospitals/{医院}/{科室}_医生详细信息_临时.txt`
 
-**Excel文件**：`/home/ubuntu/medibridge/data/hospitals/{医院}_{科室}_医生信息_{日期}.xlsx`
+**Excel文件**：`/home/ubuntu/medibridge/data/hospitals/{医院}/{科室}_医生详细信息_{日期}.xlsx`
 
 使用技能提供的脚本：
 ```bash
@@ -81,7 +81,7 @@ python3 /home/ubuntu/skills/haodf-doctor-scraper/scripts/parse_to_excel.py \
 
 ```bash
 cd /home/ubuntu/medibridge
-git add data/hospitals/{医院}_{科室}_医生信息_{日期}.xlsx
+git add data/hospitals/{医院}/{科室}_医生详细信息_{日期}.xlsx
 git commit -m "Add {医院} {科室} doctor data - {日期}"
 git push origin main
 ```

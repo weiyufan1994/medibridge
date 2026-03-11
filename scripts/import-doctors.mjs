@@ -42,11 +42,11 @@ const hospitalMapping = {
 
 const columnMappings = {
   hospital: ["医院", "hospital", "所属医院", "机构"],
-  department: ["科室", "department", "所属科室", "挂号科室"],
+  department: ["科室", "department", "所属科室", "挂号科室", "科室名称"],
   name: ["姓名", "name", "医生姓名", "专家姓名", "大夫", "医师", "专家"],
   title: ["职称", "title", "职务", "医生职称"],
   specialty: ["专业方向", "specialty", "专长", "擅长领域", "擅长"],
-  experience: ["经验", "experience", "从业经验", "临床经验"],
+  experience: ["经验", "experience", "从业经验", "临床经验", "治疗经验"],
   description: ["简介", "description", "医生简介", "个人简介"],
   imageUrl: ["头像", "image", "imageUrl", "头像地址", "照片", "photo", "图片"],
   expertise: ["专业擅长", "expertise", "疾病", "擅长疾病"],
@@ -55,13 +55,44 @@ const columnMappings = {
   recommendationScore: ["病友推荐度", "推荐度", "recommendation"],
   onlineConsultation: ["在线问诊", "online", "问诊"],
   appointmentAvailable: ["预约挂号", "appointment", "挂号"],
+  sourceDoctorId: ["doctor id", "doctor_id", "doctorid", "医生id", "doctorid", "医生id"],
+  profileUrl: [
+    "url",
+    "主页链接",
+    "医生介绍页url",
+    "介绍页url",
+    "简介页url",
+    "好大夫链接",
+    "医生主页",
+    "网站",
+  ],
+  totalPatients: ["总患者", "总患者数"],
+  totalArticles: ["总文章"],
+  totalVisits: ["总访问", "总浏览"],
+  scrapedDate: ["抓取日期", "抓取时间"],
+  scrapedStatus: ["抓取状态"],
+  dataSource: ["数据来源"],
+  education: ["教育经历"],
+  socialRole: ["社会任职"],
+  researchAchievements: ["科研成果"],
+  honors: ["获奖荣誉"],
+  followUpPatients: ["诊后报到患者", "诊后报到"],
+  followUpFeedback: ["诊后评价", "术后评价"],
+  gender: ["性别"],
+  sequenceNumber: ["序号", "序列号"],
 };
 
 function findColumnIndex(headerRow, fieldMappings) {
+  const normalize = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/[\s_]+/g, "")
+      .replace(/[:：]/g, "");
+
   for (let i = 0; i < fieldMappings.length; i++) {
-    const searchTerm = fieldMappings[i].toLowerCase();
+    const searchTerm = normalize(fieldMappings[i]);
     for (let colIdx = 0; colIdx < headerRow.length; colIdx++) {
-      const headerVal = String(headerRow[colIdx] || "").toLowerCase().trim();
+      const headerVal = normalize(headerRow[colIdx]);
       if (headerVal === searchTerm || headerVal.includes(searchTerm)) {
         return colIdx;
       }
@@ -134,11 +165,7 @@ function getAllXlsxFiles(dirPath, arrayOfFiles = []) {
       continue;
     }
 
-    if (
-      file.endsWith(".xlsx") &&
-      !file.startsWith("~$") &&
-      file.includes("医生信息")
-    ) {
+    if (file.endsWith(".xlsx") && !file.startsWith("~$")) {
       arrayOfFiles.push(fullPath);
     }
   }
@@ -154,9 +181,19 @@ function parseHospitalFromPath(hospitalsDir, filePath) {
 
 function parseDepartmentFromFileName(fileName) {
   const base = fileName.replace(/\.xlsx$/i, "").trim();
-  const match = base.match(/^(.*)_医生信息(?:_\d{8})?$/);
-  if (match?.[1]) return match[1].trim();
-  return base;
+  if (!base) return "";
+
+  const newStyle = base.match(/^(.*)_医生详细信息(?:_\d{8})?$/);
+  if (newStyle?.[1]) {
+    return newStyle[1].trim();
+  }
+
+  const legacyStyle = base.match(/^(.*)_医生信息(?:_\d{8})?$/);
+  if (!legacyStyle?.[1]) return "";
+
+  const normalized = legacyStyle[1].trim();
+  const parts = normalized.split("_").map((x) => x.trim()).filter(Boolean);
+  return parts.length > 1 ? parts[parts.length - 1] : normalized;
 }
 
 function loadDeptUrlMap(jsonPath) {
@@ -221,6 +258,7 @@ async function importDoctors() {
         }
 
         const { mapping, headerRowNum } = columnInfo;
+        const sheetDepartment = worksheet.name?.trim() || "";
 
         worksheet.eachRow((row, rowNumber) => {
           if (rowNumber <= headerRowNum) return;
@@ -234,7 +272,8 @@ async function importDoctors() {
 
           const rowData = {
             hospital: hospitalFromFolder || getCellValue("hospital") || "",
-            department: departmentFromFile || getCellValue("department") || "",
+            department:
+              getCellValue("department") || sheetDepartment || departmentFromFile || "",
             name: getCellValue("name"),
             title: getCellValue("title"),
             specialty: getCellValue("specialty"),
@@ -247,6 +286,22 @@ async function importDoctors() {
             recommendationScore: getCellValue("recommendationScore"),
             onlineConsultation: getCellValue("onlineConsultation"),
             appointmentAvailable: getCellValue("appointmentAvailable"),
+            sourceDoctorId: getCellValue("sourceDoctorId"),
+            profileUrl: getCellValue("profileUrl"),
+            totalPatients: getCellValue("totalPatients"),
+            totalArticles: getCellValue("totalArticles"),
+            totalVisits: getCellValue("totalVisits"),
+            scrapedDate: getCellValue("scrapedDate"),
+            scrapedStatus: getCellValue("scrapedStatus"),
+            dataSource: getCellValue("dataSource"),
+            education: getCellValue("education"),
+            socialRole: getCellValue("socialRole"),
+            researchAchievements: getCellValue("researchAchievements"),
+            honors: getCellValue("honors"),
+            followUpPatients: getCellValue("followUpPatients"),
+            followUpFeedback: getCellValue("followUpFeedback"),
+            gender: getCellValue("gender"),
+            sequenceNumber: getCellValue("sequenceNumber"),
           };
 
           if (rowData.name && rowData.name.length > 0) {
@@ -400,6 +455,23 @@ async function importDoctors() {
               recommendationScore: recScore,
               onlineConsultation: normalizeValue(doc.onlineConsultation),
               appointmentAvailable: normalizeValue(doc.appointmentAvailable),
+              sourceDoctorId: normalizeValue(doc.sourceDoctorId),
+              haodafUrl: normalizeValue(doc.profileUrl),
+              websiteUrl: normalizeValue(doc.profileUrl),
+              totalPatients: normalizeValue(doc.totalPatients),
+              totalArticles: normalizeValue(doc.totalArticles),
+              totalVisits: normalizeValue(doc.totalVisits),
+              scrapedDate: normalizeValue(doc.scrapedDate),
+              scrapedStatus: normalizeValue(doc.scrapedStatus),
+              dataSource: normalizeValue(doc.dataSource),
+              educationExperience: normalizeValue(doc.education),
+              socialRole: normalizeValue(doc.socialRole),
+              researchAchievements: normalizeValue(doc.researchAchievements),
+              honors: normalizeValue(doc.honors),
+              followUpPatients: normalizeValue(doc.followUpPatients),
+              followUpFeedback: normalizeValue(doc.followUpFeedback),
+              gender: normalizeValue(doc.gender),
+              sequenceNumber: normalizeValue(doc.sequenceNumber),
             };
 
             const sourceHash = computeSourceHash({
@@ -414,6 +486,24 @@ async function importDoctors() {
               appointmentAvailable: doctorValues.appointmentAvailable,
               satisfactionRate: doctorValues.satisfactionRate,
               attitudeScore: doctorValues.attitudeScore,
+              recommendationScore: doctorValues.recommendationScore,
+              sourceDoctorId: doctorValues.sourceDoctorId,
+              haodafUrl: doctorValues.haodafUrl,
+              websiteUrl: doctorValues.websiteUrl,
+              totalPatients: doctorValues.totalPatients,
+              totalArticles: doctorValues.totalArticles,
+              totalVisits: doctorValues.totalVisits,
+              scrapedDate: doctorValues.scrapedDate,
+              scrapedStatus: doctorValues.scrapedStatus,
+              dataSource: doctorValues.dataSource,
+              educationExperience: doctorValues.educationExperience,
+              socialRole: doctorValues.socialRole,
+              researchAchievements: doctorValues.researchAchievements,
+              honors: doctorValues.honors,
+              followUpPatients: doctorValues.followUpPatients,
+              followUpFeedback: doctorValues.followUpFeedback,
+              gender: doctorValues.gender,
+              sequenceNumber: doctorValues.sequenceNumber,
             });
 
             await db

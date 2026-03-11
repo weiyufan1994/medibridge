@@ -9,9 +9,36 @@ import json
 import os
 from pathlib import Path
 
+
+def parse_department_from_filename(filename: str) -> str:
+    base = filename[:-5] if filename.lower().endswith('.xlsx') else filename
+    base = base.strip()
+    if not base:
+        return ''
+
+    # New style: {科室}_医生详细信息_YYYYMMDD.xlsx (date suffix optional)
+    marker_new = '_医生详细信息'
+    if marker_new in base:
+        return base.split(marker_new, 1)[0].strip()
+
+    # Legacy style: {医院}_{科室}_医生信息_YYYYMMDD.xlsx
+    marker_old = '_医生信息'
+    if marker_old not in base:
+        return ''
+
+    prefix = base.split(marker_old, 1)[0].strip()
+    parts = [x.strip() for x in prefix.split('_') if x.strip()]
+    if len(parts) > 1:
+        return parts[-1]
+    return prefix
+
 class ProgressTracker:
     def __init__(self):
-        self.base_dir = Path('/home/ubuntu/medibridge')
+        env_base = os.getenv('MEDIBRIDGE_BASE_DIR')
+        if env_base:
+            self.base_dir = Path(env_base)
+        else:
+            self.base_dir = Path(__file__).resolve().parent.parent
         self.departments_file = self.base_dir / 'data/departments/all_departments.json'
         self.hospitals_dir = self.base_dir / 'data/hospitals'
         self.progress_file = self.base_dir / 'data/departments/progress.json'
@@ -24,17 +51,31 @@ class ProgressTracker:
     def get_scraped_departments(self):
         """获取已抓取的科室列表"""
         scraped = set()
-        
-        # 检查hospitals目录中的Excel文件
-        for filename in os.listdir(self.hospitals_dir):
-            if filename.endswith('.xlsx') and '医生信息' in filename:
-                # 文件名格式: 医院_科室_医生信息_日期.xlsx
-                parts = filename.replace('.xlsx', '').split('_')
-                if len(parts) >= 2:
-                    hospital = parts[0]
-                    department = parts[1]
-                    key = f"{hospital}_{department}"
-                    scraped.add(key)
+
+        if not self.hospitals_dir.exists():
+            return scraped
+
+        # 新目录规则：data/hospitals/{医院名称}/{科室}_医生详细信息_YYYYMMDD.xlsx
+        # 同时兼容历史命名：{医院}_{科室}_医生信息_YYYYMMDD.xlsx
+        for hospital_dir in self.hospitals_dir.iterdir():
+            if not hospital_dir.is_dir():
+                continue
+
+            hospital = hospital_dir.name.strip()
+            if not hospital:
+                continue
+
+            for file_path in hospital_dir.glob('*.xlsx'):
+                filename = file_path.name
+                if '医生信息' not in filename and '医生详细信息' not in filename:
+                    continue
+
+                department = parse_department_from_filename(filename)
+                if not department:
+                    continue
+
+                key = f"{hospital}_{department}"
+                scraped.add(key)
         
         return scraped
     

@@ -1,0 +1,32 @@
+{
+  "last_updated": "2026-03-03",
+  "total_hospitals": 6,
+  "total_depts": 123,
+  "completed_depts": 17,
+  "hospitals": {
+    "上海市第九人民医院": {
+      "total_depts": 22,
+      "completed_depts": 16
+    },
+    "中山医院": {
+      "total_depts": 25,
+      "completed_depts": 1
+    },
+    "华山医院": {
+      "total_depts": 22,
+      "completed_depts": 0
+    },
+    "瑞金医院": {
+      "total_depts": 29,
+      "completed_depts": 0
+    },
+    "复旦大学附属肿瘤医院": {
+      "total_depts": 9,
+      "completed_depts": 0
+    },
+    "上海市第六人民医院": {
+      "total_depts": 16,
+      "completed_depts": 0
+    }
+  }
+}
