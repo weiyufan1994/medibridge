@@ -8,6 +8,7 @@ export const TOKEN_ERROR_CODES = [
   "TOKEN_MAX_USES",
   "APPOINTMENT_NOT_FOUND",
   "APPOINTMENT_NOT_ALLOWED",
+  "APPOINTMENT_NOT_STARTED",
   "RATE_LIMITED",
 ] as const;
 
@@ -22,7 +23,7 @@ export function throwTokenError(error: TokenErrorCode): never {
     throw new TRPCError({ code: "NOT_FOUND", message: error });
   }
 
-  if (error === "APPOINTMENT_NOT_ALLOWED") {
+  if (error === "APPOINTMENT_NOT_ALLOWED" || error === "APPOINTMENT_NOT_STARTED") {
     throw new TRPCError({ code: "FORBIDDEN", message: error });
   }
 

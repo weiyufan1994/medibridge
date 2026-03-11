@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./modules/appointments/repo", () => ({
   getAppointmentById: vi.fn(),
+  updateAppointmentById: vi.fn(),
   insertStatusEvent: vi.fn(),
 }));
 vi.mock("./modules/visit/repo", () => ({
@@ -212,6 +213,40 @@ describe("system admin actions", () => {
       expect.objectContaining({
         title: expect.stringContaining("#321"),
         content: expect.stringContaining("patient@example.com"),
+      })
+    );
+  });
+
+  it("adminUpdateAppointmentSchedule updates scheduledAt and writes audit status event", async () => {
+    vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue(
+      mockAppointment({ status: "active", paymentStatus: "paid" }) as never
+    );
+
+    const caller = createAdminCaller();
+    const newScheduledAt = new Date("2026-03-01T12:30:00.000Z");
+    const result = await caller.adminUpdateAppointmentSchedule({
+      appointmentId: 321,
+      scheduledAt: newScheduledAt,
+      reason: "ops_test_adjust",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      appointmentId: 321,
+      scheduledAt: newScheduledAt,
+    });
+    expect(appointmentsRepo.updateAppointmentById).toHaveBeenCalledWith(
+      321,
+      expect.objectContaining({
+        scheduledAt: newScheduledAt,
+      })
+    );
+    expect(appointmentsRepo.insertStatusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appointmentId: 321,
+        operatorType: "admin",
+        operatorId: 99,
+        reason: "admin_schedule_update:ops_test_adjust",
       })
     );
   });

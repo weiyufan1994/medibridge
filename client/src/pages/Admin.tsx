@@ -38,6 +38,8 @@ export default function AdminPage() {
     setManualPaymentStatus,
     manualStatusReason,
     setManualStatusReason,
+    manualScheduledAt,
+    setManualScheduledAt,
     freeRetentionDaysInput,
     setFreeRetentionDaysInput,
     paidRetentionDaysInput,
@@ -61,6 +63,7 @@ export default function AdminPage() {
     resendAccessLinkMutation,
     issueLinksMutation,
     updateStatusMutation,
+    updateScheduleMutation,
     generateSummaryMutation,
     exportSummaryPdfMutation,
     updateRetentionPolicyMutation,
@@ -69,6 +72,8 @@ export default function AdminPage() {
     suggestions,
     openAppointmentById,
     applyManualStatusUpdate,
+    applyManualScheduleUpdate,
+    setScheduleToNow,
     upsertRetentionPolicy,
     toggleRetentionEnabled,
     handleCopyDebugSnapshot,
@@ -173,10 +178,15 @@ export default function AdminPage() {
           setManualPaymentStatus={setManualPaymentStatus}
           manualStatusReason={manualStatusReason}
           setManualStatusReason={setManualStatusReason}
+          manualScheduledAt={manualScheduledAt}
+          setManualScheduledAt={setManualScheduledAt}
+          setScheduleToNow={setScheduleToNow}
           appointmentStatusOptions={appointmentStatusOptions}
           paymentStatusOptions={paymentStatusOptions}
           applyManualStatusUpdate={applyManualStatusUpdate}
+          applyManualScheduleUpdate={applyManualScheduleUpdate}
           updateStatusMutation={updateStatusMutation}
+          updateScheduleMutation={updateScheduleMutation}
           generateSummaryMutation={generateSummaryMutation}
           exportSummaryPdfMutation={exportSummaryPdfMutation}
           visitSummaryQuery={visitSummaryQuery}

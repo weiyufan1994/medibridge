@@ -3,14 +3,16 @@ import * as aiRepo from "../ai/repo";
 import * as appointmentsRepo from "./repo";
 import { buildAppointmentAccessLink } from "./linkService";
 import { validateAppointmentToken } from "./accessValidation";
-import { parseIntakeFromNotes, translateTriageSummary } from "./accessQueryActions";
+import { localizeTriageContent, parseIntakeFromNotes } from "./accessQueryActions";
 import { resolveConsultationTimerState } from "./consultationTimer";
 import { toPublicAppointment } from "./serializers";
 import { appointmentIntakeSchema } from "./schemas";
 
 type IntakeSafeParseResult<T> = { success: true; data: T } | { success: false };
 
-export async function getAppointmentAccessByToken<TIntake>(input: {
+export async function getAppointmentAccessByToken<
+  TIntake extends Record<string, string | undefined>,
+>(input: {
   appointmentId: number;
   token: string;
   lang: "en" | "zh";
@@ -26,9 +28,13 @@ export async function getAppointmentAccessByToken<TIntake>(input: {
 
   const triageSession = await aiRepo.getAiChatSessionById(appointment.triageSessionId);
   const medicalSummary = await appointmentsRepo.getMedicalSummaryByAppointmentId(appointment.id);
-  const localizedSummary = triageSession?.summary
-    ? await translateTriageSummary(triageSession.summary, input.lang)
-    : null;
+  const canReadMedicalSummary = role === "doctor" || Boolean(medicalSummary?.signedBy);
+  const parsedIntake = parseIntakeFromNotes(appointment.notes, input.parseIntake);
+  const localizedTriage = await localizeTriageContent({
+    summary: triageSession?.summary ?? null,
+    intake: parsedIntake,
+    targetLang: input.lang,
+  });
   const timer = resolveConsultationTimerState(appointment.notes);
 
   return {
@@ -41,9 +47,9 @@ export async function getAppointmentAccessByToken<TIntake>(input: {
     doctor: {
       id: appointment.doctorId,
     },
-    triageSummary: localizedSummary,
-    intake: parseIntakeFromNotes(appointment.notes, input.parseIntake),
-    medicalSummary: medicalSummary
+    triageSummary: localizedTriage.summary,
+    intake: localizedTriage.intake,
+    medicalSummary: canReadMedicalSummary && medicalSummary
       ? {
           chiefComplaint: medicalSummary.chiefComplaint,
           historyOfPresentIllness: medicalSummary.historyOfPresentIllness,

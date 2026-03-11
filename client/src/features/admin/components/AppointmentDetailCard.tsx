@@ -12,6 +12,7 @@ import type {
   QueryState,
   ReinitiatePaymentMutation,
   ResendAccessLinkMutation,
+  UpdateScheduleMutation,
   UpdateStatusMutation,
   VisitSummaryQuery,
 } from "@/features/admin/types";
@@ -40,10 +41,15 @@ type AppointmentDetailCardProps = {
   setManualPaymentStatus: (value: string) => void;
   manualStatusReason: string;
   setManualStatusReason: (value: string) => void;
+  manualScheduledAt: string;
+  setManualScheduledAt: (value: string) => void;
+  setScheduleToNow: () => void;
   appointmentStatusOptions: readonly string[];
   paymentStatusOptions: readonly string[];
   applyManualStatusUpdate: () => void;
+  applyManualScheduleUpdate: () => void;
   updateStatusMutation: UpdateStatusMutation;
+  updateScheduleMutation: UpdateScheduleMutation;
   generateSummaryMutation: GenerateSummaryMutation;
   exportSummaryPdfMutation: ExportSummaryPdfMutation;
   visitSummaryQuery: VisitSummaryQuery;
@@ -72,10 +78,15 @@ export function AppointmentDetailCard({
   setManualPaymentStatus,
   manualStatusReason,
   setManualStatusReason,
+  manualScheduledAt,
+  setManualScheduledAt,
+  setScheduleToNow,
   appointmentStatusOptions,
   paymentStatusOptions,
   applyManualStatusUpdate,
+  applyManualScheduleUpdate,
   updateStatusMutation,
+  updateScheduleMutation,
   generateSummaryMutation,
   exportSummaryPdfMutation,
   visitSummaryQuery,
@@ -139,10 +150,15 @@ export function AppointmentDetailCard({
               setManualPaymentStatus={setManualPaymentStatus}
               manualStatusReason={manualStatusReason}
               setManualStatusReason={setManualStatusReason}
+              manualScheduledAt={manualScheduledAt}
+              setManualScheduledAt={setManualScheduledAt}
+              setScheduleToNow={setScheduleToNow}
               appointmentStatusOptions={appointmentStatusOptions}
               paymentStatusOptions={paymentStatusOptions}
               applyManualStatusUpdate={applyManualStatusUpdate}
+              applyManualScheduleUpdate={applyManualScheduleUpdate}
               updateStatusMutation={updateStatusMutation}
+              updateScheduleMutation={updateScheduleMutation}
               generateSummaryMutation={generateSummaryMutation}
               exportSummaryPdfMutation={exportSummaryPdfMutation}
               visitSummaryQuery={visitSummaryQuery}

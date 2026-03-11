@@ -394,6 +394,69 @@ describe("token validation", () => {
     });
   });
 
+  it.each(["join_room", "read_history", "send_message"] as const)(
+    "future scheduled appointment blocks %s with APPOINTMENT_NOT_STARTED",
+    async action => {
+      vi.mocked(appointmentsRepo.getAppointmentTokenByHash).mockResolvedValue({
+        id: 1,
+        appointmentId: 777,
+        role: "patient",
+        tokenHash: "a".repeat(64),
+        expiresAt: new Date(Date.now() + 60_000),
+        useCount: 0,
+        maxUses: 10,
+        revokedAt: null,
+      } as never);
+      vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue({
+        ...paidAppointment(),
+        scheduledAt: new Date(Date.now() + 60 * 60 * 1000),
+      } as never);
+
+      await expect(
+        validateAppointmentAccessToken({
+          token: "token-1234567890abcdef",
+          req: makeReq(),
+          action,
+        })
+      ).rejects.toMatchObject<Partial<TRPCError>>({
+        code: "FORBIDDEN",
+        message: "APPOINTMENT_NOT_STARTED",
+      });
+    }
+  );
+
+  it("future scheduled appointment is allowed when VISIT_ROOM_TEST_MODE is enabled", async () => {
+    process.env.VISIT_ROOM_TEST_MODE = "true";
+    try {
+      vi.mocked(appointmentsRepo.getAppointmentTokenByHash).mockResolvedValue({
+        id: 1,
+        appointmentId: 777,
+        role: "patient",
+        tokenHash: "a".repeat(64),
+        expiresAt: new Date(Date.now() + 60_000),
+        useCount: 0,
+        maxUses: 10,
+        revokedAt: null,
+      } as never);
+      vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue({
+        ...paidAppointment(),
+        scheduledAt: new Date(Date.now() + 60 * 60 * 1000),
+      } as never);
+      vi.mocked(appointmentsRepo.updateTokenUsageIfAllowed).mockResolvedValue(1 as never);
+      vi.mocked(appointmentsRepo.saveTokenFirstSeen).mockResolvedValue(undefined as never);
+
+      await expect(
+        validateAppointmentAccessToken({
+          token: "token-1234567890abcdef",
+          req: makeReq(),
+          action: "join_room",
+        })
+      ).resolves.toBeTruthy();
+    } finally {
+      delete process.env.VISIT_ROOM_TEST_MODE;
+    }
+  });
+
   it("APP_BASE_URL missing throws when building access link", () => {
     delete process.env.APP_BASE_URL;
     expect(() =>

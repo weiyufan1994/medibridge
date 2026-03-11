@@ -6,6 +6,7 @@ import type {
   IssueLinksMutation,
   ReinitiatePaymentMutation,
   ResendAccessLinkMutation,
+  UpdateScheduleMutation,
   UpdateStatusMutation,
   VisitSummaryQuery,
 } from "@/features/admin/types";
@@ -28,10 +29,15 @@ type ActionsSectionProps = {
   setManualPaymentStatus: (value: string) => void;
   manualStatusReason: string;
   setManualStatusReason: (value: string) => void;
+  manualScheduledAt: string;
+  setManualScheduledAt: (value: string) => void;
+  setScheduleToNow: () => void;
   appointmentStatusOptions: readonly string[];
   paymentStatusOptions: readonly string[];
   applyManualStatusUpdate: () => void;
+  applyManualScheduleUpdate: () => void;
   updateStatusMutation: UpdateStatusMutation;
+  updateScheduleMutation: UpdateScheduleMutation;
   generateSummaryMutation: GenerateSummaryMutation;
   exportSummaryPdfMutation: ExportSummaryPdfMutation;
   visitSummaryQuery: VisitSummaryQuery;
@@ -54,10 +60,15 @@ export function ActionsSection({
   setManualPaymentStatus,
   manualStatusReason,
   setManualStatusReason,
+  manualScheduledAt,
+  setManualScheduledAt,
+  setScheduleToNow,
   appointmentStatusOptions,
   paymentStatusOptions,
   applyManualStatusUpdate,
+  applyManualScheduleUpdate,
   updateStatusMutation,
+  updateScheduleMutation,
   generateSummaryMutation,
   exportSummaryPdfMutation,
   visitSummaryQuery,
@@ -158,6 +169,35 @@ export function ActionsSection({
             {updateStatusMutation.isPending
               ? tr("更新中...", "Updating...")
               : tr("应用状态", "Apply Status")}
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-2 rounded border p-3">
+        <p className="text-sm font-medium">{tr("测试预约时间", "Test Appointment Time")}</p>
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+          <Input
+            type="datetime-local"
+            value={manualScheduledAt}
+            onChange={event => setManualScheduledAt(event.target.value)}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={setScheduleToNow}
+            disabled={updateScheduleMutation.isPending}
+          >
+            {tr("设为当前时间", "Set to now")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={applyManualScheduleUpdate}
+            disabled={updateScheduleMutation.isPending}
+          >
+            {updateScheduleMutation.isPending
+              ? tr("保存中...", "Saving...")
+              : tr("保存预约时间", "Save schedule")}
           </Button>
         </div>
       </div>

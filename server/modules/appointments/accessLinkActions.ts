@@ -21,6 +21,24 @@ const OPEN_ROOM_ALLOWED_STATUS = new Set<string>([
 
 type AppointmentRecord = typeof appointments.$inferSelect;
 
+function isVisitRoomTestModeEnabled() {
+  if (process.env.NODE_ENV === "production") {
+    return false;
+  }
+  const raw = (process.env.VISIT_ROOM_TEST_MODE ?? "").trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
+}
+
+function hasConsultationStarted(scheduledAt: Date | null, now: Date) {
+  if (isVisitRoomTestModeEnabled()) {
+    return true;
+  }
+  if (!(scheduledAt instanceof Date) || Number.isNaN(scheduledAt.getTime())) {
+    return true;
+  }
+  return now.getTime() >= scheduledAt.getTime();
+}
+
 function getDevAppointmentAccessLink(appointmentId: number, token: string): string {
   return `http://localhost:3000/visit/${appointmentId}?t=${encodeURIComponent(token)}`;
 }
@@ -51,6 +69,7 @@ export async function openMyRoomWithFreshLink(input: {
   userId: number;
 }) {
   const { appointment, userId } = input;
+  const now = new Date();
 
   if (!OPEN_ROOM_ALLOWED_STATUS.has(appointment.status)) {
     throw new TRPCError({
@@ -62,6 +81,12 @@ export async function openMyRoomWithFreshLink(input: {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Cannot open visit room before payment is completed",
+    });
+  }
+  if (!hasConsultationStarted(appointment.scheduledAt, now)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "APPOINTMENT_NOT_STARTED",
     });
   }
 

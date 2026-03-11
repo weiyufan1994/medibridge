@@ -1,6 +1,13 @@
 import { invokeLLM } from "../../_core/llm";
 
-const triageSummaryTranslationCache = new Map<string, string>();
+type TriageIntakeRecord = Record<string, string | undefined>;
+type TriageLocalizationCacheValue = {
+  summary: string | null;
+  intake: TriageIntakeRecord | null;
+};
+
+const triageContentTranslationCache = new Map<string, TriageLocalizationCacheValue>();
+const TRIAGE_TRANSLATION_CACHE_LIMIT = 200;
 
 function readAssistantText(content: unknown): string {
   if (typeof content === "string") {
@@ -19,25 +26,133 @@ function readAssistantText(content: unknown): string {
     .trim();
 }
 
-export async function translateTriageSummary(
-  summary: string,
-  targetLang: "en" | "zh"
-): Promise<string> {
-  const normalized = summary.trim();
+function normalizeSummary(summary: string | null | undefined): string | null {
+  const normalized = summary?.trim() ?? "";
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeIntake<TIntake extends TriageIntakeRecord | null>(intake: TIntake): TIntake {
+  if (!intake) {
+    return intake;
+  }
+
+  const normalized: TriageIntakeRecord = { ...intake };
+  for (const [key, value] of Object.entries(normalized)) {
+    if (typeof value === "string") {
+      normalized[key] = value.trim();
+    }
+  }
+  return normalized as TIntake;
+}
+
+function needsTranslationForTargetLanguage(value: string, targetLang: "en" | "zh") {
+  const normalized = value.trim();
   if (!normalized) {
-    return normalized;
+    return false;
   }
 
   const hasZh = /[\u4e00-\u9fff]/.test(normalized);
   const hasEn = /[A-Za-z]/.test(normalized);
-  if ((targetLang === "en" && !hasZh) || (targetLang === "zh" && !hasEn)) {
-    return normalized;
+  if (targetLang === "en") {
+    return hasZh;
+  }
+  return hasEn;
+}
+
+function shouldTranslateIntake(
+  intake: TriageIntakeRecord | null,
+  targetLang: "en" | "zh"
+) {
+  if (!intake) {
+    return false;
+  }
+  return Object.values(intake).some(
+    value =>
+      typeof value === "string" &&
+      needsTranslationForTargetLanguage(value, targetLang)
+  );
+}
+
+function setTranslationCache(key: string, value: TriageLocalizationCacheValue) {
+  triageContentTranslationCache.set(key, value);
+  if (triageContentTranslationCache.size > TRIAGE_TRANSLATION_CACHE_LIMIT) {
+    const first = triageContentTranslationCache.keys().next().value;
+    if (typeof first === "string") {
+      triageContentTranslationCache.delete(first);
+    }
+  }
+}
+
+function parseTranslatedIntake(input: unknown): TriageIntakeRecord | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return null;
   }
 
-  const cacheKey = `${targetLang}:${normalized}`;
-  const cached = triageSummaryTranslationCache.get(cacheKey);
+  const translated: TriageIntakeRecord = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (typeof value === "string") {
+      translated[key] = value.trim();
+    }
+  }
+
+  return Object.keys(translated).length > 0 ? translated : null;
+}
+
+function mergeLocalizedIntake<TIntake extends TriageIntakeRecord | null>(
+  current: TIntake,
+  localized: TriageIntakeRecord | null
+): TIntake {
+  if (!current) {
+    return current;
+  }
+
+  const merged: TriageIntakeRecord = { ...current };
+  if (!localized) {
+    return merged as TIntake;
+  }
+
+  for (const [key, value] of Object.entries(localized)) {
+    if (typeof value === "string") {
+      merged[key] = value;
+    }
+  }
+  return merged as TIntake;
+}
+
+export async function localizeTriageContent<
+  TIntake extends TriageIntakeRecord | null,
+>(input: {
+  summary: string | null | undefined;
+  intake: TIntake;
+  targetLang: "en" | "zh";
+}): Promise<{ summary: string | null; intake: TIntake }> {
+  const normalizedSummary = normalizeSummary(input.summary);
+  const normalizedIntake = normalizeIntake(input.intake);
+
+  const shouldTranslateSummary = normalizedSummary
+    ? needsTranslationForTargetLanguage(normalizedSummary, input.targetLang)
+    : false;
+  const shouldTranslateAnyIntake = shouldTranslateIntake(
+    normalizedIntake,
+    input.targetLang
+  );
+
+  if (!shouldTranslateSummary && !shouldTranslateAnyIntake) {
+    return {
+      summary: normalizedSummary,
+      intake: normalizedIntake,
+    };
+  }
+
+  const cacheKey = `${input.targetLang}:${normalizedSummary ?? ""}:${JSON.stringify(
+    normalizedIntake ?? {}
+  )}`;
+  const cached = triageContentTranslationCache.get(cacheKey);
   if (cached) {
-    return cached;
+    return {
+      summary: cached.summary,
+      intake: mergeLocalizedIntake(normalizedIntake, cached.intake),
+    };
   }
 
   try {
@@ -46,33 +161,69 @@ export async function translateTriageSummary(
         {
           role: "system",
           content:
-            targetLang === "en"
-              ? "Translate the medical triage summary to natural English. Keep the same fields and semicolon-separated structure. Output plain text only."
-              : "将这段医疗分诊摘要翻译成自然中文。保留原有字段和分号分隔结构。只输出纯文本。",
+            input.targetLang === "en"
+              ? "Translate the medical triage payload into natural English. Return strict JSON only: {\"summary\": string|null, \"intake\": object}. Keep intake keys unchanged and only translate values."
+              : "将医疗分诊信息翻译成自然中文。只返回严格 JSON：{\"summary\": string|null, \"intake\": object}。保留 intake 的键名不变，只翻译值。",
         },
-        { role: "user", content: normalized },
+        {
+          role: "user",
+          content: JSON.stringify({
+            summary: normalizedSummary,
+            intake: normalizedIntake ?? {},
+          }),
+        },
       ],
-      maxTokens: 400,
+      maxTokens: 800,
       responseFormat: { type: "text" },
     });
 
-    const translated = readAssistantText(response.choices?.[0]?.message?.content).trim();
-    if (!translated) {
-      return normalized;
+    const translatedRaw = readAssistantText(response.choices?.[0]?.message?.content).trim();
+    if (!translatedRaw) {
+      return {
+        summary: normalizedSummary,
+        intake: normalizedIntake,
+      };
     }
 
-    triageSummaryTranslationCache.set(cacheKey, translated);
-    if (triageSummaryTranslationCache.size > 200) {
-      const first = triageSummaryTranslationCache.keys().next().value;
-      if (typeof first === "string") {
-        triageSummaryTranslationCache.delete(first);
-      }
-    }
-    return translated;
+    const parsed = JSON.parse(translatedRaw) as {
+      summary?: unknown;
+      intake?: unknown;
+    };
+    const localizedSummary =
+      typeof parsed.summary === "string" && parsed.summary.trim().length > 0
+        ? parsed.summary.trim()
+        : normalizedSummary;
+    const localizedIntake = parseTranslatedIntake(parsed.intake);
+    const mergedIntake = mergeLocalizedIntake(normalizedIntake, localizedIntake);
+
+    setTranslationCache(cacheKey, {
+      summary: localizedSummary,
+      intake: localizedIntake,
+    });
+
+    return {
+      summary: localizedSummary,
+      intake: mergedIntake,
+    };
   } catch (error) {
-    console.warn("[appointments] triage summary translation failed:", error);
-    return normalized;
+    console.warn("[appointments] triage content localization failed:", error);
+    return {
+      summary: normalizedSummary,
+      intake: normalizedIntake,
+    };
   }
+}
+
+export async function translateTriageSummary(
+  summary: string,
+  targetLang: "en" | "zh"
+): Promise<string> {
+  const localized = await localizeTriageContent({
+    summary,
+    intake: null,
+    targetLang,
+  });
+  return localized.summary ?? summary.trim();
 }
 
 type SafeParseResult<T> = { success: true; data: T } | { success: false };

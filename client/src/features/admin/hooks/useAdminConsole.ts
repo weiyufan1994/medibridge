@@ -34,6 +34,7 @@ export function useAdminConsole({
   const [manualStatus, setManualStatus] = useState("active");
   const [manualPaymentStatus, setManualPaymentStatus] = useState("paid");
   const [manualStatusReason, setManualStatusReason] = useState("ops_manual_update");
+  const [manualScheduledAt, setManualScheduledAt] = useState("");
   const [freeRetentionDaysInput, setFreeRetentionDaysInput] = useState("7");
   const [paidRetentionDaysInput, setPaidRetentionDaysInput] = useState("180");
   const [issuedLinks, setIssuedLinks] = useState<{
@@ -88,6 +89,18 @@ export function useAdminConsole({
       );
     }
     return raw;
+  };
+
+  const toDateTimeLocalValue = (value: Date | string | null | undefined) => {
+    if (!value) {
+      return "";
+    }
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return "";
+    }
+    const pad = (part: number) => String(part).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   };
 
   const appointmentsQuery = trpc.system.adminAppointments.useQuery(
@@ -160,6 +173,11 @@ export function useAdminConsole({
     }
   }, [retentionPoliciesQuery.data]);
 
+  useEffect(() => {
+    const scheduledAt = appointmentDetailQuery.data?.appointment.scheduledAt;
+    setManualScheduledAt(toDateTimeLocalValue(scheduledAt));
+  }, [appointmentDetailQuery.data?.appointment.scheduledAt]);
+
   const refreshAdminData = useCallback(async () => {
     await Promise.all([
       appointmentsQuery.refetch(),
@@ -228,6 +246,15 @@ export function useAdminConsole({
   const updateStatusMutation = trpc.system.adminUpdateAppointmentStatus.useMutation({
     onSuccess: async () => {
       toast.success(tr("预约状态已更新。", "Appointment status updated."));
+      await refreshAdminData();
+    },
+    onError: error => {
+      toast.error(toUiError(error.message));
+    },
+  });
+  const updateScheduleMutation = trpc.system.adminUpdateAppointmentSchedule.useMutation({
+    onSuccess: async () => {
+      toast.success(tr("预约时间已更新。", "Appointment schedule updated."));
       await refreshAdminData();
     },
     onError: error => {
@@ -405,6 +432,42 @@ export function useAdminConsole({
         | "refunded"
         | "canceled",
       reason,
+    });
+  };
+
+  const applyManualScheduleUpdate = () => {
+    if (!selectedAppointmentId) {
+      toast.error(tr("请先加载预约详情。", "Load appointment detail first."));
+      return;
+    }
+    const raw = manualScheduledAt.trim();
+    if (!raw) {
+      toast.error(tr("请选择预约时间。", "Please select a scheduled time."));
+      return;
+    }
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) {
+      toast.error(tr("预约时间格式无效。", "Invalid scheduled time format."));
+      return;
+    }
+    updateScheduleMutation.mutate({
+      appointmentId: selectedAppointmentId,
+      scheduledAt: parsed,
+      reason: "ops_manual_schedule",
+    });
+  };
+
+  const setScheduleToNow = () => {
+    if (!selectedAppointmentId) {
+      toast.error(tr("请先加载预约详情。", "Load appointment detail first."));
+      return;
+    }
+    const now = new Date();
+    setManualScheduledAt(toDateTimeLocalValue(now));
+    updateScheduleMutation.mutate({
+      appointmentId: selectedAppointmentId,
+      scheduledAt: now,
+      reason: "ops_set_schedule_now",
     });
   };
 
@@ -618,6 +681,8 @@ export function useAdminConsole({
     setManualPaymentStatus,
     manualStatusReason,
     setManualStatusReason,
+    manualScheduledAt,
+    setManualScheduledAt,
     freeRetentionDaysInput,
     setFreeRetentionDaysInput,
     paidRetentionDaysInput,
@@ -648,6 +713,7 @@ export function useAdminConsole({
     },
     notifyDoctorFollowupMutation,
     updateStatusMutation,
+    updateScheduleMutation,
     generateSummaryMutation,
     exportSummaryPdfMutation,
     updateRetentionPolicyMutation,
@@ -656,6 +722,8 @@ export function useAdminConsole({
     suggestions,
     openAppointmentById,
     applyManualStatusUpdate,
+    applyManualScheduleUpdate,
+    setScheduleToNow,
     upsertRetentionPolicy,
     toggleRetentionEnabled,
     handleCopyDebugSnapshot,

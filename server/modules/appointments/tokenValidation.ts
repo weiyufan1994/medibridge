@@ -27,6 +27,24 @@ export type AppointmentAccessContext = {
 const tokenFailureCounts = new Map<string, number>();
 const JOIN_REUSE_WINDOW_MS = 10 * 60 * 1000;
 
+function isVisitRoomTestModeEnabled() {
+  if (process.env.NODE_ENV === "production") {
+    return false;
+  }
+  const raw = (process.env.VISIT_ROOM_TEST_MODE ?? "").trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
+}
+
+function hasConsultationStarted(scheduledAt: Date | null, now: Date) {
+  if (isVisitRoomTestModeEnabled()) {
+    return true;
+  }
+  if (!(scheduledAt instanceof Date) || Number.isNaN(scheduledAt.getTime())) {
+    return true;
+  }
+  return now.getTime() >= scheduledAt.getTime();
+}
+
 function canReuseJoinWithoutIncrement(input: {
   action: VisitAccessAction;
   useCount: number;
@@ -186,6 +204,15 @@ export async function validateAppointmentAccessToken(input: {
       req: input.req,
     });
     throwTokenError("APPOINTMENT_NOT_FOUND");
+  }
+
+  if (!hasConsultationStarted(appointment.scheduledAt, now)) {
+    await handleFailedAttempt({
+      tokenHash,
+      reason: "APPOINTMENT_NOT_STARTED",
+      req: input.req,
+    });
+    throwTokenError("APPOINTMENT_NOT_STARTED");
   }
 
   if (

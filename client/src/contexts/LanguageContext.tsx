@@ -12,13 +12,31 @@ interface LanguageContextValue {
 
 const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
 
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setModeState] = useState<LanguageMode>(() => {
+function readStoredLanguageMode(): LanguageMode | null {
+  try {
     const stored = localStorage.getItem("languageMode");
     if (stored === "en" || stored === "zh") {
       return stored;
     }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function resolveBrowserLanguage(): ResolvedLanguage {
+  if (typeof navigator === "undefined") {
     return "en";
+  }
+
+  const browserLang = (navigator.language || "").toLowerCase();
+  return browserLang.startsWith("zh") ? "zh" : "en";
+}
+
+export function LanguageProvider({ children }: { children: React.ReactNode }) {
+  const [mode, setModeState] = useState<LanguageMode>(() => {
+    return readStoredLanguageMode() ?? resolveBrowserLanguage();
   });
 
   const setMode = (next: LanguageMode) => {

@@ -39,6 +39,7 @@ export type ExportSummaryPdfMutation = SimpleMutation & {
 };
 
 export type UpdateStatusMutation = SimpleMutation;
+export type UpdateScheduleMutation = SimpleMutation;
 
 export type NotifyDoctorFollowupMutation = SimpleMutation;
 
@@ -206,6 +207,8 @@ export type UseAdminConsoleResult = {
   setManualPaymentStatus: (value: string) => void;
   manualStatusReason: string;
   setManualStatusReason: (value: string) => void;
+  manualScheduledAt: string;
+  setManualScheduledAt: (value: string) => void;
   freeRetentionDaysInput: string;
   setFreeRetentionDaysInput: (value: string) => void;
   paidRetentionDaysInput: string;
@@ -230,6 +233,7 @@ export type UseAdminConsoleResult = {
   adminHospitalImageClearMutation: HospitalImageClearState;
   notifyDoctorFollowupMutation: NotifyDoctorFollowupMutation;
   updateStatusMutation: UpdateStatusMutation;
+  updateScheduleMutation: UpdateScheduleMutation;
   generateSummaryMutation: GenerateSummaryMutation;
   exportSummaryPdfMutation: ExportSummaryPdfMutation;
   updateRetentionPolicyMutation: UpdateRetentionPolicyMutation;
@@ -238,6 +242,8 @@ export type UseAdminConsoleResult = {
   suggestions: AdminSuggestion[];
   openAppointmentById: () => void;
   applyManualStatusUpdate: () => void;
+  applyManualScheduleUpdate: () => void;
+  setScheduleToNow: () => void;
   upsertRetentionPolicy: (tier: "free" | "paid") => void;
   toggleRetentionEnabled: (tier: "free" | "paid", enabled: boolean) => void;
   handleCopyDebugSnapshot: () => Promise<void>;

@@ -59,9 +59,16 @@ function toAppointmentTypeLabel(
 }
 
 function toStatusLabel(
-  status: MyAppointmentItem["status"],
+  item: MyAppointmentItem,
   t: ReturnType<typeof getDashboardAppointmentCopy>
 ) {
+  if (
+    (item.status === "paid" || item.status === "active") &&
+    isScheduledInFuture(item)
+  ) {
+    return t.statusNotStarted;
+  }
+  const status = item.status;
   if (status === "draft") return t.statusDraft;
   if (status === "pending_payment") return t.statusPendingPayment;
   if (status === "paid") return t.statusPaid;
@@ -78,7 +85,9 @@ function getHint(
   t: ReturnType<typeof getDashboardAppointmentCopy>
 ) {
   if (item.status === "pending_payment") return t.hintPendingPayment;
+  if (item.status === "paid" && isScheduledInFuture(item)) return t.hintNotStarted;
   if (item.status === "paid") return t.hintPaid;
+  if (item.status === "active" && isScheduledInFuture(item)) return t.hintNotStarted;
   if (item.status === "active") return t.hintActive;
   if (item.status === "ended" || item.status === "completed") return t.hintEnded;
   return t.hintInactive;
@@ -86,8 +95,15 @@ function getHint(
 
 function getStatusBadgeClass(
   variant: AppointmentSectionVariant,
-  status: MyAppointmentItem["status"]
+  item: MyAppointmentItem
 ) {
+  if (
+    (item.status === "paid" || item.status === "active") &&
+    isScheduledInFuture(item)
+  ) {
+    return "rounded-full border border-sky-100 bg-sky-50 text-sky-700";
+  }
+  const status = item.status;
   if (status === "paid") {
     return "rounded-full border border-teal-100 bg-teal-50 text-teal-700";
   }
@@ -104,6 +120,45 @@ function parseDate(value: Date | string | null) {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isScheduledInFuture(item: MyAppointmentItem, now = new Date()) {
+  const scheduledAt = parseDate(item.scheduledAt);
+  if (!scheduledAt) {
+    return false;
+  }
+  return scheduledAt.getTime() > now.getTime();
+}
+
+function canEnterVisitRoomNow(item: MyAppointmentItem, now = new Date()) {
+  if (item.status !== "paid" && item.status !== "active") {
+    return true;
+  }
+  return !isScheduledInFuture(item, now);
+}
+
+function getUpcomingActionLabel(
+  item: MyAppointmentItem,
+  t: ReturnType<typeof getDashboardAppointmentCopy>
+) {
+  if (item.status === "pending_payment" || item.status === "draft") {
+    return t.payNow;
+  }
+  return t.enterVisitRoom;
+}
+
+function mapAppointmentActionErrorMessage(
+  error: unknown,
+  t: ReturnType<typeof getDashboardAppointmentCopy>
+) {
+  const raw = error instanceof Error ? error.message : t.actionFailed;
+  if (raw === "APPOINTMENT_NOT_STARTED") {
+    return t.hintNotStarted;
+  }
+  if (raw === "APPOINTMENT_NOT_ALLOWED") {
+    return t.hintInactive;
+  }
+  return raw;
 }
 
 function sortByScheduledAtDesc(items: MyAppointmentItem[]) {
@@ -168,6 +223,8 @@ function AppointmentCard(props: {
   const doctorImage = doctorQuery.data?.doctor?.imageUrl;
   const locale = props.resolved === "zh" ? "zh-CN" : "en-US";
   const timeDisplay = formatAppointmentTimes(props.item.scheduledAt, "-", locale);
+  const isScheduleLocked = !canEnterVisitRoomNow(props.item);
+  const actionLabel = getUpcomingActionLabel(props.item, props.t);
 
   return (
     <article className="rounded-xl border border-slate-200/80 bg-white shadow-sm">
@@ -181,8 +238,8 @@ function AppointmentCard(props: {
             </p>
           </div>
         </div>
-        <Badge className={getStatusBadgeClass(props.section, props.item.status)}>
-          {toStatusLabel(props.item.status, props.t)}
+        <Badge className={getStatusBadgeClass(props.section, props.item)}>
+          {toStatusLabel(props.item, props.t)}
         </Badge>
       </div>
 
@@ -219,9 +276,9 @@ function AppointmentCard(props: {
                 onClick={() => {
                   void props.onUpcomingAction(props.item);
                 }}
-                disabled={props.isActing}
+                disabled={props.isActing || isScheduleLocked}
               >
-                {props.t.enterVisitRoom}
+                {actionLabel}
               </Button>
               <Button
                 type="button"
@@ -385,7 +442,7 @@ export function MyAppointments() {
       }
       toast.success(t.accessSentEmail);
     } catch (error) {
-      const message = error instanceof Error ? error.message : t.actionFailed;
+      const message = mapAppointmentActionErrorMessage(error, t);
       toast.error(message);
     } finally {
       setActingAppointmentId(null);
@@ -402,7 +459,7 @@ export function MyAppointments() {
         window.location.href = result.joinUrl;
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : t.actionFailed;
+      const message = mapAppointmentActionErrorMessage(error, t);
       toast.error(message);
     } finally {
       setActingAppointmentId(null);
@@ -425,7 +482,7 @@ export function MyAppointments() {
       });
       setSummaryModalOpen(true);
     } catch (error) {
-      const message = error instanceof Error ? error.message : t.medicalSummaryLoadFailed;
+      const message = mapAppointmentActionErrorMessage(error, t);
       toast.error(message);
     } finally {
       setActingAppointmentId(null);

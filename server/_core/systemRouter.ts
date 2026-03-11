@@ -42,6 +42,11 @@ const adminAppointmentDetailInputSchema = z.object({
 const adminAppointmentActionInputSchema = z.object({
   appointmentId: z.number().int().positive(),
 });
+const adminAppointmentScheduleUpdateSchema = z.object({
+  appointmentId: z.number().int().positive(),
+  scheduledAt: z.coerce.date(),
+  reason: z.string().trim().min(3).max(200).optional().default("ops_manual_schedule"),
+});
 const adminNotifyDoctorFollowupInputSchema = z.object({
   appointmentId: z.number().int().positive(),
 });
@@ -623,6 +628,46 @@ export const systemRouter = router({
 
       return {
         ok: true as const,
+      };
+    }),
+
+  adminUpdateAppointmentSchedule: adminProcedure
+    .input(adminAppointmentScheduleUpdateSchema)
+    .mutation(async ({ input, ctx }) => {
+      const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
+      if (!appointment) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Appointment not found",
+        });
+      }
+
+      const now = new Date();
+      await appointmentsRepo.updateAppointmentById(appointment.id, {
+        scheduledAt: input.scheduledAt,
+        updatedAt: now,
+      });
+
+      await appointmentsRepo.insertStatusEvent({
+        appointmentId: appointment.id,
+        fromStatus: appointment.status,
+        toStatus: appointment.status,
+        operatorType: "admin",
+        operatorId: ctx.user.id,
+        reason: `admin_schedule_update:${input.reason}`,
+        payloadJson: {
+          fromScheduledAt:
+            appointment.scheduledAt instanceof Date
+              ? appointment.scheduledAt.toISOString()
+              : appointment.scheduledAt,
+          toScheduledAt: input.scheduledAt.toISOString(),
+        },
+      });
+
+      return {
+        ok: true as const,
+        appointmentId: appointment.id,
+        scheduledAt: input.scheduledAt,
       };
     }),
 

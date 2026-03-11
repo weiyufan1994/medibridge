@@ -140,7 +140,7 @@ export const medicalSummaryDraftOutputSchema = z.object({
   pastMedicalHistory: summarySectionDraftSchema,
   assessmentDiagnosis: summarySectionDraftSchema,
   planRecommendations: summarySectionDraftSchema,
-  source: z.enum(["llm", "fallback", "saved"]),
+  source: z.enum(["llm", "fallback", "saved", "pending"]),
 });
 
 export const signMedicalSummaryInputSchema = accessInputSchema.extend({

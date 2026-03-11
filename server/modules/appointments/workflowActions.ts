@@ -15,6 +15,20 @@ import {
   medicalSummaryDraftOutputSchema,
 } from "./schemas";
 
+type ValidatedAppointment = Awaited<
+  ReturnType<typeof validateAppointmentToken>
+>["appointment"];
+
+const medicalSummaryDraftTaskByAppointmentId = new Map<number, Promise<void>>();
+const PENDING_MEDICAL_SUMMARY_DRAFT = {
+  chiefComplaint: "",
+  historyOfPresentIllness: "",
+  pastMedicalHistory: "",
+  assessmentDiagnosis: "",
+  planRecommendations: "",
+  source: "pending" as const,
+};
+
 export async function rescheduleByTokenFlow(input: {
   appointmentId: number;
   token: string;
@@ -119,45 +133,43 @@ function clampSectionText(input: string) {
   return input.trim().slice(0, 4000);
 }
 
-export async function generateMedicalSummaryDraftByTokenFlow(input: {
+async function persistMedicalSummaryDraft(input: {
   appointmentId: number;
-  token: string;
-  lang: "en" | "zh";
-  forceRegenerate?: boolean;
-  req?: Request;
+  draft: {
+    chiefComplaint: string;
+    historyOfPresentIllness: string;
+    pastMedicalHistory: string;
+    assessmentDiagnosis: string;
+    planRecommendations: string;
+  };
+  source: string;
 }) {
-  const { appointment, role } = await validateAppointmentToken(
-    input.appointmentId,
-    input.token,
-    "read_history",
-    input.req
-  );
-
-  if (role !== "doctor") {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "Only doctor can generate medical summary draft",
+  try {
+    await appointmentsRepo.upsertMedicalSummaryByAppointmentId({
+      appointmentId: input.appointmentId,
+      chiefComplaint: clampSectionText(input.draft.chiefComplaint),
+      historyOfPresentIllness: clampSectionText(input.draft.historyOfPresentIllness),
+      pastMedicalHistory: clampSectionText(input.draft.pastMedicalHistory),
+      assessmentDiagnosis: clampSectionText(input.draft.assessmentDiagnosis),
+      planRecommendations: clampSectionText(input.draft.planRecommendations),
+      source: input.source,
+      signedBy: null,
     });
-  }
-
-  if (!input.forceRegenerate) {
-    const existing = await appointmentsRepo.getMedicalSummaryByAppointmentId(appointment.id);
-    if (existing) {
-      return {
-        chiefComplaint: existing.chiefComplaint,
-        historyOfPresentIllness: existing.historyOfPresentIllness,
-        pastMedicalHistory: existing.pastMedicalHistory,
-        assessmentDiagnosis: existing.assessmentDiagnosis,
-        planRecommendations: existing.planRecommendations,
-        source: "saved" as const,
-      };
+  } catch (error) {
+    if (process.env.NODE_ENV !== "test") {
+      console.warn("[appointments] failed to persist medical summary draft", error);
     }
   }
+}
 
-  const intake = parseIntakeFromNotes(appointment.notes, value =>
+async function generateAndPersistMedicalSummaryDraft(input: {
+  appointment: ValidatedAppointment;
+  lang: "en" | "zh";
+}) {
+  const intake = parseIntakeFromNotes(input.appointment.notes, value =>
     appointmentIntakeSchema.safeParse(value)
   );
-  const triageSession = await aiRepo.getAiChatSessionById(appointment.triageSessionId);
+  const triageSession = await aiRepo.getAiChatSessionById(input.appointment.triageSessionId);
   const triageSummary = triageSession?.summary ?? null;
 
   const fallback = toFallbackDraft({
@@ -166,7 +178,7 @@ export async function generateMedicalSummaryDraftByTokenFlow(input: {
     intake,
   });
 
-  const recentMessagesDesc = await visitRepo.getRecentMessages(appointment.id, 80);
+  const recentMessagesDesc = await visitRepo.getRecentMessages(input.appointment.id, 80);
   const recentMessagesAsc = [...recentMessagesDesc].reverse();
   const transcript = recentMessagesAsc
     .map(item => {
@@ -180,6 +192,11 @@ export async function generateMedicalSummaryDraftByTokenFlow(input: {
     .join("\n");
 
   if (!transcript) {
+    await persistMedicalSummaryDraft({
+      appointmentId: input.appointment.id,
+      draft: fallback,
+      source: "ai_draft_fallback",
+    });
     return fallback;
   }
 
@@ -196,7 +213,7 @@ export async function generateMedicalSummaryDraftByTokenFlow(input: {
         {
           role: "user",
           content: [
-            `Appointment ID: ${appointment.id}`,
+            `Appointment ID: ${input.appointment.id}`,
             `Output language: ${input.lang === "zh" ? "Chinese" : "English"}`,
             `Triage summary: ${(triageSummary || "(none)").slice(0, 1200)}`,
             `Intake chief complaint: ${(intake?.chiefComplaint || "(none)").slice(0, 600)}`,
@@ -242,10 +259,15 @@ export async function generateMedicalSummaryDraftByTokenFlow(input: {
       .omit({ source: true })
       .safeParse(parsed);
     if (!validation.success) {
+      await persistMedicalSummaryDraft({
+        appointmentId: input.appointment.id,
+        draft: fallback,
+        source: "ai_draft_fallback",
+      });
       return fallback;
     }
 
-    return {
+    const generated = {
       chiefComplaint: clampSectionText(validation.data.chiefComplaint),
       historyOfPresentIllness: clampSectionText(validation.data.historyOfPresentIllness),
       pastMedicalHistory: clampSectionText(validation.data.pastMedicalHistory),
@@ -253,9 +275,106 @@ export async function generateMedicalSummaryDraftByTokenFlow(input: {
       planRecommendations: clampSectionText(validation.data.planRecommendations),
       source: "llm" as const,
     };
+
+    const hasAllSections = Boolean(
+      generated.chiefComplaint &&
+        generated.historyOfPresentIllness &&
+        generated.pastMedicalHistory &&
+        generated.assessmentDiagnosis &&
+        generated.planRecommendations
+    );
+    if (!hasAllSections) {
+      await persistMedicalSummaryDraft({
+        appointmentId: input.appointment.id,
+        draft: fallback,
+        source: "ai_draft_fallback",
+      });
+      return fallback;
+    }
+
+    await persistMedicalSummaryDraft({
+      appointmentId: input.appointment.id,
+      draft: generated,
+      source: "ai_draft_llm",
+    });
+    return generated;
   } catch {
+    await persistMedicalSummaryDraft({
+      appointmentId: input.appointment.id,
+      draft: fallback,
+      source: "ai_draft_fallback",
+    });
     return fallback;
   }
+}
+
+function startMedicalSummaryDraftGenerationTask(input: {
+  appointment: ValidatedAppointment;
+  lang: "en" | "zh";
+}) {
+  if (medicalSummaryDraftTaskByAppointmentId.has(input.appointment.id)) {
+    return;
+  }
+
+  const task = generateAndPersistMedicalSummaryDraft(input)
+    .then(() => undefined)
+    .catch(error => {
+      if (process.env.NODE_ENV !== "test") {
+        console.warn("[appointments] medical summary draft background task failed", error);
+      }
+    })
+    .finally(() => {
+      medicalSummaryDraftTaskByAppointmentId.delete(input.appointment.id);
+    });
+
+  medicalSummaryDraftTaskByAppointmentId.set(input.appointment.id, task);
+}
+
+export async function generateMedicalSummaryDraftByTokenFlow(input: {
+  appointmentId: number;
+  token: string;
+  lang: "en" | "zh";
+  forceRegenerate?: boolean;
+  req?: Request;
+}) {
+  const { appointment, role } = await validateAppointmentToken(
+    input.appointmentId,
+    input.token,
+    "read_history",
+    input.req
+  );
+
+  if (role !== "doctor") {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Only doctor can generate medical summary draft",
+    });
+  }
+
+  const existing = await appointmentsRepo.getMedicalSummaryByAppointmentId(appointment.id);
+  if (existing && (!input.forceRegenerate || Boolean(existing.signedBy))) {
+    return {
+      chiefComplaint: existing.chiefComplaint,
+      historyOfPresentIllness: existing.historyOfPresentIllness,
+      pastMedicalHistory: existing.pastMedicalHistory,
+      assessmentDiagnosis: existing.assessmentDiagnosis,
+      planRecommendations: existing.planRecommendations,
+      source: "saved" as const,
+    };
+  }
+
+  if (input.forceRegenerate) {
+    return generateAndPersistMedicalSummaryDraft({
+      appointment,
+      lang: input.lang,
+    });
+  }
+
+  startMedicalSummaryDraftGenerationTask({
+    appointment,
+    lang: input.lang,
+  });
+  return PENDING_MEDICAL_SUMMARY_DRAFT;
 }
 
 export async function signMedicalSummaryByTokenFlow(input: {
