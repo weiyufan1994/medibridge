@@ -8,7 +8,7 @@ export function buildVisitRoomAccessQueryOptions(validInput: boolean) {
     refetchOnWindowFocus: false as const,
     refetchOnReconnect: false as const,
     // Poll appointment state so room-closure transitions (ended/completed) are reflected quickly.
-    refetchInterval: validInput ? 2000 : false,
+    refetchInterval: validInput ? (2000 as const) : (false as const),
     // Keep prior data when switching language so the room UI does not hard-reset to loading.
     placeholderData: keepPreviousData,
   };

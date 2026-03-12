@@ -55,8 +55,8 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
     onSuccess: async () => {
       await utils.auth.me.invalidate();
       const refreshed = await meQuery.refetch();
-      const role = refreshed.data?.role;
-      if (role === "admin") {
+      const role = String(refreshed.data?.role ?? "");
+      if (role === "admin" || role === "ops") {
         setLocation("/admin");
       }
       toast.success(resolved === "zh" ? "登录成功" : "Signed in successfully");

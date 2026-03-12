@@ -8,39 +8,129 @@ import {
 } from "@/features/admin/risk";
 import {
   downloadBase64File,
+  downloadTextFile,
   formatDate,
   stringify,
 } from "@/features/admin/utils/adminFormatting";
-import type { UseAdminConsoleResult } from "@/features/admin/types";
+import type {
+  AdminBatchActionResult,
+  AdminExportScope,
+  UseAdminConsoleResult,
+} from "@/features/admin/types";
 
 type TranslateFn = (zh: string, en: string) => string;
 
 type UseAdminConsoleParams = {
-  isAdmin: boolean;
+  canReadAdmin: boolean;
+  canMutateAdmin: boolean;
+  canReplayWebhook: boolean;
+  canResendAccessLink: boolean;
+  canIssueAccessLinks: boolean;
+  canNotifyFollowup: boolean;
   lang: "zh" | "en";
   tr: TranslateFn;
 };
 
+const DEFAULT_BATCH_RESULT: AdminBatchActionResult[] = [];
+const VALID_STATUS_VALUES = [
+  "draft",
+  "pending_payment",
+  "paid",
+  "active",
+  "ended",
+  "completed",
+  "expired",
+  "refunded",
+  "canceled",
+] as const;
+const VALID_PAYMENT_STATUS_VALUES = [
+  "unpaid",
+  "pending",
+  "paid",
+  "failed",
+  "expired",
+  "refunded",
+  "canceled",
+] as const;
+type AdminAppointmentStatus = (typeof VALID_STATUS_VALUES)[number];
+type AdminPaymentStatus = (typeof VALID_PAYMENT_STATUS_VALUES)[number];
+type ValidatedBatchInput = {
+  action: "resend_access_link" | "reinitiate_payment" | "update_status";
+  toStatus?: AdminAppointmentStatus;
+  toPaymentStatus?: AdminPaymentStatus;
+  reason?: string;
+  idempotencyKey?: string;
+};
+
+const toStatusValue = (value: string | undefined): AdminAppointmentStatus | undefined => {
+  if (!value) {
+    return undefined;
+  }
+  if ((VALID_STATUS_VALUES as readonly string[]).includes(value)) {
+    return value as AdminAppointmentStatus;
+  }
+  return undefined;
+};
+const toPaymentStatusValue = (value: string | undefined): AdminPaymentStatus | undefined => {
+  if (!value) {
+    return undefined;
+  }
+  if ((VALID_PAYMENT_STATUS_VALUES as readonly string[]).includes(value)) {
+    return value as AdminPaymentStatus;
+  }
+  return undefined;
+};
+const toArray = (values: number[]): number[] => Array.from(new Set(values));
+
 export function useAdminConsole({
-  isAdmin,
+  canReadAdmin,
+  canMutateAdmin,
+  canReplayWebhook,
+  canResendAccessLink,
+  canIssueAccessLinks,
+  canNotifyFollowup,
   lang,
   tr,
 }: UseAdminConsoleParams): UseAdminConsoleResult {
   const [emailQuery, setEmailQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [sortBy, setSortBy] = useState<
+    "createdAt" | "scheduledAt" | "amount" | "status" | "paymentStatus" | "id"
+  >("createdAt");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [doctorIdInput, setDoctorIdInput] = useState("");
+  const [amountMinInput, setAmountMinInput] = useState("");
+  const [amountMaxInput, setAmountMaxInput] = useState("");
+  const [createdAtFrom, setCreatedAtFrom] = useState("");
+  const [createdAtTo, setCreatedAtTo] = useState("");
+  const [scheduledAtFrom, setScheduledAtFrom] = useState("");
+  const [scheduledAtTo, setScheduledAtTo] = useState("");
+  const [hasRiskFilter, setHasRiskFilter] = useState(false);
   const [appointmentIdInput, setAppointmentIdInput] = useState("");
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<number | null>(null);
+  const [selectedAppointmentIds, setSelectedAppointmentIds] = useState<number[]>([]);
   const [manualStatus, setManualStatus] = useState("active");
   const [manualPaymentStatus, setManualPaymentStatus] = useState("paid");
   const [manualStatusReason, setManualStatusReason] = useState("ops_manual_update");
   const [manualScheduledAt, setManualScheduledAt] = useState("");
+  const [operationAuditPage, setOperationAuditPage] = useState(1);
+  const [operationAuditOperatorIdInput, setOperationAuditOperatorIdInput] =
+    useState("");
+  const [operationAuditActionTypeInput, setOperationAuditActionTypeInput] =
+    useState("");
+  const [operationAuditFrom, setOperationAuditFrom] = useState("");
+  const [operationAuditTo, setOperationAuditTo] = useState("");
   const [freeRetentionDaysInput, setFreeRetentionDaysInput] = useState("7");
   const [paidRetentionDaysInput, setPaidRetentionDaysInput] = useState("180");
   const [issuedLinks, setIssuedLinks] = useState<{
     patientLink: string;
     doctorLink: string;
   } | null>(null);
+  const [batchLastResult, setBatchLastResult] =
+    useState<AdminBatchActionResult[] | null>(DEFAULT_BATCH_RESULT);
 
   const appointmentStatusOptions = [
     "",
@@ -103,10 +193,37 @@ export function useAdminConsole({
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   };
 
-  const appointmentsQuery = trpc.system.adminAppointments.useQuery(
-    {
-      limit: 50,
-      emailQuery: emailQuery.trim() || undefined,
+  const toNumber = (value: string) => {
+    const parsed = Number(value.trim());
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      return undefined;
+    }
+    return parsed;
+  };
+
+  const toPositiveNumber = (value: string) => {
+    const parsed = toNumber(value);
+    if (typeof parsed !== "number" || parsed <= 0) {
+      return undefined;
+    }
+    return parsed;
+  };
+
+  const toDate = (value: string) => {
+    if (!value.trim()) {
+      return undefined;
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return undefined;
+    }
+    return date;
+  };
+
+  const parseFilters = useMemo(
+    () => ({
+      page,
+      pageSize,
       status: (statusFilter || undefined) as
         | "draft"
         | "pending_payment"
@@ -127,35 +244,80 @@ export function useAdminConsole({
         | "refunded"
         | "canceled"
         | undefined,
-    },
-    { enabled: isAdmin }
+      doctorId: toPositiveNumber(doctorIdInput),
+      amountMin: toNumber(amountMinInput),
+      amountMax: toNumber(amountMaxInput),
+      createdAtFrom: toDate(createdAtFrom),
+      createdAtTo: toDate(createdAtTo),
+      scheduledAtFrom: toDate(scheduledAtFrom),
+      scheduledAtTo: toDate(scheduledAtTo),
+      hasRisk: hasRiskFilter || undefined,
+      sortBy,
+      sortDirection,
+      emailQuery: emailQuery.trim() || undefined,
+    }),
+    [
+      amountMaxInput,
+      amountMinInput,
+      createdAtFrom,
+      createdAtTo,
+      doctorIdInput,
+      emailQuery,
+      hasRiskFilter,
+      page,
+      pageSize,
+      paymentStatusFilter,
+      scheduledAtFrom,
+      scheduledAtTo,
+      sortBy,
+      sortDirection,
+      statusFilter,
+    ]
   );
 
+  const appointmentsQuery = trpc.system.adminAppointments.useQuery(parseFilters, {
+    enabled: canReadAdmin,
+  });
+  const rawOperationAuditOperatorId = toNumber(operationAuditOperatorIdInput);
+  const operationAuditOperatorId =
+    rawOperationAuditOperatorId !== undefined && rawOperationAuditOperatorId > 0
+      ? rawOperationAuditOperatorId
+      : undefined;
+  const operationAuditQuery = trpc.system.adminOperationAudit.useQuery(
+    {
+      page: operationAuditPage,
+      pageSize: 20,
+      operatorId: operationAuditOperatorId,
+      actionType: operationAuditActionTypeInput.trim() || undefined,
+      from: toDate(operationAuditFrom),
+      to: toDate(operationAuditTo),
+    },
+    { enabled: canReadAdmin }
+  );
   const triageQuery = trpc.system.adminTriageSessions.useQuery(
     {
       limit: 50,
     },
-    { enabled: isAdmin }
+    { enabled: canReadAdmin }
   );
-
-  const metricsQuery = trpc.system.metrics.useQuery(undefined, { enabled: isAdmin });
+  const metricsQuery = trpc.system.metrics.useQuery(undefined, { enabled: canReadAdmin });
   const appointmentDetailQuery = trpc.system.adminAppointmentDetail.useQuery(
     { appointmentId: selectedAppointmentId ?? 0 },
-    { enabled: isAdmin && typeof selectedAppointmentId === "number" }
+    { enabled: canReadAdmin && typeof selectedAppointmentId === "number" }
   );
   const visitSummaryQuery = trpc.system.adminGetVisitSummary.useQuery(
     { appointmentId: selectedAppointmentId ?? 0 },
-    { enabled: isAdmin && typeof selectedAppointmentId === "number" }
+    { enabled: canReadAdmin && typeof selectedAppointmentId === "number" }
   );
   const retentionPoliciesQuery = trpc.system.adminRetentionPolicies.useQuery(undefined, {
-    enabled: isAdmin,
+    enabled: canReadAdmin,
   });
   const hospitalsQuery = trpc.system.adminHospitals.useQuery(undefined, {
-    enabled: isAdmin,
+    enabled: canReadAdmin,
   });
   const retentionAuditsQuery = trpc.system.adminRetentionCleanupAudits.useQuery(
     { limit: 20 },
-    { enabled: isAdmin }
+    { enabled: canReadAdmin }
   );
 
   useEffect(() => {
@@ -178,9 +340,61 @@ export function useAdminConsole({
     setManualScheduledAt(toDateTimeLocalValue(scheduledAt));
   }, [appointmentDetailQuery.data?.appointment.scheduledAt]);
 
+  const visibleIds = useMemo(
+    () => (appointmentsQuery.data?.items ?? []).map(item => item.id),
+    [appointmentsQuery.data?.items]
+  );
+  const selectedAppointmentSet = useMemo(
+    () => new Set(selectedAppointmentIds),
+    [selectedAppointmentIds]
+  );
+  const isAllVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every(itemId => selectedAppointmentSet.has(itemId));
+  const isAnyVisibleSelected = visibleIds.some(itemId => selectedAppointmentSet.has(itemId));
+
+  const isSelected = useCallback(
+    (id: number) => selectedAppointmentSet.has(id),
+    [selectedAppointmentSet]
+  );
+
+  const toggleAppointmentSelection = useCallback(
+    (appointmentId: number, checked: boolean) => {
+    setSelectedAppointmentIds(prev => {
+        const normalized = new Set(prev);
+        if (checked) {
+          normalized.add(appointmentId);
+        } else {
+          normalized.delete(appointmentId);
+        }
+        return Array.from(normalized);
+      });
+    },
+    []
+  );
+
+  const toggleSelectAllVisible = useCallback(
+    (checked: boolean) => {
+      setSelectedAppointmentIds(prev => {
+        const normalized = new Set(prev);
+        if (checked) {
+          visibleIds.forEach(itemId => normalized.add(itemId));
+        } else {
+          visibleIds.forEach(itemId => normalized.delete(itemId));
+        }
+        return Array.from(normalized);
+      });
+    },
+    [visibleIds]
+  );
+
+  const clearSelection = useCallback(() => {
+    setSelectedAppointmentIds([]);
+  }, []);
+
   const refreshAdminData = useCallback(async () => {
     await Promise.all([
       appointmentsQuery.refetch(),
+      operationAuditQuery.refetch(),
       triageQuery.refetch(),
       metricsQuery.refetch(),
       selectedAppointmentId ? appointmentDetailQuery.refetch() : Promise.resolve(),
@@ -194,6 +408,7 @@ export function useAdminConsole({
     appointmentsQuery,
     hospitalsQuery,
     metricsQuery,
+    operationAuditQuery,
     retentionAuditsQuery,
     retentionPoliciesQuery,
     selectedAppointmentId,
@@ -290,11 +505,47 @@ export function useAdminConsole({
   });
   const runRetentionCleanupMutation = trpc.system.adminRunRetentionCleanup.useMutation({
     onSuccess: async result => {
-      toast.success(
-        result.dryRun
-          ? tr(`演练完成。候选数：${result.totalCandidates}`, `Dry-run done. Candidates: ${result.totalCandidates}`)
-          : tr(`清理完成。删除数：${result.deletedMessages}`, `Cleanup done. Deleted: ${result.deletedMessages}`)
-      );
+      const failureReason = (result as { failureReason?: string }).failureReason;
+      const toIds = (input: unknown) =>
+        Array.isArray(input)
+          ? input
+              .map(item => (typeof item === "number" ? item : Number(item)))
+              .filter(item => Number.isFinite(item))
+          : [];
+      const freeSamples = toIds((result as { freeSampleIds?: unknown }).freeSampleIds);
+      const paidSamples = toIds((result as { paidSampleIds?: unknown }).paidSampleIds);
+      if (failureReason) {
+        toast.error(
+          tr(
+            `清理失败：${failureReason}`,
+            `Cleanup failed: ${failureReason}`
+          )
+        );
+      } else {
+        toast.success(
+          result.dryRun
+            ? tr(
+                `演练完成。候选数：${result.totalCandidates}，样例ID：${freeSamples
+                  .concat(paidSamples)
+                  .slice(0, 5)
+                  .join(", ")}`,
+                `Dry-run done. Candidates: ${result.totalCandidates}, sample IDs: ${freeSamples
+                  .concat(paidSamples)
+                  .slice(0, 5)
+                  .join(", ")}`
+              )
+            : tr(
+                `清理完成。删除数：${result.deletedMessages}，样例ID：${freeSamples
+                  .concat(paidSamples)
+                  .slice(0, 5)
+                  .join(", ")}`,
+                `Cleanup done. Deleted: ${result.deletedMessages}, sample IDs: ${freeSamples
+                  .concat(paidSamples)
+                  .slice(0, 5)
+                  .join(", ")}`
+              )
+        );
+      }
       await retentionAuditsQuery.refetch();
     },
     onError: error => {
@@ -314,6 +565,46 @@ export function useAdminConsole({
     onSuccess: () => {
       void hospitalsQuery.refetch();
       toast.success(tr("医院封面已清除。", "Hospital image removed."));
+    },
+    onError: error => {
+      toast.error(toUiError(error.message));
+    },
+  });
+  const adminBatchMutation = trpc.system.adminBatchAppointmentsAction.useMutation({
+    onSuccess: result => {
+      setBatchLastResult(result.results);
+      const msg =
+        lang === "zh"
+          ? `批量处理完成：成功 ${result.summary.success}，跳过 ${result.summary.skipped}，失败 ${result.summary.failed}`
+          : `Batch done: ${result.summary.success} success, ${result.summary.skipped} skipped, ${result.summary.failed} failed`;
+      toast.success(msg);
+      refreshAdminData().catch(() => {
+        toast.error(tr("刷新列表失败，请重试。", "Failed to refresh list. Please retry."));
+      });
+    },
+    onError: error => {
+      toast.error(toUiError(error.message));
+    },
+  });
+  const webhookReplayMutation = trpc.system.adminWebhookReplay.useMutation({
+    onSuccess: result => {
+      if (result.ok) {
+        toast.success(
+          tr("Webhook 重试成功。", "Webhook replay completed.")
+        );
+      } else {
+        toast.success(tr("Webhook 重试已去重。", "Webhook replay skipped by idempotency."));
+      }
+      void refreshAdminData();
+    },
+    onError: error => {
+      toast.error(toUiError(error.message));
+    },
+  });
+  const exportMutation = trpc.system.adminExport.useMutation({
+    onSuccess: result => {
+      downloadTextFile(result.content, result.mimeType, result.filename);
+      toast.success(tr("导出完成。", "Export completed."));
     },
     onError: error => {
       toast.error(toUiError(error.message));
@@ -506,7 +797,7 @@ export function useAdminConsole({
       appointmentId: appointmentDetailQuery.data.appointment.id,
       status: appointmentDetailQuery.data.appointment.status,
       paymentStatus: appointmentDetailQuery.data.appointment.paymentStatus,
-      stripeSessionId: appointmentDetailQuery.data.appointment.stripeSessionId,
+      stripeSessionId: null,
       scheduledAt: appointmentDetailQuery.data.appointment.scheduledAt,
       paidAt: appointmentDetailQuery.data.appointment.paidAt,
       tokenSummary: appointmentDetailQuery.data.activeTokens.map(token => ({
@@ -524,7 +815,6 @@ export function useAdminConsole({
       `Appointment #${debugPayload.appointmentId}`,
       `Status: ${debugPayload.status}`,
       `Payment: ${debugPayload.paymentStatus}`,
-      `Stripe Session: ${debugPayload.stripeSessionId || "-"}`,
       `Scheduled At: ${formatDate(debugPayload.scheduledAt as Date | string | null)}`,
       `Paid At: ${formatDate(debugPayload.paidAt as Date | string | null)}`,
       `Token Count: ${debugPayload.tokenSummary.length}`,
@@ -590,7 +880,10 @@ export function useAdminConsole({
     const allowedStatuses = new Set(["paid", "active"]);
     if (detail.paymentStatus !== "paid" || !allowedStatuses.has(detail.status)) {
       toast.error(
-        tr("仅已支付/进行中的预约支持重发访问链接。", "Access link resend is only available for paid/active appointments.")
+        tr(
+          "仅已支付/进行中的预约支持重发访问链接。",
+          "Access link resend is only available for paid/active appointments."
+        )
       );
       return false;
     }
@@ -639,6 +932,28 @@ export function useAdminConsole({
     }
 
     if (suggestion.action === "reinitiate_payment") {
+      if (!canMutateAdmin) {
+        toast.message(tr("当前角色无权执行该动作。", "Current role cannot execute this action."));
+        return;
+      }
+    } else if (suggestion.action === "resend_access_link") {
+      if (!canResendAccessLink) {
+        toast.message(tr("当前角色无权执行该动作。", "Current role cannot execute this action."));
+        return;
+      }
+    } else if (suggestion.action === "issue_access_links") {
+      if (!canIssueAccessLinks) {
+        toast.message(tr("当前角色无权执行该动作。", "Current role cannot execute this action."));
+        return;
+      }
+    }
+
+    if (suggestion.action === "notify_doctor_followup" && !canNotifyFollowup) {
+      toast.message(tr("当前角色无权执行该动作。", "Current role cannot execute this action."));
+      return;
+    }
+
+    if (suggestion.action === "reinitiate_payment") {
       if (!beforeReinitiatePayment()) return;
       resendPaymentMutation.mutate({ appointmentId: selectedAppointmentId });
       return;
@@ -664,13 +979,145 @@ export function useAdminConsole({
     toast.message(tr("当前无紧急动作。", "No urgent action required."));
   };
 
+  const exportScope = (input: {
+    scope: AdminExportScope;
+    format?: "csv" | "json";
+    webhookAppointmentId?: number;
+    auditOperatorId?: number;
+    auditActionType?: string;
+    auditFrom?: string;
+    auditTo?: string;
+  }) => {
+    exportMutation.mutate({
+      scope: input.scope,
+      format: input.format ?? "csv",
+      pageSize,
+      status: (statusFilter || undefined) as
+        | "draft"
+        | "pending_payment"
+        | "paid"
+        | "active"
+        | "ended"
+        | "completed"
+        | "expired"
+        | "refunded"
+        | "canceled"
+        | undefined,
+      paymentStatus: (paymentStatusFilter || undefined) as
+        | "unpaid"
+        | "pending"
+        | "paid"
+        | "failed"
+        | "expired"
+        | "refunded"
+        | "canceled"
+        | undefined,
+      doctorId: toPositiveNumber(doctorIdInput),
+      amountMin: toNumber(amountMinInput),
+      amountMax: toNumber(amountMaxInput),
+      createdAtFrom: toDate(createdAtFrom),
+      createdAtTo: toDate(createdAtTo),
+      scheduledAtFrom: toDate(scheduledAtFrom),
+      scheduledAtTo: toDate(scheduledAtTo),
+      hasRisk: hasRiskFilter || undefined,
+      sortBy,
+      sortDirection,
+      webhookAppointmentId: input.webhookAppointmentId,
+      auditOperatorId: input.auditOperatorId,
+      auditActionType: input.auditActionType,
+      auditFrom: input.auditFrom,
+      auditTo: input.auditTo,
+    });
+  };
+
+  const executeBatch = (input: {
+    action: "resend_access_link" | "reinitiate_payment" | "update_status";
+    toStatus?: string;
+    toPaymentStatus?: string;
+    reason?: string;
+    idempotencyKey?: string;
+  }) => {
+    if (selectedAppointmentIds.length === 0) {
+      toast.error(tr("请先选择至少一条预约。", "Select at least one appointment."));
+      return;
+    }
+    const validatedInput: ValidatedBatchInput = {
+      action: input.action,
+      toStatus: toStatusValue(input.toStatus),
+      toPaymentStatus: toPaymentStatusValue(input.toPaymentStatus),
+      reason: input.reason,
+      idempotencyKey: input.idempotencyKey,
+    };
+    if (validatedInput.action === "resend_access_link") {
+      if (!canResendAccessLink) {
+        toast.message(tr("当前角色无权执行该批量动作。", "Current role cannot execute this batch action."));
+        return;
+      }
+    }
+
+    if (
+      validatedInput.action === "reinitiate_payment" ||
+      validatedInput.action === "update_status"
+    ) {
+      if (!canMutateAdmin) {
+        toast.message(tr("当前角色无权执行该批量动作。", "Current role cannot execute this batch action."));
+        return;
+      }
+    }
+
+    const normalizedReason =
+      typeof validatedInput.reason === "string" && validatedInput.reason.trim().length
+        ? validatedInput.reason.trim()
+        : "admin_batch_action";
+    adminBatchMutation.mutate({
+      appointmentIds: toArray(selectedAppointmentIds),
+      action: validatedInput.action,
+      toStatus: validatedInput.toStatus,
+      toPaymentStatus: validatedInput.toPaymentStatus,
+      reason: normalizedReason,
+      idempotencyKey: validatedInput.idempotencyKey ?? randomUUID(),
+    });
+  };
+
+  const replayWebhookByEvent = (params: { eventId?: string; appointmentId?: number }) => {
+    webhookReplayMutation.mutate({
+      eventId: params.eventId,
+      appointmentId: params.appointmentId,
+      replayKey: randomUUID(),
+    });
+  };
+
   return {
     emailQuery,
     setEmailQuery,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
     statusFilter,
     setStatusFilter,
     paymentStatusFilter,
     setPaymentStatusFilter,
+    doctorIdInput,
+    setDoctorIdInput,
+    amountMinInput,
+    setAmountMinInput,
+    amountMaxInput,
+    setAmountMaxInput,
+    createdAtFrom,
+    setCreatedAtFrom,
+    createdAtTo,
+    setCreatedAtTo,
+    scheduledAtFrom,
+    setScheduledAtFrom,
+    scheduledAtTo,
+    setScheduledAtTo,
+    hasRiskFilter,
+    setHasRiskFilter,
+    sortBy,
+    setSortBy,
+    sortDirection,
+    setSortDirection,
     appointmentIdInput,
     setAppointmentIdInput,
     selectedAppointmentId,
@@ -696,13 +1143,30 @@ export function useAdminConsole({
     metricsQuery,
     appointmentDetailQuery,
     visitSummaryQuery,
+    operationAuditQuery,
+    operationAuditPage,
+    setOperationAuditPage,
+    operationAuditOperatorIdInput,
+    setOperationAuditOperatorIdInput,
+    operationAuditActionTypeInput,
+    setOperationAuditActionTypeInput,
+    operationAuditFrom,
+    setOperationAuditFrom,
+    operationAuditTo,
+    setOperationAuditTo,
     retentionPoliciesQuery,
     retentionAuditsQuery,
+    canReadAdmin,
+    canMutateAdmin,
+    canReplayWebhook,
+    canResendAccessLink,
+    canIssueAccessLinks,
+    canNotifyFollowup,
+    hospitalsQuery,
     refreshAdminData,
     resendPaymentMutation,
     resendAccessLinkMutation,
     issueLinksMutation,
-    hospitalsQuery,
     adminHospitalImageUploadMutation: {
       isPending: adminUploadHospitalImageMutation.isPending,
       uploadHospitalImage,
@@ -718,6 +1182,26 @@ export function useAdminConsole({
     exportSummaryPdfMutation,
     updateRetentionPolicyMutation,
     runRetentionCleanupMutation,
+    batchAppointmentsMutation: {
+      isPending: adminBatchMutation.isPending,
+      executeBatch,
+      lastResult: batchLastResult,
+    },
+    webhookReplayMutation: {
+      isPending: webhookReplayMutation.isPending,
+      replayByEvent: replayWebhookByEvent,
+    },
+    exportAppointmentsMutation: {
+      isPending: exportMutation.isPending,
+      exportScope,
+    },
+    selectedAppointmentIds,
+    selectedCount: selectedAppointmentIds.length,
+    isAllVisibleSelected,
+    isAnyVisibleSelected,
+    toggleAppointmentSelection,
+    toggleSelectAllVisible,
+    clearSelection,
     risks,
     suggestions,
     openAppointmentById,
@@ -733,4 +1217,11 @@ export function useAdminConsole({
     runSuggestedAction,
     toUiError,
   };
+}
+
+function randomUUID() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }

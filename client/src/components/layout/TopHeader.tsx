@@ -40,6 +40,7 @@ export default function TopHeader(props: TopHeaderProps) {
   const { user, isAuthenticated, openLoginModal, logout } = useAuth();
   const shouldShowBrowseHospitals = !props.isDashboard && !props.isVisitRoom;
   const subtitleText = props.subtitle ?? t.brandSubtitle;
+  const role = String(user?.role ?? "");
 
   const handleLogout = async () => {
     try {
@@ -122,7 +123,7 @@ export default function TopHeader(props: TopHeaderProps) {
                   <LayoutDashboard className="h-4 w-4 text-slate-500" />
                   {t.dashboard}
                 </DropdownMenuItem>
-                {user?.role === "admin" ? (
+                {(role === "admin" || role === "ops") ? (
                   <DropdownMenuItem className="rounded-lg" onClick={() => setLocation("/admin")}>
                     <Shield className="h-4 w-4 text-slate-500" />
                     {t.admin}

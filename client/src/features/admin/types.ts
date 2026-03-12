@@ -8,6 +8,9 @@ export type QueryState<TData> = {
   isLoading: boolean;
   error: AdminErrorLike | null;
   data: TData | undefined;
+  refetch: () => Promise<{
+    data: TData | undefined;
+  }>;
 };
 
 export type SimpleMutation = {
@@ -58,11 +61,6 @@ export type AdminHospital = {
   level: string | null;
   levelEn: string | null;
   imageUrl: string | null;
-};
-
-export type UploadHospitalImageInput = {
-  hospitalId: number;
-  file: File;
 };
 
 export type HospitalImageUploadState = {
@@ -126,6 +124,7 @@ export type AdminRecentMessage = {
 
 export type AppointmentDetailData = {
   appointment: {
+    id: number;
     email: string;
     status: string;
     paymentStatus: string;
@@ -158,6 +157,25 @@ export type AdminAppointmentListItem = {
   doctorId: number;
   triageSessionId: number;
   createdAt: Date | string;
+  hasRisk: boolean;
+  riskCodes: string[];
+};
+
+export type AdminAppointmentRiskSummary = {
+  total: number;
+  pendingPaymentTimeout: number;
+  webhookFailure: number;
+  tokenExpiringSoon: number;
+  tokenUsageExhausted: number;
+};
+
+export type AdminAppointmentListResult = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  riskSummary: AdminAppointmentRiskSummary;
+  items: AdminAppointmentListItem[];
 };
 
 export type AdminTriageSessionItem = {
@@ -190,15 +208,80 @@ export type AdminRetentionAudit = {
   paidRetentionDays: number;
 };
 
+export type AdminOperationAuditItem = {
+  id: number;
+  appointmentId: number;
+  fromStatus: string | null;
+  toStatus: string;
+  operatorType: string;
+  operatorId: number | null;
+  reason: string | null;
+  payloadJson: unknown;
+  createdAt: Date | string;
+};
+
+export type AdminOperationAuditResult = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  items: AdminOperationAuditItem[];
+};
+
+export type AdminBatchActionResult = {
+  appointmentId: number;
+  status: "success" | "skipped" | "failed";
+  reason?: string;
+};
+
+export type AdminExportScope =
+  | "appointments"
+  | "risk_summary"
+  | "retention_audits"
+  | "webhook_timeline"
+  | "operation_audit";
+
 export type UseAdminConsoleResult = {
+  canReadAdmin: boolean;
+  canMutateAdmin: boolean;
+  canReplayWebhook: boolean;
+  canResendAccessLink: boolean;
+  canIssueAccessLinks: boolean;
+  canNotifyFollowup: boolean;
   emailQuery: string;
   setEmailQuery: (value: string) => void;
+  page: number;
+  setPage: (value: number) => void;
+  pageSize: number;
+  setPageSize: (value: number) => void;
   statusFilter: string;
   setStatusFilter: (value: string) => void;
   paymentStatusFilter: string;
   setPaymentStatusFilter: (value: string) => void;
   appointmentIdInput: string;
   setAppointmentIdInput: (value: string) => void;
+  doctorIdInput: string;
+  setDoctorIdInput: (value: string) => void;
+  amountMinInput: string;
+  setAmountMinInput: (value: string) => void;
+  amountMaxInput: string;
+  setAmountMaxInput: (value: string) => void;
+  createdAtFrom: string;
+  setCreatedAtFrom: (value: string) => void;
+  createdAtTo: string;
+  setCreatedAtTo: (value: string) => void;
+  scheduledAtFrom: string;
+  setScheduledAtFrom: (value: string) => void;
+  scheduledAtTo: string;
+  setScheduledAtTo: (value: string) => void;
+  hasRiskFilter: boolean;
+  setHasRiskFilter: (value: boolean) => void;
+  sortBy: "createdAt" | "scheduledAt" | "amount" | "status" | "paymentStatus" | "id";
+  setSortBy: (
+    value: "createdAt" | "scheduledAt" | "amount" | "status" | "paymentStatus" | "id"
+  ) => void;
+  sortDirection: "asc" | "desc";
+  setSortDirection: (value: "asc" | "desc") => void;
   selectedAppointmentId: number | null;
   setSelectedAppointmentId: (value: number | null) => void;
   manualStatus: string;
@@ -214,10 +297,12 @@ export type UseAdminConsoleResult = {
   paidRetentionDaysInput: string;
   setPaidRetentionDaysInput: (value: string) => void;
   issuedLinks: { patientLink: string; doctorLink: string } | null;
-  setIssuedLinks: (value: { patientLink: string; doctorLink: string } | null) => void;
+  setIssuedLinks: (
+    value: { patientLink: string; doctorLink: string } | null
+  ) => void;
   appointmentStatusOptions: readonly string[];
   paymentStatusOptions: readonly string[];
-  appointmentsQuery: QueryState<AdminAppointmentListItem[]>;
+  appointmentsQuery: QueryState<AdminAppointmentListResult | null>;
   triageQuery: QueryState<AdminTriageSessionItem[]>;
   metricsQuery: QueryState<AdminMetricsData>;
   appointmentDetailQuery: QueryState<AppointmentDetailData>;
@@ -225,6 +310,17 @@ export type UseAdminConsoleResult = {
   retentionPoliciesQuery: QueryState<AdminRetentionPolicy[]>;
   retentionAuditsQuery: QueryState<AdminRetentionAudit[]>;
   hospitalsQuery: QueryState<AdminHospital[]>;
+  operationAuditQuery: QueryState<AdminOperationAuditResult | null>;
+  operationAuditPage: number;
+  setOperationAuditPage: (value: number) => void;
+  operationAuditOperatorIdInput: string;
+  setOperationAuditOperatorIdInput: (value: string) => void;
+  operationAuditActionTypeInput: string;
+  setOperationAuditActionTypeInput: (value: string) => void;
+  operationAuditFrom: string;
+  setOperationAuditFrom: (value: string) => void;
+  operationAuditTo: string;
+  setOperationAuditTo: (value: string) => void;
   refreshAdminData: () => Promise<void>;
   resendPaymentMutation: ReinitiatePaymentMutation;
   resendAccessLinkMutation: ResendAccessLinkMutation;
@@ -238,6 +334,40 @@ export type UseAdminConsoleResult = {
   exportSummaryPdfMutation: ExportSummaryPdfMutation;
   updateRetentionPolicyMutation: UpdateRetentionPolicyMutation;
   runRetentionCleanupMutation: RunRetentionCleanupMutation;
+  selectedAppointmentIds: number[];
+  selectedCount: number;
+  isAllVisibleSelected: boolean;
+  isAnyVisibleSelected: boolean;
+  toggleAppointmentSelection: (appointmentId: number, checked: boolean) => void;
+  toggleSelectAllVisible: (checked: boolean) => void;
+  clearSelection: () => void;
+  batchAppointmentsMutation: {
+    isPending: boolean;
+    executeBatch: (input: {
+      action: "resend_access_link" | "reinitiate_payment" | "update_status";
+      toStatus?: string;
+      toPaymentStatus?: string;
+      reason?: string;
+      idempotencyKey?: string;
+    }) => void;
+    lastResult: AdminBatchActionResult[] | null;
+  };
+  webhookReplayMutation: {
+    isPending: boolean;
+    replayByEvent: (input: { eventId?: string; appointmentId?: number }) => void;
+  };
+  exportAppointmentsMutation: {
+    isPending: boolean;
+  exportScope: (input: {
+      scope: AdminExportScope;
+      format: "csv" | "json";
+      webhookAppointmentId?: number;
+      auditOperatorId?: number;
+      auditActionType?: string;
+      auditFrom?: string;
+      auditTo?: string;
+    }) => void;
+  };
   risks: Array<{ code: string; level: "critical" | "warning"; message: string }>;
   suggestions: AdminSuggestion[];
   openAppointmentById: () => void;

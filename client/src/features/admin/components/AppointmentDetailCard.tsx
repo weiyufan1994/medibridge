@@ -28,12 +28,21 @@ type AppointmentDetailCardProps = {
   risks: Array<{ code: string; level: "critical" | "warning"; message: string }>;
   suggestions: AdminSuggestion[];
   runSuggestedAction: (suggestion: AdminSuggestion) => void;
+  webhookReplayMutation: {
+    isPending: boolean;
+    replayByEvent: (input: { eventId?: string; appointmentId?: number }) => void;
+  };
   beforeReinitiatePayment: () => boolean;
   beforeResendAccessLink: () => boolean;
   beforeIssueLinks: () => boolean;
   resendPaymentMutation: ReinitiatePaymentMutation;
   resendAccessLinkMutation: ResendAccessLinkMutation;
   issueLinksMutation: IssueLinksMutation;
+  canMutateAppointments: boolean;
+  canReinitiatePayment: boolean;
+  canResendAccessLink: boolean;
+  canIssueAccessLinks: boolean;
+  canNotifyFollowup: boolean;
   handleCopyDebugSnapshot: () => Promise<void>;
   manualStatus: string;
   setManualStatus: (value: string) => void;
@@ -53,6 +62,7 @@ type AppointmentDetailCardProps = {
   generateSummaryMutation: GenerateSummaryMutation;
   exportSummaryPdfMutation: ExportSummaryPdfMutation;
   visitSummaryQuery: VisitSummaryQuery;
+  canReplayWebhook: boolean;
   issuedLinks: { patientLink: string; doctorLink: string } | null;
 };
 
@@ -65,12 +75,17 @@ export function AppointmentDetailCard({
   risks,
   suggestions,
   runSuggestedAction,
+  webhookReplayMutation,
   beforeReinitiatePayment,
   beforeResendAccessLink,
   beforeIssueLinks,
   resendPaymentMutation,
   resendAccessLinkMutation,
   issueLinksMutation,
+  canMutateAppointments,
+  canReinitiatePayment,
+  canResendAccessLink,
+  canIssueAccessLinks,
   handleCopyDebugSnapshot,
   manualStatus,
   setManualStatus,
@@ -90,6 +105,8 @@ export function AppointmentDetailCard({
   generateSummaryMutation,
   exportSummaryPdfMutation,
   visitSummaryQuery,
+  canReplayWebhook,
+  canNotifyFollowup,
   issuedLinks,
 }: AppointmentDetailCardProps) {
   return (
@@ -125,6 +142,11 @@ export function AppointmentDetailCard({
               risks={risks}
               suggestions={suggestions}
               runSuggestedAction={runSuggestedAction}
+              canReinitiatePayment={canReinitiatePayment}
+              canResendAccessLink={canResendAccessLink}
+              canIssueAccessLinks={canIssueAccessLinks}
+              canNotifyFollowup={canNotifyFollowup}
+              canReplayWebhook={canReplayWebhook}
             />
 
             <DiagnosticsSection
@@ -132,6 +154,8 @@ export function AppointmentDetailCard({
               lang={lang}
               locale={locale}
               detailData={appointmentDetailQuery.data}
+              webhookReplayMutation={webhookReplayMutation}
+              canReplayWebhook={canReplayWebhook}
             />
 
             <ActionsSection
@@ -140,9 +164,13 @@ export function AppointmentDetailCard({
               beforeReinitiatePayment={beforeReinitiatePayment}
               beforeResendAccessLink={beforeResendAccessLink}
               beforeIssueLinks={beforeIssueLinks}
+              canReinitiatePayment={canReinitiatePayment}
+              canResendAccessLink={canResendAccessLink}
+              canIssueAccessLinks={canIssueAccessLinks}
               resendPaymentMutation={resendPaymentMutation}
               resendAccessLinkMutation={resendAccessLinkMutation}
               issueLinksMutation={issueLinksMutation}
+              canMutateAdmin={canMutateAppointments}
               handleCopyDebugSnapshot={handleCopyDebugSnapshot}
               manualStatus={manualStatus}
               setManualStatus={setManualStatus}

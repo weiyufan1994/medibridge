@@ -22,6 +22,10 @@ type ActionsSectionProps = {
   resendPaymentMutation: ReinitiatePaymentMutation;
   resendAccessLinkMutation: ResendAccessLinkMutation;
   issueLinksMutation: IssueLinksMutation;
+  canMutateAdmin: boolean;
+  canReinitiatePayment: boolean;
+  canResendAccessLink: boolean;
+  canIssueAccessLinks: boolean;
   handleCopyDebugSnapshot: () => Promise<void>;
   manualStatus: string;
   setManualStatus: (value: string) => void;
@@ -53,6 +57,10 @@ export function ActionsSection({
   resendPaymentMutation,
   resendAccessLinkMutation,
   issueLinksMutation,
+  canMutateAdmin,
+  canReinitiatePayment,
+  canResendAccessLink,
+  canIssueAccessLinks,
   handleCopyDebugSnapshot,
   manualStatus,
   setManualStatus,
@@ -74,6 +82,19 @@ export function ActionsSection({
   visitSummaryQuery,
   issuedLinks,
 }: ActionsSectionProps) {
+  const reinitiateDisabledReason = !canReinitiatePayment
+    ? tr("仅管理员可重新发起支付。", "Only admin can re-initiate payment.")
+    : "";
+  const resendLinkDisabledReason = !canResendAccessLink
+    ? tr("仅管理员与 ops 可重发访问链接。", "Only admin/ops can resend access links.")
+    : "";
+  const issueLinksDisabledReason = !canIssueAccessLinks
+    ? tr("仅管理员与 ops 可签发新访问链接。", "Only admin/ops can issue new access links.")
+    : "";
+  const manualUpdateDisabledReason = !canMutateAdmin
+    ? tr("仅管理员可执行预约状态/财务更新。", "Only admin can update appointment status/payment.")
+    : "";
+
   return (
     <>
       <div className="flex flex-wrap gap-2">
@@ -86,7 +107,8 @@ export function ActionsSection({
               appointmentId: selectedAppointmentId,
             })
           }
-          disabled={resendPaymentMutation.isPending}
+          disabled={!canReinitiatePayment || resendPaymentMutation.isPending}
+          title={reinitiateDisabledReason || undefined}
         >
           {resendPaymentMutation.isPending
             ? tr("正在打开支付页...", "Opening checkout...")
@@ -101,7 +123,8 @@ export function ActionsSection({
               appointmentId: selectedAppointmentId,
             })
           }
-          disabled={resendAccessLinkMutation.isPending}
+          disabled={!canResendAccessLink || resendAccessLinkMutation.isPending}
+          title={resendLinkDisabledReason || undefined}
         >
           {resendAccessLinkMutation.isPending
             ? tr("发送中...", "Sending...")
@@ -115,7 +138,8 @@ export function ActionsSection({
               appointmentId: selectedAppointmentId,
             })
           }
-          disabled={issueLinksMutation.isPending}
+          disabled={!canIssueAccessLinks || issueLinksMutation.isPending}
+          title={issueLinksDisabledReason || undefined}
         >
           {issueLinksMutation.isPending
             ? tr("签发中...", "Issuing...")
@@ -128,6 +152,11 @@ export function ActionsSection({
 
       <div className="space-y-2 rounded border p-3">
         <p className="text-sm font-medium">{tr("手动状态更新", "Manual Status Update")}</p>
+        {!canMutateAdmin ? (
+          <p className="text-xs text-muted-foreground">
+            {manualUpdateDisabledReason}
+          </p>
+        ) : null}
         <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
           <select
             className="h-9 rounded-md border border-input bg-background px-3 text-sm"
@@ -164,7 +193,7 @@ export function ActionsSection({
             type="button"
             variant="outline"
             onClick={applyManualStatusUpdate}
-            disabled={updateStatusMutation.isPending}
+            disabled={!canMutateAdmin || updateStatusMutation.isPending}
           >
             {updateStatusMutation.isPending
               ? tr("更新中...", "Updating...")
@@ -175,6 +204,11 @@ export function ActionsSection({
 
       <div className="space-y-2 rounded border p-3">
         <p className="text-sm font-medium">{tr("测试预约时间", "Test Appointment Time")}</p>
+        {!canMutateAdmin ? (
+          <p className="text-xs text-muted-foreground">
+            {manualUpdateDisabledReason}
+          </p>
+        ) : null}
         <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
           <Input
             type="datetime-local"
@@ -185,7 +219,7 @@ export function ActionsSection({
             type="button"
             variant="outline"
             onClick={setScheduleToNow}
-            disabled={updateScheduleMutation.isPending}
+            disabled={!canMutateAdmin || updateScheduleMutation.isPending}
           >
             {tr("设为当前时间", "Set to now")}
           </Button>
@@ -193,7 +227,7 @@ export function ActionsSection({
             type="button"
             variant="outline"
             onClick={applyManualScheduleUpdate}
-            disabled={updateScheduleMutation.isPending}
+            disabled={!canMutateAdmin || updateScheduleMutation.isPending}
           >
             {updateScheduleMutation.isPending
               ? tr("保存中...", "Saving...")

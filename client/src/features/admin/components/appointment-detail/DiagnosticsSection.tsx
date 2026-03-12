@@ -6,7 +6,9 @@ import {
   toWebhookOutcome,
   toWebhookTypeLabel,
 } from "@/features/admin/utils/adminFormatting";
+import { useMemo, useState } from "react";
 import type { AppointmentDetailData } from "@/features/admin/types";
+import { Button } from "@/components/ui/button";
 
 type TranslateFn = (zh: string, en: string) => string;
 
@@ -15,9 +17,39 @@ type DiagnosticsSectionProps = {
   lang: "zh" | "en";
   locale: string;
   detailData: AppointmentDetailData;
+  canReplayWebhook: boolean;
+  webhookReplayMutation: {
+    isPending: boolean;
+    replayByEvent: (input: { eventId?: string; appointmentId?: number }) => void;
+  };
 };
 
-export function DiagnosticsSection({ tr, lang, locale, detailData }: DiagnosticsSectionProps) {
+export function DiagnosticsSection({
+  tr,
+  lang,
+  locale,
+  detailData,
+  canReplayWebhook,
+  webhookReplayMutation,
+}: DiagnosticsSectionProps) {
+  const [webhookTypeFilter, setWebhookTypeFilter] = useState("all");
+  const webhookEvents = detailData.webhookEvents ?? [];
+  const webhookTypes = useMemo(() => {
+    const values = new Set(webhookEvents.map(item => item.type));
+    return ["all", ...Array.from(values)].sort();
+  }, [webhookEvents]);
+  const filteredWebhookEvents = useMemo(
+    () =>
+      webhookTypeFilter === "all"
+        ? webhookEvents
+        : webhookEvents.filter(event => event.type === webhookTypeFilter),
+    [webhookEvents, webhookTypeFilter]
+  );
+  const replayDisabledReason = tr(
+    "仅管理员与 ops 可重试 webhook。",
+    "Only admin/ops can replay webhook events."
+  );
+
   return (
     <>
       <div className="space-y-2 rounded border p-3">
@@ -95,7 +127,25 @@ export function DiagnosticsSection({ tr, lang, locale, detailData }: Diagnostics
 
       <div className="space-y-2 rounded border p-3">
         <p className="text-sm font-medium">{tr("Stripe Webhook 事件", "Stripe Webhook Events")}</p>
-        {detailData?.webhookEvents?.length ? (
+        <div className="flex flex-wrap gap-2">
+          <label className="w-full max-w-xs space-y-1">
+            <span className="text-xs text-muted-foreground">
+              {tr("按事件类型筛选", "Filter by event type")}
+            </span>
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={webhookTypeFilter}
+              onChange={event => setWebhookTypeFilter(event.target.value)}
+            >
+              {webhookTypes.map(type => (
+                <option key={type} value={type}>
+                  {type === "all" ? tr("全部", "All") : type}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {filteredWebhookEvents.length ? (
           <div className="overflow-x-auto">
                 <table className="w-full min-w-[900px] text-xs">
                   <thead>
@@ -106,10 +156,11 @@ export function DiagnosticsSection({ tr, lang, locale, detailData }: Diagnostics
                       <th className="px-2 py-1 text-left">{tr("结果", "Outcome")}</th>
                       <th className="px-2 py-1 text-left">{tr("Stripe 会话", "Stripe Session")}</th>
                       <th className="px-2 py-1 text-left">{tr("预约", "Appointment")}</th>
+                      <th className="px-2 py-1 text-left">{tr("运维动作", "Ops Action")}</th>
                     </tr>
                   </thead>
               <tbody>
-                {detailData.webhookEvents.map(event => {
+                {filteredWebhookEvents.map(event => {
                   const outcome = toWebhookOutcome(event.type);
                   return (
                     <tr key={event.eventId} className="border-b">
@@ -125,6 +176,40 @@ export function DiagnosticsSection({ tr, lang, locale, detailData }: Diagnostics
                       </td>
                       <td className="px-2 py-1">{event.stripeSessionId || "-"}</td>
                       <td className="px-2 py-1">{event.appointmentId ?? "-"}</td>
+                      <td className="px-2 py-1">
+                        {event.eventId ? (
+                          canReplayWebhook ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={webhookReplayMutation.isPending}
+                              onClick={() =>
+                                webhookReplayMutation.replayByEvent({
+                                  eventId: event.eventId,
+                                  appointmentId: event.appointmentId ?? undefined,
+                                })
+                              }
+                            >
+                              {webhookReplayMutation.isPending
+                                ? tr("重试中...", "Retrying...")
+                                : tr("重试", "Retry")}
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled
+                              title={replayDisabledReason}
+                            >
+                              {tr("无权重试", "No permission")}
+                            </Button>
+                          )
+                        ) : (
+                          "-"
+                        )}
+                      </td>
                     </tr>
                   );
                 })}

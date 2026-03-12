@@ -12,6 +12,11 @@ type OverviewSectionProps = {
   risks: Array<{ code: string; level: "critical" | "warning"; message: string }>;
   suggestions: AdminSuggestion[];
   runSuggestedAction: (suggestion: AdminSuggestion) => void;
+  canReinitiatePayment: boolean;
+  canResendAccessLink: boolean;
+  canIssueAccessLinks: boolean;
+  canNotifyFollowup: boolean;
+  canReplayWebhook: boolean;
 };
 
 export function OverviewSection({
@@ -21,7 +26,32 @@ export function OverviewSection({
   risks,
   suggestions,
   runSuggestedAction,
+  canReinitiatePayment,
+  canResendAccessLink,
+  canIssueAccessLinks,
+  canNotifyFollowup,
+  canReplayWebhook,
 }: OverviewSectionProps) {
+  const suggestionDisabledReason = (action: AdminSuggestion["action"]) => {
+    if (action === "reinitiate_payment" && !canReinitiatePayment) {
+      return tr("仅管理员可重启支付。", "Only admin can re-initiate payment.");
+    }
+    if (action === "resend_access_link" && !canResendAccessLink) {
+      return tr("仅管理员与 ops 可重发链接。", "Only admin/ops can resend access links.");
+    }
+    if (action === "issue_access_links" && !canIssueAccessLinks) {
+      return tr("仅管理员与 ops 可签发链接。", "Only admin/ops can issue access links.");
+    }
+    if (action === "notify_doctor_followup" && !canNotifyFollowup) {
+      return tr("仅管理员与 ops 可发送跟进提醒。", "Only admin/ops can send follow-up reminders.");
+    }
+    if (action === "inspect_webhook_timeline" && !canReplayWebhook) {
+      return tr("仅管理员与 ops 可复核/重试 webhook。", "Only admin/ops can review/retry webhooks.");
+    }
+    return "";
+  };
+
+  const canExecuteSuggestion = (action: AdminSuggestion["action"]) => !suggestionDisabledReason(action);
   return (
     <>
       <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
@@ -86,14 +116,25 @@ export function OverviewSection({
               <div className="min-w-0 space-y-1">
                 <p className="text-xs font-medium text-slate-900">{suggestion.title}</p>
                 <p className="text-xs text-slate-600">{suggestion.detail}</p>
+                {!canExecuteSuggestion(suggestion.action) ? (
+                  <p className="text-xs text-rose-600">
+                    {suggestionDisabledReason(suggestion.action)}
+                  </p>
+                ) : null}
               </div>
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => runSuggestedAction(suggestion)}
+                onClick={() => {
+                  if (canExecuteSuggestion(suggestion.action)) {
+                    runSuggestedAction(suggestion);
+                  }
+                }}
+                disabled={suggestion.action === "monitor_only" || !canExecuteSuggestion(suggestion.action)}
+                title={suggestionDisabledReason(suggestion.action) || undefined}
               >
-                {tr("执行", "Run")}
+                {suggestion.action === "monitor_only" ? tr("无需操作", "No action") : tr("执行", "Run")}
               </Button>
             </div>
           ))}

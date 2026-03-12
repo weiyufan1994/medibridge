@@ -154,3 +154,22 @@ export function downloadBase64File(base64: string, mimeType: string, filename: s
   anchor.remove();
   URL.revokeObjectURL(url);
 }
+
+export function downloadTextFile(
+  content: string,
+  mimeType: string,
+  filename: string
+) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
