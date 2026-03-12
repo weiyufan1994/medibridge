@@ -44,6 +44,11 @@ const DEFAULT_CHINA_WINDOW_END_MINUTES = 18 * 60;
 const FULL_DAY_WINDOW_START_MINUTES = 0;
 const FULL_DAY_WINDOW_END_MINUTES = 23 * 60 + 59;
 
+const toBooleanEnv = (raw: string | undefined) => {
+  if (!raw) return false;
+  return ["1", "true", "yes", "on"].includes(raw.trim().toLowerCase());
+};
+
 const parseDoctorIdList = (raw: string | undefined) => {
   if (!raw) return new Set<number>();
   return new Set(
@@ -55,18 +60,13 @@ const parseDoctorIdList = (raw: string | undefined) => {
 };
 
 const TEST_24H_DOCTOR_IDS = parseDoctorIdList(import.meta.env.VITE_TEST_24H_DOCTOR_IDS);
-const FORCE_24H_ALL_DOCTORS = import.meta.env.VITE_TEST_24H_ALL_DOCTORS === "1";
+const FORCE_24H_ALL_DOCTORS = toBooleanEnv(import.meta.env.VITE_TEST_24H_ALL_DOCTORS);
 
 const formatLocalDate = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-};
-
-const toMinutes = (hhmm: string) => {
-  const [h, m] = hhmm.split(":").map(Number);
-  return h * 60 + m;
 };
 
 const toHHmmFromMinutes = (minutes: number) => {
@@ -255,12 +255,10 @@ export function AppointmentModal({
     ? bookingScheduledAt.slice(11, 16)
     : "";
 
-  const now = new Date();
   const localTodayStart = new Date();
   localTodayStart.setHours(0, 0, 0, 0);
   const localTimeZone = getLocalTimeZone();
   const todayLocalDate = formatLocalDate(localTodayStart);
-  const currentLocalMinutes = now.getHours() * 60 + now.getMinutes();
   const activeDatePart = selectedDate || todayLocalDate;
   const isTwentyFourHourDoctor =
     FORCE_24H_ALL_DOCTORS || (doctorId !== null && TEST_24H_DOCTOR_IDS.has(doctorId));
@@ -311,7 +309,7 @@ export function AppointmentModal({
           };
         }
 
-        if (datePart === todayLocalDate && toMinutes(value) <= currentLocalMinutes) {
+        if (datePart === todayLocalDate && instant.getTime() <= Date.now()) {
           return {
             isValid: false,
             errorKey: "past_time_today",
@@ -330,7 +328,7 @@ export function AppointmentModal({
 
         return { isValid: true, errorKey: null };
       },
-    [chinaWindowEndMinutes, chinaWindowStartMinutes, currentLocalMinutes, todayLocalDate]
+    [chinaWindowEndMinutes, chinaWindowStartMinutes, todayLocalDate]
   );
 
   const handleDateChange = (datePart: string) => {
