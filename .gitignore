@@ -9,6 +9,8 @@ build/
 
 # Environment variables
 .env
+.env.development
+.env.production
 .env.local
 .env.development.local
 .env.test.local
