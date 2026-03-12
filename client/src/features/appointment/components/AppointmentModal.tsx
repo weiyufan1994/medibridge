@@ -25,6 +25,10 @@ import {
   type AppointmentPackageId,
   type AppointmentType,
 } from "@/features/appointment/hooks/useAppointmentForm";
+import {
+  formatDoctorAvailabilityHint,
+  resolveAppointmentAvailabilityConfig,
+} from "@/features/appointment/components/appointmentAvailability";
 import { getAppointmentCopy } from "@/features/appointment/copy";
 import type { TriagePrefillInput } from "@shared/appointmentIntake";
 import { trpc } from "@/lib/trpc";
@@ -37,12 +41,6 @@ type AppointmentModalProps = {
   resolved: "en" | "zh";
   triagePrefill?: TriagePrefillInput;
 };
-
-const QUICK_TIME_SLOTS = ["09:00", "11:00", "14:00", "16:30", "18:00"];
-const DEFAULT_CHINA_WINDOW_START_MINUTES = 9 * 60;
-const DEFAULT_CHINA_WINDOW_END_MINUTES = 18 * 60;
-const FULL_DAY_WINDOW_START_MINUTES = 0;
-const FULL_DAY_WINDOW_END_MINUTES = 23 * 60 + 59;
 
 const toBooleanEnv = (raw: string | undefined) => {
   if (!raw) return false;
@@ -262,12 +260,8 @@ export function AppointmentModal({
   const activeDatePart = selectedDate || todayLocalDate;
   const isTwentyFourHourDoctor =
     FORCE_24H_ALL_DOCTORS || (doctorId !== null && TEST_24H_DOCTOR_IDS.has(doctorId));
-  const chinaWindowStartMinutes = isTwentyFourHourDoctor
-    ? FULL_DAY_WINDOW_START_MINUTES
-    : DEFAULT_CHINA_WINDOW_START_MINUTES;
-  const chinaWindowEndMinutes = isTwentyFourHourDoctor
-    ? FULL_DAY_WINDOW_END_MINUTES
-    : DEFAULT_CHINA_WINDOW_END_MINUTES;
+  const availabilityConfig = resolveAppointmentAvailabilityConfig(isTwentyFourHourDoctor);
+  const { chinaWindowEndMinutes, chinaWindowStartMinutes, quickTimeSlots } = availabilityConfig;
 
   const upsertDateTime = (datePart: string, timePart: string) => {
     if (!datePart || !timePart) return;
@@ -346,7 +340,7 @@ export function AppointmentModal({
         [
           toCanonicalTime(manualTimeInput),
           toCanonicalTime(selectedTime),
-          ...QUICK_TIME_SLOTS,
+          ...quickTimeSlots,
         ].filter((value): value is string => Boolean(value))
       )
     );
@@ -354,7 +348,7 @@ export function AppointmentModal({
     const firstValidTime = timeCandidates.find(time =>
       validateSelectedTime(datePart, time).isValid
     );
-    const fallbackTime = firstValidTime || timeCandidates[0] || "09:00";
+    const fallbackTime = firstValidTime || timeCandidates[0] || quickTimeSlots[0] || "09:00";
 
     if (fallbackTime !== manualTimeInput) {
       setManualTimeInput(fallbackTime);
@@ -446,6 +440,10 @@ export function AppointmentModal({
     chinaWindowEndMinutes,
   });
   const localDoctorWindowRange = useMemo(() => {
+    if (isTwentyFourHourDoctor) {
+      return t.doctorAvailableAllDay;
+    }
+
     const windowStart = fromZonedTime(
       `${activeDatePart}T${toHHmmFromMinutes(chinaWindowStartMinutes)}:00`,
       "Asia/Shanghai"
@@ -457,7 +455,14 @@ export function AppointmentModal({
     const startLabel = formatInTimeZone(windowStart, localTimeZone, "HH:mm");
     const endLabel = formatInTimeZone(windowEnd, localTimeZone, "HH:mm");
     return `${startLabel} - ${endLabel}`;
-  }, [activeDatePart, chinaWindowEndMinutes, chinaWindowStartMinutes, localTimeZone]);
+  }, [
+    activeDatePart,
+    chinaWindowEndMinutes,
+    chinaWindowStartMinutes,
+    isTwentyFourHourDoctor,
+    localTimeZone,
+    t.doctorAvailableAllDay,
+  ]);
   const canonicalManualTime = toCanonicalTime(manualTimeInput);
   const hasCompleteManualTime = Boolean(canonicalManualTime && HHMM_PATTERN.test(canonicalManualTime));
   const isTimeValid = hasCompleteManualTime && manualTimeErrorKey === null;
@@ -469,7 +474,9 @@ export function AppointmentModal({
 
     if (manualTimeErrorKey === "outside_working_hours") {
       return {
-        text: t.bookingOutOfHours,
+        text: isTwentyFourHourDoctor
+          ? t.doctorAvailableAllDay
+          : t.bookingOutsideWorkingHoursWithRange.replace("{range}", localDoctorWindowRange),
         className: "text-red-500",
       };
     }
@@ -480,16 +487,26 @@ export function AppointmentModal({
 
     if (isTimeValid) {
       return {
-        text: t.doctorAvailableRangeHint.replace("{range}", localDoctorWindowRange),
+        text: formatDoctorAvailabilityHint({
+          isTwentyFourHourDoctor,
+          rangeLabel: localDoctorWindowRange,
+          rangeTemplate: t.doctorAvailableRangeHint,
+          allDayLabel: t.doctorAvailableAllDay,
+        }),
         className: "text-emerald-600",
       };
     }
 
     return {
-      text: t.doctorAvailableRangeHint.replace("{range}", localDoctorWindowRange),
+      text: formatDoctorAvailabilityHint({
+        isTwentyFourHourDoctor,
+        rangeLabel: localDoctorWindowRange,
+        rangeTemplate: t.doctorAvailableRangeHint,
+        allDayLabel: t.doctorAvailableAllDay,
+      }),
       className: "text-slate-500",
     };
-  }, [isTimeValid, localDoctorWindowRange, manualTimeErrorKey, t]);
+  }, [isTimeValid, isTwentyFourHourDoctor, localDoctorWindowRange, manualTimeErrorKey, t]);
 
   useEffect(() => {
     if (!manualTimeInput) {
@@ -666,7 +683,7 @@ export function AppointmentModal({
                         {t.quickSlotsLabel}
                       </p>
                       <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                        {QUICK_TIME_SLOTS.map(slot => (
+                        {quickTimeSlots.map(slot => (
                           <button
                             key={slot}
                             type="button"

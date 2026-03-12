@@ -258,6 +258,7 @@ export type UseAdminConsoleResult = {
   setStatusFilter: (value: string) => void;
   paymentStatusFilter: string;
   setPaymentStatusFilter: (value: string) => void;
+  resetAppointmentFilters: () => void;
   appointmentIdInput: string;
   setAppointmentIdInput: (value: string) => void;
   doctorIdInput: string;

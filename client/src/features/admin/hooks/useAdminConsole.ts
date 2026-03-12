@@ -82,6 +82,18 @@ const toPaymentStatusValue = (value: string | undefined): AdminPaymentStatus | u
 };
 const toArray = (values: number[]): number[] => Array.from(new Set(values));
 
+export const parseOptionalNonNegativeInteger = (value: string): number | undefined => {
+  const normalized = value.trim();
+  if (!normalized) {
+    return undefined;
+  }
+  const parsed = Number(normalized);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    return undefined;
+  }
+  return parsed;
+};
+
 export function useAdminConsole({
   canReadAdmin,
   canMutateAdmin,
@@ -193,13 +205,7 @@ export function useAdminConsole({
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   };
 
-  const toNumber = (value: string) => {
-    const parsed = Number(value.trim());
-    if (!Number.isInteger(parsed) || parsed < 0) {
-      return undefined;
-    }
-    return parsed;
-  };
+  const toNumber = (value: string) => parseOptionalNonNegativeInteger(value);
 
   const toPositiveNumber = (value: string) => {
     const parsed = toNumber(value);
@@ -278,6 +284,39 @@ export function useAdminConsole({
   const appointmentsQuery = trpc.system.adminAppointments.useQuery(parseFilters, {
     enabled: canReadAdmin,
   });
+
+  useEffect(() => {
+    setPage(current => (current === 1 ? current : 1));
+  }, [
+    amountMaxInput,
+    amountMinInput,
+    createdAtFrom,
+    createdAtTo,
+    doctorIdInput,
+    emailQuery,
+    hasRiskFilter,
+    paymentStatusFilter,
+    scheduledAtFrom,
+    scheduledAtTo,
+    statusFilter,
+  ]);
+
+  const resetAppointmentFilters = useCallback(() => {
+    setEmailQuery("");
+    setStatusFilter("");
+    setPaymentStatusFilter("");
+    setDoctorIdInput("");
+    setAmountMinInput("");
+    setAmountMaxInput("");
+    setCreatedAtFrom("");
+    setCreatedAtTo("");
+    setScheduledAtFrom("");
+    setScheduledAtTo("");
+    setHasRiskFilter(false);
+    setSortBy("createdAt");
+    setSortDirection("desc");
+    setPage(1);
+  }, []);
   const rawOperationAuditOperatorId = toNumber(operationAuditOperatorIdInput);
   const operationAuditOperatorId =
     rawOperationAuditOperatorId !== undefined && rawOperationAuditOperatorId > 0
@@ -1098,6 +1137,7 @@ export function useAdminConsole({
     setStatusFilter,
     paymentStatusFilter,
     setPaymentStatusFilter,
+    resetAppointmentFilters,
     doctorIdInput,
     setDoctorIdInput,
     amountMinInput,

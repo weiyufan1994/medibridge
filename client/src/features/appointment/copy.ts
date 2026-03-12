@@ -72,6 +72,9 @@ export function getAppointmentCopy(lang: Lang) {
     doctorAvailableRangeHint: isZh
       ? "医生可接诊：您的当地时间 {range}"
       : "Doctor available: {range} (Local Time)",
+    doctorAvailableAllDay: isZh
+      ? "医生全天可接诊（24 小时）"
+      : "Doctor available 24 hours",
     localTimeInputLabel: isZh
       ? "当地时间"
       : "Local Time",

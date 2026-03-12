@@ -42,6 +42,7 @@ export default function AdminPage() {
     setStatusFilter,
     paymentStatusFilter,
     setPaymentStatusFilter,
+    resetAppointmentFilters,
     doctorIdInput,
     setDoctorIdInput,
     amountMinInput,
@@ -224,83 +225,7 @@ export default function AdminPage() {
           onRefresh={() => {
             void refreshAdminData();
           }}
-        />
-
-        <OperationAuditCard
-          tr={tr}
-          locale={locale}
-          isLoading={operationAuditQuery.isLoading}
-          errorMessage={operationAuditQuery.error?.message}
-          total={operationAuditQuery.data?.total ?? 0}
-          items={operationAuditQuery.data?.items ?? []}
-          page={operationAuditPage}
-          totalPages={operationAuditQuery.data?.totalPages ?? 1}
-          onPageChange={handleAuditPageChange}
-          onRefresh={() => {
-            void refreshAdminData();
-          }}
-          onOpenAppointmentById={id => {
-            setSelectedAppointmentId(id);
-            setIssuedLinks(null);
-          }}
-          operatorIdInput={operationAuditOperatorIdInput}
-          onOperatorIdInputChange={value => {
-            setOperationAuditOperatorIdInput(value);
-            setOperationAuditPage(1);
-          }}
-          actionTypeInput={operationAuditActionTypeInput}
-          onActionTypeInputChange={value => {
-            setOperationAuditActionTypeInput(value);
-            setOperationAuditPage(1);
-          }}
-          from={operationAuditFrom}
-          onFromChange={value => {
-            setOperationAuditFrom(value);
-            setOperationAuditPage(1);
-          }}
-          to={operationAuditTo}
-          onToChange={value => {
-            setOperationAuditTo(value);
-            setOperationAuditPage(1);
-          }}
-        />
-
-        <ExportCenterCard
-          tr={tr}
-          locale={locale}
-          isExporting={exportAppointmentsMutation.isPending}
-          onExport={({
-            scope,
-            format,
-            webhookAppointmentId,
-            auditOperatorId,
-            auditActionType,
-            auditFrom,
-            auditTo,
-          }) => {
-            exportAppointmentsMutation.exportScope({
-              scope,
-              format,
-              webhookAppointmentId,
-              auditOperatorId,
-              auditActionType,
-              auditFrom,
-              auditTo,
-            });
-          }}
-        />
-
-        <HospitalImageManagementCard
-          tr={tr}
-          lang={lang}
-          isLoading={hospitalsQuery.isLoading}
-          errorMessage={
-            hospitalsQuery.error?.message ? toUiError(hospitalsQuery.error.message) : undefined
-          }
-          hospitals={hospitalsQuery.data ?? []}
-          isReadOnly={!isAdmin}
-          uploadState={adminHospitalImageUploadMutation}
-          clearState={adminHospitalImageClearMutation}
+          onResetFilters={resetAppointmentFilters}
         />
 
         <AppointmentsCard
@@ -389,6 +314,83 @@ export default function AdminPage() {
           exportSummaryPdfMutation={exportSummaryPdfMutation}
           visitSummaryQuery={visitSummaryQuery}
           issuedLinks={issuedLinks}
+        />
+
+        <OperationAuditCard
+          tr={tr}
+          locale={locale}
+          isLoading={operationAuditQuery.isLoading}
+          errorMessage={operationAuditQuery.error?.message}
+          total={operationAuditQuery.data?.total ?? 0}
+          items={operationAuditQuery.data?.items ?? []}
+          page={operationAuditPage}
+          totalPages={operationAuditQuery.data?.totalPages ?? 1}
+          onPageChange={handleAuditPageChange}
+          onRefresh={() => {
+            void refreshAdminData();
+          }}
+          onOpenAppointmentById={id => {
+            setSelectedAppointmentId(id);
+            setIssuedLinks(null);
+          }}
+          operatorIdInput={operationAuditOperatorIdInput}
+          onOperatorIdInputChange={value => {
+            setOperationAuditOperatorIdInput(value);
+            setOperationAuditPage(1);
+          }}
+          actionTypeInput={operationAuditActionTypeInput}
+          onActionTypeInputChange={value => {
+            setOperationAuditActionTypeInput(value);
+            setOperationAuditPage(1);
+          }}
+          from={operationAuditFrom}
+          onFromChange={value => {
+            setOperationAuditFrom(value);
+            setOperationAuditPage(1);
+          }}
+          to={operationAuditTo}
+          onToChange={value => {
+            setOperationAuditTo(value);
+            setOperationAuditPage(1);
+          }}
+        />
+
+        <ExportCenterCard
+          tr={tr}
+          locale={locale}
+          isExporting={exportAppointmentsMutation.isPending}
+          onExport={({
+            scope,
+            format,
+            webhookAppointmentId,
+            auditOperatorId,
+            auditActionType,
+            auditFrom,
+            auditTo,
+          }) => {
+            exportAppointmentsMutation.exportScope({
+              scope,
+              format,
+              webhookAppointmentId,
+              auditOperatorId,
+              auditActionType,
+              auditFrom,
+              auditTo,
+            });
+          }}
+        />
+
+        <HospitalImageManagementCard
+          tr={tr}
+          lang={lang}
+          isLoading={hospitalsQuery.isLoading}
+          errorMessage={
+            hospitalsQuery.error?.message ? toUiError(hospitalsQuery.error.message) : undefined
+          }
+          hospitals={hospitalsQuery.data ?? []}
+          isReadOnly={!isAdmin}
+          uploadState={adminHospitalImageUploadMutation}
+          clearState={adminHospitalImageClearMutation}
         />
 
         <TriageSessionsCard

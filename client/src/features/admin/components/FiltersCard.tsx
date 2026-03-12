@@ -51,6 +51,7 @@ type FiltersCardProps = {
   totalPages: number;
   onPageChange: (value: number) => void;
   onRefresh: () => void;
+  onResetFilters: () => void;
 };
 
 export function FiltersCard({
@@ -92,6 +93,7 @@ export function FiltersCard({
   totalPages,
   onPageChange,
   onRefresh,
+  onResetFilters,
 }: FiltersCardProps) {
   return (
     <Card>
@@ -276,6 +278,9 @@ export function FiltersCard({
         <div className="flex flex-wrap items-center gap-3">
           <Button type="button" variant="outline" onClick={onRefresh}>
             {tr("刷新", "Refresh")}
+          </Button>
+          <Button type="button" variant="outline" onClick={onResetFilters}>
+            {tr("重置筛选", "Reset filters")}
           </Button>
           <p className="text-xs text-muted-foreground">
             {tr("分页", "Page")} {page} / {totalPages}
