@@ -10,7 +10,11 @@ type TriageStateMessage = {
 const REPORT_GENERATION_PATTERNS = [
   /生成分诊报告/,
   /整理分诊报告/,
+  /整理分诊信息/,
+  /最后的分诊建议/,
+  /正在整理分诊信息/,
   /triage report/i,
+  /reviewing your triage details/i,
   /generate(?:d|ing)?\s+(?:a\s+|the\s+)?triage\s+(?:report|summary)/i,
   /prepare(?:d|ing)?\s+(?:a\s+|the\s+)?triage\s+(?:report|summary)/i,
 ];

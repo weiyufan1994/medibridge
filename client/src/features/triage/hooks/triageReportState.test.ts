@@ -13,6 +13,20 @@ describe("triageReportState", () => {
     expect(shouldLock).toBe(true);
   });
 
+  it("locks input when assistant starts organizing triage details before final suggestion", () => {
+    const shouldLock = shouldLockInputForReportGeneration({
+      triageResult: { isComplete: false },
+      messages: [
+        {
+          role: "assistant",
+          content: "我现在为您整理分诊信息，稍后请留意最后的分诊建议。",
+        },
+      ],
+    });
+
+    expect(shouldLock).toBe(true);
+  });
+
   it("does not lock input once triage is complete", () => {
     const shouldLock = shouldLockInputForReportGeneration({
       triageResult: { isComplete: true },

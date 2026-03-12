@@ -8,7 +8,7 @@ export type TriageDisplayMessage = {
 export const getMessageContainerClass = (role: TriageDisplayRole): string =>
   role === "user"
     ? "w-fit max-w-[90%] md:max-w-[80%] self-end"
-    : "w-full max-w-[90%] md:max-w-[80%] self-start";
+    : "w-fit max-w-[90%] md:max-w-[80%] self-start";
 
 export const getTriageResultContainerClass = (): string => "flex justify-center";
 

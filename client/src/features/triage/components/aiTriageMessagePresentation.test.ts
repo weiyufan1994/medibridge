@@ -15,6 +15,13 @@ describe("aiTriageMessagePresentation", () => {
     expect(className).not.toContain("w-full");
   });
 
+  it("renders assistant container as content-fit instead of full width", () => {
+    const className = getMessageContainerClass("assistant");
+
+    expect(className).toContain("w-fit");
+    expect(className).not.toContain("w-full");
+  });
+
   it("does not animate assistant messages restored from cache", () => {
     const previousMessages: TriageDisplayMessage[] = [
       { role: "assistant", content: "您好，我是分诊护士。" },
