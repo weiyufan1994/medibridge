@@ -58,6 +58,7 @@ async function verify() {
     "0020_ops_admin_summary_retention",
     "0021_appointment_messages_composite_index",
     "0028_seed_visit_retention_policies",
+    "0029_add_departments_url",
   ];
   const requiredTagSet = new Set(requiredTags);
   const missingTagsInJournal = requiredTags.filter(
@@ -109,6 +110,19 @@ async function verify() {
     );
     if ((indexRows as Array<{ indexName: string }>).length === 0) {
       throw new Error("Missing required index: appointmentMessagesAppointmentCreatedAtIdx");
+    }
+
+    const [departmentUrlRows] = await connection.query(
+      `select column_name as columnName
+       from information_schema.columns
+       where table_schema = ?
+         and table_name = 'departments'
+         and column_name = 'url'
+       limit 1`,
+      [dbName]
+    );
+    if ((departmentUrlRows as Array<{ columnName: string }>).length === 0) {
+      throw new Error("Missing required column: departments.url");
     }
 
     const [retentionRows] = await connection.query(
