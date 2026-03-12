@@ -28,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DisclaimerDialog, DisclaimerNotice } from "@/components/disclaimer/DisclaimerDialog";
 import { useTriageChat } from "@/features/triage/hooks/useTriageChat";
 import { getTriageCopy } from "@/features/triage/copy";
 import {
@@ -757,9 +758,7 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                   <Send className="h-4 w-4" />
                 </button>
               </div>
-              <p className="mt-3 px-4 text-center text-[11px] leading-relaxed text-slate-400">
-                {t.triage.disclaimer}
-              </p>
+              <DisclaimerNotice text={t.triage.disclaimer} className="mx-4 mt-3" />
             </div>
 
             {messageLimitReached && (
@@ -776,24 +775,19 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
         </section>
       </div>
 
-      <Dialog open={disclaimerOpen} onOpenChange={setDisclaimerOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t.disclaimerTitle}</DialogTitle>
-            <DialogDescription>{t.disclaimerDesc}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 text-sm text-muted-foreground">
-            <p>{t.disclaimerLine1}</p>
-            <p>{t.disclaimerLine2}</p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDisclaimerOpen(false)}>
-              {t.cancel}
-            </Button>
-            <Button onClick={() => void handleAcceptDisclaimer()}>{t.understand}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DisclaimerDialog
+        open={disclaimerOpen}
+        onOpenChange={setDisclaimerOpen}
+        title={t.disclaimerTitle}
+        description={t.disclaimerDesc}
+        cancelText={t.cancel}
+        confirmText={t.understand}
+        onConfirm={handleAcceptDisclaimer}
+        icon="info"
+      >
+        <p>{t.disclaimerLine1}</p>
+        <p>{t.disclaimerLine2}</p>
+      </DisclaimerDialog>
 
       <Dialog open={isEditSummaryOpen} onOpenChange={setIsEditSummaryOpen}>
         <DialogContent>

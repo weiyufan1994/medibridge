@@ -1,6 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { FileText } from "lucide-react";
 import {
+  WARNING_ALERT_DIALOG_CONTENT_CLASS,
+  WARNING_ALERT_DIALOG_DESCRIPTION_CLASS,
+  WARNING_ALERT_DIALOG_FOOTER_CLASS,
+  WARNING_ALERT_DIALOG_ICON_CLASS,
+  WARNING_ALERT_DIALOG_ICON_TEAL,
+  WARNING_ALERT_DIALOG_TITLE_CLASS,
+} from "@/components/disclaimer/disclaimerStyles";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -51,17 +59,17 @@ export function EndConsultationDialog({
           {endConsultationText}
         </Button>
       </AlertDialogTrigger>
-      <AlertDialogContent className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl sm:max-w-md">
+      <AlertDialogContent className={WARNING_ALERT_DIALOG_CONTENT_CLASS}>
         <AlertDialogHeader className="gap-3 text-left">
-          <div className="mb-4 w-fit rounded-full bg-teal-50 p-3 text-teal-600">
+          <div className={`${WARNING_ALERT_DIALOG_ICON_CLASS} ${WARNING_ALERT_DIALOG_ICON_TEAL}`}>
             <FileText className="h-5 w-5" aria-hidden="true" />
           </div>
-          <AlertDialogTitle className="text-left">{endConsultationTitle}</AlertDialogTitle>
-          <AlertDialogDescription className="text-left text-slate-600">
+          <AlertDialogTitle className={WARNING_ALERT_DIALOG_TITLE_CLASS}>{endConsultationTitle}</AlertDialogTitle>
+          <AlertDialogDescription className={WARNING_ALERT_DIALOG_DESCRIPTION_CLASS}>
             {endConsultationDesc}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="mt-6 flex-row justify-end gap-3">
+        <AlertDialogFooter className={WARNING_ALERT_DIALOG_FOOTER_CLASS}>
           <AlertDialogCancel className="h-11 rounded-lg px-4 py-2 font-medium text-slate-600 transition-colors hover:bg-slate-100">
             {cancelText}
           </AlertDialogCancel>

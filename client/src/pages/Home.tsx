@@ -2,15 +2,8 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Stethoscope, Hospital, ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, Hospital, Stethoscope } from "lucide-react";
+import { DisclaimerDialog } from "@/components/disclaimer/DisclaimerDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getHomeCopy } from "@/features/home/copy";
 import TopHeader from "@/components/layout/TopHeader";
@@ -180,24 +173,18 @@ export default function Home() {
         </div>
       </section>
 
-      <Dialog open={disclaimerOpen} onOpenChange={setDisclaimerOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t.disclaimerTitle}</DialogTitle>
-            <DialogDescription>{t.disclaimerDescription}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 text-sm text-muted-foreground">
-            <p>{t.disclaimerLine1}</p>
-            <p>{t.disclaimerLine2}</p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDisclaimerOpen(false)}>
-              {t.cancel}
-            </Button>
-            <Button onClick={handleAcceptDisclaimer}>{t.understand}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DisclaimerDialog
+        open={disclaimerOpen}
+        onOpenChange={setDisclaimerOpen}
+        title={t.disclaimerTitle}
+        description={t.disclaimerDescription}
+        cancelText={t.cancel}
+        confirmText={t.understand}
+        onConfirm={handleAcceptDisclaimer}
+      >
+        <p>{t.disclaimerLine1}</p>
+        <p>{t.disclaimerLine2}</p>
+      </DisclaimerDialog>
     </div>
   );
 }

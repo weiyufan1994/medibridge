@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { ConsultationTimerStatus } from "@/features/visit/types";
+import { DisclaimerWarningNotice } from "@/components/disclaimer/DisclaimerDialog";
 
 type VisitRoomHeaderProps = {
   doctorName: string;
@@ -102,9 +103,10 @@ export function VisitRoomHeader({
         </div>
       </div>
       {pollingFatalError ? (
-        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
-          <p className="text-xs font-medium text-amber-900">{pollingFatalError}</p>
-        </div>
+        <DisclaimerWarningNotice
+          text={pollingFatalError}
+          className="mt-3 text-xs font-medium text-amber-900"
+        />
       ) : null}
     </header>
   );

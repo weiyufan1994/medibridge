@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChatComposer } from "@/features/visit/components/ChatComposer";
+import { DisclaimerWarningBanner } from "@/components/disclaimer/DisclaimerDialog";
 import { EndConsultationDialog } from "@/features/visit/components/EndConsultationDialog";
 import { TimeExceededDialog } from "@/features/visit/components/TimeExceededDialog";
 import { VisitRoomHeader } from "@/features/visit/components/VisitRoomHeader";
@@ -160,13 +161,10 @@ export function DoctorVisitView({
               resolved={resolved}
             />
             {showWarningBanner ? (
-              <div
-                role="status"
-                aria-live="polite"
-                className="border-t border-amber-100 bg-amber-50/90 px-4 py-2 text-center text-xs text-amber-700 backdrop-blur-sm"
-              >
-                {warningBannerText}
-              </div>
+              <DisclaimerWarningBanner
+                text={warningBannerText}
+                className="mb-0 mt-0"
+              />
             ) : null}
             <footer className="mt-auto shrink-0 border-t border-slate-200 bg-slate-50/80 px-3 pb-3 pt-3">
               <div className="mx-auto w-full max-w-3xl">
