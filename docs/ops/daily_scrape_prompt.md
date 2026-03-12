@@ -6,7 +6,7 @@
 ## 执行步骤
 
 ### 1. 读取技能
-读取 `/home/ubuntu/skills/haodf-doctor-scraper/SKILL.md` 技能文档，了解完整的抓取流程。
+读取 `<skills-root>/haodf-doctor-scraper/SKILL.md` 技能文档，了解完整的抓取流程。
 
 ### 2. 确定抓取目标
 当前抓取目标：**复旦大学附属中山医院 - 呼吸科**
@@ -41,11 +41,11 @@ URL: https://www.haodf.com/hospital/420/keshi/1767/tuijian.html
 
 ### 5. 生成Excel文件
 将抓取结果转换为Excel格式，保存到：
-`/home/ubuntu/medibridge/data/hospitals/中山医院/呼吸科_医生详细信息_{YYYYMMDD}.xlsx`
+`<repo-root>/data/hospitals/中山医院/呼吸科_医生详细信息_{YYYYMMDD}.xlsx`
 
 ### 6. 推送到GitHub
 ```bash
-cd /home/ubuntu/medibridge
+cd <repo-root>
 git add data/hospitals/
 git commit -m "Update 中山医院呼吸科医生信息 ({YYYYMMDD})"
 git push origin main

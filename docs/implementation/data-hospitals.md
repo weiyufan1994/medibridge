@@ -73,7 +73,7 @@
 
 ### 核心技能
 本项目使用自定义技能 `haodf-doctor-scraper`，位于：
-`/home/ubuntu/skills/haodf-doctor-scraper/`
+`<skills-root>/haodf-doctor-scraper/`
 
 技能包含：
 - 完整的抓取工作流程

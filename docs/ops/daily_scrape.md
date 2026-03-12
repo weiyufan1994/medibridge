@@ -11,14 +11,14 @@
 运行进度跟踪脚本，获取下一个待抓取的科室：
 
 ```bash
-python3 /home/ubuntu/medibridge/scripts/track_progress.py
+python3 $(pwd)/scripts/track_progress.py
 ```
 
 如果所有科室已完成，任务结束。
 
 ### 2. 读取技能文档
 
-使用 `/home/ubuntu/skills/haodf-doctor-scraper/SKILL.md` 技能进行抓取。
+使用 `<skills-root>/haodf-doctor-scraper/SKILL.md` 技能进行抓取。
 
 ### 3. 抓取当前科室
 
@@ -66,13 +66,13 @@ python3 /home/ubuntu/medibridge/scripts/track_progress.py
 
 ### 5. 保存数据
 
-**临时文件**：`/home/ubuntu/medibridge/data/hospitals/{医院}/{科室}_医生详细信息_临时.txt`
+**临时文件**：`<repo-root>/data/hospitals/{医院}/{科室}_医生详细信息_临时.txt`
 
-**Excel文件**：`/home/ubuntu/medibridge/data/hospitals/{医院}/{科室}_医生详细信息_{日期}.xlsx`
+**Excel文件**：`<repo-root>/data/hospitals/{医院}/{科室}_医生详细信息_{日期}.xlsx`
 
 使用技能提供的脚本：
 ```bash
-python3 /home/ubuntu/skills/haodf-doctor-scraper/scripts/parse_to_excel.py \
+python3 <skills-root>/haodf-doctor-scraper/scripts/parse_to_excel.py \
     临时文件路径 \
     Excel文件路径
 ```
@@ -80,7 +80,7 @@ python3 /home/ubuntu/skills/haodf-doctor-scraper/scripts/parse_to_excel.py \
 ### 6. 推送到GitHub
 
 ```bash
-cd /home/ubuntu/medibridge
+cd <repo-root>
 git add data/hospitals/{医院}/{科室}_医生详细信息_{日期}.xlsx
 git commit -m "Add {医院} {科室} doctor data - {日期}"
 git push origin main
