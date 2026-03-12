@@ -26,6 +26,12 @@ CREATE TABLE IF NOT EXISTS `visit_retention_policies` (
   CONSTRAINT `visitRetentionPoliciesTierUk` UNIQUE(`tier`)
 );
 --> statement-breakpoint
+INSERT INTO `visit_retention_policies` (`tier`, `retentionDays`, `enabled`)
+VALUES
+  ('free', 7, 1),
+  ('paid', 180, 1)
+ON DUPLICATE KEY UPDATE `tier` = VALUES(`tier`);
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS `retention_cleanup_audits` (
   `id` int AUTO_INCREMENT NOT NULL,
