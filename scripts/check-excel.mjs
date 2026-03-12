@@ -1,7 +1,15 @@
 import ExcelJS from 'exceljs';
+import path from 'node:path';
+
+const excelPath = path.join(
+  process.cwd(),
+  '医院',
+  '华山医院',
+  '华山医院_详细医生信息.xlsx',
+);
 
 const wb = new ExcelJS.Workbook();
-await wb.xlsx.readFile('/home/ubuntu/medibridge/医院/华山医院/华山医院_详细医生信息.xlsx');
+await wb.xlsx.readFile(excelPath);
 const ws = wb.worksheets[0];
 
 console.log('Row 1 (Headers):');

@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { notifyOwner } from "./notification";
-import { adminProcedure, publicProcedure, router } from "./trpc";
+import {
+  adminOrOpsProcedure,
+  adminProcedure,
+  publicProcedure,
+  router,
+} from "./trpc";
 import { getMetricsSnapshot } from "./metrics";
 import * as appointmentsRepo from "../modules/appointments/repo";
 import * as aiRepo from "../modules/ai/repo";
@@ -17,17 +22,129 @@ import * as adminRepo from "../modules/admin/repo";
 import { generateBilingualVisitSummary } from "../modules/admin/visitSummary";
 import { renderSimpleTextPdf } from "../modules/admin/pdf";
 import { storagePut } from "../storage";
+import { settleStripePaymentBySessionId } from "../modules/payments/settlement";
 import {
   APPOINTMENT_STATUS_VALUES,
   PAYMENT_STATUS_VALUES,
   type AppointmentStatus,
 } from "../modules/appointments/stateMachine";
 
+const resolveActorRole = (role?: string) => {
+  if (role === "ops") {
+    return "ops";
+  }
+  return "admin";
+};
+
+const assertAdminAction = (role?: string) => {
+  if (role !== "admin") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "You do not have required permission (10002)",
+    });
+  }
+};
+
 const adminAppointmentsInputSchema = z.object({
-  limit: z.number().int().min(1).max(200).optional().default(50),
+  page: z.number().int().min(1).optional().default(1),
+  pageSize: z.number().int().min(1).max(200).optional().default(50),
   status: z.enum(APPOINTMENT_STATUS_VALUES).optional(),
   paymentStatus: z.enum(PAYMENT_STATUS_VALUES).optional(),
   emailQuery: z.string().trim().max(320).optional(),
+  doctorId: z.number().int().positive().optional(),
+  amountMin: z.number().int().min(0).optional(),
+  amountMax: z.number().int().min(0).optional(),
+  createdAtFrom: z.coerce.date().optional(),
+  createdAtTo: z.coerce.date().optional(),
+  scheduledAtFrom: z.coerce.date().optional(),
+  scheduledAtTo: z.coerce.date().optional(),
+  hasRisk: z.boolean().optional(),
+  sortBy: z
+    .enum(["createdAt", "scheduledAt", "amount", "status", "paymentStatus", "id"])
+    .optional()
+    .default("createdAt"),
+  sortDirection: z.enum(["asc", "desc"]).optional().default("desc"),
+});
+
+const adminBatchAppointmentActionSchema = z.object({
+  action: z.enum(["resend_access_link", "reinitiate_payment", "update_status"]),
+  appointmentIds: z.array(z.number().int().positive()).min(1).max(200),
+  idempotencyKey: z.string().trim().max(128).optional(),
+  toStatus: z.enum(APPOINTMENT_STATUS_VALUES).optional(),
+  toPaymentStatus: z.enum(PAYMENT_STATUS_VALUES).optional(),
+  reason: z.string().trim().min(3).max(200).optional().default("admin_batch_action"),
+}).superRefine((input, ctx) => {
+  if (input.action === "update_status") {
+    if (!input.toStatus || !input.toPaymentStatus) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["toStatus"],
+        message: "update_status requires toStatus and toPaymentStatus",
+      });
+    }
+  }
+});
+
+const adminWebhookReplaySchema = z
+  .object({
+    eventId: z.string().trim().max(255).optional(),
+    appointmentId: z.number().int().positive().optional(),
+    replayKey: z.string().trim().max(128).optional(),
+  })
+  .superRefine((input, ctx) => {
+    if (!input.eventId && !input.appointmentId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["eventId"],
+        message: "Either eventId or appointmentId is required",
+      });
+    }
+  });
+
+const adminExportScopeSchema = z.enum([
+  "appointments",
+  "risk_summary",
+  "retention_audits",
+  "webhook_timeline",
+  "operation_audit",
+]);
+
+const adminExportSchema = z.object({
+  scope: adminExportScopeSchema,
+  format: z.enum(["json", "csv"]).optional().default("csv"),
+  pageSize: z.number().int().min(1).max(50000).optional().default(2000),
+  status: z.enum(APPOINTMENT_STATUS_VALUES).optional(),
+  paymentStatus: z.enum(PAYMENT_STATUS_VALUES).optional(),
+  emailQuery: z.string().trim().max(320).optional(),
+  doctorId: z.number().int().positive().optional(),
+  amountMin: z.number().int().min(0).optional(),
+  amountMax: z.number().int().min(0).optional(),
+  createdAtFrom: z.coerce.date().optional(),
+  createdAtTo: z.coerce.date().optional(),
+  scheduledAtFrom: z.coerce.date().optional(),
+  scheduledAtTo: z.coerce.date().optional(),
+  hasRisk: z.boolean().optional(),
+  sortBy: z
+    .enum(["createdAt", "scheduledAt", "amount", "status", "paymentStatus", "id"])
+    .optional()
+    .default("createdAt"),
+  sortDirection: z.enum(["asc", "desc"]).optional().default("desc"),
+  webhookAppointmentId: z.number().int().positive().optional(),
+  auditPage: z.number().int().min(1).optional().default(1),
+  auditPageSize: z.number().int().min(1).max(200).optional().default(20),
+  auditOperatorId: z.number().int().positive().optional(),
+  auditActionType: z.string().trim().max(80).optional(),
+  auditFrom: z.coerce.date().optional(),
+  auditTo: z.coerce.date().optional(),
+});
+
+const adminOperationAuditInputSchema = z.object({
+  page: z.number().int().min(1).optional().default(1),
+  pageSize: z.number().int().min(1).max(200).optional().default(20),
+  operatorId: z.number().int().positive().optional(),
+  actionType: z.string().trim().max(80).optional(),
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
 });
 
 const adminTriageSessionsInputSchema = z.object({
@@ -202,6 +319,69 @@ const deriveSummaryText = (input: {
   ].join("\n");
 };
 
+const toCsvCell = (value: unknown) => {
+  const raw = value === undefined || value === null ? "" : String(value);
+  if (raw.includes(",") || raw.includes("\n") || raw.includes("\"")) {
+    return `"${raw.replace(/"/g, '""')}"`;
+  }
+  return raw;
+};
+
+const formatCsvRows = (rows: Array<Record<string, unknown>>) => {
+  if (rows.length === 0) {
+    return "";
+  }
+  const headers = Object.keys(rows[0]);
+  const headerLine = headers.map(toCsvCell).join(",");
+  const lines = rows.map(row =>
+    headers.map(key => toCsvCell(row[key] instanceof Date ? row[key].toISOString() : row[key])).join(",")
+  );
+  return [headerLine, ...lines].join("\n");
+};
+
+const normalizeAmountFilter = (value: number | undefined, side: "min" | "max") => {
+  if (value === undefined || !Number.isInteger(value) || value < 0) {
+    return undefined;
+  }
+  return side === "min" ? value : value;
+};
+
+const toDate = (input: Date | string | undefined | null) => {
+  if (!input) {
+    return undefined;
+  }
+  const parsed = input instanceof Date ? input : new Date(input);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+};
+
+const normalizeBatchActionInput = (input: {
+  action: "resend_access_link" | "reinitiate_payment" | "update_status";
+  idempotencyKey?: string;
+  toStatus?: AppointmentStatus;
+  toPaymentStatus?: "unpaid" | "pending" | "paid" | "failed" | "expired" | "refunded" | "canceled";
+}) => ({
+  action: input.action,
+  idempotencyKey: (input.idempotencyKey ?? "").trim().slice(0, 80),
+  toStatus: input.toStatus,
+  toPaymentStatus: input.toPaymentStatus,
+});
+
+const buildWebhookReplayEventRow = (input: {
+  event: {
+    eventId: string;
+    type: string;
+    stripeSessionId: string | null;
+    appointmentId: number | null;
+  };
+  action: string;
+}) => ({
+  eventId: input.event.eventId,
+  eventType: input.event.type,
+  action: input.action,
+  stripeSessionId: input.event.stripeSessionId,
+  appointmentId: input.event.appointmentId,
+});
+
 export const systemRouter = router({
   health: publicProcedure
     .input(
@@ -227,25 +407,663 @@ export const systemRouter = router({
       } as const;
     }),
 
-  metrics: adminProcedure.query(() => {
+  metrics: adminOrOpsProcedure.query(() => {
     return {
       generatedAt: new Date().toISOString(),
       counters: getMetricsSnapshot(),
     } as const;
   }),
 
-  adminAppointments: adminProcedure
+  adminAppointments: adminOrOpsProcedure
     .input(adminAppointmentsInputSchema)
     .query(async ({ input }) => {
       return appointmentsRepo.listAppointmentsForAdmin({
-        limit: input.limit,
+        page: input.page,
+        pageSize: input.pageSize,
         status: input.status,
         paymentStatus: input.paymentStatus,
         emailQuery: input.emailQuery,
+        doctorId: input.doctorId,
+        amountMin: normalizeAmountFilter(input.amountMin, "min"),
+        amountMax: normalizeAmountFilter(input.amountMax, "max"),
+        createdAtFrom: toDate(input.createdAtFrom),
+        createdAtTo: toDate(input.createdAtTo),
+        scheduledAtFrom: toDate(input.scheduledAtFrom),
+        scheduledAtTo: toDate(input.scheduledAtTo),
+        hasRisk: input.hasRisk,
+        sortBy: input.sortBy,
+        sortDirection: input.sortDirection,
       });
     }),
 
-  adminHospitals: adminProcedure.query(async () => {
+  adminBatchAppointmentsAction: adminOrOpsProcedure
+    .input(adminBatchAppointmentActionSchema)
+    .mutation(async ({ input, ctx }) => {
+      const normalized = normalizeBatchActionInput(input);
+      const actorRole = resolveActorRole(ctx.user?.role);
+
+      if (normalized.action !== "resend_access_link") {
+        assertAdminAction(ctx.user?.role);
+      }
+
+      const idempotencyKey =
+        normalized.idempotencyKey?.trim().length
+          ? normalized.idempotencyKey
+          : randomUUID();
+      const visited = new Set<number>();
+      const results: Array<{
+        appointmentId: number;
+        status: "success" | "skipped" | "failed";
+        reason?: string;
+      }> = [];
+
+      for (const appointmentId of input.appointmentIds) {
+        if (visited.has(appointmentId)) {
+          continue;
+        }
+        visited.add(appointmentId);
+
+        const marker = `admin_batch:${normalized.action}:${idempotencyKey}:${appointmentId}`;
+        const alreadyProcessed = await appointmentsRepo.hasAppointmentStatusReason({
+          appointmentId,
+          reason: marker,
+        });
+        if (alreadyProcessed) {
+          results.push({
+            appointmentId,
+            status: "skipped",
+            reason: "idempotency key replay",
+          });
+          continue;
+        }
+
+        try {
+          const appointment = await appointmentsRepo.getAppointmentById(appointmentId);
+          if (!appointment) {
+            results.push({
+              appointmentId,
+              status: "failed",
+              reason: "Appointment not found",
+            });
+            continue;
+          }
+
+          if (normalized.action === "reinitiate_payment") {
+            const result = await reinitiateCheckoutForAppointment({
+              appointment,
+              baseUrl: getPublicBaseUrl(ctx.req),
+              operatorType: "admin",
+              operatorId: ctx.user.id,
+            });
+            await appointmentsRepo.insertStatusEvent({
+              appointmentId,
+              fromStatus: appointment.status,
+              toStatus: result.status,
+              operatorType: "admin",
+              operatorId: ctx.user.id,
+              reason: marker,
+              payloadJson: {
+                source: "admin_batch",
+                action: "reinitiate_payment",
+                idempotencyKey,
+                actorRole,
+              },
+            });
+            results.push({ appointmentId, status: "success" });
+            continue;
+          }
+
+          if (normalized.action === "resend_access_link") {
+            if (appointment.paymentStatus !== "paid") {
+              results.push({
+                appointmentId,
+                status: "failed",
+                reason: "Appointment is not paid",
+              });
+              continue;
+            }
+
+            const issued = await issueAppointmentAccessLinks({
+              appointmentId: appointment.id,
+              createdBy: `${actorRole}:${ctx.user.id}:batch_resend_access_link`,
+            });
+            setCachedPatientAccessToken(
+              appointment.id,
+              issued.patient.token,
+              issued.expiresAt
+            );
+            await sendMagicLinkEmail(appointment.email, issued.patientLink);
+            await appointmentsRepo.insertStatusEvent({
+              appointmentId,
+              fromStatus: appointment.status,
+              toStatus: appointment.status,
+              operatorType: "admin",
+              operatorId: ctx.user.id,
+              reason: marker,
+              payloadJson: {
+                action: "resend_access_link",
+                patientLink: issued.patientLink,
+                doctorLink: issued.doctorLink,
+                idempotencyKey,
+                actorRole,
+              },
+            });
+            results.push({ appointmentId, status: "success" });
+            continue;
+          }
+
+          const toStatus = normalized.toStatus;
+          const toPaymentStatus = normalized.toPaymentStatus;
+          if (!toStatus || !toPaymentStatus) {
+            results.push({
+              appointmentId,
+              status: "failed",
+              reason: "Missing status update payload",
+            });
+            continue;
+          }
+
+          const transitioned = await appointmentsRepo.tryTransitionAppointmentById({
+            appointmentId: appointment.id,
+            allowedFrom: ADMIN_ALLOWED_TRANSITION_FROM,
+            toStatus,
+            toPaymentStatus,
+            operatorType: "admin",
+            operatorId: ctx.user.id,
+            reason: input.reason,
+            payloadJson: {
+              source: "admin_batch",
+              idempotencyKey,
+              appointmentId,
+            },
+          });
+
+          if (!transitioned.ok) {
+            results.push({
+              appointmentId,
+              status: "failed",
+              reason: `Transition failed: ${transitioned.reason}`,
+            });
+            continue;
+          }
+
+          await appointmentsRepo.insertStatusEvent({
+            appointmentId,
+            fromStatus: appointment.status,
+            toStatus,
+            operatorType: "admin",
+            operatorId: ctx.user.id,
+            reason: marker,
+            payloadJson: {
+              source: "admin_batch",
+              sourceStatus: appointment.status,
+              sourcePaymentStatus: appointment.paymentStatus,
+              toStatus,
+              toPaymentStatus,
+              idempotencyKey,
+              actorRole,
+            },
+          });
+          results.push({ appointmentId, status: "success" });
+        } catch (error) {
+          results.push({
+            appointmentId,
+            status: "failed",
+            reason: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+      }
+
+      return {
+        results,
+        summary: {
+          total: results.length,
+          success: results.filter(item => item.status === "success").length,
+          skipped: results.filter(item => item.status === "skipped").length,
+          failed: results.filter(item => item.status === "failed").length,
+        },
+        idempotencyKey,
+      } as const;
+    }),
+
+  adminWebhookReplay: adminOrOpsProcedure
+    .input(adminWebhookReplaySchema)
+    .mutation(async ({ input, ctx }) => {
+      const actorRole = resolveActorRole(ctx.user?.role);
+      const replayKey = input.replayKey?.trim().length
+        ? input.replayKey.trim().slice(0, 80)
+        : randomUUID();
+
+      const event =
+        input.eventId && input.eventId.trim().length > 0
+          ? await appointmentsRepo.getStripeWebhookEventById(input.eventId.trim())
+          : input.appointmentId
+            ? (await appointmentsRepo.listStripeWebhookEventsForAppointment({
+                appointmentId: input.appointmentId,
+                limit: 1,
+              }))[0] ?? null
+            : null;
+
+      if (!event) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Webhook event not found",
+        });
+      }
+
+      const marker = `admin_webhook_replay:${replayKey}:${event.eventId}`;
+      if (!event.appointmentId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Webhook event has no linked appointment",
+        });
+      }
+
+      const alreadyDone = await appointmentsRepo.hasAppointmentStatusReason({
+        appointmentId: event.appointmentId,
+        reason: marker,
+      });
+      if (alreadyDone) {
+        return {
+          ok: false,
+          skipped: true,
+          action: "skipped-idempotent",
+          eventId: event.eventId,
+        } as const;
+      }
+
+      const result = buildWebhookReplayEventRow({
+        event: {
+          eventId: event.eventId,
+          type: event.type,
+          stripeSessionId: event.stripeSessionId,
+          appointmentId: event.appointmentId,
+        },
+        action: event.type,
+      });
+
+      if (
+        event.type === "checkout.session.completed" ||
+        event.type === "payment_intent.payment_failed" ||
+        event.type === "checkout.session.expired" ||
+        event.type === "charge.refunded" ||
+        event.type === "refund.updated"
+      ) {
+        if (!event.stripeSessionId) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Webhook event is missing stripe session id",
+          });
+        }
+
+        if (event.type === "checkout.session.completed") {
+          const appointment = await appointmentsRepo.getAppointmentById(
+            event.appointmentId
+          );
+          if (!appointment) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Appointment not found for webhook replay",
+            });
+          }
+
+          await settleStripePaymentBySessionId({
+            stripeSessionId: event.stripeSessionId,
+            source: "webhook",
+            eventId: event.eventId,
+          });
+          await appointmentsRepo.insertStatusEvent({
+            appointmentId: event.appointmentId,
+            fromStatus: appointment.status,
+            toStatus: "paid",
+            operatorType: "admin",
+            operatorId: ctx.user.id,
+            reason: marker,
+            payloadJson: {
+              sourceStatus: appointment.status,
+              sourcePaymentStatus: appointment.paymentStatus,
+              source: "webhook_replay",
+              event: result,
+              idempotencyKey: replayKey,
+              actorRole,
+            },
+          });
+          return { ok: true, skipped: false, action: result.action, eventId: event.eventId } as const;
+        }
+
+        if (event.type === "checkout.session.expired") {
+          const expired = await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
+            stripeSessionId: event.stripeSessionId,
+            allowedFrom: ["pending_payment"],
+            toStatus: "expired",
+            toPaymentStatus: "expired",
+            operatorType: "admin",
+            operatorId: ctx.user.id,
+            reason: "admin_webhook_replay",
+            payloadJson: {
+              ...result,
+              actorRole,
+            },
+          });
+          if (!expired.ok) {
+            throw new TRPCError({
+              code: "PRECONDITION_FAILED",
+              message: `Unable to replay expired webhook: ${expired.reason}`,
+            });
+          }
+          await appointmentsRepo.insertStatusEvent({
+            appointmentId: event.appointmentId,
+            fromStatus: "pending_payment",
+            toStatus: "expired",
+            operatorType: "admin",
+            operatorId: ctx.user.id,
+            reason: marker,
+            payloadJson: {
+              source: "webhook_replay",
+              event: result,
+              idempotencyKey: replayKey,
+              actorRole,
+            },
+          });
+          return { ok: true, skipped: false, action: result.action, eventId: event.eventId } as const;
+        }
+
+        if (event.type === "payment_intent.payment_failed") {
+          const failed = await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
+            stripeSessionId: event.stripeSessionId,
+            allowedFrom: ["pending_payment"],
+            toStatus: "canceled",
+            toPaymentStatus: "failed",
+            operatorType: "admin",
+            operatorId: ctx.user.id,
+            reason: "admin_webhook_replay",
+            payloadJson: {
+              ...result,
+              actorRole,
+            },
+          });
+          if (!failed.ok) {
+            throw new TRPCError({
+              code: "PRECONDITION_FAILED",
+              message: `Unable to replay failed payment webhook: ${failed.reason}`,
+            });
+          }
+          await appointmentsRepo.insertStatusEvent({
+            appointmentId: event.appointmentId,
+            fromStatus: "pending_payment",
+            toStatus: "canceled",
+            operatorType: "admin",
+            operatorId: ctx.user.id,
+            reason: marker,
+            payloadJson: {
+              source: "webhook_replay",
+              event: result,
+              idempotencyKey: replayKey,
+              actorRole,
+            },
+          });
+          return { ok: true, skipped: false, action: result.action, eventId: event.eventId } as const;
+        }
+
+        const refund = await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
+          stripeSessionId: event.stripeSessionId,
+          allowedFrom: ["paid", "active", "ended", "completed"],
+          toStatus: "refunded",
+          toPaymentStatus: "refunded",
+          operatorType: "admin",
+          operatorId: ctx.user.id,
+          reason: "admin_webhook_replay",
+          payloadJson: {
+            ...result,
+            actorRole,
+          },
+        });
+        if (!refund.ok) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: `Unable to replay refund webhook: ${refund.reason}`,
+          });
+        }
+        await appointmentsRepo.insertStatusEvent({
+          appointmentId: event.appointmentId,
+          fromStatus: "paid",
+          toStatus: "refunded",
+          operatorType: "admin",
+          operatorId: ctx.user.id,
+          reason: marker,
+          payloadJson: {
+            source: "webhook_replay",
+            event: result,
+            idempotencyKey: replayKey,
+            actorRole,
+          },
+        });
+        return { ok: true, skipped: false, action: result.action, eventId: event.eventId } as const;
+      }
+
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `Unsupported webhook event for replay: ${event.type}`,
+      });
+    }),
+
+  adminExport: adminOrOpsProcedure
+    .input(adminExportSchema)
+    .mutation(async ({ input }) => {
+      const baseFilters = {
+        page: 1,
+        pageSize: input.pageSize,
+        status: input.status,
+        paymentStatus: input.paymentStatus,
+        emailQuery: input.emailQuery,
+        doctorId: input.doctorId,
+        amountMin: normalizeAmountFilter(input.amountMin, "min"),
+        amountMax: normalizeAmountFilter(input.amountMax, "max"),
+        createdAtFrom: toDate(input.createdAtFrom),
+        createdAtTo: toDate(input.createdAtTo),
+        scheduledAtFrom: toDate(input.scheduledAtFrom),
+        scheduledAtTo: toDate(input.scheduledAtTo),
+        hasRisk: input.hasRisk,
+        sortBy: input.sortBy,
+        sortDirection: input.sortDirection,
+      } as const;
+
+      if (input.scope === "appointments") {
+        const queryResult = await appointmentsRepo.listAppointmentsForAdmin(baseFilters);
+        const rows = queryResult.items.map(item => ({
+          id: item.id,
+          email: item.email,
+          status: item.status,
+          paymentStatus: item.paymentStatus,
+          amount: item.amount,
+          currency: item.currency,
+          doctorId: item.doctorId,
+          createdAt: item.createdAt,
+          scheduledAt: item.scheduledAt,
+          riskCodes: item.riskCodes.join("|"),
+          hasRisk: item.hasRisk,
+        }));
+
+        if (input.format === "json") {
+          return {
+            scope: input.scope,
+            format: input.format,
+            filename: `admin-appointments-${new Date().toISOString().slice(0, 10)}.json`,
+            mimeType: "application/json",
+            content: JSON.stringify(rows, null, 2),
+          } as const;
+        }
+
+        return {
+          scope: input.scope,
+          format: input.format,
+          filename: `admin-appointments-${new Date().toISOString().slice(0, 10)}.csv`,
+          mimeType: "text/csv",
+          content: formatCsvRows(rows),
+        } as const;
+      }
+
+      if (input.scope === "risk_summary") {
+        const queryResult = await appointmentsRepo.listAppointmentsForAdmin(baseFilters);
+        const summary = {
+          total: queryResult.total,
+          page: queryResult.page,
+          pageSize: queryResult.pageSize,
+          totalPages: queryResult.totalPages,
+          pendingPaymentTimeout: queryResult.riskSummary.pendingPaymentTimeout,
+          webhookFailure: queryResult.riskSummary.webhookFailure,
+          tokenExpiringSoon: queryResult.riskSummary.tokenExpiringSoon,
+          tokenUsageExhausted: queryResult.riskSummary.tokenUsageExhausted,
+        };
+        const payload = [summary];
+        if (input.format === "json") {
+          return {
+            scope: input.scope,
+            format: input.format,
+            filename: `admin-risk-summary-${new Date().toISOString().slice(0, 10)}.json`,
+            mimeType: "application/json",
+            content: JSON.stringify(payload, null, 2),
+          } as const;
+        }
+        return {
+          scope: input.scope,
+          format: input.format,
+          filename: `admin-risk-summary-${new Date().toISOString().slice(0, 10)}.csv`,
+          mimeType: "text/csv",
+          content: formatCsvRows(payload),
+        } as const;
+      }
+
+      if (input.scope === "retention_audits") {
+        const rows = await adminRepo.listRetentionCleanupAudits(input.auditPageSize);
+        const details = (json: unknown) =>
+          (json as {
+            freeCandidates?: number;
+            paidCandidates?: number;
+            totalCandidates?: number;
+          }) ?? {};
+        const payload = rows.map(row => ({
+          id: row.id,
+          dryRun: row.dryRun === 1,
+          freeRetentionDays: row.freeRetentionDays,
+          paidRetentionDays: row.paidRetentionDays,
+          freeCandidates: details(row.detailsJson).freeCandidates,
+          paidCandidates: details(row.detailsJson).paidCandidates,
+          totalCandidates: details(row.detailsJson).totalCandidates,
+          scannedMessages: row.scannedMessages,
+          deletedMessages: row.deletedMessages,
+          createdBy: row.createdBy,
+          createdAt: row.createdAt,
+        }));
+        if (input.format === "json") {
+          return {
+            scope: input.scope,
+            format: input.format,
+            filename: `admin-retention-audits-${new Date().toISOString().slice(0, 10)}.json`,
+            mimeType: "application/json",
+            content: JSON.stringify(payload, null, 2),
+          } as const;
+        }
+        return {
+          scope: input.scope,
+          format: input.format,
+          filename: `admin-retention-audits-${new Date().toISOString().slice(0, 10)}.csv`,
+          mimeType: "text/csv",
+          content: formatCsvRows(payload),
+        } as const;
+      }
+
+      if (input.scope === "webhook_timeline") {
+        const timeline = input.webhookAppointmentId
+          ? await appointmentsRepo.listStripeWebhookEventsForAppointment({
+              appointmentId: input.webhookAppointmentId,
+              limit: input.pageSize,
+            })
+          : [];
+        const payload = timeline.map(event => ({
+          eventId: event.eventId,
+          type: event.type,
+          stripeSessionId: event.stripeSessionId,
+          appointmentId: event.appointmentId,
+          payloadHash: event.payloadHash,
+          createdAt: event.createdAt,
+        }));
+        if (input.format === "json") {
+          return {
+            scope: input.scope,
+            format: input.format,
+            filename: `admin-webhook-timeline-${new Date().toISOString().slice(0, 10)}.json`,
+            mimeType: "application/json",
+            content: JSON.stringify(payload, null, 2),
+          } as const;
+        }
+        return {
+          scope: input.scope,
+          format: input.format,
+          filename: `admin-webhook-timeline-${new Date().toISOString().slice(0, 10)}.csv`,
+          mimeType: "text/csv",
+          content: formatCsvRows(payload),
+        } as const;
+      }
+
+      if (input.scope === "operation_audit") {
+        const result = await appointmentsRepo.listAppointmentStatusEventsForAdmin({
+          page: input.auditPage,
+          pageSize: input.auditPageSize,
+          operatorId: input.auditOperatorId,
+          actionType: input.auditActionType,
+          from: toDate(input.auditFrom),
+          to: toDate(input.auditTo),
+        });
+        const payload = result.items.map(item => ({
+          id: item.id,
+          appointmentId: item.appointmentId,
+          fromStatus: item.fromStatus,
+          toStatus: item.toStatus,
+          operatorType: item.operatorType,
+          operatorId: item.operatorId,
+          reason: item.reason,
+          createdAt: item.createdAt,
+          payloadJson: item.payloadJson,
+        }));
+        if (input.format === "json") {
+          return {
+            scope: input.scope,
+            format: input.format,
+            filename: `admin-operation-audit-${new Date().toISOString().slice(0, 10)}.json`,
+            mimeType: "application/json",
+            content: JSON.stringify(payload, null, 2),
+          } as const;
+        }
+        return {
+          scope: input.scope,
+          format: input.format,
+          filename: `admin-operation-audit-${new Date().toISOString().slice(0, 10)}.csv`,
+          mimeType: "text/csv",
+          content: formatCsvRows(payload),
+        } as const;
+      }
+
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Unsupported export scope",
+      });
+    }),
+
+  adminOperationAudit: adminOrOpsProcedure
+    .input(adminOperationAuditInputSchema)
+    .query(async ({ input }) => {
+      return appointmentsRepo.listAppointmentStatusEventsForAdmin({
+        page: input.page,
+        pageSize: input.pageSize,
+        operatorId: input.operatorId,
+        actionType: input.actionType,
+        from: toDate(input.from),
+        to: toDate(input.to),
+      });
+    }),
+
+  adminHospitals: adminOrOpsProcedure.query(async () => {
     return await doctorsRepo.getAllHospitals();
   }),
 
@@ -317,7 +1135,7 @@ export const systemRouter = router({
       } as const;
     }),
 
-  adminTriageSessions: adminProcedure
+  adminTriageSessions: adminOrOpsProcedure
     .input(adminTriageSessionsInputSchema)
     .query(async ({ input }) => {
       return aiRepo.listAiChatSessionsForAdmin({
@@ -327,7 +1145,7 @@ export const systemRouter = router({
       });
     }),
 
-  adminAppointmentDetail: adminProcedure
+  adminAppointmentDetail: adminOrOpsProcedure
     .input(adminAppointmentDetailInputSchema)
     .query(async ({ input }) => {
       const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
@@ -434,6 +1252,7 @@ export const systemRouter = router({
   adminReinitiatePayment: adminProcedure
     .input(adminAppointmentActionInputSchema)
     .mutation(async ({ input, ctx }) => {
+      const actorRole = resolveActorRole(ctx.user?.role);
       const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
       if (!appointment) {
         throw new TRPCError({
@@ -459,6 +1278,7 @@ export const systemRouter = router({
         payloadJson: {
           oldStripeSessionId: appointment.stripeSessionId,
           newStripeSessionId: result.stripeSessionId ?? null,
+          actorRole,
         },
       });
 
@@ -468,9 +1288,10 @@ export const systemRouter = router({
       } as const;
     }),
 
-  adminResendAccessLink: adminProcedure
+  adminResendAccessLink: adminOrOpsProcedure
     .input(adminAppointmentActionInputSchema)
     .mutation(async ({ input, ctx }) => {
+      const actorRole = resolveActorRole(ctx.user?.role);
       const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
       if (!appointment) {
         throw new TRPCError({
@@ -488,7 +1309,7 @@ export const systemRouter = router({
 
       const issued = await issueAppointmentAccessLinks({
         appointmentId: appointment.id,
-        createdBy: `admin:${ctx.user.id}:resend_access_link`,
+        createdBy: `${actorRole}:${ctx.user.id}:resend_access_link`,
       });
 
       setCachedPatientAccessToken(
@@ -505,6 +1326,9 @@ export const systemRouter = router({
         operatorType: "admin",
         operatorId: ctx.user.id,
         reason: "admin_resend_access_link",
+        payloadJson: {
+          actorRole,
+        },
       });
 
       return {
@@ -512,9 +1336,10 @@ export const systemRouter = router({
       };
     }),
 
-  adminIssueAccessLinks: adminProcedure
+  adminIssueAccessLinks: adminOrOpsProcedure
     .input(adminAppointmentActionInputSchema)
     .mutation(async ({ input, ctx }) => {
+      const actorRole = resolveActorRole(ctx.user?.role);
       const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
       if (!appointment) {
         throw new TRPCError({
@@ -532,7 +1357,7 @@ export const systemRouter = router({
 
       const issued = await issueAppointmentAccessLinks({
         appointmentId: appointment.id,
-        createdBy: `admin:${ctx.user.id}:issue_access_links`,
+        createdBy: `${actorRole}:${ctx.user.id}:issue_access_links`,
       });
 
       setCachedPatientAccessToken(
@@ -548,6 +1373,9 @@ export const systemRouter = router({
         operatorType: "admin",
         operatorId: ctx.user.id,
         reason: "admin_issue_access_links",
+        payloadJson: {
+          actorRole,
+        },
       });
 
       return {
@@ -558,7 +1386,7 @@ export const systemRouter = router({
       } as const;
     }),
 
-  adminNotifyDoctorFollowup: adminProcedure
+  adminNotifyDoctorFollowup: adminOrOpsProcedure
     .input(adminNotifyDoctorFollowupInputSchema)
     .mutation(async ({ input }) => {
       const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
@@ -597,6 +1425,7 @@ export const systemRouter = router({
   adminUpdateAppointmentStatus: adminProcedure
     .input(adminAppointmentStatusUpdateSchema)
     .mutation(async ({ input, ctx }) => {
+      const actorRole = resolveActorRole(ctx.user?.role);
       const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
       if (!appointment) {
         throw new TRPCError({
@@ -614,6 +1443,7 @@ export const systemRouter = router({
         operatorId: ctx.user.id,
         reason: `admin_status_update:${input.reason}`,
         payloadJson: {
+          actorRole,
           manual: true,
           reason: input.reason,
         },
@@ -634,6 +1464,7 @@ export const systemRouter = router({
   adminUpdateAppointmentSchedule: adminProcedure
     .input(adminAppointmentScheduleUpdateSchema)
     .mutation(async ({ input, ctx }) => {
+      const actorRole = resolveActorRole(ctx.user?.role);
       const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
       if (!appointment) {
         throw new TRPCError({
@@ -656,6 +1487,7 @@ export const systemRouter = router({
         operatorId: ctx.user.id,
         reason: `admin_schedule_update:${input.reason}`,
         payloadJson: {
+          actorRole,
           fromScheduledAt:
             appointment.scheduledAt instanceof Date
               ? appointment.scheduledAt.toISOString()
@@ -671,7 +1503,7 @@ export const systemRouter = router({
       };
     }),
 
-  adminGetVisitSummary: adminProcedure
+  adminGetVisitSummary: adminOrOpsProcedure
     .input(adminAppointmentDetailInputSchema)
     .query(async ({ input }) => {
       const summary = await adminRepo.getVisitSummaryByAppointmentId(input.appointmentId);
@@ -810,7 +1642,7 @@ export const systemRouter = router({
       } as const;
     }),
 
-  adminRetentionPolicies: adminProcedure.query(async () => {
+  adminRetentionPolicies: adminOrOpsProcedure.query(async () => {
     try {
       const rows = await adminRepo.ensureDefaultRetentionPolicies();
       return rows.map(row => ({
@@ -881,7 +1713,7 @@ export const systemRouter = router({
       }
     }),
 
-  adminRetentionCleanupAudits: adminProcedure
+  adminRetentionCleanupAudits: adminOrOpsProcedure
     .input(retentionCleanupAuditListSchema)
     .query(async ({ input }) => {
       try {

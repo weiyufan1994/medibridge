@@ -24,7 +24,7 @@ export const users = mysqlTable("users", {
   isGuest: tinyint("isGuest").notNull().default(1),
   deviceId: varchar("deviceId", { length: 128 }).unique(),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["free", "pro", "admin"]).default("free").notNull(),
+  role: mysqlEnum("role", ["free", "pro", "admin", "ops"]).default("free").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),

@@ -192,105 +192,182 @@ export async function runRetentionCleanup(input: {
     throw new Error("Database not available");
   }
 
-  const policies = await ensureDefaultRetentionPolicies();
-  const policyMap = toPolicyMap(policies);
   const now = new Date();
-  const freeCutoff = new Date(now.getTime() - policyMap.freeRetentionDays * 24 * 60 * 60 * 1000);
-  const paidCutoff = new Date(now.getTime() - policyMap.paidRetentionDays * 24 * 60 * 60 * 1000);
+  const buildEmptyFailureResult = (failureReason: string) => ({
+    dryRun: Boolean(input.dryRun),
+    scannedMessages: 0,
+    deletedMessages: 0,
+    totalCandidates: 0,
+    freeCandidates: 0,
+    paidCandidates: 0,
+    freeRetentionDays: 0,
+    paidRetentionDays: 0,
+    freeSampleIds: [] as number[],
+    paidSampleIds: [] as number[],
+    failureReason,
+    generatedAt: new Date().toISOString(),
+    nextCleanupAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+  } as const);
 
-  const paidPredicate = toPaidTierPredicate();
-  const freePredicate = toFreeTierPredicate();
+  try {
+    const policies = await ensureDefaultRetentionPolicies();
+    const policyMap = toPolicyMap(policies);
+    const freeCutoff = new Date(
+      now.getTime() - policyMap.freeRetentionDays * 24 * 60 * 60 * 1000
+    );
+    const paidCutoff = new Date(
+      now.getTime() - policyMap.paidRetentionDays * 24 * 60 * 60 * 1000
+    );
 
-  const scannedRows = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(appointmentMessages);
-  const scannedMessages = Number(scannedRows[0]?.count ?? 0);
+    const paidPredicate = toPaidTierPredicate();
+    const freePredicate = toFreeTierPredicate();
 
-  const freeCandidateRows = policyMap.freeEnabled
-    ? await db
-        .select({ count: sql<number>`count(*)` })
-        .from(appointmentMessages)
-        .innerJoin(appointments, eq(appointmentMessages.appointmentId, appointments.id))
-        .where(and(freePredicate, lt(appointmentMessages.createdAt, freeCutoff)))
-    : [{ count: 0 }];
+    const scannedRows = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(appointmentMessages);
+    const scannedMessages = Number(scannedRows[0]?.count ?? 0);
 
-  const paidCandidateRows = policyMap.paidEnabled
-    ? await db
-        .select({ count: sql<number>`count(*)` })
-        .from(appointmentMessages)
-        .innerJoin(appointments, eq(appointmentMessages.appointmentId, appointments.id))
-        .where(and(paidPredicate, lt(appointmentMessages.createdAt, paidCutoff)))
-    : [{ count: 0 }];
+    const freeCandidateRows = policyMap.freeEnabled
+      ? await db
+          .select({ count: sql<number>`count(*)` })
+          .from(appointmentMessages)
+          .innerJoin(appointments, eq(appointmentMessages.appointmentId, appointments.id))
+          .where(and(freePredicate, lt(appointmentMessages.createdAt, freeCutoff)))
+      : [{ count: 0 }];
 
-  const freeCandidates = Number(freeCandidateRows[0]?.count ?? 0);
-  const paidCandidates = Number(paidCandidateRows[0]?.count ?? 0);
+    const paidCandidateRows = policyMap.paidEnabled
+      ? await db
+          .select({ count: sql<number>`count(*)` })
+          .from(appointmentMessages)
+          .innerJoin(appointments, eq(appointmentMessages.appointmentId, appointments.id))
+          .where(and(paidPredicate, lt(appointmentMessages.createdAt, paidCutoff)))
+      : [{ count: 0 }];
 
-  let deletedMessages = 0;
-  if (!input.dryRun) {
-    if (policyMap.freeEnabled) {
-      const freeDelete = await db
-        .delete(appointmentMessages)
-        .where(
-          and(
-            lt(appointmentMessages.createdAt, freeCutoff),
-            sql`exists (
-              select 1
-              from ${appointments}
-              where ${appointments.id} = ${appointmentMessages.appointmentId}
-              and ${freePredicate}
-            )`
-          )
-        );
-      deletedMessages += Number((freeDelete as { affectedRows?: number }).affectedRows ?? 0);
+    const freeCandidates = Number(freeCandidateRows[0]?.count ?? 0);
+    const paidCandidates = Number(paidCandidateRows[0]?.count ?? 0);
+
+    const freeSampleRows = policyMap.freeEnabled
+      ? await db
+          .select({ id: appointmentMessages.id })
+          .from(appointmentMessages)
+          .innerJoin(appointments, eq(appointmentMessages.appointmentId, appointments.id))
+          .where(and(freePredicate, lt(appointmentMessages.createdAt, freeCutoff)))
+          .orderBy(desc(appointmentMessages.id))
+          .limit(10)
+      : [];
+
+    const paidSampleRows = policyMap.paidEnabled
+      ? await db
+          .select({ id: appointmentMessages.id })
+          .from(appointmentMessages)
+          .innerJoin(appointments, eq(appointmentMessages.appointmentId, appointments.id))
+          .where(and(paidPredicate, lt(appointmentMessages.createdAt, paidCutoff)))
+          .orderBy(desc(appointmentMessages.id))
+          .limit(10)
+      : [];
+
+    const freeSampleIds = freeSampleRows.map(row => row.id);
+    const paidSampleIds = paidSampleRows.map(row => row.id);
+
+    let deletedMessages = 0;
+    if (!input.dryRun) {
+      if (policyMap.freeEnabled) {
+        const freeDelete = await db
+          .delete(appointmentMessages)
+          .where(
+            and(
+              lt(appointmentMessages.createdAt, freeCutoff),
+              sql`exists (
+                select 1
+                from ${appointments}
+                where ${appointments.id} = ${appointmentMessages.appointmentId}
+                and ${freePredicate}
+              )`
+            )
+          );
+        deletedMessages += Number((freeDelete as { affectedRows?: number }).affectedRows ?? 0);
+      }
+
+      if (policyMap.paidEnabled) {
+        const paidDelete = await db
+          .delete(appointmentMessages)
+          .where(
+            and(
+              lt(appointmentMessages.createdAt, paidCutoff),
+              sql`exists (
+                select 1
+                from ${appointments}
+                where ${appointments.id} = ${appointmentMessages.appointmentId}
+                and ${paidPredicate}
+              )`
+            )
+          );
+        deletedMessages += Number((paidDelete as { affectedRows?: number }).affectedRows ?? 0);
+      }
     }
 
-    if (policyMap.paidEnabled) {
-      const paidDelete = await db
-        .delete(appointmentMessages)
-        .where(
-          and(
-            lt(appointmentMessages.createdAt, paidCutoff),
-            sql`exists (
-              select 1
-              from ${appointments}
-              where ${appointments.id} = ${appointmentMessages.appointmentId}
-              and ${paidPredicate}
-            )`
-          )
-        );
-      deletedMessages += Number((paidDelete as { affectedRows?: number }).affectedRows ?? 0);
-    }
-  }
+    const totalCandidates = freeCandidates + paidCandidates;
+    const nextCleanupAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
-  const totalCandidates = freeCandidates + paidCandidates;
+    await db.insert(retentionCleanupAudits).values({
+      dryRun: input.dryRun ? 1 : 0,
+      freeRetentionDays: policyMap.freeRetentionDays,
+      paidRetentionDays: policyMap.paidRetentionDays,
+      scannedMessages,
+      deletedMessages: input.dryRun ? 0 : deletedMessages,
+      detailsJson: {
+        freeEnabled: policyMap.freeEnabled,
+        paidEnabled: policyMap.paidEnabled,
+        freeCutoff: freeCutoff.toISOString(),
+        paidCutoff: paidCutoff.toISOString(),
+        freeCandidates,
+        paidCandidates,
+        totalCandidates,
+        nextCleanupAt,
+        freeSampleIds,
+        paidSampleIds,
+      },
+      createdBy: input.createdBy ?? null,
+    });
 
-  await db.insert(retentionCleanupAudits).values({
-    dryRun: input.dryRun ? 1 : 0,
-    freeRetentionDays: policyMap.freeRetentionDays,
-    paidRetentionDays: policyMap.paidRetentionDays,
-    scannedMessages,
-    deletedMessages: input.dryRun ? 0 : deletedMessages,
-    detailsJson: {
-      freeEnabled: policyMap.freeEnabled,
-      paidEnabled: policyMap.paidEnabled,
-      freeCutoff: freeCutoff.toISOString(),
-      paidCutoff: paidCutoff.toISOString(),
+    return {
+      dryRun: Boolean(input.dryRun),
+      scannedMessages,
+      deletedMessages: input.dryRun ? 0 : deletedMessages,
+      totalCandidates,
       freeCandidates,
       paidCandidates,
-      totalCandidates,
-    },
-    createdBy: input.createdBy ?? null,
-  });
+      freeRetentionDays: policyMap.freeRetentionDays,
+      paidRetentionDays: policyMap.paidRetentionDays,
+      freeSampleIds,
+      paidSampleIds,
+      nextCleanupAt,
+      generatedAt: now.toISOString(),
+    } as const;
+  } catch (error) {
+    const failureReason = error instanceof Error ? error.message : "Unknown cleanup error";
+    const nextCleanupAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
-  return {
-    dryRun: Boolean(input.dryRun),
-    scannedMessages,
-    deletedMessages: input.dryRun ? 0 : deletedMessages,
-    totalCandidates,
-    freeCandidates,
-    paidCandidates,
-    freeRetentionDays: policyMap.freeRetentionDays,
-    paidRetentionDays: policyMap.paidRetentionDays,
-    generatedAt: now.toISOString(),
-  } as const;
+    try {
+      await db.insert(retentionCleanupAudits).values({
+        dryRun: input.dryRun ? 1 : 0,
+        freeRetentionDays: 0,
+        paidRetentionDays: 0,
+        scannedMessages: 0,
+        deletedMessages: 0,
+        detailsJson: {
+          failureReason,
+          nextCleanupAt,
+          freeCandidates: 0,
+          paidCandidates: 0,
+          totalCandidates: 0,
+        },
+        createdBy: input.createdBy ?? null,
+      });
+    } catch {
+      // audit persistence is best-effort and should not shadow original cleanup failure.
+    }
+
+    return buildEmptyFailureResult(failureReason);
+  }
 }
