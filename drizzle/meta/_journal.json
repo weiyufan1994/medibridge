@@ -197,6 +197,13 @@
       "when": 1773166000000,
       "tag": "0027_payment_provider_events_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "5",
+      "when": 1773300000000,
+      "tag": "0028_seed_visit_retention_policies",
+      "breakpoints": true
     }
   ]
 }
