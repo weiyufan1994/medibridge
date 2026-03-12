@@ -8,7 +8,7 @@ SET @ddl := IF(
       AND COLUMN_NAME = 'email'
   ),
   'SELECT 1',
-  'ALTER TABLE `appointments` ADD COLUMN `email` varchar(320) NOT NULL DEFAULT '''''''
+  'ALTER TABLE `appointments` ADD COLUMN `email` varchar(320) NOT NULL DEFAULT '''''
 );--> statement-breakpoint
 PREPARE stmt FROM @ddl;--> statement-breakpoint
 EXECUTE stmt;--> statement-breakpoint
@@ -22,7 +22,7 @@ SET @ddl := IF(
       AND COLUMN_NAME = 'accessTokenHash'
   ),
   'SELECT 1',
-  'ALTER TABLE `appointments` ADD COLUMN `accessTokenHash` varchar(128) NOT NULL DEFAULT '''''''
+  'ALTER TABLE `appointments` ADD COLUMN `accessTokenHash` varchar(128) NOT NULL DEFAULT '''''
 );--> statement-breakpoint
 PREPARE stmt FROM @ddl;--> statement-breakpoint
 EXECUTE stmt;--> statement-breakpoint
