@@ -15,6 +15,7 @@ type Props = {
   isLoading: boolean;
   errorMessage?: string;
   hospitals: AdminHospital[];
+  isReadOnly?: boolean;
   uploadState: HospitalImageUploadState;
   clearState: HospitalImageClearState;
 };
@@ -25,13 +26,14 @@ export function HospitalImageManagementCard({
   isLoading,
   errorMessage,
   hospitals,
+  isReadOnly = false,
   uploadState,
   clearState,
 }: Props) {
   const fileInputRefs = useRef(new Map<number, HTMLInputElement | null>());
 
   const handleUpload = (hospitalId: number, file: File | null) => {
-    if (!file) {
+    if (isReadOnly || !file) {
       return;
     }
     if (!file.type.startsWith("image/")) {
@@ -46,7 +48,10 @@ export function HospitalImageManagementCard({
   };
 
   const openFilePicker = (hospitalId: number) => {
-    const input = fileInputRefs.current.get(hospitalId);
+      if (isReadOnly) {
+        return;
+      }
+      const input = fileInputRefs.current.get(hospitalId);
     if (!input) {
       return;
     }
@@ -69,7 +74,7 @@ export function HospitalImageManagementCard({
         ) : hospitals.length === 0 ? (
           <p className="text-sm text-muted-foreground">{tr("暂无医院数据。", "No hospitals available.")}</p>
         ) : (
-          <div className="space-y-3">
+      <div className="space-y-3">
             {hospitals.map(hospital => {
               const hospitalName = getLocalizedField({
                 lang,
@@ -119,13 +124,13 @@ export function HospitalImageManagementCard({
                           handleUpload(hospital.id, file ?? null);
                           event.currentTarget.value = "";
                         }}
-                        disabled={uploadState.isPending}
+                        disabled={isReadOnly || uploadState.isPending}
                       />
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        disabled={uploadState.isPending}
+                        disabled={isReadOnly || uploadState.isPending}
                         onClick={() => openFilePicker(hospital.id)}
                       >
                         <UploadCloud className="h-4 w-4 mr-1.5" aria-hidden="true" />
@@ -137,7 +142,7 @@ export function HospitalImageManagementCard({
                           variant="outline"
                           size="sm"
                           onClick={() => clearState.clearHospitalImage(hospital.id)}
-                          disabled={clearState.isPending}
+                          disabled={isReadOnly || clearState.isPending}
                         >
                           <Trash2 className="h-4 w-4 mr-1.5" aria-hidden="true" />
                           {tr("清空封面", "Clear cover")}
