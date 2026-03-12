@@ -57,6 +57,7 @@ async function verify() {
   const requiredTags = [
     "0020_ops_admin_summary_retention",
     "0021_appointment_messages_composite_index",
+    "0028_seed_visit_retention_policies",
   ];
   const requiredTagSet = new Set(requiredTags);
   const missingTagsInJournal = requiredTags.filter(

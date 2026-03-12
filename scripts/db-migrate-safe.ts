@@ -13,6 +13,5 @@ function runCommand(command: string, args: string[]) {
 }
 
 runCommand("pnpm", ["-s", "db:sync-journal"]);
-runCommand("pnpm", ["-s", "db:verify:migrations"]);
 runCommand("pnpm", ["-s", "db:migrate"]);
 runCommand("pnpm", ["-s", "db:verify:migrations"]);
