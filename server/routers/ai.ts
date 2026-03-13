@@ -10,9 +10,7 @@ export const aiRouter = router({
     .input(aiSchemas.listMySessionsInputSchema)
     .query(({ ctx, input }) => aiActions.listMySessionsAction(ctx.user, input)),
 
-  createSession: publicProcedure.mutation(({ ctx }) =>
-    aiActions.createSessionAction(ctx.user)
-  ),
+  createSession: publicProcedure.mutation(({ ctx }) => aiActions.createSessionAction(ctx)),
 
   sendMessage: publicProcedure
     .input(aiSchemas.sendMessageInputSchema)

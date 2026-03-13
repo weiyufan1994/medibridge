@@ -58,6 +58,7 @@ export function useTriageChat({
   resolved,
   reportInput,
 }: UseTriageChatParams) {
+  const utils = trpc.useUtils();
   const [messages, setMessages] = useState<ChatMessage[]>([
     getInitialAssistantMessage(resolved),
   ]);
@@ -185,6 +186,13 @@ export function useTriageChat({
     }
   };
 
+  const syncSessionCreationState = async () => {
+    await Promise.all([
+      utils.consultation.getHistory.invalidate(),
+      utils.auth.me.invalidate(),
+    ]);
+  };
+
   const sendMessage = async (content: string) => {
     if (
       !content ||
@@ -203,6 +211,7 @@ export function useTriageChat({
         const created = await createSessionMutation.mutateAsync();
         activeSessionId = String(created.sessionId);
         setTriageSessionId(activeSessionId);
+        await syncSessionCreationState();
       } catch (error) {
         if (error instanceof TRPCClientError) {
           const message = error.message || "无法创建问诊会话";
@@ -258,6 +267,7 @@ export function useTriageChat({
           const recreated = await createSessionMutation.mutateAsync();
           const refreshedSessionId = String(recreated.sessionId);
           setTriageSessionId(refreshedSessionId);
+          await syncSessionCreationState();
           result = await sendMessageMutation.mutateAsync({
             sessionId: Number(refreshedSessionId),
             content,

@@ -91,6 +91,47 @@ export async function listAiChatSessionsByUser(userId: number, limit: number) {
     .limit(limit);
 }
 
+export async function listFirstUserMessagesBySessionIds(sessionIds: number[]) {
+  if (sessionIds.length === 0) {
+    return new Map<number, string>();
+  }
+
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const normalizedIds = Array.from(
+    new Set(sessionIds.filter(id => Number.isInteger(id) && id > 0))
+  );
+  if (normalizedIds.length === 0) {
+    return new Map<number, string>();
+  }
+
+  const rows = await db
+    .select({
+      sessionId: aiChatMessages.sessionId,
+      content: aiChatMessages.content,
+    })
+    .from(aiChatMessages)
+    .where(
+      and(
+        sql`${aiChatMessages.sessionId} in ${normalizedIds}`,
+        eq(aiChatMessages.role, "user"),
+        sql`${aiChatMessages.id} = (
+          select min(msg.id)
+          from ${aiChatMessages} as msg
+          where msg.sessionId = ${aiChatMessages.sessionId}
+            and msg.role = 'user'
+        )`
+      )
+    );
+
+  return new Map(
+    rows.map(row => [row.sessionId, row.content] as const)
+  );
+}
+
 export async function listAiChatSessionsForAdmin(input: {
   limit: number;
   status?: "active" | "completed";
