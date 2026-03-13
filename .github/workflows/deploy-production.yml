@@ -140,26 +140,32 @@ jobs:
 
           echo "command_id=${command_id}" >> "${GITHUB_OUTPUT}"
 
-          aws ssm wait command-executed \
-            --region "${AWS_REGION}" \
-            --command-id "${command_id}" \
-            --instance-id "${INSTANCE_ID}"
+          status="Pending"
+          for _ in $(seq 1 60); do
+            aws ssm get-command-invocation \
+              --region "${AWS_REGION}" \
+              --command-id "${command_id}" \
+              --instance-id "${INSTANCE_ID}" \
+              --query '{Status:Status,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+              --output json > deploy-result.json
 
-          aws ssm get-command-invocation \
-            --region "${AWS_REGION}" \
-            --command-id "${command_id}" \
-            --instance-id "${INSTANCE_ID}" \
-            --query '{Status:Status,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
-            --output json > deploy-result.json
-
-          cat deploy-result.json
-
-          status="$(python - <<'PY'
+            status="$(python - <<'PY'
           import json
           with open("deploy-result.json", "r", encoding="utf-8") as fh:
               print(json.load(fh)["Status"])
           PY
-          )"
+            )"
+
+            case "${status}" in
+              Success|Cancelled|TimedOut|Failed|Cancelling)
+                break
+                ;;
+            esac
+
+            sleep 2
+          done
+
+          cat deploy-result.json
 
           if [ "${status}" != "Success" ]; then
             echo "Deployment failed with status ${status}" >&2
