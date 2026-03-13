@@ -352,6 +352,8 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
   );
 
   const isChatPending = createSessionMutation.isPending || sendMessageMutation.isPending;
+  const isRecommendationPending =
+    triageResult?.isComplete === true && recommendQuery.isFetching;
   const patientName = user?.name || user?.email || (resolved === "zh" ? "未命名患者" : "Unnamed patient");
 
   const historyItems = useMemo<HistoryItem[]>(() => {
@@ -421,6 +423,7 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
     triageResult?.isComplete === true ||
     reportGenerationLocked ||
     messageLimitReached;
+  const isInputDisabled = isReadOnlyMode || isRecommendationPending;
 
   const displayMessages: TriageDisplayMessage[] = isHistoryReadOnly
     ? (historyMessagesQuery.data ?? []).map(message => ({
@@ -444,9 +447,19 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
     ? (resolved === "zh" ? "这是历史会话（只读）..." : "This is a past session (Read-only)...")
     : reportGenerationLocked
       ? t.status.reviewing
+    : isRecommendationPending
+      ? t.searching
     : isChatPending
       ? t.status.thinking
       : t.placeholder;
+
+  const activityLabel = reportGenerationLocked
+    ? t.status.reviewing
+    : isRecommendationPending
+      ? t.searching
+      : isChatPending
+        ? t.status.thinking
+        : null;
 
   const effectiveSummary =
     summaryDraft.trim().length > 0
@@ -711,10 +724,10 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                   </div>
                 )}
 
-                {(isChatPending || reportGenerationLocked) && (
+                {activityLabel && (
                   <div className="flex items-center gap-2 text-sm text-slate-500">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    {t.status.reviewing}
+                    {activityLabel}
                   </div>
                 )}
                 <div ref={listEndRef} />
@@ -742,15 +755,15 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                   onChange={event => setInput(event.target.value)}
                   onKeyDown={handleInputKeyDown}
                   placeholder={inputPlaceholder}
-                  disabled={isReadOnlyMode}
+                  disabled={isInputDisabled}
                   className="max-h-32 min-h-[64px] w-full resize-none border-0 bg-transparent py-4 pl-5 pr-16 text-slate-800 outline-none focus-visible:ring-0"
                 />
                 <button
                   type="button"
                   onClick={() => void handleSend()}
-                  disabled={isReadOnlyMode || !input.trim() || isChatPending}
+                  disabled={isInputDisabled || !input.trim() || isChatPending}
                   className={`absolute bottom-3 right-3 rounded-xl p-2 text-white transition-colors ${
-                    isReadOnlyMode || isChatPending
+                    isInputDisabled || isChatPending
                       ? "cursor-not-allowed bg-slate-300 text-slate-300"
                       : "bg-teal-600 hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
                   }`}

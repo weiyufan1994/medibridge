@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { processTriageChat } from "./service";
 import * as aiRepo from "./repo";
 import type { TrpcContext } from "../../_core/context";
+import * as authRepo from "../auth/repo";
 import type {
   ChatTriageInput,
   ListMySessionsInput,
@@ -87,8 +88,31 @@ export async function listMySessionsAction(user: AuthUser, input: ListMySessions
   return aiRepo.listAiChatSessionsByUser(user.id, input.limit);
 }
 
-export async function createSessionAction(user: TrpcContext["user"]) {
-  const authUser = requireUser(user, "Please login to start triage session.");
+async function resolveSessionOwner(ctx: Pick<TrpcContext, "user" | "deviceId">) {
+  if (ctx.user) {
+    return ctx.user;
+  }
+
+  if (!ctx.deviceId) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Please login to start triage session.",
+    });
+  }
+
+  const guestUser = await authRepo.findOrCreateGuestUserByDeviceId(ctx.deviceId);
+  if (!guestUser) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Please login to start triage session.",
+    });
+  }
+
+  return guestUser;
+}
+
+export async function createSessionAction(ctx: Pick<TrpcContext, "user" | "deviceId">) {
+  const authUser = await resolveSessionOwner(ctx);
 
   if (authUser.role === "pro") {
     const sessionId = await aiRepo.createAiChatSession(authUser.id);

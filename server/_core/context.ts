@@ -61,7 +61,7 @@ export async function createContext(
   }
 
   if (!user && deviceId) {
-    user = (await authRepo.findOrCreateGuestUserByDeviceId(deviceId)) ?? null;
+    user = (await authRepo.getGuestUserByDeviceId(deviceId)) ?? null;
   }
 
   return {

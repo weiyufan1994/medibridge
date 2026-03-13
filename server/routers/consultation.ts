@@ -19,12 +19,36 @@ const getMessagesBySessionIdOutputSchema = z.array(
   })
 );
 
-function buildSessionTitle(summary: string | null, sessionId: number) {
-  const trimmedSummary = summary?.trim();
-  if (trimmedSummary && trimmedSummary.length > 0) {
-    return trimmedSummary.slice(0, 255);
+function normalizeSessionTitleCandidate(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
   }
-  return `Session #${sessionId}`;
+
+  return trimmed.replace(/\s+/g, " ").slice(0, 255);
+}
+
+function buildSessionTitle(input: {
+  summary: string | null;
+  firstUserMessage?: string | null;
+  sessionId: number;
+}) {
+  const summaryTitle = normalizeSessionTitleCandidate(input.summary);
+  if (summaryTitle) {
+    return summaryTitle;
+  }
+
+  const firstMessageTitle = normalizeSessionTitleCandidate(input.firstUserMessage);
+  if (firstMessageTitle) {
+    return firstMessageTitle;
+  }
+
+  const sessionId = input.sessionId;
+  if (Number.isInteger(sessionId) && sessionId > 0) {
+    return `Session #${sessionId}`;
+  }
+
+  return "New session";
 }
 
 export const consultationRouter = router({
@@ -37,11 +61,18 @@ export const consultationRouter = router({
       ctx.userId,
       CONSULTATION_HISTORY_LIMIT
     );
+    const firstUserMessagesBySessionId = await aiRepo.listFirstUserMessagesBySessionIds(
+      sessions.map(session => session.id)
+    );
 
     return sessions.map(session => ({
       id: session.id,
       userId: session.userId ?? null,
-      title: buildSessionTitle(session.summary, session.id),
+      title: buildSessionTitle({
+        summary: session.summary,
+        firstUserMessage: firstUserMessagesBySessionId.get(session.id) ?? null,
+        sessionId: session.id,
+      }),
       status: session.status,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,

@@ -1,7 +1,266 @@
 import { createEmbedding, invokeLLM } from "../_core/llm";
 import * as doctorsRepo from "../modules/doctors/repo";
+import {
+  deriveDoctorSpecialtyTags,
+  type DoctorSpecialtyTag,
+} from "../modules/doctors/taxonomy";
 import { publicProcedure, router } from "../_core/trpc";
 import { z } from "zod";
+
+type SpecialtyIntent = {
+  id: string;
+  triggerKeywords: string[];
+  departmentTerms: string[];
+  normalizedTags: DoctorSpecialtyTag[];
+};
+
+const SPECIALTY_INTENTS: SpecialtyIntent[] = [
+  {
+    id: "musculoskeletal",
+    triggerKeywords: [
+      "膝",
+      "膝盖",
+      "膝关节",
+      "关节",
+      "积液",
+      "积水",
+      "骨",
+      "骨头",
+      "肌肉",
+      "韧带",
+      "半月板",
+      "运动损伤",
+      "arthritis",
+      "joint",
+      "knee",
+      "orthopedic",
+      "orthopaedic",
+      "ligament",
+      "meniscus",
+      "rheumat",
+      "swelling",
+    ],
+    departmentTerms: [
+      "骨科",
+      "关节",
+      "运动医学",
+      "创伤",
+      "风湿",
+      "骨外",
+      "orthop",
+      "sports medicine",
+      "rheumat",
+      "joint",
+    ],
+    normalizedTags: ["musculoskeletal", "rheumatology", "sports_medicine"],
+  },
+  {
+    id: "neurology",
+    triggerKeywords: [
+      "头痛",
+      "偏头痛",
+      "头晕",
+      "麻木",
+      "抽搐",
+      "癫痫",
+      "中风",
+      "神经",
+      "migraine",
+      "headache",
+      "dizziness",
+      "numbness",
+      "seizure",
+      "stroke",
+      "neurolog",
+    ],
+    departmentTerms: ["神经内科", "神经科", "脑", "neurolog"],
+    normalizedTags: ["neurology"],
+  },
+  {
+    id: "digestive",
+    triggerKeywords: [
+      "胃",
+      "腹痛",
+      "肚子",
+      "腹泻",
+      "便秘",
+      "恶心",
+      "呕吐",
+      "反酸",
+      "烧心",
+      "stomach",
+      "abdomen",
+      "abdominal",
+      "diarrhea",
+      "constipation",
+      "vomit",
+      "gastric",
+      "gastro",
+    ],
+    departmentTerms: ["消化", "胃肠", "gastro", "digestive"],
+    normalizedTags: ["digestive"],
+  },
+  {
+    id: "respiratory",
+    triggerKeywords: [
+      "咳嗽",
+      "咳痰",
+      "气短",
+      "呼吸困难",
+      "肺",
+      "哮喘",
+      "cough",
+      "phlegm",
+      "wheeze",
+      "asthma",
+      "dyspnea",
+      "shortness of breath",
+      "respirat",
+      "pulmon",
+    ],
+    departmentTerms: ["呼吸", "肺", "respirat", "pulmon"],
+    normalizedTags: ["respiratory"],
+  },
+  {
+    id: "cardiology",
+    triggerKeywords: [
+      "胸痛",
+      "心悸",
+      "胸闷",
+      "高血压",
+      "心脏",
+      "heart",
+      "cardio",
+      "palpitation",
+      "hypertension",
+      "chest pain",
+    ],
+    departmentTerms: ["心内", "心血管", "cardio", "heart"],
+    normalizedTags: ["cardiology"],
+  },
+  {
+    id: "gynecology",
+    triggerKeywords: [
+      "月经",
+      "痛经",
+      "阴道",
+      "妇科",
+      "卵巢",
+      "子宫",
+      "pregnancy",
+      "menstrual",
+      "gyne",
+      "uterus",
+      "ovary",
+    ],
+    departmentTerms: ["妇科", "产科", "gyne", "obstet"],
+    normalizedTags: ["gynecology"],
+  },
+  {
+    id: "pediatrics",
+    triggerKeywords: ["儿童", "小孩", "宝宝", "儿科", "婴儿", "child", "children", "infant", "pediatric"],
+    departmentTerms: ["儿科", "儿童", "pediatric"],
+    normalizedTags: ["pediatrics"],
+  },
+  {
+    id: "dermatology",
+    triggerKeywords: ["皮肤", "皮疹", "湿疹", "瘙痒", "痘", "rash", "itch", "eczema", "dermat"],
+    departmentTerms: ["皮肤", "dermat"],
+    normalizedTags: ["dermatology"],
+  },
+];
+
+const GENERAL_DEPARTMENT_TERMS = [
+  "全科",
+  "综合",
+  "内科",
+  "general",
+  "family medicine",
+  "internal medicine",
+];
+
+const buildDoctorSearchableText = (
+  result: Awaited<ReturnType<typeof doctorsRepo.searchDoctors>>[number]
+) =>
+  [
+    result.doctor.name,
+    result.doctor.nameEn,
+    result.doctor.specialty,
+    result.doctor.specialtyEn,
+    result.doctor.expertise,
+    result.doctor.expertiseEn,
+    result.department.name,
+    result.department.nameEn,
+    result.hospital.name,
+    result.hospital.nameEn,
+  ]
+    .filter(
+      (value): value is string => typeof value === "string" && value.trim().length > 0
+    )
+    .join(" ")
+    .toLowerCase();
+
+function getNormalizedDoctorTags(
+  result: Awaited<ReturnType<typeof doctorsRepo.searchDoctors>>[number],
+  storedTagsByDoctorId: Map<number, string[]>
+) {
+  return new Set([
+    ...(storedTagsByDoctorId.get(result.doctor.id) ?? []),
+    ...deriveDoctorSpecialtyTags({
+      departmentName: result.department.name,
+      departmentNameEn: result.department.nameEn,
+      specialty: result.doctor.specialty,
+      specialtyEn: result.doctor.specialtyEn,
+      expertise: result.doctor.expertise,
+      expertiseEn: result.doctor.expertiseEn,
+    }),
+  ]);
+}
+
+function detectSpecialtyIntents(input: string[]) {
+  const haystack = input
+    .map(value => value.trim().toLowerCase())
+    .filter(value => value.length > 0)
+    .join(" ");
+
+  return SPECIALTY_INTENTS.filter(intent =>
+    intent.triggerKeywords.some(keyword => haystack.includes(keyword.toLowerCase()))
+  );
+}
+
+function isGeneralDepartment(result: Awaited<ReturnType<typeof doctorsRepo.searchDoctors>>[number]) {
+  const searchableText = buildDoctorSearchableText(result);
+  return GENERAL_DEPARTMENT_TERMS.some(term =>
+    searchableText.includes(term.toLowerCase())
+  );
+}
+
+function countIntentDepartmentMatches(
+  result: Awaited<ReturnType<typeof doctorsRepo.searchDoctors>>[number],
+  intents: SpecialtyIntent[]
+) {
+  if (intents.length === 0) {
+    return 0;
+  }
+
+  const searchableText = buildDoctorSearchableText(result);
+  let matches = 0;
+  for (const intent of intents) {
+    if (
+      intent.departmentTerms.some(term => searchableText.includes(term.toLowerCase()))
+    ) {
+      matches += 1;
+    }
+  }
+
+  return matches;
+}
+
+function getIntentNormalizedTags(intents: SpecialtyIntent[]) {
+  return Array.from(
+    new Set(intents.flatMap(intent => intent.normalizedTags))
+  );
+}
 
 export const doctorsRouter = router({
   /**
@@ -73,6 +332,10 @@ export const doctorsRouter = router({
       }
 
       try {
+        const matchedIntents = detectSpecialtyIntents([
+          input.summary ?? "",
+          ...normalizedKeywords,
+        ]);
         const looksEnglish =
           normalizedKeywords.filter(keyword => /[a-zA-Z]/.test(keyword)).length >=
           Math.ceil(normalizedKeywords.length / 2);
@@ -141,12 +404,58 @@ export const doctorsRouter = router({
           new Set([...normalizedKeywords, ...translatedZhKeywords])
         ).slice(0, 10);
         const enQueryKeywords = normalizedKeywords.slice(0, 10);
+        const tagHints = getIntentNormalizedTags(matchedIntents);
+
+        let candidateDoctorIds: number[] | undefined;
+        let storedTagsByDoctorId = new Map<number, string[]>();
+        if (matchedIntents.length > 0) {
+          const recommendationCandidates =
+            await doctorsRepo.listRecommendationCandidates();
+          storedTagsByDoctorId =
+            await doctorsRepo.listDoctorSpecialtyTagsByDoctorIds(
+              recommendationCandidates.map(item => item.doctor.id)
+            );
+
+          const stronglyMatchedCandidates = recommendationCandidates.filter(
+            candidate => {
+              const normalizedTags = getNormalizedDoctorTags(
+                candidate,
+                storedTagsByDoctorId
+              );
+              return tagHints.some(tag => normalizedTags.has(tag));
+            }
+          );
+          const generalFallbackCandidates = recommendationCandidates.filter(
+            candidate => {
+              const normalizedTags = getNormalizedDoctorTags(
+                candidate,
+                storedTagsByDoctorId
+              );
+              return (
+                !tagHints.some(tag => normalizedTags.has(tag)) &&
+                (normalizedTags.has("general_medicine") ||
+                  isGeneralDepartment(candidate))
+              );
+            }
+          );
+          const candidatePool = [
+            ...stronglyMatchedCandidates,
+            ...generalFallbackCandidates,
+          ];
+          if (candidatePool.length > 0) {
+            candidateDoctorIds = candidatePool.map(item => item.doctor.id);
+          }
+        }
 
         const [zhResults, enResults] = await Promise.all([
-          doctorsRepo.searchDoctors(zhQueryKeywords, 20, { lang: "zh" }),
+          doctorsRepo.searchDoctors(zhQueryKeywords, 20, {
+            lang: "zh",
+            candidateDoctorIds,
+          }),
           doctorsRepo.searchDoctors(enQueryKeywords, 20, {
             lang: "en",
             fallbackKeywords: translatedZhKeywords,
+            candidateDoctorIds,
           }),
         ]);
 
@@ -167,7 +476,8 @@ export const doctorsRouter = router({
             const queryEmbedding = await createEmbedding(semanticQuery);
             vectorResults = await doctorsRepo.searchDoctorsByEmbedding(
               queryEmbedding,
-              20
+              20,
+              { candidateDoctorIds }
             );
           } catch (error) {
             console.warn("[Doctors] vector retrieval failed:", error);
@@ -175,6 +485,23 @@ export const doctorsRouter = router({
         }
 
         type DoctorResult = (typeof zhResults)[number];
+        const allDoctorIds = Array.from(
+          new Set([...zhResults, ...enResults, ...vectorResults].map(item => item.doctor.id))
+        );
+        if (allDoctorIds.length > 0) {
+          const missingTagDoctorIds = allDoctorIds.filter(
+            id => !storedTagsByDoctorId.has(id)
+          );
+          if (missingTagDoctorIds.length > 0) {
+            const missingTags =
+              await doctorsRepo.listDoctorSpecialtyTagsByDoctorIds(
+                missingTagDoctorIds
+              );
+            missingTags.forEach((tags, doctorId) => {
+              storedTagsByDoctorId.set(doctorId, tags);
+            });
+          }
+        }
         const scored = new Map<
           number,
           {
@@ -188,24 +515,7 @@ export const doctorsRouter = router({
         ).map(keyword => keyword.toLowerCase());
 
         const scoreKeywordHits = (result: DoctorResult) => {
-          const searchableText = [
-            result.doctor.name,
-            result.doctor.nameEn,
-            result.doctor.specialty,
-            result.doctor.specialtyEn,
-            result.doctor.expertise,
-            result.doctor.expertiseEn,
-            result.department.name,
-            result.department.nameEn,
-            result.hospital.name,
-            result.hospital.nameEn,
-          ]
-            .filter(
-              (value): value is string =>
-                typeof value === "string" && value.trim().length > 0
-            )
-            .join(" ")
-            .toLowerCase();
+          const searchableText = buildDoctorSearchableText(result);
 
           return keywordPool.reduce(
             (count, keyword) =>
@@ -253,9 +563,30 @@ export const doctorsRouter = router({
         };
 
         const upsertScore = (result: DoctorResult, baseScore: number) => {
+          const intentMatches = countIntentDepartmentMatches(result, matchedIntents);
+          const normalizedTagSet = getNormalizedDoctorTags(
+            result,
+            storedTagsByDoctorId
+          );
+          const tagMatches = tagHints.filter(tag => normalizedTagSet.has(tag)).length;
           const keywordHitScore = scoreKeywordHits(result) * 2;
           const recScoreBonus = (result.doctor.recommendationScore ?? 0) / 20;
-          const total = baseScore + keywordHitScore + recScoreBonus;
+          const intentBoost = intentMatches * 10;
+          const tagBoost = tagMatches * 12;
+          const mismatchPenalty =
+            matchedIntents.length > 0 &&
+            intentMatches === 0 &&
+            tagMatches === 0 &&
+            !isGeneralDepartment(result)
+              ? -8
+              : 0;
+          const total =
+            baseScore +
+            keywordHitScore +
+            recScoreBonus +
+            intentBoost +
+            tagBoost +
+            mismatchPenalty;
           const existing = scored.get(result.doctor.id);
 
           if (!existing) {
@@ -270,7 +601,7 @@ export const doctorsRouter = router({
         enResults.forEach(result => upsertScore(result, 3));
         vectorResults.forEach(result => upsertScore(result, 5));
 
-        return Array.from(scored.values())
+        const ranked = Array.from(scored.values())
           .sort((left, right) => {
             if (right.hybridScore !== left.hybridScore) {
               return right.hybridScore - left.hybridScore;
@@ -296,8 +627,28 @@ export const doctorsRouter = router({
               item.result.doctor.expertise ??
               "",
             yearsOfExperience: parseYearsOfExperience(item.result.doctor.experience),
-          }))
-          .slice(0, limit);
+          }));
+
+        if (matchedIntents.length === 0) {
+          return ranked.slice(0, limit);
+        }
+
+        const stronglyMatched = ranked.filter(item =>
+          countIntentDepartmentMatches(item, matchedIntents) > 0 ||
+          tagHints.some(tag => getNormalizedDoctorTags(item, storedTagsByDoctorId).has(tag))
+        );
+        const generalFallback = ranked.filter(
+          item =>
+            countIntentDepartmentMatches(item, matchedIntents) === 0 &&
+            isGeneralDepartment(item)
+        );
+        const remainder = ranked.filter(
+          item =>
+            countIntentDepartmentMatches(item, matchedIntents) === 0 &&
+            !isGeneralDepartment(item)
+        );
+
+        return [...stronglyMatched, ...generalFallback, ...remainder].slice(0, limit);
       } catch (error) {
         console.error("[Doctors] recommend failed:", error);
         return [];
