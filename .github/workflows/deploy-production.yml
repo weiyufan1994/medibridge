@@ -103,6 +103,7 @@ jobs:
           commands = [
               "set -eu",
               "export HOME=/root",
+              "export PATH=/usr/local/bin:/usr/bin:/bin:/root/.local/bin",
               f"RELEASE_BASENAME='{release_basename}'",
               f"ARCHIVE_NAME='{archive_name}'",
               f"S3_URI='{s3_uri}'",
