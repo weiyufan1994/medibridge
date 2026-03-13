@@ -101,7 +101,7 @@ jobs:
           s3_uri = os.environ["S3_URI"]
 
           commands = [
-              "set -euo pipefail",
+              "set -eu",
               "export HOME=/root",
               f"RELEASE_BASENAME='{release_basename}'",
               f"ARCHIVE_NAME='{archive_name}'",
