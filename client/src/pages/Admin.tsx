@@ -205,7 +205,7 @@ export default function AdminPage() {
                 {tr("后台导航", "Console sections")}
               </div>
               <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-                {tr("把高频操作拆开，避免在一页里翻找。", "Separate high-frequency workflows instead of stacking them in one page.")}
+                {tr("集中查看预约、风险、分诊会话与运营操作。", "Review appointments, risk signals, triage sessions, and operations in one place.")}
               </h1>
             </div>
             <TabsList className="h-auto w-full flex-wrap justify-start gap-2 rounded-2xl bg-slate-100 p-2">
