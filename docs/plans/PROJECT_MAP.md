@@ -35,7 +35,7 @@
 ## 两条数据流（必须区分）
 
 ### A. 离线数据处理流（Scraper -> Data -> DB/Vector）
-1. 抓取/整理：`scripts/daily_scrape.md`、`scripts/track_progress.py`、`scripts/check-excel.mjs` 等处理来源数据。
+1. 抓取/整理：`docs/ops/daily_scrape.md`、`scripts/track_progress.py` 等处理来源数据。
 2. 落地文件：原始/中间结果进入 `data/`（医院/科室 Excel 与 JSON）。
 3. 导入数据库：`scripts/import-doctors.mjs` 将结构化数据写入 MySQL。
 4. 翻译增强：`scripts/translate-bilingual.ts`、`scripts/translate-doctors.mjs` 生成英文镜像字段。

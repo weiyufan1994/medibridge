@@ -148,10 +148,10 @@ Quota is charged by **Session**, with a **Message-count fallback guard** inside 
 - Token rows enforce expiry, revoke status, and usage quota (`useCount` / `maxUses`)
 - Validation returns normalized access context for downstream visit/chat APIs
 - Abuse guards include IP failure rate limit and auto-revoke for repeated failed attempts on the same token hash
-- See implementation details: [`docs/appointment-link-auth.md`](./docs/appointment-link-auth.md)
+- See implementation details: [`docs/implementation/appointment-link-auth.md`](./docs/implementation/appointment-link-auth.md)
 
 ## Payment and Appointment State Machine
-- Canonical state-machine doc: [`docs/appointment_state_machine.md`](./docs/appointment_state_machine.md)
+- Canonical state-machine doc: [`docs/implementation/appointment_state_machine.md`](./docs/implementation/appointment_state_machine.md)
 - Appointment statuses are finite and centralized in `server/modules/appointments/stateMachine.ts`.
 - Visit-room access is centrally gated by `ensureAppointmentStatusAllowsVisitV2`:
   - Allowed: `paid`, `active` (and `paymentStatus=paid`)

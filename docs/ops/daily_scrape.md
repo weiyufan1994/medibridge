@@ -1,141 +1,122 @@
-# 每日好大夫医生信息抓取任务
+# 每日好大夫医生抓取
 
-## 任务目标
+## 目标
 
-自动抓取6个医院123个科室的医生详细信息，每天执行一次，逐个科室处理。
+维护 `data/hospitals/` 下的医生 Excel 数据，并为后续导入数据库提供稳定输入。
 
-## 执行流程
+当前仓库的真实进度来源不是 `data/scraping_progress/*`，而是：
+- 科室索引：`data/departments/all_departments.json`
+- 已完成判断：`data/hospitals/{医院}/*.xlsx`
+- 运行日志：`data/departments/progress.json`
 
-### 1. 检查进度
+## 当前工作流
 
-运行进度跟踪脚本，获取下一个待抓取的科室：
+### 1. 查看下一个待抓取科室
 
 ```bash
-python3 $(pwd)/scripts/track_progress.py
+python3 scripts/track_progress.py
 ```
 
-如果所有科室已完成，任务结束。
+这个脚本会：
+- 读取 `data/departments/all_departments.json`
+- 扫描 `data/hospitals/**/*.xlsx`
+- 输出总体进度、按医院统计，以及下一个未完成科室
 
-### 2. 读取技能文档
+### 2. 抓取单个科室
 
-使用 `<skills-root>/haodf-doctor-scraper/SKILL.md` 技能进行抓取。
-
-### 3. 抓取当前科室
-
-**科室信息**：从进度跟踪系统获取
+抓取输入以 `track_progress.py` 输出为准：
 - 医院名称
-- 科室名称  
-- 科室URL
+- 科室名称
+- 科室 URL
 
-**抓取策略**：
-1. 访问科室页面
-2. **必须滚动到底部**确保加载所有医生
-3. 提取医生列表（姓名、职称、医生ID）
-4. 将医生列表分组，**每10个医生为一组**
-5. 使用 `map` 工具并行抓取每组医生的详细信息
-6. 跳过无个人简介的医生
+抓取要求：
+1. 进入科室页面并滚动到底，确保医生列表完整加载。
+2. 提取医生列表并逐个进入详情页。
+3. 跳过无个人简介的医生。
+4. 尽量保留以下字段：
+   - 医院
+   - 科室
+   - 姓名
+   - 职称
+   - 专业方向
+   - 专业擅长
+   - 个人简介
+   - 社会任职
+   - 科研成果
+   - 治疗经验
+   - 疗效满意度
+   - 态度满意度
+   - 病友推荐度
+   - 医生介绍页 URL
 
-**14个字段**：
-1. 医院
-2. 科室
-3. 姓名
-4. 职称
-5. 专业方向
-6. 专业擅长
-7. 个人简介
-8. 社会任职
-9. 科研成果
-10. 治疗经验（右侧边栏，需特殊处理）
-11. 疗效满意度
-12. 态度满意度
-13. 病友推荐度
-14. 医生介绍页URL
+### 3. 保存抓取结果
 
-### 4. 处理验证码
+输出文件统一放在：
 
-如果遇到验证码（CAPTCHA）：
-1. 立即停止当前抓取
-2. 保存已抓取的数据到临时文件
-3. 生成Excel文件
-4. 推送到GitHub
-5. 使用 `message` 工具通知用户：
-   - 科室名称
-   - 已成功抓取的医生数量
-   - 遇到验证码的时间
-   - GitHub推送状态
-
-### 5. 保存数据
-
-**临时文件**：`<repo-root>/data/hospitals/{医院}/{科室}_医生详细信息_临时.txt`
-
-**Excel文件**：`<repo-root>/data/hospitals/{医院}/{科室}_医生详细信息_{日期}.xlsx`
-
-使用技能提供的脚本：
-```bash
-python3 <skills-root>/haodf-doctor-scraper/scripts/parse_to_excel.py \
-    临时文件路径 \
-    Excel文件路径
+```text
+data/hospitals/{医院名称}/{科室}_医生详细信息_{YYYYMMDD}.xlsx
 ```
 
-### 6. 推送到GitHub
+例如：
+
+```text
+data/hospitals/复旦大学附属中山医院/呼吸科_医生详细信息_20260211.xlsx
+```
+
+`scripts/track_progress.py` 同时兼容历史命名，但新增文件应始终使用上面的新格式。
+
+### 4. 记录运行结果
+
+抓取完成后，将结果追加到 `data/departments/progress.json`：
+
+```python
+from scripts.track_progress import ProgressTracker
+
+tracker = ProgressTracker()
+tracker.save_progress(department, "success", "成功抓取 N 位医生")
+```
+
+如果遇到验证码或中断：
+
+```python
+tracker.save_progress(department, "captcha", "遇到验证码，已保存部分结果")
+```
+
+允许状态：
+- `success`
+- `failed`
+- `captcha`
+
+### 5. 提交仓库
 
 ```bash
-cd <repo-root>
-git add data/hospitals/{医院}/{科室}_医生详细信息_{日期}.xlsx
-git commit -m "Add {医院} {科室} doctor data - {日期}"
+git add data/hospitals data/departments/progress.json
+git commit -m "Update doctor data for {医院} {科室}"
 git push origin main
 ```
 
-### 7. 更新进度
+## 质量要求
 
-使用进度跟踪系统记录完成状态：
-```python
-from track_progress import ProgressTracker
-tracker = ProgressTracker()
-tracker.save_progress(department, 'success', '成功抓取N位医生')
-# 或
-tracker.save_progress(department, 'captcha', '遇到验证码，已保存M位医生数据')
+- 基本字段（医院、科室、姓名、职称、URL）应尽量完整
+- 专业字段（专业方向、专业擅长、个人简介）优先保证
+- 治疗经验允许部分缺失
+- 所有 Excel 文件都应能被 `scripts/import-doctors.mjs` 正常识别
+
+## 导入前检查
+
+新增或更新 Excel 后，至少先确认：
+- `python3 scripts/track_progress.py` 能正确识别新文件
+- 文件命名符合 `{科室}_医生详细信息_{YYYYMMDD}.xlsx`
+- 表头仍兼容 `scripts/import-doctors.mjs` 里的字段映射
+
+只有在你准备同步数据库时，才执行导入脚本：
+
+```bash
+node scripts/import-doctors.mjs
 ```
 
-### 8. 继续下一个科室
+## 维护原则
 
-如果没有遇到验证码，继续抓取下一个科室。
-如果遇到验证码，停止任务并通知用户。
-
-## 重要注意事项
-
-1. **每次只抓取一个科室** - 避免触发反爬虫机制
-2. **科室内分批处理** - 每10个医生为一组并行抓取
-3. **滚动到底部** - 确保加载所有医生
-4. **跳过无简介医生** - 节省时间
-5. **及时保存数据** - 遇到验证码立即保存
-6. **推送到GitHub** - 每个科室完成后立即推送
-7. **进度追踪** - 自动检查已抓取和未抓取的科室
-
-## 数据质量标准
-
-- 基本字段（1-5）：100%完整
-- 专业字段（6-7）：95%完整
-- 学术字段（8-9）：85%完整
-- 治疗经验（10）：30-50%完整（右侧边栏）
-- 评分字段（11-13）：100%完整
-- URL（14）：100%完整
-
-## 错误处理
-
-- **浏览器连接失败**：等待3秒后重试，最多3次
-- **页面加载超时**：使用 `browser_view` 等待加载
-- **验证码**：立即停止，保存数据，通知用户
-- **医生页面404**：跳过该医生，记录到日志
-
-## 执行时间
-
-每天凌晨2点（北京时间）自动执行。
-
-## 预计完成时间
-
-- 每个科室平均10-20位医生
-- 每位医生抓取时间约10-15秒
-- 每个科室预计3-5分钟
-- 123个科室预计需要6-10小时（分多天完成）
-- 遇到验证码会暂停，需要人工确认后继续
+- 每次只处理一个科室，降低反爬风险
+- 新抓取文件不要覆盖历史文件，按日期新增
+- 文档以当前仓库脚本为准；如果进度逻辑改动，优先同步更新本文件和 `scripts/track_progress.py`

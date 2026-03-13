@@ -1,7 +1,6 @@
 # PR Checklist
 
 ## Architecture and boundary checks
-- [ ] 文件位置符合 `.context/architecture.md` 的放置规则。
 - [ ] 路由与模块边界未回退：`server/routers/*` 仅通过 `../modules/<module>/routerApi` 引用模块。
 - [ ] `client/src/features` 未直接 import `@/pages/**`。
 - [ ] 检查并确认 `server/core` 与 `client/src/layout` 均已清理，若仍有遗留文件请在 PR 说明且给出消除计划。
