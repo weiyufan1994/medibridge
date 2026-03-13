@@ -26,12 +26,7 @@ function readStoredLanguageMode(): LanguageMode | null {
 }
 
 function resolveBrowserLanguage(): ResolvedLanguage {
-  if (typeof navigator === "undefined") {
-    return "en";
-  }
-
-  const browserLang = (navigator.language || "").toLowerCase();
-  return browserLang.startsWith("zh") ? "zh" : "en";
+  return "en";
 }
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
