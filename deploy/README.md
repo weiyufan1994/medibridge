@@ -33,3 +33,7 @@ The workflow packages a release archive, uploads it to S3, and asks SSM to:
 3. Install production dependencies with `pnpm`
 4. Switch `/srv/medibridge/current` to the new release
 5. Reload PM2 and run a local health check on port `3000`
+
+Detailed operating guide:
+
+- `docs/ops/production_deploy.md`
