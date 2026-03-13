@@ -1,7 +1,7 @@
 import "dotenv/config";
 import mysql from "mysql2/promise";
 import { drizzle } from "drizzle-orm/mysql2";
-import { and, asc, eq, gt, isNull, or } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { createHash } from "crypto";
 import { invokeLLM } from "../server/_core/llm";
 import { departments, doctors, hospitals } from "../drizzle/schema";
@@ -245,26 +245,9 @@ const reconcileInconsistentDoneRows = async (
   }
 
   if (entities.includes("doctors")) {
-    const [result] = await pool.query(
-      `
-      UPDATE doctors
-      SET translationStatus = 'pending', translatedAt = NULL, lastTranslationError = 'Requeued: incomplete English fields'
-      WHERE translationStatus = 'done'
-        AND (
-          (name IS NOT NULL AND TRIM(name) <> '' AND (nameEn IS NULL OR TRIM(nameEn) = '' OR nameEn REGEXP '[一-龥]'))
-          OR (title IS NOT NULL AND TRIM(title) <> '' AND (titleEn IS NULL OR TRIM(titleEn) = '' OR titleEn REGEXP '[一-龥]'))
-          OR (specialty IS NOT NULL AND TRIM(specialty) <> '' AND (specialtyEn IS NULL OR TRIM(specialtyEn) = '' OR specialtyEn REGEXP '[一-龥]'))
-          OR (expertise IS NOT NULL AND TRIM(expertise) <> '' AND (expertiseEn IS NULL OR TRIM(expertiseEn) = '' OR expertiseEn REGEXP '[一-龥]'))
-          OR (onlineConsultation IS NOT NULL AND TRIM(onlineConsultation) <> '' AND (onlineConsultationEn IS NULL OR TRIM(onlineConsultationEn) = '' OR onlineConsultationEn REGEXP '[一-龥]'))
-          OR (appointmentAvailable IS NOT NULL AND TRIM(appointmentAvailable) <> '' AND (appointmentAvailableEn IS NULL OR TRIM(appointmentAvailableEn) = '' OR appointmentAvailableEn REGEXP '[一-龥]'))
-          OR (satisfactionRate IS NOT NULL AND TRIM(satisfactionRate) <> '' AND (satisfactionRateEn IS NULL OR TRIM(satisfactionRateEn) = '' OR satisfactionRateEn REGEXP '[一-龥]'))
-          OR (attitudeScore IS NOT NULL AND TRIM(attitudeScore) <> '' AND (attitudeScoreEn IS NULL OR TRIM(attitudeScoreEn) = '' OR attitudeScoreEn REGEXP '[一-龥]'))
-        )
-      `
-    );
     updates.push({
       entity: "doctors",
-      affectedRows: Number((result as mysql.ResultSetHeader).affectedRows ?? 0),
+      affectedRows: 0,
     });
   }
 
@@ -754,27 +737,26 @@ const translateDepartmentBatch = async (input: DepartmentBatchInput[]) => {
   return parseDepartmentBatchResponse(readMessageText(response.choices[0].message.content));
 };
 
-const translateDoctor = async (input: {
-  name: string;
-  title: string | null;
-  specialty: string | null;
-  expertise: string | null;
-  onlineConsultation: string | null;
-  appointmentAvailable: string | null;
-  satisfactionRate: string | null;
-  attitudeScore: string | null;
-}) => {
+const translateDoctor = async (
+  input: DoctorPartialInput,
+  requestedFields: DoctorTranslatedField[] = doctorTranslationKeys
+) => {
+  const schemaProperties = Object.fromEntries(
+    requestedFields.map(field => [field, { type: ["string", "null"] }])
+  );
   const response = await invokeLLM({
     model: translationModelOverride,
     messages: [
       {
         role: "system",
         content:
-          "You are a professional medical translator. Translate Chinese doctor information into patient-friendly English. Do not add facts or medical advice. Doctor names must not be translated into Western names; use pinyin or 'Dr. + pinyin'. Return JSON only.",
+          "You are a professional medical translator. Translate Chinese doctor information into patient-friendly English. Do not add facts or medical advice. Doctor names must not be translated into Western names; use pinyin or 'Dr. + pinyin'. Only return the requested English fields in JSON.",
       },
       {
         role: "user",
-        content: `Translate the following doctor fields. Return empty string for missing values.\n\n${JSON.stringify(
+        content: `Translate the following doctor fields. Return only these English keys: ${requestedFields.join(
+          ", "
+        )}. Return empty string for missing values.\n\n${JSON.stringify(
           input
         )}`,
       },
@@ -786,43 +768,18 @@ const translateDoctor = async (input: {
         strict: true,
         schema: {
           type: "object",
-          properties: {
-            nameEn: { type: ["string", "null"] },
-            titleEn: { type: ["string", "null"] },
-            specialtyEn: { type: ["string", "null"] },
-            expertiseEn: { type: ["string", "null"] },
-            onlineConsultationEn: { type: ["string", "null"] },
-            appointmentAvailableEn: { type: ["string", "null"] },
-            satisfactionRateEn: { type: ["string", "null"] },
-            attitudeScoreEn: { type: ["string", "null"] },
-          },
-          required: [
-            "nameEn",
-            "titleEn",
-            "specialtyEn",
-            "expertiseEn",
-            "onlineConsultationEn",
-            "appointmentAvailableEn",
-            "satisfactionRateEn",
-            "attitudeScoreEn",
-          ],
+          properties: schemaProperties,
+          required: requestedFields,
           additionalProperties: false,
         },
       },
     },
   });
 
-  const parsed = JSON.parse(readMessageText(response.choices[0].message.content));
-  return parsed as {
-    nameEn: string | null;
-    titleEn: string | null;
-    specialtyEn: string | null;
-    expertiseEn: string | null;
-    onlineConsultationEn: string | null;
-    appointmentAvailableEn: string | null;
-    satisfactionRateEn: string | null;
-    attitudeScoreEn: string | null;
-  };
+  return parseDoctorPartialResponse(
+    readMessageText(response.choices[0].message.content),
+    requestedFields
+  );
 };
 
 const doctorTranslationIsComplete = (
@@ -1124,6 +1081,119 @@ type DoctorSourceText = {
   sourceAttitudeScore: string | null;
 };
 
+type DoctorTranslatedField =
+  | "nameEn"
+  | "titleEn"
+  | "specialtyEn"
+  | "expertiseEn"
+  | "onlineConsultationEn"
+  | "appointmentAvailableEn"
+  | "satisfactionRateEn"
+  | "attitudeScoreEn";
+
+type DoctorTranslationSnapshot = Pick<
+  DoctorBatchTranslation,
+  DoctorTranslatedField
+>;
+
+type DoctorPartialInput = Partial<{
+  name: string | null;
+  title: string | null;
+  specialty: string | null;
+  expertise: string | null;
+  onlineConsultation: string | null;
+  appointmentAvailable: string | null;
+  satisfactionRate: string | null;
+  attitudeScore: string | null;
+}>;
+
+const DOCTOR_TRANSLATION_FIELDS: Array<{
+  sourceKey: keyof DoctorSourceText;
+  inputKey: keyof DoctorPartialInput;
+  translatedKey: DoctorTranslatedField;
+}> = [
+  { sourceKey: "sourceName", inputKey: "name", translatedKey: "nameEn" },
+  { sourceKey: "sourceTitle", inputKey: "title", translatedKey: "titleEn" },
+  {
+    sourceKey: "sourceSpecialty",
+    inputKey: "specialty",
+    translatedKey: "specialtyEn",
+  },
+  { sourceKey: "sourceExpertise", inputKey: "expertise", translatedKey: "expertiseEn" },
+  {
+    sourceKey: "sourceOnlineConsultation",
+    inputKey: "onlineConsultation",
+    translatedKey: "onlineConsultationEn",
+  },
+  {
+    sourceKey: "sourceAppointmentAvailable",
+    inputKey: "appointmentAvailable",
+    translatedKey: "appointmentAvailableEn",
+  },
+  {
+    sourceKey: "sourceSatisfactionRate",
+    inputKey: "satisfactionRate",
+    translatedKey: "satisfactionRateEn",
+  },
+  {
+    sourceKey: "sourceAttitudeScore",
+    inputKey: "attitudeScore",
+    translatedKey: "attitudeScoreEn",
+  },
+];
+
+const doctorTranslationKeys = DOCTOR_TRANSLATION_FIELDS.map(field => field.translatedKey);
+
+const emptyDoctorTranslationSnapshot = (): DoctorTranslationSnapshot => ({
+  nameEn: null,
+  titleEn: null,
+  specialtyEn: null,
+  expertiseEn: null,
+  onlineConsultationEn: null,
+  appointmentAvailableEn: null,
+  satisfactionRateEn: null,
+  attitudeScoreEn: null,
+});
+
+const getMissingDoctorFields = (
+  source: DoctorSourceText,
+  translated: DoctorTranslationSnapshot
+) =>
+  DOCTOR_TRANSLATION_FIELDS.filter(field => {
+    const sourceValue = source[field.sourceKey];
+    if (!sourceValue) return false;
+    return !isFilled(translated[field.translatedKey]);
+  }).map(field => field.translatedKey);
+
+const buildDoctorPartialInput = (
+  source: DoctorSourceText,
+  fields: DoctorTranslatedField[]
+): DoctorPartialInput => {
+  const input: DoctorPartialInput = {};
+  for (const field of DOCTOR_TRANSLATION_FIELDS) {
+    if (!fields.includes(field.translatedKey)) continue;
+    input[field.inputKey] = source[field.sourceKey];
+  }
+  return input;
+};
+
+const parseDoctorPartialResponse = (
+  text: string,
+  fields: DoctorTranslatedField[]
+): Partial<DoctorTranslationSnapshot> => {
+  const parsed = JSON.parse(text);
+  if (typeof parsed !== "object" || parsed === null) {
+    throw new Error("[Doctors] Invalid partial response format");
+  }
+
+  const record = parsed as Record<string, unknown>;
+  const result: Partial<DoctorTranslationSnapshot> = {};
+  for (const field of fields) {
+    result[field] = sanitizeTranslatedText(record[field]);
+  }
+  return result;
+};
+
 const applyDoctorTranslation = async (
   db: TranslationDb,
   row: DoctorRow,
@@ -1148,7 +1218,7 @@ const applyDoctorTranslation = async (
     translated.satisfactionRateEn
   );
   const attitudeScoreEn = pickEnglish(row.attitudeScoreEn, translated.attitudeScoreEn);
-  const isComplete = doctorTranslationIsComplete(source, {
+  const snapshot = {
     nameEn,
     titleEn,
     specialtyEn,
@@ -1157,7 +1227,9 @@ const applyDoctorTranslation = async (
     appointmentAvailableEn,
     satisfactionRateEn,
     attitudeScoreEn,
-  });
+  };
+  const isComplete = doctorTranslationIsComplete(source, snapshot);
+  const missingFields = getMissingDoctorFields(source, snapshot);
 
   await db
     .update(doctors)
@@ -1172,7 +1244,9 @@ const applyDoctorTranslation = async (
       attitudeScoreEn,
       translationStatus: isComplete ? "done" : "pending",
       translatedAt: isComplete ? new Date() : null,
-      lastTranslationError: isComplete ? null : "Missing English fields",
+      lastTranslationError: isComplete
+        ? null
+        : `Missing English fields: ${missingFields.join(", ")}`,
       translationProvider: getTranslationProviderName(),
     })
     .where(eq(doctors.id, row.id));
@@ -1270,7 +1344,7 @@ const completeDoctorTranslation = async (
   config: ReturnType<typeof parseArgs>,
   stats: EntityRunStats
 ) => {
-  const current = {
+  const current: DoctorTranslationSnapshot = {
     nameEn: pickEnglish(row.nameEn, translated.nameEn),
     titleEn: pickEnglish(row.titleEn, translated.titleEn),
     specialtyEn: pickEnglish(row.specialtyEn, translated.specialtyEn),
@@ -1287,50 +1361,57 @@ const completeDoctorTranslation = async (
     attitudeScoreEn: pickEnglish(row.attitudeScoreEn, translated.attitudeScoreEn),
   };
 
-  if (doctorTranslationIsComplete(source, current)) {
+  const missingFields = getMissingDoctorFields(source, current);
+  if (missingFields.length === 0) {
     return current;
   }
 
-  const fallback = await withRetry(
-    () =>
-      translateDoctor({
-        name: source.sourceName ?? row.name,
-        title: source.sourceTitle,
-        specialty: source.sourceSpecialty,
-        expertise: source.sourceExpertise,
-        onlineConsultation: source.sourceOnlineConsultation,
-        appointmentAvailable: source.sourceAppointmentAvailable,
-        satisfactionRate: source.sourceSatisfactionRate,
-        attitudeScore: source.sourceAttitudeScore,
-      }),
-    config.maxRetries,
-    () => {
-      stats.fallbackCalls += 1;
-      stats.llmCalls += 1;
-      stats.rowsPerCallTotal += 1;
-    }
-  );
+  let merged = { ...current };
+  for (const field of missingFields) {
+    const partialInput = buildDoctorPartialInput(source, [field]);
+    const partial = await withRetry(
+      () => translateDoctor(partialInput, [field]),
+      config.maxRetries,
+      () => {
+        stats.fallbackCalls += 1;
+        stats.llmCalls += 1;
+        stats.rowsPerCallTotal += 1;
+      }
+    );
+    merged = {
+      ...merged,
+      [field]: pickEnglish(merged[field], partial[field] ?? null),
+    };
+    await delay(config.rateLimitMs);
+  }
 
-  return {
-    nameEn: pickEnglish(current.nameEn, fallback.nameEn),
-    titleEn: pickEnglish(current.titleEn, fallback.titleEn),
-    specialtyEn: pickEnglish(current.specialtyEn, fallback.specialtyEn),
-    expertiseEn: pickEnglish(current.expertiseEn, fallback.expertiseEn),
-    onlineConsultationEn: pickEnglish(
-      current.onlineConsultationEn,
-      fallback.onlineConsultationEn
-    ),
-    appointmentAvailableEn: pickEnglish(
-      current.appointmentAvailableEn,
-      fallback.appointmentAvailableEn
-    ),
-    satisfactionRateEn: pickEnglish(
-      current.satisfactionRateEn,
-      fallback.satisfactionRateEn
-    ),
-    attitudeScoreEn: pickEnglish(current.attitudeScoreEn, fallback.attitudeScoreEn),
-  };
+  const remainingFields = getMissingDoctorFields(source, merged);
+  if (remainingFields.length > 0) {
+    throw new Error(`Incomplete doctor translation after field retries: ${remainingFields.join(", ")}`);
+  }
+
+  return merged;
 };
+
+const doctorNeedsTranslationCondition = sql`
+  (
+    ${doctors.translationStatus} IN ('pending', 'failed')
+    OR ${doctors.translationStatus} IS NULL
+    OR (
+      ${doctors.translationStatus} = 'done'
+      AND (
+        (${doctors.name} IS NOT NULL AND TRIM(${doctors.name}) <> '' AND (${doctors.nameEn} IS NULL OR TRIM(${doctors.nameEn}) = '' OR ${doctors.nameEn} REGEXP '[一-龥]'))
+        OR (${doctors.title} IS NOT NULL AND TRIM(${doctors.title}) <> '' AND (${doctors.titleEn} IS NULL OR TRIM(${doctors.titleEn}) = '' OR ${doctors.titleEn} REGEXP '[一-龥]'))
+        OR (${doctors.specialty} IS NOT NULL AND TRIM(${doctors.specialty}) <> '' AND (${doctors.specialtyEn} IS NULL OR TRIM(${doctors.specialtyEn}) = '' OR ${doctors.specialtyEn} REGEXP '[一-龥]'))
+        OR (${doctors.expertise} IS NOT NULL AND TRIM(${doctors.expertise}) <> '' AND (${doctors.expertiseEn} IS NULL OR TRIM(${doctors.expertiseEn}) = '' OR ${doctors.expertiseEn} REGEXP '[一-龥]'))
+        OR (${doctors.onlineConsultation} IS NOT NULL AND TRIM(${doctors.onlineConsultation}) <> '' AND (${doctors.onlineConsultationEn} IS NULL OR TRIM(${doctors.onlineConsultationEn}) = '' OR ${doctors.onlineConsultationEn} REGEXP '[一-龥]'))
+        OR (${doctors.appointmentAvailable} IS NOT NULL AND TRIM(${doctors.appointmentAvailable}) <> '' AND (${doctors.appointmentAvailableEn} IS NULL OR TRIM(${doctors.appointmentAvailableEn}) = '' OR ${doctors.appointmentAvailableEn} REGEXP '[一-龥]'))
+        OR (${doctors.satisfactionRate} IS NOT NULL AND TRIM(${doctors.satisfactionRate}) <> '' AND (${doctors.satisfactionRateEn} IS NULL OR TRIM(${doctors.satisfactionRateEn}) = '' OR ${doctors.satisfactionRateEn} REGEXP '[一-龥]'))
+        OR (${doctors.attitudeScore} IS NOT NULL AND TRIM(${doctors.attitudeScore}) <> '' AND (${doctors.attitudeScoreEn} IS NULL OR TRIM(${doctors.attitudeScoreEn}) = '' OR ${doctors.attitudeScoreEn} REGEXP '[一-龥]'))
+      )
+    )
+  )
+`;
 
 const translateHospitals = async (
   db: TranslationDb,
@@ -1799,11 +1880,7 @@ const translateDoctors = async (
       .where(
         and(
           gt(doctors.id, cursor),
-          or(
-            eq(doctors.translationStatus, "pending"),
-            eq(doctors.translationStatus, "failed"),
-            isNull(doctors.translationStatus)
-          )
+          doctorNeedsTranslationCondition
         )
       )
       .orderBy(asc(doctors.id))
@@ -1962,24 +2039,17 @@ const translateDoctors = async (
                 const fallbackTranslated: DoctorBatchTranslation = {
                   id: row.id,
                   sourceHash,
-                  nameEn: sanitizeTranslatedText(fallback.nameEn),
-                  titleEn: sanitizeTranslatedText(fallback.titleEn),
-                  specialtyEn: sanitizeTranslatedText(fallback.specialtyEn),
-                  expertiseEn: sanitizeTranslatedText(fallback.expertiseEn),
-                  onlineConsultationEn: sanitizeTranslatedText(
-                    fallback.onlineConsultationEn
-                  ),
-                  appointmentAvailableEn: sanitizeTranslatedText(
-                    fallback.appointmentAvailableEn
-                  ),
-                  satisfactionRateEn: sanitizeTranslatedText(fallback.satisfactionRateEn),
-                  attitudeScoreEn: sanitizeTranslatedText(fallback.attitudeScoreEn),
+                  ...emptyDoctorTranslationSnapshot(),
+                  ...fallback,
                 };
                 cache.set(sourceHash, fallbackTranslated);
                 await applyDoctorTranslation(db, row, fallbackTranslated, source, stats);
               } catch (fallbackError) {
-                recordFailure(stats, fallbackError);
-                await markDoctorFailed(db, row.id, fallbackError);
+                const enrichedError = new Error(
+                  `[doctors:missing-batch-row] ${getErrorMessage(fallbackError)}`
+                );
+                recordFailure(stats, enrichedError);
+                await markDoctorFailed(db, row.id, enrichedError);
               }
               await delay(config.rateLimitMs);
             }
@@ -2064,24 +2134,17 @@ const translateDoctors = async (
               const fallbackTranslated: DoctorBatchTranslation = {
                 id: row.id,
                 sourceHash,
-                nameEn: sanitizeTranslatedText(fallback.nameEn),
-                titleEn: sanitizeTranslatedText(fallback.titleEn),
-                specialtyEn: sanitizeTranslatedText(fallback.specialtyEn),
-                expertiseEn: sanitizeTranslatedText(fallback.expertiseEn),
-                onlineConsultationEn: sanitizeTranslatedText(
-                  fallback.onlineConsultationEn
-                ),
-                appointmentAvailableEn: sanitizeTranslatedText(
-                  fallback.appointmentAvailableEn
-                ),
-                satisfactionRateEn: sanitizeTranslatedText(fallback.satisfactionRateEn),
-                attitudeScoreEn: sanitizeTranslatedText(fallback.attitudeScoreEn),
+                ...emptyDoctorTranslationSnapshot(),
+                ...fallback,
               };
               cache.set(sourceHash, fallbackTranslated);
               await applyDoctorTranslation(db, row, fallbackTranslated, source, stats);
             } catch (fallbackError) {
-              recordFailure(stats, fallbackError);
-              await markDoctorFailed(db, row.id, fallbackError);
+              const enrichedError = new Error(
+                `[doctors:batch-fallback] ${getErrorMessage(fallbackError)}`
+              );
+              recordFailure(stats, enrichedError);
+              await markDoctorFailed(db, row.id, enrichedError);
             }
             await delay(config.rateLimitMs);
           }
