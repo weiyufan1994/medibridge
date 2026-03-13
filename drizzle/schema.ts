@@ -211,6 +211,35 @@ export type DoctorEmbedding = typeof doctorEmbeddings.$inferSelect;
 export type InsertDoctorEmbedding = typeof doctorEmbeddings.$inferInsert;
 
 /**
+ * Normalized specialty tags for doctor recommendation routing.
+ */
+export const doctorSpecialtyTags = mysqlTable(
+  "doctor_specialty_tags",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    doctorId: int("doctorId")
+      .notNull()
+      .references(() => doctors.id, { onDelete: "cascade" }),
+    tag: varchar("tag", { length: 64 }).notNull(),
+    source: varchar("source", { length: 32 }).notNull().default("rule"),
+    confidence: int("confidence").notNull().default(100),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    doctorIdx: index("doctorSpecialtyTagsDoctorIdx").on(table.doctorId),
+    tagIdx: index("doctorSpecialtyTagsTagIdx").on(table.tag),
+    doctorTagUk: uniqueIndex("doctorSpecialtyTagsDoctorTagUk").on(
+      table.doctorId,
+      table.tag
+    ),
+  })
+);
+
+export type DoctorSpecialtyTag = typeof doctorSpecialtyTags.$inferSelect;
+export type InsertDoctorSpecialtyTag = typeof doctorSpecialtyTags.$inferInsert;
+
+/**
  * Patient sessions table - stores chat history and recommendations
  */
 export const patientSessions = mysqlTable(

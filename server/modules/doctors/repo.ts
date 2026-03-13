@@ -1,7 +1,8 @@
-import { and, desc, eq, like, notLike, or } from "drizzle-orm";
+import { and, desc, eq, inArray, like, notLike, or } from "drizzle-orm";
 import {
   departments,
   doctorEmbeddings,
+  doctorSpecialtyTags,
   doctors,
   hospitals,
 } from "../../../drizzle/schema";
@@ -9,11 +10,26 @@ import { getDb } from "../../db";
 
 type SearchLanguage = "en" | "zh";
 
-type DoctorSearchResult = {
+export type DoctorSearchResult = {
   doctor: typeof doctors.$inferSelect;
   hospital: typeof hospitals.$inferSelect;
   department: typeof departments.$inferSelect;
 };
+
+type SearchDoctorsOptions = {
+  lang?: SearchLanguage;
+  fallbackKeywords?: string[];
+  candidateDoctorIds?: number[];
+};
+
+const normalizeCandidateDoctorIds = (candidateDoctorIds?: number[]) =>
+  Array.from(
+    new Set(
+      (candidateDoctorIds ?? []).filter(
+        id => Number.isInteger(id) && id > 0
+      )
+    )
+  );
 
 const buildSearchConditions = (keywords: string[], fields: Array<any>) => {
   const cleaned = keywords.map(keyword => keyword.trim()).filter(Boolean);
@@ -23,7 +39,7 @@ const buildSearchConditions = (keywords: string[], fields: Array<any>) => {
 export async function searchDoctors(
   keywords: string[],
   limit: number = 20,
-  options: { lang?: SearchLanguage; fallbackKeywords?: string[] } = {}
+  options: SearchDoctorsOptions = {}
 ): Promise<DoctorSearchResult[]> {
   const db = await getDb();
   if (!db) {
@@ -55,6 +71,18 @@ export async function searchDoctors(
     return [];
   }
 
+  const candidateDoctorIds = normalizeCandidateDoctorIds(
+    options.candidateDoctorIds
+  );
+  if (options.candidateDoctorIds && candidateDoctorIds.length === 0) {
+    return [];
+  }
+
+  const primaryPredicate =
+    candidateDoctorIds.length > 0
+      ? and(or(...primaryConditions), inArray(doctors.id, candidateDoctorIds))
+      : or(...primaryConditions);
+
   const primaryResults = await db
     .select({
       doctor: doctors,
@@ -64,7 +92,7 @@ export async function searchDoctors(
     .from(doctors)
     .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
     .innerJoin(departments, eq(doctors.departmentId, departments.id))
-    .where(or(...primaryConditions))
+    .where(primaryPredicate)
     .orderBy(desc(doctors.recommendationScore))
     .limit(limit);
 
@@ -85,6 +113,11 @@ export async function searchDoctors(
     return primaryResults;
   }
 
+  const fallbackPredicate =
+    candidateDoctorIds.length > 0
+      ? and(or(...fallbackConditions), inArray(doctors.id, candidateDoctorIds))
+      : or(...fallbackConditions);
+
   const fallbackResults = await db
     .select({
       doctor: doctors,
@@ -94,7 +127,7 @@ export async function searchDoctors(
     .from(doctors)
     .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
     .innerJoin(departments, eq(doctors.departmentId, departments.id))
-    .where(or(...fallbackConditions))
+    .where(fallbackPredicate)
     .orderBy(desc(doctors.recommendationScore))
     .limit(limit);
 
@@ -152,7 +185,8 @@ const cosineSimilarity = (left: number[], right: number[]) => {
 
 export async function searchDoctorsByEmbedding(
   queryEmbedding: number[],
-  limit: number = 20
+  limit: number = 20,
+  options: { candidateDoctorIds?: number[] } = {}
 ): Promise<DoctorSearchResult[]> {
   const db = await getDb();
   if (!db) {
@@ -163,7 +197,14 @@ export async function searchDoctorsByEmbedding(
     return [];
   }
 
-  const rows = await db
+  const candidateDoctorIds = normalizeCandidateDoctorIds(
+    options.candidateDoctorIds
+  );
+  if (options.candidateDoctorIds && candidateDoctorIds.length === 0) {
+    return [];
+  }
+
+  const rowsQuery = db
     .select({
       doctor: doctors,
       hospital: hospitals,
@@ -174,6 +215,11 @@ export async function searchDoctorsByEmbedding(
     .innerJoin(doctors, eq(doctorEmbeddings.doctorId, doctors.id))
     .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
     .innerJoin(departments, eq(doctors.departmentId, departments.id));
+
+  const rows =
+    candidateDoctorIds.length > 0
+      ? await rowsQuery.where(inArray(doctors.id, candidateDoctorIds))
+      : await rowsQuery;
 
   const ranked = rows
     .map(row => {
@@ -203,6 +249,55 @@ export async function searchDoctorsByEmbedding(
     .map(({ doctor, hospital, department }) => ({ doctor, hospital, department }));
 
   return ranked;
+}
+
+export async function listDoctorSpecialtyTagsByDoctorIds(doctorIds: number[]) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const normalizedIds = Array.from(
+    new Set(doctorIds.filter(id => Number.isInteger(id) && id > 0))
+  );
+  if (normalizedIds.length === 0) {
+    return new Map<number, string[]>();
+  }
+
+  const rows = await db
+    .select({
+      doctorId: doctorSpecialtyTags.doctorId,
+      tag: doctorSpecialtyTags.tag,
+    })
+    .from(doctorSpecialtyTags)
+    .where(or(...normalizedIds.map(id => eq(doctorSpecialtyTags.doctorId, id))));
+
+  const tagMap = new Map<number, string[]>();
+  for (const row of rows) {
+    const existing = tagMap.get(row.doctorId) ?? [];
+    existing.push(row.tag);
+    tagMap.set(row.doctorId, existing);
+  }
+
+  return tagMap;
+}
+
+export async function listRecommendationCandidates() {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  return await db
+    .select({
+      doctor: doctors,
+      hospital: hospitals,
+      department: departments,
+    })
+    .from(doctors)
+    .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
+    .innerJoin(departments, eq(doctors.departmentId, departments.id))
+    .orderBy(desc(doctors.recommendationScore));
 }
 
 export async function getDoctorById(doctorId: number) {
