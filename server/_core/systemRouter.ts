@@ -147,6 +147,18 @@ const adminOperationAuditInputSchema = z.object({
   to: z.coerce.date().optional(),
 });
 
+const adminUsersInputSchema = z.object({
+  emailQuery: z.string().trim().max(320).optional(),
+  limit: z.number().int().min(1).max(200).optional().default(50),
+});
+
+const adminUserRoleSchema = z.enum(["free", "pro", "admin", "ops"]);
+
+const adminUpdateUserRoleSchema = z.object({
+  userId: z.number().int().positive(),
+  role: adminUserRoleSchema,
+});
+
 const adminTriageSessionsInputSchema = z.object({
   limit: z.number().int().min(1).max(200).optional().default(50),
   status: z.enum(["active", "completed"]).optional(),
@@ -434,6 +446,40 @@ export const systemRouter = router({
         sortBy: input.sortBy,
         sortDirection: input.sortDirection,
       });
+    }),
+
+  adminUsers: adminProcedure
+    .input(adminUsersInputSchema)
+    .query(async ({ input }) => {
+      return adminRepo.listAdminUsers({
+        emailQuery: input.emailQuery,
+        limit: input.limit,
+      });
+    }),
+
+  adminUpdateUserRole: adminProcedure
+    .input(adminUpdateUserRoleSchema)
+    .mutation(async ({ input, ctx }) => {
+      if (ctx.user.id === input.userId && input.role !== "admin") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You cannot remove your own admin role",
+        });
+      }
+
+      const updated = await adminRepo.updateAdminUserRole({
+        userId: input.userId,
+        role: input.role,
+      });
+
+      if (!updated) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "User not found",
+        });
+      }
+
+      return updated;
     }),
 
   adminBatchAppointmentsAction: adminOrOpsProcedure
