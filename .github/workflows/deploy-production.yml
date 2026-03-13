@@ -1,0 +1,167 @@
+name: Deploy Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ap-southeast-1
+  DEPLOY_BUCKET: medibridge-deploy-artifacts-525164180577-ap-southeast-1
+  INSTANCE_ID: i-0c9bfbb5287d85ccf
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm check
+
+      - name: Import boundary check
+        run: pnpm lint:imports
+
+      - name: Package release archive
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive_path="$(./scripts/package-release.sh)"
+          archive_name="$(basename "$archive_path")"
+          release_basename="${archive_name%.tar.gz}"
+
+          echo "archive_path=$archive_path" >> "$GITHUB_OUTPUT"
+          echo "archive_name=$archive_name" >> "$GITHUB_OUTPUT"
+          echo "release_basename=$release_basename" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release archive to S3
+        run: |
+          set -euo pipefail
+          aws s3 cp \
+            "${{ steps.package.outputs.archive_path }}" \
+            "s3://${{ env.DEPLOY_BUCKET }}/releases/${{ steps.package.outputs.archive_name }}"
+
+      - name: Deploy release via SSM
+        id: deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          release_basename="${{ steps.package.outputs.release_basename }}"
+          archive_name="${{ steps.package.outputs.archive_name }}"
+          s3_uri="s3://${{ env.DEPLOY_BUCKET }}/releases/${archive_name}"
+
+          RELEASE_BASENAME="${release_basename}" \
+          ARCHIVE_NAME="${archive_name}" \
+          S3_URI="${s3_uri}" \
+          python - <<'PY'
+          import json
+          import os
+
+          release_basename = os.environ["RELEASE_BASENAME"]
+          archive_name = os.environ["ARCHIVE_NAME"]
+          s3_uri = os.environ["S3_URI"]
+
+          commands = [
+              "set -euo pipefail",
+              "export HOME=/root",
+              f"RELEASE_BASENAME='{release_basename}'",
+              f"ARCHIVE_NAME='{archive_name}'",
+              f"S3_URI='{s3_uri}'",
+              "RELEASES_DIR='/srv/medibridge/releases'",
+              "SHARED_DIR='/srv/medibridge/shared'",
+              'RELEASE_DIR="${RELEASES_DIR}/${RELEASE_BASENAME}"',
+              'TMP_ARCHIVE="/tmp/${ARCHIVE_NAME}"',
+              'mkdir -p "${RELEASES_DIR}" "${SHARED_DIR}"',
+              'rm -rf "${RELEASE_DIR}"',
+              'aws s3 cp "${S3_URI}" "${TMP_ARCHIVE}"',
+              'tar -xzf "${TMP_ARCHIVE}" -C "${RELEASES_DIR}"',
+              'cd "${RELEASE_DIR}"',
+              "corepack enable",
+              "pnpm install --prod --frozen-lockfile",
+              'ln -sfn "${RELEASE_DIR}" /srv/medibridge/current',
+              "pm2 startOrReload /srv/medibridge/current/deploy/ecosystem.config.cjs --update-env",
+              "curl --fail --silent http://127.0.0.1:3000/ > /dev/null",
+              'rm -f "${TMP_ARCHIVE}"',
+          ]
+
+          with open("ssm-commands.json", "w", encoding="utf-8") as fh:
+              json.dump({"commands": commands}, fh)
+          PY
+
+          command_id="$(
+            aws ssm send-command \
+              --region "${AWS_REGION}" \
+              --instance-ids "${INSTANCE_ID}" \
+              --document-name "AWS-RunShellScript" \
+              --comment "Deploy ${release_basename} from GitHub Actions" \
+              --parameters file://ssm-commands.json \
+              --query 'Command.CommandId' \
+              --output text
+          )"
+
+          echo "command_id=${command_id}" >> "$GITHUB_OUTPUT"
+
+          aws ssm wait command-executed \
+            --region "${AWS_REGION}" \
+            --command-id "${command_id}" \
+            --instance-id "${INSTANCE_ID}"
+
+          aws ssm get-command-invocation \
+            --region "${AWS_REGION}" \
+            --command-id "${command_id}" \
+            --instance-id "${INSTANCE_ID}" \
+            --query '{Status:Status,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+            --output json > deploy-result.json
+
+          cat deploy-result.json
+
+          status="$(python - <<'PY'
+          import json
+          with open("deploy-result.json", "r", encoding="utf-8") as fh:
+              print(json.load(fh)["Status"])
+          PY
+          )"
+
+          if [ "${status}" != "Success" ]; then
+            echo "Deployment failed with status ${status}" >&2
+            exit 1
+          fi
+
+      - name: Upload deployment result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-deploy-result
+          path: deploy-result.json
+          if-no-files-found: ignore
