@@ -87,18 +87,23 @@ jobs:
 
           release_basename="${{ steps.package.outputs.release_basename }}"
           archive_name="${{ steps.package.outputs.archive_name }}"
-          s3_uri="s3://${{ env.DEPLOY_BUCKET }}/releases/${archive_name}"
+          archive_url="$(
+            aws s3 presign \
+              "s3://${{ env.DEPLOY_BUCKET }}/releases/${archive_name}" \
+              --expires-in 3600 \
+              --region "${AWS_REGION}"
+          )"
 
           RELEASE_BASENAME="${release_basename}" \
           ARCHIVE_NAME="${archive_name}" \
-          S3_URI="${s3_uri}" \
+          ARCHIVE_URL="${archive_url}" \
           python - <<'PY'
           import json
           import os
 
           release_basename = os.environ["RELEASE_BASENAME"]
           archive_name = os.environ["ARCHIVE_NAME"]
-          s3_uri = os.environ["S3_URI"]
+          archive_url = os.environ["ARCHIVE_URL"]
 
           commands = [
               "set -eu",
@@ -106,14 +111,14 @@ jobs:
               "export PATH=/usr/local/bin:/usr/bin:/bin:/root/.local/bin",
               f"RELEASE_BASENAME='{release_basename}'",
               f"ARCHIVE_NAME='{archive_name}'",
-              f"S3_URI='{s3_uri}'",
+              f"ARCHIVE_URL='{archive_url}'",
               "RELEASES_DIR='/srv/medibridge/releases'",
               "SHARED_DIR='/srv/medibridge/shared'",
               'RELEASE_DIR="${RELEASES_DIR}/${RELEASE_BASENAME}"',
               'TMP_ARCHIVE="/tmp/${ARCHIVE_NAME}"',
               'mkdir -p "${RELEASES_DIR}" "${SHARED_DIR}"',
               'rm -rf "${RELEASE_DIR}"',
-              'aws s3 cp "${S3_URI}" "${TMP_ARCHIVE}"',
+              'curl --fail --silent --show-error --location "${ARCHIVE_URL}" --output "${TMP_ARCHIVE}"',
               'tar -xzf "${TMP_ARCHIVE}" -C "${RELEASES_DIR}"',
               'cd "${RELEASE_DIR}"',
               "corepack enable",
