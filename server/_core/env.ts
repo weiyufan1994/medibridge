@@ -1,8 +1,17 @@
+const parsePositiveInt = (value: string | undefined, fallback: number) => {
+  const parsed = Number.parseInt(value ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return parsed;
+};
+
 export const ENV = {
   appId: process.env.VITE_APP_ID ?? "",
   cookieSecret: process.env.JWT_SECRET ?? "",
   databaseUrl: process.env.DATABASE_URL ?? "",
   llmModel: process.env.LLM_MODEL ?? "deepseek-ai/DeepSeek-V3",
+  llmTimeoutMs: parsePositiveInt(process.env.LLM_TIMEOUT_MS, 30000),
   llmEmbeddingModel:
     process.env.LLM_EMBEDDING_MODEL ??
     process.env.EMBEDDING_MODEL ??

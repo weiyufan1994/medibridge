@@ -13,7 +13,11 @@ const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_LLM_BATCH_SIZE = 8;
 const DEFAULT_CACHE_ENABLED = true;
 const DEFAULT_API_CALL_LOG_INTERVAL = 25;
-const PROVIDER_NAME = "forge/gemini-2.5-flash";
+const DEFAULT_TRANSLATION_PROVIDER = "forge/gemini-2.5-flash";
+let translationModelOverride: string | undefined;
+
+const getTranslationProviderName = () =>
+  translationModelOverride?.trim() || DEFAULT_TRANSLATION_PROVIDER;
 
 type HospitalRow = typeof hospitals.$inferSelect;
 type DepartmentRow = typeof departments.$inferSelect;
@@ -182,6 +186,8 @@ const parseArgs = () => {
       config.apiCallsLogInterval,
       DEFAULT_API_CALL_LOG_INTERVAL
     ),
+    translationModel:
+      config.model?.trim() || process.env.TRANSLATION_LLM_MODEL?.trim() || undefined,
   };
 };
 
@@ -402,6 +408,7 @@ const translateHospital = async (input: {
   description: string | null;
 }) => {
   const response = await invokeLLM({
+    model: translationModelOverride,
     messages: [
       {
         role: "system",
@@ -516,6 +523,7 @@ const parseHospitalBatchResponse = (text: string) => {
 
 const translateHospitalBatch = async (input: HospitalBatchInput[]) => {
   const response = await invokeLLM({
+    model: translationModelOverride,
     messages: [
       {
         role: "system",
@@ -579,6 +587,7 @@ const translateDepartment = async (input: {
   description: string | null;
 }) => {
   const response = await invokeLLM({
+    model: translationModelOverride,
     messages: [
       {
         role: "system",
@@ -671,6 +680,7 @@ const parseDepartmentBatchResponse = (text: string) => {
 
 const translateDepartmentBatch = async (input: DepartmentBatchInput[]) => {
   const response = await invokeLLM({
+    model: translationModelOverride,
     messages: [
       {
         role: "system",
@@ -729,6 +739,7 @@ const translateDoctor = async (input: {
   attitudeScore: string | null;
 }) => {
   const response = await invokeLLM({
+    model: translationModelOverride,
     messages: [
       {
         role: "system",
@@ -860,6 +871,7 @@ const parseDoctorBatchResponse = (text: string) => {
 
 const translateDoctorBatch = async (input: DoctorBatchInput[]) => {
   const response = await invokeLLM({
+    model: translationModelOverride,
     messages: [
       {
         role: "system",
@@ -1008,7 +1020,7 @@ const applyHospitalTranslation = async (
       translationStatus: isComplete ? "done" : "pending",
       translatedAt: isComplete ? new Date() : null,
       lastTranslationError: isComplete ? null : "Missing English fields",
-      translationProvider: PROVIDER_NAME,
+      translationProvider: getTranslationProviderName(),
     })
     .where(eq(hospitals.id, row.id));
 
@@ -1037,7 +1049,7 @@ const applyDepartmentTranslation = async (
       translationStatus: isComplete ? "done" : "pending",
       translatedAt: isComplete ? new Date() : null,
       lastTranslationError: isComplete ? null : "Missing English fields",
-      translationProvider: PROVIDER_NAME,
+      translationProvider: getTranslationProviderName(),
     })
     .where(eq(departments.id, row.id));
 
@@ -1107,7 +1119,7 @@ const applyDoctorTranslation = async (
       translationStatus: isComplete ? "done" : "pending",
       translatedAt: isComplete ? new Date() : null,
       lastTranslationError: isComplete ? null : "Missing English fields",
-      translationProvider: PROVIDER_NAME,
+      translationProvider: getTranslationProviderName(),
     })
     .where(eq(doctors.id, row.id));
 
@@ -1797,11 +1809,15 @@ const translateDoctors = async (
 
 const run = async () => {
   const config = parseArgs();
+  translationModelOverride = config.translationModel;
   const pool = mysql.createPool(process.env.DATABASE_URL ?? "");
   const db = createTranslationDb(pool);
   const runStats: EntityRunStats[] = [];
 
   try {
+    if (translationModelOverride) {
+      console.log(`[Config] Translation model override: ${translationModelOverride}`);
+    }
     await reconcileInconsistentDoneRows(pool, config.entities);
 
     if (config.entities.includes("hospitals")) {

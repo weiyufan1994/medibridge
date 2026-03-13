@@ -58,8 +58,10 @@ export type ToolChoice =
 export type InvokeParams = {
   messages: Message[];
   tools?: Tool[];
+  model?: string;
   toolChoice?: ToolChoice;
   tool_choice?: ToolChoice;
+  timeoutMs?: number;
   maxTokens?: number;
   max_tokens?: number;
   outputSchema?: OutputSchema;
@@ -227,6 +229,23 @@ const assertApiKey = () => {
   }
 };
 
+const withTimeoutSignal = (timeoutMs: number) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return {
+    signal: controller.signal,
+    clear: () => clearTimeout(timer),
+  };
+};
+
+const getErrorText = async (response: Response) => {
+  try {
+    return await response.text();
+  } catch {
+    return "";
+  }
+};
+
 const normalizeResponseFormat = ({
   responseFormat,
   response_format,
@@ -278,8 +297,10 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   const {
     messages,
     tools,
+    model,
     toolChoice,
     tool_choice,
+    timeoutMs,
     maxTokens,
     max_tokens,
     outputSchema,
@@ -287,9 +308,14 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     responseFormat,
     response_format,
   } = params;
+  const requestTimeoutMs = timeoutMs ?? ENV.llmTimeoutMs;
+  const selectedModel =
+    typeof model === "string" && model.trim().length > 0
+      ? model.trim()
+      : ENV.llmModel || "deepseek-ai/DeepSeek-V3";
 
   const payload: Record<string, unknown> = {
-    model: ENV.llmModel || "deepseek-ai/DeepSeek-V3",
+    model: selectedModel,
     messages: messages.map(normalizeMessage),
   };
 
@@ -318,17 +344,32 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.response_format = normalizedResponseFormat;
   }
 
-  const response = await fetch(resolveApiUrl(), {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${ENV.llmApiKey}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  const request = withTimeoutSignal(requestTimeoutMs);
+  let response: Response;
+
+  try {
+    response = await fetch(resolveApiUrl(), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${ENV.llmApiKey}`,
+      },
+      body: JSON.stringify(payload),
+      signal: request.signal,
+    });
+  } catch (error) {
+    request.clear();
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(
+        `LLM invoke timed out after ${requestTimeoutMs}ms for model ${selectedModel}`
+      );
+    }
+    throw error;
+  }
+  request.clear();
 
   if (!response.ok) {
-    const errorText = await response.text();
+    const errorText = await getErrorText(response);
     throw new Error(
       `LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`
     );
@@ -349,20 +390,35 @@ export async function createEmbedding(input: string): Promise<number[]> {
     throw new Error("Embedding input cannot be empty");
   }
 
-  const response = await fetch(resolveEmbeddingsApiUrl(), {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${ENV.llmApiKey}`,
-    },
-    body: JSON.stringify({
-      model: ENV.llmEmbeddingModel,
-      input: cleanedInput,
-    }),
-  });
+  const request = withTimeoutSignal(ENV.llmTimeoutMs);
+  let response: Response;
+
+  try {
+    response = await fetch(resolveEmbeddingsApiUrl(), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${ENV.llmApiKey}`,
+      },
+      body: JSON.stringify({
+        model: ENV.llmEmbeddingModel,
+        input: cleanedInput,
+      }),
+      signal: request.signal,
+    });
+  } catch (error) {
+    request.clear();
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(
+        `Embedding create timed out after ${ENV.llmTimeoutMs}ms for model ${ENV.llmEmbeddingModel}`
+      );
+    }
+    throw error;
+  }
+  request.clear();
 
   if (!response.ok) {
-    const errorText = await response.text();
+    const errorText = await getErrorText(response);
     throw new Error(
       `Embedding create failed: ${response.status} ${response.statusText} – ${errorText}`
     );
