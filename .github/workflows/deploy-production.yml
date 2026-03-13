@@ -56,13 +56,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          archive_path="$(./scripts/package-release.sh)"
-          archive_name="$(basename "$archive_path")"
+          package_output="$(./scripts/package-release.sh)"
+          archive_path="$(printf '%s\n' "${package_output}" | tail -n 1)"
+
+          if [ ! -f "${archive_path}" ]; then
+            echo "Package script did not return a valid archive path" >&2
+            printf '%s\n' "${package_output}" >&2
+            exit 1
+          fi
+
+          archive_name="$(basename "${archive_path}")"
           release_basename="${archive_name%.tar.gz}"
 
-          echo "archive_path=$archive_path" >> "$GITHUB_OUTPUT"
-          echo "archive_name=$archive_name" >> "$GITHUB_OUTPUT"
-          echo "release_basename=$release_basename" >> "$GITHUB_OUTPUT"
+          echo "archive_path=${archive_path}" >> "${GITHUB_OUTPUT}"
+          echo "archive_name=${archive_name}" >> "${GITHUB_OUTPUT}"
+          echo "release_basename=${release_basename}" >> "${GITHUB_OUTPUT}"
 
       - name: Upload release archive to S3
         run: |
@@ -130,7 +138,7 @@ jobs:
               --output text
           )"
 
-          echo "command_id=${command_id}" >> "$GITHUB_OUTPUT"
+          echo "command_id=${command_id}" >> "${GITHUB_OUTPUT}"
 
           aws ssm wait command-executed \
             --region "${AWS_REGION}" \
