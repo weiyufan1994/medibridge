@@ -105,6 +105,7 @@ export function useAdminConsole({
   tr,
 }: UseAdminConsoleParams): UseAdminConsoleResult {
   const [emailQuery, setEmailQuery] = useState("");
+  const [userSearchQuery, setUserSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
   const [page, setPage] = useState(1);
@@ -354,6 +355,15 @@ export function useAdminConsole({
   const hospitalsQuery = trpc.system.adminHospitals.useQuery(undefined, {
     enabled: canReadAdmin,
   });
+  const adminUsersQuery = trpc.system.adminUsers.useQuery(
+    {
+      emailQuery: userSearchQuery.trim() || undefined,
+      limit: 50,
+    },
+    {
+      enabled: canMutateAdmin,
+    }
+  );
   const retentionAuditsQuery = trpc.system.adminRetentionCleanupAudits.useQuery(
     { limit: 20 },
     { enabled: canReadAdmin }
@@ -439,12 +449,15 @@ export function useAdminConsole({
       selectedAppointmentId ? appointmentDetailQuery.refetch() : Promise.resolve(),
       selectedAppointmentId ? visitSummaryQuery.refetch() : Promise.resolve(),
       hospitalsQuery.refetch(),
+      canMutateAdmin ? adminUsersQuery.refetch() : Promise.resolve(),
       retentionPoliciesQuery.refetch(),
       retentionAuditsQuery.refetch(),
     ]);
   }, [
+    adminUsersQuery,
     appointmentDetailQuery,
     appointmentsQuery,
+    canMutateAdmin,
     hospitalsQuery,
     metricsQuery,
     operationAuditQuery,
@@ -537,6 +550,20 @@ export function useAdminConsole({
     onSuccess: async () => {
       toast.success(tr("保留策略已更新。", "Retention policy updated."));
       await retentionPoliciesQuery.refetch();
+    },
+    onError: error => {
+      toast.error(toUiError(error.message));
+    },
+  });
+  const updateUserRoleMutation = trpc.system.adminUpdateUserRole.useMutation({
+    onSuccess: async result => {
+      toast.success(
+        tr(
+          `用户 #${result.id} 权限已更新为 ${result.role}。`,
+          `User #${result.id} role updated to ${result.role}.`
+        )
+      );
+      await adminUsersQuery.refetch();
     },
     onError: error => {
       toast.error(toUiError(error.message));
@@ -824,6 +851,13 @@ export function useAdminConsole({
       retentionDays,
       enabled,
     });
+  };
+
+  const updateUserRole = (input: {
+    userId: number;
+    role: "free" | "pro" | "admin" | "ops";
+  }) => {
+    updateUserRoleMutation.mutate(input);
   };
 
   const handleCopyDebugSnapshot = async () => {
@@ -1127,6 +1161,8 @@ export function useAdminConsole({
   };
 
   return {
+    userSearchQuery,
+    setUserSearchQuery,
     emailQuery,
     setEmailQuery,
     page,
@@ -1203,6 +1239,7 @@ export function useAdminConsole({
     canIssueAccessLinks,
     canNotifyFollowup,
     hospitalsQuery,
+    adminUsersQuery,
     refreshAdminData,
     resendPaymentMutation,
     resendAccessLinkMutation,
@@ -1221,6 +1258,10 @@ export function useAdminConsole({
     generateSummaryMutation,
     exportSummaryPdfMutation,
     updateRetentionPolicyMutation,
+    updateUserRoleMutation: {
+      isPending: updateUserRoleMutation.isPending,
+      mutate: updateUserRole,
+    },
     runRetentionCleanupMutation,
     batchAppointmentsMutation: {
       isPending: adminBatchMutation.isPending,

@@ -48,6 +48,12 @@ export type NotifyDoctorFollowupMutation = SimpleMutation;
 
 export type UpdateRetentionPolicyMutation = SimpleMutation;
 
+export type AdminUserRole = "free" | "pro" | "admin" | "ops";
+
+export type UpdateUserRoleMutation = SimpleMutation & {
+  mutate: (input: { userId: number; role: AdminUserRole }) => void;
+};
+
 export type RunRetentionCleanupMutation = SimpleMutation & {
   mutate: (input: { dryRun: boolean }) => void;
 };
@@ -61,6 +67,16 @@ export type AdminHospital = {
   level: string | null;
   levelEn: string | null;
   imageUrl: string | null;
+};
+
+export type AdminUserItem = {
+  id: number;
+  email: string | null;
+  name: string | null;
+  role: AdminUserRole;
+  loginMethod: string | null;
+  lastSignedIn: Date | string;
+  createdAt: Date | string;
 };
 
 export type HospitalImageUploadState = {
@@ -248,6 +264,8 @@ export type UseAdminConsoleResult = {
   canResendAccessLink: boolean;
   canIssueAccessLinks: boolean;
   canNotifyFollowup: boolean;
+  userSearchQuery: string;
+  setUserSearchQuery: (value: string) => void;
   emailQuery: string;
   setEmailQuery: (value: string) => void;
   page: number;
@@ -311,6 +329,7 @@ export type UseAdminConsoleResult = {
   retentionPoliciesQuery: QueryState<AdminRetentionPolicy[]>;
   retentionAuditsQuery: QueryState<AdminRetentionAudit[]>;
   hospitalsQuery: QueryState<AdminHospital[]>;
+  adminUsersQuery: QueryState<AdminUserItem[]>;
   operationAuditQuery: QueryState<AdminOperationAuditResult | null>;
   operationAuditPage: number;
   setOperationAuditPage: (value: number) => void;
@@ -334,6 +353,7 @@ export type UseAdminConsoleResult = {
   generateSummaryMutation: GenerateSummaryMutation;
   exportSummaryPdfMutation: ExportSummaryPdfMutation;
   updateRetentionPolicyMutation: UpdateRetentionPolicyMutation;
+  updateUserRoleMutation: UpdateUserRoleMutation;
   runRetentionCleanupMutation: RunRetentionCleanupMutation;
   selectedAppointmentIds: number[];
   selectedCount: number;

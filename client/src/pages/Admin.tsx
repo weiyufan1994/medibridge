@@ -1,6 +1,8 @@
-import { Loader2 } from "lucide-react";
+import { useState } from "react";
+import { Loader2, Search, ShieldCheck, Workflow, Wrench } from "lucide-react";
 import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAdminConsole } from "@/features/admin/hooks/useAdminConsole";
@@ -13,10 +15,14 @@ import { RetentionCard } from "@/features/admin/components/RetentionCard";
 import { AppointmentDetailCard } from "@/features/admin/components/AppointmentDetailCard";
 import { HospitalImageManagementCard } from "@/features/admin/components/HospitalImageManagementCard";
 import { ExportCenterCard } from "@/features/admin/components/ExportCenterCard";
+import { UserRoleManagementCard } from "@/features/admin/components/UserRoleManagementCard";
 
 export default function AdminPage() {
   const { user, loading } = useAuth();
   const { resolved } = useLanguage();
+  const [activeTab, setActiveTab] = useState<"overview" | "appointments" | "users" | "operations">(
+    "overview"
+  );
   const lang = resolved as "zh" | "en";
   const locale = lang === "zh" ? "zh-CN" : "en-US";
   const tr = (zh: string, en: string) => (lang === "zh" ? zh : en);
@@ -32,6 +38,8 @@ export default function AdminPage() {
   const canMutateAppointments = isAdmin;
 
   const {
+    userSearchQuery,
+    setUserSearchQuery,
     emailQuery,
     setEmailQuery,
     page,
@@ -111,6 +119,7 @@ export default function AdminPage() {
     retentionPoliciesQuery,
     retentionAuditsQuery,
     hospitalsQuery,
+    adminUsersQuery,
     adminHospitalImageUploadMutation,
     adminHospitalImageClearMutation,
     refreshAdminData,
@@ -122,6 +131,7 @@ export default function AdminPage() {
     generateSummaryMutation,
     exportSummaryPdfMutation,
     updateRetentionPolicyMutation,
+    updateUserRoleMutation,
     runRetentionCleanupMutation,
     risks,
     suggestions,
@@ -147,6 +157,12 @@ export default function AdminPage() {
     lang,
     tr,
   });
+
+  const openAppointmentInAdmin = (id: number) => {
+    setActiveTab("appointments");
+    setSelectedAppointmentId(id);
+    setIssuedLinks(null);
+  };
 
   const handleAuditPageChange = (value: number) => {
     setOperationAuditPage(Math.max(1, value));
@@ -181,264 +197,317 @@ export default function AdminPage() {
 
   return (
     <AppLayout title={tr("管理后台", "Admin Console")}>
-      <div className="mx-auto flex-1 w-full max-w-7xl overflow-y-auto space-y-6 py-2">
-        <FiltersCard
-          tr={tr}
-          emailQuery={emailQuery}
-          onEmailQueryChange={setEmailQuery}
-          appointmentIdInput={appointmentIdInput}
-          onAppointmentIdInputChange={setAppointmentIdInput}
-          onOpenAppointmentById={openAppointmentById}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          paymentStatusFilter={paymentStatusFilter}
-          onPaymentStatusFilterChange={setPaymentStatusFilter}
-          appointmentStatusOptions={appointmentStatusOptions}
-          paymentStatusOptions={paymentStatusOptions}
-          doctorIdInput={doctorIdInput}
-          onDoctorIdInputChange={setDoctorIdInput}
-          amountMinInput={amountMinInput}
-          onAmountMinChange={setAmountMinInput}
-          amountMaxInput={amountMaxInput}
-          onAmountMaxChange={setAmountMaxInput}
-          createdAtFrom={createdAtFrom}
-          onCreatedAtFromChange={setCreatedAtFrom}
-          createdAtTo={createdAtTo}
-          onCreatedAtToChange={setCreatedAtTo}
-          scheduledAtFrom={scheduledAtFrom}
-          onScheduledAtFromChange={setScheduledAtFrom}
-          scheduledAtTo={scheduledAtTo}
-          onScheduledAtToChange={setScheduledAtTo}
-          hasRiskFilter={hasRiskFilter}
-          onHasRiskFilterChange={setHasRiskFilter}
-          sortBy={sortBy}
-          onSortByChange={setSortBy}
-          sortDirection={sortDirection}
-          onSortDirectionChange={setSortDirection}
-          pageSize={pageSize}
-          onPageSizeChange={setPageSize}
-          page={page}
-          totalPages={appointmentsQuery.data?.totalPages ?? 1}
-          onPageChange={value => {
-            setPage(value);
-          }}
-          onRefresh={() => {
-            void refreshAdminData();
-          }}
-          onResetFilters={resetAppointmentFilters}
-        />
+      <div className="mx-auto flex-1 w-full max-w-7xl overflow-y-auto py-2">
+        <Tabs value={activeTab} onValueChange={value => setActiveTab(value as typeof activeTab)} className="gap-6">
+          <div className="rounded-3xl border border-slate-200/80 bg-white/90 p-4 shadow-sm">
+            <div className="mb-4 flex flex-col gap-2">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-600">
+                {tr("后台导航", "Console sections")}
+              </div>
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+                {tr("把高频操作拆开，避免在一页里翻找。", "Separate high-frequency workflows instead of stacking them in one page.")}
+              </h1>
+            </div>
+            <TabsList className="h-auto w-full flex-wrap justify-start gap-2 rounded-2xl bg-slate-100 p-2">
+              <TabsTrigger value="overview" className="h-10 rounded-xl px-4 data-[state=active]:bg-white data-[state=active]:text-teal-700">
+                <Search className="h-4 w-4" />
+                {tr("总览", "Overview")}
+              </TabsTrigger>
+              <TabsTrigger value="appointments" className="h-10 rounded-xl px-4 data-[state=active]:bg-white data-[state=active]:text-teal-700">
+                <Workflow className="h-4 w-4" />
+                {tr("预约工作台", "Appointments")}
+              </TabsTrigger>
+              {isAdmin ? (
+                <TabsTrigger value="users" className="h-10 rounded-xl px-4 data-[state=active]:bg-white data-[state=active]:text-teal-700">
+                  <ShieldCheck className="h-4 w-4" />
+                  {tr("用户与权限", "Users & Roles")}
+                </TabsTrigger>
+              ) : null}
+              <TabsTrigger value="operations" className="h-10 rounded-xl px-4 data-[state=active]:bg-white data-[state=active]:text-teal-700">
+                <Wrench className="h-4 w-4" />
+                {tr("运营工具", "Operations")}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-        <AppointmentsCard
-          tr={tr}
-          locale={locale}
-          isLoading={appointmentsQuery.isLoading}
-          errorMessage={appointmentsQuery.error?.message}
-          page={page}
-          pageSize={pageSize}
-          total={appointmentsQuery.data?.total ?? 0}
-          totalPages={appointmentsQuery.data?.totalPages ?? 1}
-          items={(appointmentsQuery.data?.items ?? []) as Array<{
-            id: number;
-            email: string;
-            status: string;
-            paymentStatus: string;
-            amount: number;
-            currency: string;
-            doctorId: number;
-            triageSessionId: number;
-            createdAt: string | Date;
-            hasRisk: boolean;
-            riskCodes: string[];
-          }>}
-          selectedIds={selectedAppointmentIds}
-          isAllVisibleSelected={isAllVisibleSelected}
-          isAnyVisibleSelected={isAnyVisibleSelected}
-          onSelectAppointment={id => {
-            setSelectedAppointmentId(id);
-            setIssuedLinks(null);
-          }}
-          onToggleSelect={toggleAppointmentSelection}
-          onToggleAllVisible={toggleSelectAllVisible}
-          onClearSelection={clearSelection}
-          onBatchAction={batchAppointmentsMutation.executeBatch}
-          batchResult={batchAppointmentsMutation.lastResult}
-          onPageChange={setPage}
-          onRefresh={() => {
-            void refreshAdminData();
-          }}
-          batchIsPending={batchAppointmentsMutation.isPending}
-          canBatchResendAccessLink={canResendAccessLink}
-          canBatchReinitiatePayment={canReinitiatePayment}
-          canBatchUpdateStatus={canMutateAppointments}
-        />
+          <TabsContent value="overview" className="space-y-6">
+            <RiskMetricsCard
+              tr={tr}
+              isLoading={metricsQuery.isLoading}
+              errorMessage={metricsQuery.error?.message}
+              generatedAt={metricsQuery.data?.generatedAt}
+              riskSummary={appointmentsQuery.data?.riskSummary ?? null}
+              riskItems={appointmentsQuery.data?.items ?? []}
+              onOpenAppointmentById={openAppointmentInAdmin}
+            />
 
-        <AppointmentDetailCard
-          tr={tr}
-          lang={lang}
-          locale={locale}
-          selectedAppointmentId={selectedAppointmentId}
-          appointmentDetailQuery={appointmentDetailQuery}
-          risks={risks}
-          suggestions={suggestions}
-          runSuggestedAction={runSuggestedAction}
-          webhookReplayMutation={webhookReplayMutation}
-          beforeReinitiatePayment={beforeReinitiatePayment}
-          beforeResendAccessLink={beforeResendAccessLink}
-          beforeIssueLinks={beforeIssueLinks}
-          resendPaymentMutation={resendPaymentMutation}
-          resendAccessLinkMutation={resendAccessLinkMutation}
-          issueLinksMutation={issueLinksMutation}
-          canMutateAppointments={canMutateAppointments}
-          canReinitiatePayment={canReinitiatePayment}
-          canResendAccessLink={canResendAccessLink}
-          canIssueAccessLinks={canIssueAccessLinks}
-          canNotifyFollowup={canNotifyFollowup}
-          handleCopyDebugSnapshot={handleCopyDebugSnapshot}
-          manualStatus={manualStatus}
-          setManualStatus={setManualStatus}
-          manualPaymentStatus={manualPaymentStatus}
-          setManualPaymentStatus={setManualPaymentStatus}
-          manualStatusReason={manualStatusReason}
-          setManualStatusReason={setManualStatusReason}
-          manualScheduledAt={manualScheduledAt}
-          setManualScheduledAt={setManualScheduledAt}
-          setScheduleToNow={setScheduleToNow}
-          appointmentStatusOptions={appointmentStatusOptions}
-          paymentStatusOptions={paymentStatusOptions}
-          applyManualStatusUpdate={applyManualStatusUpdate}
-          applyManualScheduleUpdate={applyManualScheduleUpdate}
-          canReplayWebhook={canReplayWebhook}
-          updateStatusMutation={updateStatusMutation}
-          updateScheduleMutation={updateScheduleMutation}
-          generateSummaryMutation={generateSummaryMutation}
-          exportSummaryPdfMutation={exportSummaryPdfMutation}
-          visitSummaryQuery={visitSummaryQuery}
-          issuedLinks={issuedLinks}
-        />
+            <TriageSessionsCard
+              tr={tr}
+              locale={locale}
+              isLoading={triageQuery.isLoading}
+              errorMessage={triageQuery.error?.message}
+              items={triageQuery.data ?? []}
+            />
+          </TabsContent>
 
-        <OperationAuditCard
-          tr={tr}
-          locale={locale}
-          isLoading={operationAuditQuery.isLoading}
-          errorMessage={operationAuditQuery.error?.message}
-          total={operationAuditQuery.data?.total ?? 0}
-          items={operationAuditQuery.data?.items ?? []}
-          page={operationAuditPage}
-          totalPages={operationAuditQuery.data?.totalPages ?? 1}
-          onPageChange={handleAuditPageChange}
-          onRefresh={() => {
-            void refreshAdminData();
-          }}
-          onOpenAppointmentById={id => {
-            setSelectedAppointmentId(id);
-            setIssuedLinks(null);
-          }}
-          operatorIdInput={operationAuditOperatorIdInput}
-          onOperatorIdInputChange={value => {
-            setOperationAuditOperatorIdInput(value);
-            setOperationAuditPage(1);
-          }}
-          actionTypeInput={operationAuditActionTypeInput}
-          onActionTypeInputChange={value => {
-            setOperationAuditActionTypeInput(value);
-            setOperationAuditPage(1);
-          }}
-          from={operationAuditFrom}
-          onFromChange={value => {
-            setOperationAuditFrom(value);
-            setOperationAuditPage(1);
-          }}
-          to={operationAuditTo}
-          onToChange={value => {
-            setOperationAuditTo(value);
-            setOperationAuditPage(1);
-          }}
-        />
+          <TabsContent value="appointments" className="space-y-6">
+            <FiltersCard
+              tr={tr}
+              emailQuery={emailQuery}
+              onEmailQueryChange={setEmailQuery}
+              appointmentIdInput={appointmentIdInput}
+              onAppointmentIdInputChange={setAppointmentIdInput}
+              onOpenAppointmentById={() => {
+                openAppointmentById();
+                setActiveTab("appointments");
+              }}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              paymentStatusFilter={paymentStatusFilter}
+              onPaymentStatusFilterChange={setPaymentStatusFilter}
+              appointmentStatusOptions={appointmentStatusOptions}
+              paymentStatusOptions={paymentStatusOptions}
+              doctorIdInput={doctorIdInput}
+              onDoctorIdInputChange={setDoctorIdInput}
+              amountMinInput={amountMinInput}
+              onAmountMinChange={setAmountMinInput}
+              amountMaxInput={amountMaxInput}
+              onAmountMaxChange={setAmountMaxInput}
+              createdAtFrom={createdAtFrom}
+              onCreatedAtFromChange={setCreatedAtFrom}
+              createdAtTo={createdAtTo}
+              onCreatedAtToChange={setCreatedAtTo}
+              scheduledAtFrom={scheduledAtFrom}
+              onScheduledAtFromChange={setScheduledAtFrom}
+              scheduledAtTo={scheduledAtTo}
+              onScheduledAtToChange={setScheduledAtTo}
+              hasRiskFilter={hasRiskFilter}
+              onHasRiskFilterChange={setHasRiskFilter}
+              sortBy={sortBy}
+              onSortByChange={setSortBy}
+              sortDirection={sortDirection}
+              onSortDirectionChange={setSortDirection}
+              pageSize={pageSize}
+              onPageSizeChange={setPageSize}
+              page={page}
+              totalPages={appointmentsQuery.data?.totalPages ?? 1}
+              onPageChange={value => {
+                setPage(value);
+              }}
+              onRefresh={() => {
+                void refreshAdminData();
+              }}
+              onResetFilters={resetAppointmentFilters}
+            />
 
-        <ExportCenterCard
-          tr={tr}
-          locale={locale}
-          isExporting={exportAppointmentsMutation.isPending}
-          onExport={({
-            scope,
-            format,
-            webhookAppointmentId,
-            auditOperatorId,
-            auditActionType,
-            auditFrom,
-            auditTo,
-          }) => {
-            exportAppointmentsMutation.exportScope({
-              scope,
-              format,
-              webhookAppointmentId,
-              auditOperatorId,
-              auditActionType,
-              auditFrom,
-              auditTo,
-            });
-          }}
-        />
+            <AppointmentsCard
+              tr={tr}
+              locale={locale}
+              isLoading={appointmentsQuery.isLoading}
+              errorMessage={appointmentsQuery.error?.message}
+              page={page}
+              pageSize={pageSize}
+              total={appointmentsQuery.data?.total ?? 0}
+              totalPages={appointmentsQuery.data?.totalPages ?? 1}
+              items={(appointmentsQuery.data?.items ?? []) as Array<{
+                id: number;
+                email: string;
+                status: string;
+                paymentStatus: string;
+                amount: number;
+                currency: string;
+                doctorId: number;
+                triageSessionId: number;
+                createdAt: string | Date;
+                hasRisk: boolean;
+                riskCodes: string[];
+              }>}
+              selectedIds={selectedAppointmentIds}
+              isAllVisibleSelected={isAllVisibleSelected}
+              isAnyVisibleSelected={isAnyVisibleSelected}
+              onSelectAppointment={openAppointmentInAdmin}
+              onToggleSelect={toggleAppointmentSelection}
+              onToggleAllVisible={toggleSelectAllVisible}
+              onClearSelection={clearSelection}
+              onBatchAction={batchAppointmentsMutation.executeBatch}
+              batchResult={batchAppointmentsMutation.lastResult}
+              onPageChange={setPage}
+              onRefresh={() => {
+                void refreshAdminData();
+              }}
+              batchIsPending={batchAppointmentsMutation.isPending}
+              canBatchResendAccessLink={canResendAccessLink}
+              canBatchReinitiatePayment={canReinitiatePayment}
+              canBatchUpdateStatus={canMutateAppointments}
+            />
 
-        <HospitalImageManagementCard
-          tr={tr}
-          lang={lang}
-          isLoading={hospitalsQuery.isLoading}
-          errorMessage={
-            hospitalsQuery.error?.message ? toUiError(hospitalsQuery.error.message) : undefined
-          }
-          hospitals={hospitalsQuery.data ?? []}
-          isReadOnly={!isAdmin}
-          uploadState={adminHospitalImageUploadMutation}
-          clearState={adminHospitalImageClearMutation}
-        />
+            <AppointmentDetailCard
+              tr={tr}
+              lang={lang}
+              locale={locale}
+              selectedAppointmentId={selectedAppointmentId}
+              appointmentDetailQuery={appointmentDetailQuery}
+              risks={risks}
+              suggestions={suggestions}
+              runSuggestedAction={runSuggestedAction}
+              webhookReplayMutation={webhookReplayMutation}
+              beforeReinitiatePayment={beforeReinitiatePayment}
+              beforeResendAccessLink={beforeResendAccessLink}
+              beforeIssueLinks={beforeIssueLinks}
+              resendPaymentMutation={resendPaymentMutation}
+              resendAccessLinkMutation={resendAccessLinkMutation}
+              issueLinksMutation={issueLinksMutation}
+              canMutateAppointments={canMutateAppointments}
+              canReinitiatePayment={canReinitiatePayment}
+              canResendAccessLink={canResendAccessLink}
+              canIssueAccessLinks={canIssueAccessLinks}
+              canNotifyFollowup={canNotifyFollowup}
+              handleCopyDebugSnapshot={handleCopyDebugSnapshot}
+              manualStatus={manualStatus}
+              setManualStatus={setManualStatus}
+              manualPaymentStatus={manualPaymentStatus}
+              setManualPaymentStatus={setManualPaymentStatus}
+              manualStatusReason={manualStatusReason}
+              setManualStatusReason={setManualStatusReason}
+              manualScheduledAt={manualScheduledAt}
+              setManualScheduledAt={setManualScheduledAt}
+              setScheduleToNow={setScheduleToNow}
+              appointmentStatusOptions={appointmentStatusOptions}
+              paymentStatusOptions={paymentStatusOptions}
+              applyManualStatusUpdate={applyManualStatusUpdate}
+              applyManualScheduleUpdate={applyManualScheduleUpdate}
+              canReplayWebhook={canReplayWebhook}
+              updateStatusMutation={updateStatusMutation}
+              updateScheduleMutation={updateScheduleMutation}
+              generateSummaryMutation={generateSummaryMutation}
+              exportSummaryPdfMutation={exportSummaryPdfMutation}
+              visitSummaryQuery={visitSummaryQuery}
+              issuedLinks={issuedLinks}
+            />
+          </TabsContent>
 
-        <TriageSessionsCard
-          tr={tr}
-          locale={locale}
-          isLoading={triageQuery.isLoading}
-          errorMessage={triageQuery.error?.message}
-          items={triageQuery.data ?? []}
-        />
+          {isAdmin ? (
+            <TabsContent value="users" className="space-y-6">
+              <UserRoleManagementCard
+                tr={tr}
+                locale={locale}
+                isLoading={adminUsersQuery.isLoading}
+                errorMessage={adminUsersQuery.error?.message}
+                users={adminUsersQuery.data ?? []}
+                isReadOnly={!isAdmin}
+                isUpdating={updateUserRoleMutation.isPending}
+                searchQuery={userSearchQuery}
+                onSearchQueryChange={setUserSearchQuery}
+                onRefresh={() => {
+                  void refreshAdminData();
+                }}
+                onUpdateRole={updateUserRoleMutation.mutate}
+              />
+            </TabsContent>
+          ) : null}
 
-        <RiskMetricsCard
-          tr={tr}
-          isLoading={metricsQuery.isLoading}
-          errorMessage={metricsQuery.error?.message}
-          generatedAt={metricsQuery.data?.generatedAt}
-          riskSummary={appointmentsQuery.data?.riskSummary ?? null}
-          riskItems={appointmentsQuery.data?.items ?? []}
-          onOpenAppointmentById={id => {
-            setSelectedAppointmentId(id);
-            setIssuedLinks(null);
-          }}
-        />
+          <TabsContent value="operations" className="space-y-6">
+            <OperationAuditCard
+              tr={tr}
+              locale={locale}
+              isLoading={operationAuditQuery.isLoading}
+              errorMessage={operationAuditQuery.error?.message}
+              total={operationAuditQuery.data?.total ?? 0}
+              items={operationAuditQuery.data?.items ?? []}
+              page={operationAuditPage}
+              totalPages={operationAuditQuery.data?.totalPages ?? 1}
+              onPageChange={handleAuditPageChange}
+              onRefresh={() => {
+                void refreshAdminData();
+              }}
+              onOpenAppointmentById={openAppointmentInAdmin}
+              operatorIdInput={operationAuditOperatorIdInput}
+              onOperatorIdInputChange={value => {
+                setOperationAuditOperatorIdInput(value);
+                setOperationAuditPage(1);
+              }}
+              actionTypeInput={operationAuditActionTypeInput}
+              onActionTypeInputChange={value => {
+                setOperationAuditActionTypeInput(value);
+                setOperationAuditPage(1);
+              }}
+              from={operationAuditFrom}
+              onFromChange={value => {
+                setOperationAuditFrom(value);
+                setOperationAuditPage(1);
+              }}
+              to={operationAuditTo}
+              onToChange={value => {
+                setOperationAuditTo(value);
+                setOperationAuditPage(1);
+              }}
+            />
 
-        <RetentionCard
-          tr={tr}
-          locale={locale}
-          isPoliciesLoading={retentionPoliciesQuery.isLoading}
-          policiesErrorMessage={
-            retentionPoliciesQuery.error?.message ? toUiError(retentionPoliciesQuery.error.message) : undefined
-          }
-          policies={retentionPoliciesQuery.data ?? []}
-          freeRetentionDaysInput={freeRetentionDaysInput}
-          paidRetentionDaysInput={paidRetentionDaysInput}
-          onFreeRetentionDaysInputChange={setFreeRetentionDaysInput}
-          onPaidRetentionDaysInputChange={setPaidRetentionDaysInput}
-          onUpsertRetentionPolicy={upsertRetentionPolicy}
-          onToggleRetentionEnabled={toggleRetentionEnabled}
-          isReadOnly={!isAdmin}
-          isUpdateRetentionPending={updateRetentionPolicyMutation.isPending}
-          isCleanupPending={runRetentionCleanupMutation.isPending}
-          onRunCleanupDryRun={() => runRetentionCleanupMutation.mutate({ dryRun: true })}
-          onRunCleanupReal={() => runRetentionCleanupMutation.mutate({ dryRun: false })}
-          isAuditsLoading={retentionAuditsQuery.isLoading}
-          auditsErrorMessage={
-            retentionAuditsQuery.error?.message ? toUiError(retentionAuditsQuery.error.message) : undefined
-          }
-          audits={retentionAuditsQuery.data ?? []}
-        />
+            <ExportCenterCard
+              tr={tr}
+              locale={locale}
+              isExporting={exportAppointmentsMutation.isPending}
+              onExport={({
+                scope,
+                format,
+                webhookAppointmentId,
+                auditOperatorId,
+                auditActionType,
+                auditFrom,
+                auditTo,
+              }) => {
+                exportAppointmentsMutation.exportScope({
+                  scope,
+                  format,
+                  webhookAppointmentId,
+                  auditOperatorId,
+                  auditActionType,
+                  auditFrom,
+                  auditTo,
+                });
+              }}
+            />
+
+            <HospitalImageManagementCard
+              tr={tr}
+              lang={lang}
+              isLoading={hospitalsQuery.isLoading}
+              errorMessage={
+                hospitalsQuery.error?.message ? toUiError(hospitalsQuery.error.message) : undefined
+              }
+              hospitals={hospitalsQuery.data ?? []}
+              isReadOnly={!isAdmin}
+              uploadState={adminHospitalImageUploadMutation}
+              clearState={adminHospitalImageClearMutation}
+            />
+
+            <RetentionCard
+              tr={tr}
+              locale={locale}
+              isPoliciesLoading={retentionPoliciesQuery.isLoading}
+              policiesErrorMessage={
+                retentionPoliciesQuery.error?.message ? toUiError(retentionPoliciesQuery.error.message) : undefined
+              }
+              policies={retentionPoliciesQuery.data ?? []}
+              freeRetentionDaysInput={freeRetentionDaysInput}
+              paidRetentionDaysInput={paidRetentionDaysInput}
+              onFreeRetentionDaysInputChange={setFreeRetentionDaysInput}
+              onPaidRetentionDaysInputChange={setPaidRetentionDaysInput}
+              onUpsertRetentionPolicy={upsertRetentionPolicy}
+              onToggleRetentionEnabled={toggleRetentionEnabled}
+              isReadOnly={!isAdmin}
+              isUpdateRetentionPending={updateRetentionPolicyMutation.isPending}
+              isCleanupPending={runRetentionCleanupMutation.isPending}
+              onRunCleanupDryRun={() => runRetentionCleanupMutation.mutate({ dryRun: true })}
+              onRunCleanupReal={() => runRetentionCleanupMutation.mutate({ dryRun: false })}
+              isAuditsLoading={retentionAuditsQuery.isLoading}
+              auditsErrorMessage={
+                retentionAuditsQuery.error?.message ? toUiError(retentionAuditsQuery.error.message) : undefined
+              }
+              audits={retentionAuditsQuery.data ?? []}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   );
