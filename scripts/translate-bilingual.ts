@@ -210,14 +210,14 @@ const reconcileInconsistentDoneRows = async (
     const result = await pool.query(
       `
       UPDATE hospitals
-      SET translationStatus = 'pending', translatedAt = NULL, lastTranslationError = 'Requeued: incomplete English fields'
-      WHERE translationStatus = 'done'
+      SET "translationStatus" = 'pending', "translatedAt" = NULL, "lastTranslationError" = 'Requeued: incomplete English fields'
+      WHERE "translationStatus" = 'done'
         AND (
-          (name IS NOT NULL AND TRIM(name) <> '' AND (nameEn IS NULL OR TRIM(nameEn) = '' OR nameEn ~ '[一-龥]'))
-          OR (city IS NOT NULL AND TRIM(city) <> '' AND (cityEn IS NULL OR TRIM(cityEn) = '' OR cityEn ~ '[一-龥]'))
-          OR (level IS NOT NULL AND TRIM(level) <> '' AND (levelEn IS NULL OR TRIM(levelEn) = '' OR levelEn ~ '[一-龥]'))
-          OR (address IS NOT NULL AND TRIM(address) <> '' AND (addressEn IS NULL OR TRIM(addressEn) = '' OR addressEn ~ '[一-龥]'))
-          OR (description IS NOT NULL AND TRIM(description) <> '' AND (descriptionEn IS NULL OR TRIM(descriptionEn) = '' OR descriptionEn ~ '[一-龥]'))
+          (name IS NOT NULL AND TRIM(name) <> '' AND ("nameEn" IS NULL OR TRIM("nameEn") = '' OR "nameEn" ~ '[一-龥]'))
+          OR (city IS NOT NULL AND TRIM(city) <> '' AND ("cityEn" IS NULL OR TRIM("cityEn") = '' OR "cityEn" ~ '[一-龥]'))
+          OR (level IS NOT NULL AND TRIM(level) <> '' AND ("levelEn" IS NULL OR TRIM("levelEn") = '' OR "levelEn" ~ '[一-龥]'))
+          OR (address IS NOT NULL AND TRIM(address) <> '' AND ("addressEn" IS NULL OR TRIM("addressEn") = '' OR "addressEn" ~ '[一-龥]'))
+          OR (description IS NOT NULL AND TRIM(description) <> '' AND ("descriptionEn" IS NULL OR TRIM("descriptionEn") = '' OR "descriptionEn" ~ '[一-龥]'))
         )
       `
     );
@@ -231,11 +231,11 @@ const reconcileInconsistentDoneRows = async (
     const result = await pool.query(
       `
       UPDATE departments
-      SET translationStatus = 'pending', translatedAt = NULL, lastTranslationError = 'Requeued: incomplete English fields'
-      WHERE translationStatus = 'done'
+      SET "translationStatus" = 'pending', "translatedAt" = NULL, "lastTranslationError" = 'Requeued: incomplete English fields'
+      WHERE "translationStatus" = 'done'
         AND (
-          (name IS NOT NULL AND TRIM(name) <> '' AND (nameEn IS NULL OR TRIM(nameEn) = '' OR nameEn ~ '[一-龥]'))
-          OR (description IS NOT NULL AND TRIM(description) <> '' AND (descriptionEn IS NULL OR TRIM(descriptionEn) = '' OR descriptionEn ~ '[一-龥]'))
+          (name IS NOT NULL AND TRIM(name) <> '' AND ("nameEn" IS NULL OR TRIM("nameEn") = '' OR "nameEn" ~ '[一-龥]'))
+          OR (description IS NOT NULL AND TRIM(description) <> '' AND ("descriptionEn" IS NULL OR TRIM("descriptionEn") = '' OR "descriptionEn" ~ '[一-龥]'))
         )
       `
     );
