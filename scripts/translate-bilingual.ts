@@ -1,10 +1,11 @@
-import "dotenv/config";
-import mysql from "mysql2/promise";
-import { drizzle } from "drizzle-orm/mysql2";
+import "../server/_core/loadEnv";
+import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
 import { and, asc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { createHash } from "crypto";
 import { invokeLLM } from "../server/_core/llm";
 import { departments, doctors, hospitals } from "../drizzle/schema";
+import { extractAffectedRows } from "../server/_core/dbCompat";
 
 const DEFAULT_BATCH_SIZE = 20;
 const DEFAULT_CONCURRENCY = 4;
@@ -38,7 +39,7 @@ const SOURCE_EMPTY_MARKERS = new Set([
   "--",
 ]);
 
-const createTranslationDb = (pool: mysql.Pool) => drizzle(pool);
+const createTranslationDb = (pool: Pool) => drizzle(pool);
 type TranslationDb = ReturnType<typeof createTranslationDb>;
 
 const parsePositiveInt = (value: string | number | undefined, fallback: number) => {
@@ -200,47 +201,47 @@ const parseArgs = () => {
 };
 
 const reconcileInconsistentDoneRows = async (
-  pool: mysql.Pool,
+  pool: Pool,
   entities: string[]
 ) => {
   const updates: Array<{ entity: string; affectedRows: number }> = [];
 
   if (entities.includes("hospitals")) {
-    const [result] = await pool.query(
+    const result = await pool.query(
       `
       UPDATE hospitals
       SET translationStatus = 'pending', translatedAt = NULL, lastTranslationError = 'Requeued: incomplete English fields'
       WHERE translationStatus = 'done'
         AND (
-          (name IS NOT NULL AND TRIM(name) <> '' AND (nameEn IS NULL OR TRIM(nameEn) = '' OR nameEn REGEXP '[一-龥]'))
-          OR (city IS NOT NULL AND TRIM(city) <> '' AND (cityEn IS NULL OR TRIM(cityEn) = '' OR cityEn REGEXP '[一-龥]'))
-          OR (level IS NOT NULL AND TRIM(level) <> '' AND (levelEn IS NULL OR TRIM(levelEn) = '' OR levelEn REGEXP '[一-龥]'))
-          OR (address IS NOT NULL AND TRIM(address) <> '' AND (addressEn IS NULL OR TRIM(addressEn) = '' OR addressEn REGEXP '[一-龥]'))
-          OR (description IS NOT NULL AND TRIM(description) <> '' AND (descriptionEn IS NULL OR TRIM(descriptionEn) = '' OR descriptionEn REGEXP '[一-龥]'))
+          (name IS NOT NULL AND TRIM(name) <> '' AND (nameEn IS NULL OR TRIM(nameEn) = '' OR nameEn ~ '[一-龥]'))
+          OR (city IS NOT NULL AND TRIM(city) <> '' AND (cityEn IS NULL OR TRIM(cityEn) = '' OR cityEn ~ '[一-龥]'))
+          OR (level IS NOT NULL AND TRIM(level) <> '' AND (levelEn IS NULL OR TRIM(levelEn) = '' OR levelEn ~ '[一-龥]'))
+          OR (address IS NOT NULL AND TRIM(address) <> '' AND (addressEn IS NULL OR TRIM(addressEn) = '' OR addressEn ~ '[一-龥]'))
+          OR (description IS NOT NULL AND TRIM(description) <> '' AND (descriptionEn IS NULL OR TRIM(descriptionEn) = '' OR descriptionEn ~ '[一-龥]'))
         )
       `
     );
     updates.push({
       entity: "hospitals",
-      affectedRows: Number((result as mysql.ResultSetHeader).affectedRows ?? 0),
+      affectedRows: extractAffectedRows(result),
     });
   }
 
   if (entities.includes("departments")) {
-    const [result] = await pool.query(
+    const result = await pool.query(
       `
       UPDATE departments
       SET translationStatus = 'pending', translatedAt = NULL, lastTranslationError = 'Requeued: incomplete English fields'
       WHERE translationStatus = 'done'
         AND (
-          (name IS NOT NULL AND TRIM(name) <> '' AND (nameEn IS NULL OR TRIM(nameEn) = '' OR nameEn REGEXP '[一-龥]'))
-          OR (description IS NOT NULL AND TRIM(description) <> '' AND (descriptionEn IS NULL OR TRIM(descriptionEn) = '' OR descriptionEn REGEXP '[一-龥]'))
+          (name IS NOT NULL AND TRIM(name) <> '' AND (nameEn IS NULL OR TRIM(nameEn) = '' OR nameEn ~ '[一-龥]'))
+          OR (description IS NOT NULL AND TRIM(description) <> '' AND (descriptionEn IS NULL OR TRIM(descriptionEn) = '' OR descriptionEn ~ '[一-龥]'))
         )
       `
     );
     updates.push({
       entity: "departments",
-      affectedRows: Number((result as mysql.ResultSetHeader).affectedRows ?? 0),
+      affectedRows: extractAffectedRows(result),
     });
   }
 
@@ -1400,14 +1401,14 @@ const doctorNeedsTranslationCondition = sql`
     OR (
       ${doctors.translationStatus} = 'done'
       AND (
-        (${doctors.name} IS NOT NULL AND TRIM(${doctors.name}) <> '' AND (${doctors.nameEn} IS NULL OR TRIM(${doctors.nameEn}) = '' OR ${doctors.nameEn} REGEXP '[一-龥]'))
-        OR (${doctors.title} IS NOT NULL AND TRIM(${doctors.title}) <> '' AND (${doctors.titleEn} IS NULL OR TRIM(${doctors.titleEn}) = '' OR ${doctors.titleEn} REGEXP '[一-龥]'))
-        OR (${doctors.specialty} IS NOT NULL AND TRIM(${doctors.specialty}) <> '' AND (${doctors.specialtyEn} IS NULL OR TRIM(${doctors.specialtyEn}) = '' OR ${doctors.specialtyEn} REGEXP '[一-龥]'))
-        OR (${doctors.expertise} IS NOT NULL AND TRIM(${doctors.expertise}) <> '' AND (${doctors.expertiseEn} IS NULL OR TRIM(${doctors.expertiseEn}) = '' OR ${doctors.expertiseEn} REGEXP '[一-龥]'))
-        OR (${doctors.onlineConsultation} IS NOT NULL AND TRIM(${doctors.onlineConsultation}) <> '' AND (${doctors.onlineConsultationEn} IS NULL OR TRIM(${doctors.onlineConsultationEn}) = '' OR ${doctors.onlineConsultationEn} REGEXP '[一-龥]'))
-        OR (${doctors.appointmentAvailable} IS NOT NULL AND TRIM(${doctors.appointmentAvailable}) <> '' AND (${doctors.appointmentAvailableEn} IS NULL OR TRIM(${doctors.appointmentAvailableEn}) = '' OR ${doctors.appointmentAvailableEn} REGEXP '[一-龥]'))
-        OR (${doctors.satisfactionRate} IS NOT NULL AND TRIM(${doctors.satisfactionRate}) <> '' AND (${doctors.satisfactionRateEn} IS NULL OR TRIM(${doctors.satisfactionRateEn}) = '' OR ${doctors.satisfactionRateEn} REGEXP '[一-龥]'))
-        OR (${doctors.attitudeScore} IS NOT NULL AND TRIM(${doctors.attitudeScore}) <> '' AND (${doctors.attitudeScoreEn} IS NULL OR TRIM(${doctors.attitudeScoreEn}) = '' OR ${doctors.attitudeScoreEn} REGEXP '[一-龥]'))
+        (${doctors.name} IS NOT NULL AND TRIM(${doctors.name}) <> '' AND (${doctors.nameEn} IS NULL OR TRIM(${doctors.nameEn}) = '' OR ${doctors.nameEn} ~ '[一-龥]'))
+        OR (${doctors.title} IS NOT NULL AND TRIM(${doctors.title}) <> '' AND (${doctors.titleEn} IS NULL OR TRIM(${doctors.titleEn}) = '' OR ${doctors.titleEn} ~ '[一-龥]'))
+        OR (${doctors.specialty} IS NOT NULL AND TRIM(${doctors.specialty}) <> '' AND (${doctors.specialtyEn} IS NULL OR TRIM(${doctors.specialtyEn}) = '' OR ${doctors.specialtyEn} ~ '[一-龥]'))
+        OR (${doctors.expertise} IS NOT NULL AND TRIM(${doctors.expertise}) <> '' AND (${doctors.expertiseEn} IS NULL OR TRIM(${doctors.expertiseEn}) = '' OR ${doctors.expertiseEn} ~ '[一-龥]'))
+        OR (${doctors.onlineConsultation} IS NOT NULL AND TRIM(${doctors.onlineConsultation}) <> '' AND (${doctors.onlineConsultationEn} IS NULL OR TRIM(${doctors.onlineConsultationEn}) = '' OR ${doctors.onlineConsultationEn} ~ '[一-龥]'))
+        OR (${doctors.appointmentAvailable} IS NOT NULL AND TRIM(${doctors.appointmentAvailable}) <> '' AND (${doctors.appointmentAvailableEn} IS NULL OR TRIM(${doctors.appointmentAvailableEn}) = '' OR ${doctors.appointmentAvailableEn} ~ '[一-龥]'))
+        OR (${doctors.satisfactionRate} IS NOT NULL AND TRIM(${doctors.satisfactionRate}) <> '' AND (${doctors.satisfactionRateEn} IS NULL OR TRIM(${doctors.satisfactionRateEn}) = '' OR ${doctors.satisfactionRateEn} ~ '[一-龥]'))
+        OR (${doctors.attitudeScore} IS NOT NULL AND TRIM(${doctors.attitudeScore}) <> '' AND (${doctors.attitudeScoreEn} IS NULL OR TRIM(${doctors.attitudeScoreEn}) = '' OR ${doctors.attitudeScoreEn} ~ '[一-龥]'))
       )
     )
   )
@@ -2160,7 +2161,10 @@ const translateDoctors = async (
 const run = async () => {
   const config = parseArgs();
   translationModelOverride = config.translationModel;
-  const pool = mysql.createPool(process.env.DATABASE_URL ?? "");
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL ?? "",
+  });
+  await pool.query("SET TIME ZONE 'UTC'");
   const db = createTranslationDb(pool);
   const runStats: EntityRunStats[] = [];
 

@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "../server/_core/loadEnv";
 import { eq } from "drizzle-orm";
 import { doctorSpecialtyTags, doctors, departments } from "../drizzle/schema";
 import { getDb } from "../server/db";
@@ -39,7 +39,8 @@ async function main() {
           source: "rule",
           confidence: 100,
         })
-        .onDuplicateKeyUpdate({
+        .onConflictDoUpdate({
+          target: [doctorSpecialtyTags.doctorId, doctorSpecialtyTags.tag],
           set: {
             source: "rule",
             confidence: 100,

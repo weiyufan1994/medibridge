@@ -6,6 +6,7 @@ import { getDb } from "./db";
 import * as appointmentsRepo from "./modules/appointments/repo";
 import { APPOINTMENT_INVALID_TRANSITION_ERROR } from "./modules/appointments/stateMachine";
 import { incrementMetric } from "./_core/metrics";
+import { isDuplicateDbError } from "./_core/dbCompat";
 
 function sendJson(res: Response, status: number, payload: Record<string, unknown>) {
   res.status(status).setHeader("content-type", "application/json");
@@ -95,10 +96,6 @@ function classifyWebhookError(error: unknown): string {
     return "db_unavailable";
   }
   return "processing_error";
-}
-
-function isDuplicateError(error: unknown) {
-  return ((error as { cause?: { code?: string } })?.cause?.code ?? (error as { code?: string })?.code) === "ER_DUP_ENTRY";
 }
 
 function isSettlementEvent(eventType: string) {
@@ -194,7 +191,7 @@ export async function handlePaypalWebhook(req: Request, res: Response) {
           dbExecutor: tx,
         });
       } catch (error) {
-        if (isDuplicateError(error)) {
+        if (isDuplicateDbError(error)) {
           duplicatedEvent = true;
           incrementMetric("paypal_webhook_duplicate_total");
           return;

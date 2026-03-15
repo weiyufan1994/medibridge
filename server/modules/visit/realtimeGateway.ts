@@ -3,6 +3,7 @@ import type { IncomingMessage } from "http";
 import type net from "net";
 import type { Duplex } from "stream";
 import type { AppointmentMessage } from "../../../drizzle/schema";
+import { isDuplicateDbError, isForeignKeyDbError } from "../../_core/dbCompat";
 import * as appointmentsRepo from "../appointments/repo";
 import { canJoinRoom, canSendMessage } from "../appointments/chatPolicy";
 import { resolveConsultationTimerState } from "../appointments/consultationTimer";
@@ -215,6 +216,16 @@ function toRoomTimerPayload(notes: string | null | undefined) {
   };
 }
 
+function getInsertedMessageId(result: Awaited<ReturnType<typeof visitRepo.createMessage>>) {
+  const insertedId = Number(
+    (result as { id?: number })?.id ??
+      (result as { insertId?: number })?.insertId ??
+      Number.NaN
+  );
+
+  return Number.isInteger(insertedId) && insertedId > 0 ? insertedId : null;
+}
+
 export function createVisitRealtimeGateway() {
   const rooms = new Map<number, Set<RoomConnection>>();
   const connections = new Set<RoomConnection>();
@@ -417,7 +428,7 @@ export function createVisitRealtimeGateway() {
     }
 
     try {
-      const insertResult = await visitRepo.createMessage({
+      const insertedMessage = await visitRepo.createMessage({
         appointmentId,
         userId: messageUserId,
         senderType,
@@ -430,22 +441,14 @@ export function createVisitRealtimeGateway() {
         clientMessageId,
         createdAt,
       });
-      const insertId = Number(
-        (insertResult as { insertId?: number })?.insertId ??
-          (Array.isArray(insertResult)
-            ? (insertResult[0] as { insertId?: number } | undefined)?.insertId
-            : NaN)
-      );
-      if (Number.isInteger(insertId) && insertId > 0) {
-        messageRow = await visitRepo.getMessageById(insertId);
+      const insertedMessageId = getInsertedMessageId(insertedMessage);
+      if (insertedMessageId) {
+        messageRow = await visitRepo.getMessageById(insertedMessageId);
       }
     } catch (error) {
-      const mysqlCode =
-        (error as { cause?: { code?: string } })?.cause?.code ??
-        (error as { code?: string })?.code;
-      if (mysqlCode === "ER_DUP_ENTRY") {
+      if (isDuplicateDbError(error)) {
         messageRow = await visitRepo.getMessageByClientMessageId(appointmentId, clientMessageId);
-      } else if (mysqlCode === "ER_NO_REFERENCED_ROW_2") {
+      } else if (isForeignKeyDbError(error)) {
         const retryInsertResult = await visitRepo.createMessage({
           appointmentId,
           userId: null,
@@ -459,13 +462,8 @@ export function createVisitRealtimeGateway() {
           clientMessageId,
           createdAt,
         });
-        const retryInsertId = Number(
-          (retryInsertResult as { insertId?: number })?.insertId ??
-            (Array.isArray(retryInsertResult)
-              ? (retryInsertResult[0] as { insertId?: number } | undefined)?.insertId
-              : NaN)
-        );
-        if (Number.isInteger(retryInsertId) && retryInsertId > 0) {
+        const retryInsertId = getInsertedMessageId(retryInsertResult);
+        if (retryInsertId) {
           messageRow = await visitRepo.getMessageById(retryInsertId);
         }
       } else {

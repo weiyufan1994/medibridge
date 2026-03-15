@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "../server/_core/loadEnv";
 import { and, eq } from "drizzle-orm";
 import { users } from "../drizzle/schema";
 import { getDb } from "../server/db";

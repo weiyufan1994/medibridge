@@ -1,21 +1,26 @@
-import { drizzle } from "drizzle-orm/mysql2";
-import mysql from "mysql2/promise";
+import { drizzle } from "drizzle-orm/node-postgres";
 import { doctors, doctorEmbeddings, hospitals, departments } from "../drizzle/schema.ts";
 import { eq } from "drizzle-orm";
 import axios from "axios";
-import "dotenv/config";
+import "../server/_core/loadEnv.ts";
+import { Pool } from "pg";
 
 // Database connection
-const connection = await mysql.createConnection(process.env.DATABASE_URL);
-const db = drizzle(connection);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+await pool.query("SET TIME ZONE 'UTC'");
+const db = drizzle(pool);
 
 // LLM API configuration
 const LLM_API_URL =
+  process.env.LLM_API_URL ||
   process.env.BUILT_IN_FORGE_API_URL ||
   process.env.FORGE_API_URL ||
   process.env.OPENAI_BASE_URL ||
   "";
 const LLM_API_KEY =
+  process.env.LLM_API_KEY ||
   process.env.BUILT_IN_FORGE_API_KEY ||
   process.env.FORGE_API_KEY ||
   process.env.OPENAI_API_KEY ||
@@ -137,7 +142,7 @@ async function vectorizeDoctors() {
       // Store embedding
       await db.insert(doctorEmbeddings).values({
         doctorId: doctor.id,
-        embedding: JSON.stringify(embedding),
+        embedding,
         content: content
       });
       
@@ -163,7 +168,7 @@ async function vectorizeDoctors() {
   console.log(`Errors: ${errors}`);
   console.log("Vectorization completed!");
   
-  await connection.end();
+  await pool.end();
 }
 
 // Run vectorization

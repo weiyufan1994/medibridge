@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "../server/_core/loadEnv";
 import fs from "node:fs";
 import path from "node:path";
 

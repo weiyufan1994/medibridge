@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "../server/_core/loadEnv";
 import { spawnSync } from "node:child_process";
 
 function runCommand(command: string, args: string[]) {

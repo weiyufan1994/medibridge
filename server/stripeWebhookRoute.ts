@@ -9,6 +9,7 @@ import { getDb } from "./db";
 import * as appointmentsRepo from "./modules/appointments/repo";
 import { APPOINTMENT_INVALID_TRANSITION_ERROR } from "./modules/appointments/stateMachine";
 import { incrementMetric } from "./_core/metrics";
+import { isDuplicateDbError } from "./_core/dbCompat";
 
 function sendJson(res: Response, status: number, payload: Record<string, unknown>) {
   res.status(status).setHeader("content-type", "application/json");
@@ -81,9 +82,6 @@ export async function handleStripeWebhook(req: Request, res: Response) {
     });
 
     const event = parseStripeWebhookEvent(rawBody);
-    const isDuplicateKeyError = (error: unknown) =>
-      ((error as { cause?: { code?: string } })?.cause?.code ??
-        (error as { code?: string })?.code) === "ER_DUP_ENTRY";
     const object = event.data.object;
     const directObjectId =
       typeof object.id === "string" && object.id.trim().length > 0
@@ -155,7 +153,7 @@ export async function handleStripeWebhook(req: Request, res: Response) {
           dbExecutor: tx,
         });
       } catch (error) {
-        if (isDuplicateKeyError(error)) {
+        if (isDuplicateDbError(error)) {
           duplicatedEvent = true;
           incrementMetric("stripe_webhook_duplicate_total");
           return;

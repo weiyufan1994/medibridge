@@ -1,7 +1,7 @@
-import "dotenv/config";
+import "../server/_core/loadEnv";
 import fs from "node:fs";
 import path from "node:path";
-import { createConnection } from "mysql2/promise";
+import { Pool } from "pg";
 
 type JournalEntry = {
   idx: number;
@@ -31,6 +31,9 @@ async function verify() {
 
   const journalEntries = loadJournalEntries();
   const expectedCount = journalEntries.length;
+  if (expectedCount === 0) {
+    throw new Error("Local drizzle journal has no PostgreSQL baseline entries");
+  }
   const migrationTags = listMigrationTags();
   const journalTags = journalEntries.map((entry) => entry.tag).sort();
   const missingTagsInJournalForFiles = migrationTags.filter(
@@ -54,42 +57,35 @@ async function verify() {
     migrationDrift = true;
   }
 
-  const requiredTags = [
-    "0020_ops_admin_summary_retention",
-    "0021_appointment_messages_composite_index",
-    "0028_seed_visit_retention_policies",
-    "0029_add_departments_url",
-  ];
-  const requiredTagSet = new Set(requiredTags);
-  const missingTagsInJournal = requiredTags.filter(
-    tag => !journalEntries.some(entry => entry.tag === tag)
-  );
-  if (missingTagsInJournal.length > 0) {
-    throw new Error(
-      `Local drizzle journal is missing expected tags: ${missingTagsInJournal.join(", ")}`
-    );
-  }
+  const requiredTagSet = new Set(journalTags);
 
-  const connection = await createConnection(databaseUrl);
-  const dbName = new URL(databaseUrl).pathname.replace(/^\//, "");
+  const pool = new Pool({
+    connectionString: databaseUrl,
+  });
 
   try {
-    const [migrationRows] = await connection.query(
-      "select count(*) as count from __drizzle_migrations"
+    const migrationTableRows = await pool.query<{ exists: string | null }>(
+      "select to_regclass('drizzle.__drizzle_migrations') as exists"
     );
-    const appliedCount = Number((migrationRows as Array<{ count: number }>)[0]?.count ?? 0);
+    if (!migrationTableRows.rows[0]?.exists) {
+      throw new Error("Missing drizzle.__drizzle_migrations table");
+    }
+
+    const migrationRows = await pool.query<{ count: string }>(
+      'select count(*) as count from drizzle."__drizzle_migrations"'
+    );
+    const appliedCount = Number(migrationRows.rows[0]?.count ?? 0);
     const migrationHistoryOutdated = appliedCount < expectedCount;
 
-    const [tableRows] = await connection.query(
-      `select table_name as tableName
+    const tableRows = await pool.query<{ tableName: string }>(
+      `select table_name as "tableName"
        from information_schema.tables
-       where table_schema = ?
+       where table_schema = current_schema()
          and table_name in ('appointment_visit_summaries','visit_retention_policies','retention_cleanup_audits')
-       order by table_name`,
-      [dbName]
+       order by table_name`
     );
     const existingTables = new Set(
-      (tableRows as Array<{ tableName: string }>).map(row => row.tableName)
+      tableRows.rows.map(row => row.tableName)
     );
     const missingTables = [
       "appointment_visit_summaries",
@@ -100,37 +96,33 @@ async function verify() {
       throw new Error(`Missing required tables: ${missingTables.join(", ")}`);
     }
 
-    const [indexRows] = await connection.query(
-      `select index_name as indexName
-       from information_schema.statistics
-       where table_schema = ?
-         and table_name = 'appointmentMessages'
-         and index_name = 'appointmentMessagesAppointmentCreatedAtIdx'`,
-      [dbName]
+    const indexRows = await pool.query<{ indexName: string }>(
+      `select indexname as "indexName"
+       from pg_indexes
+       where schemaname = current_schema()
+         and tablename = 'appointmentMessages'
+         and indexname = 'appointmentMessagesAppointmentCreatedAtIdx'`
     );
-    if ((indexRows as Array<{ indexName: string }>).length === 0) {
+    if (indexRows.rows.length === 0) {
       throw new Error("Missing required index: appointmentMessagesAppointmentCreatedAtIdx");
     }
 
-    const [departmentUrlRows] = await connection.query(
-      `select column_name as columnName
+    const departmentUrlRows = await pool.query<{ columnName: string }>(
+      `select column_name as "columnName"
        from information_schema.columns
-       where table_schema = ?
+       where table_schema = current_schema()
          and table_name = 'departments'
          and column_name = 'url'
-       limit 1`,
-      [dbName]
+       limit 1`
     );
-    if ((departmentUrlRows as Array<{ columnName: string }>).length === 0) {
+    if (departmentUrlRows.rows.length === 0) {
       throw new Error("Missing required column: departments.url");
     }
 
-    const [retentionRows] = await connection.query(
+    const retentionRows = await pool.query<{ count: string }>(
       "select count(*) as count from visit_retention_policies"
     );
-    const retentionCount = Number(
-      (retentionRows as Array<{ count: number }>)[0]?.count ?? 0
-    );
+    const retentionCount = Number(retentionRows.rows[0]?.count ?? 0);
     if (retentionCount === 0) {
       throw new Error("visit_retention_policies is empty (default rows not initialized)");
     }
@@ -151,7 +143,7 @@ async function verify() {
       );
     }
   } finally {
-    await connection.end();
+    await pool.end();
   }
 }
 

@@ -1,5 +1,12 @@
 # MediBridge Test Checklist
 
+> Historical note
+>
+> This archived checklist reflects the pre-PostgreSQL migration workflow from 2026-03-12.
+> For the current local/test database flow, use:
+> - `docs/plans/postgres-local-cutover-checklist.md`
+> - `docs/plans/postgres-migration-history-strategy.md`
+
 This checklist is for daily local validation after code changes.
 
 ## 1. Quick Start
@@ -10,7 +17,7 @@ pnpm install
 ```
 2. Apply migrations (if schema changed)
 ```bash
-pnpm db:push
+pnpm db:migrate:safe
 ```
 3. Run type check
 ```bash
@@ -144,7 +151,7 @@ When these files change, run full checklist:
 - Verify `.env` keys and `LLM_MODEL` / API base URL.
 
 4. Data shape mismatch after DB changes:
-- Re-run `pnpm db:push` and re-test affected flows.
+- Re-run `pnpm db:migrate:safe` and re-test affected flows.
 
 ## 7. Release Minimum Bar
 

@@ -67,6 +67,19 @@ Important production paths:
 - PM2 logs: `/root/.pm2/logs/medibridge-out-0.log`
 - PM2 error logs: `/root/.pm2/logs/medibridge-error-0.log`
 
+Runtime secrets:
+
+- `deploy/start-medibridge.mjs` reads `/srv/medibridge/shared/.env.production`
+- if `DATABASE_URL_SSM_PARAMETER` is set, runtime fetches the database URL from AWS SSM at startup
+- this is the preferred switch point for the upcoming PostgreSQL cutover
+
+For the PostgreSQL cutover:
+
+- keep the MySQL SSM parameter intact
+- add a new PostgreSQL SSM parameter path
+- switch only `DATABASE_URL_SSM_PARAMETER` in `/srv/medibridge/shared/.env.production`
+- then reload PM2
+
 ## GitHub requirements
 
 Repository secrets currently required:

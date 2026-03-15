@@ -140,19 +140,28 @@ export async function createMessage(input: {
     throw new Error("Database not available");
   }
 
-  return db.insert(appointmentMessages).values({
-    appointmentId: input.appointmentId,
-    userId: input.userId ?? null,
-    senderType: input.senderType,
-    content: input.content,
-    originalContent: input.originalContent,
-    translatedContent: input.translatedContent,
-    sourceLanguage: input.sourceLanguage,
-    targetLanguage: input.targetLanguage,
-    translationProvider: input.translationProvider ?? null,
-    clientMessageId: input.clientMessageId ?? null,
-    createdAt: input.createdAt,
-  });
+  const rows = await db
+    .insert(appointmentMessages)
+    .values({
+      appointmentId: input.appointmentId,
+      userId: input.userId ?? null,
+      senderType: input.senderType,
+      content: input.content,
+      originalContent: input.originalContent,
+      translatedContent: input.translatedContent,
+      sourceLanguage: input.sourceLanguage,
+      targetLanguage: input.targetLanguage,
+      translationProvider: input.translationProvider ?? null,
+      clientMessageId: input.clientMessageId ?? null,
+      createdAt: input.createdAt,
+    })
+    .returning({
+      id: appointmentMessages.id,
+      senderType: appointmentMessages.senderType,
+      createdAt: appointmentMessages.createdAt,
+    });
+
+  return rows[0] ?? null;
 }
 
 export async function getMessagesBeforeCursor(input: {

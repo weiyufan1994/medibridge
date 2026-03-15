@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "../server/_core/loadEnv";
 import * as adminRepo from "../server/modules/admin/repo";
 
 async function main() {

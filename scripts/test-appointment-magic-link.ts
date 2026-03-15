@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "../server/_core/loadEnv";
 import { appRouter } from "../server/routers";
 import type { TrpcContext } from "../server/_core/context";
 

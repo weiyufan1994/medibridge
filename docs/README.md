@@ -24,6 +24,13 @@
 ## docs/plans/
 - `docs/plans/PROJECT_MAP.md` — 系统结构速览
 - `docs/plans/todo.md` — 当前开发任务清单
+- `docs/plans/2026-Q2-commercialization-roadmap.md` — Q2 商业化执行计划
+- `docs/plans/doctor-scheduling-and-safety-design.md` — 医生排班与 AI 急症熔断设计草案
+- `docs/plans/2026-03-postgres-migration-audit.md` — MySQL 到 PostgreSQL 迁移审计历史记录（前置判断）
+- `docs/plans/postgres-migration-history-strategy.md` — PostgreSQL baseline 与 migration 历史收口现状
+- `docs/plans/postgres-local-cutover-checklist.md` — PostgreSQL 本地/测试环境验证清单
+- `docs/plans/postgres-cloud-cutover-prep.md` — 云上 PostgreSQL 切换准备 runbook
+- `docs/plans/postgres-production-cutover-strategy.md` — PostgreSQL 正式切库执行策略
 
 ## docs/archive/
 - `docs/archive/2026-03-12/token_field_retirement_plan.md`

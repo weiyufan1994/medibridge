@@ -1,32 +1,32 @@
 import {
-  int,
-  mysqlEnum,
-  mysqlTable,
+  integer,
+  pgTable,
   text,
   timestamp,
   varchar,
-  float,
-  json,
+  real,
+  jsonb,
   index,
   uniqueIndex,
-  tinyint,
-} from "drizzle-orm/mysql-core";
+} from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 /**
  * Core user table backing auth flow.
  */
-export const users = mysqlTable("users", {
-  id: int("id").autoincrement().primaryKey(),
+export const users = pgTable("users", {
+  id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
   openId: varchar("openId", { length: 64 }).unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }).unique(),
-  isGuest: tinyint("isGuest").notNull().default(1),
+  isGuest: integer("isGuest").notNull().default(1),
   deviceId: varchar("deviceId", { length: 128 }).unique(),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["free", "pro", "admin", "ops"]).default("free").notNull(),
+  role: text("role", { enum: ["free", "pro", "admin", "ops"] })
+    .default("free")
+    .notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
@@ -36,8 +36,8 @@ export type InsertUser = typeof users.$inferInsert;
 /**
  * Hospitals table - stores information about medical institutions
  */
-export const hospitals = mysqlTable("hospitals", {
-  id: int("id").autoincrement().primaryKey(),
+export const hospitals = pgTable("hospitals", {
+  id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   nameEn: varchar("nameEn", { length: 255 }),
   city: varchar("city", { length: 100 }).notNull().default("上海"),
@@ -52,16 +52,16 @@ export const hospitals = mysqlTable("hospitals", {
   descriptionEn: text("descriptionEn"),
   imageUrl: varchar("imageUrl", { length: 500 }),
   sourceHash: varchar("sourceHash", { length: 64 }),
-  translationStatus: mysqlEnum("translationStatus", [
+  translationStatus: text("translationStatus", { enum: [
     "pending",
     "done",
     "failed",
-  ]).default("pending"),
+  ] }).default("pending"),
   translatedAt: timestamp("translatedAt"),
   lastTranslationError: text("lastTranslationError"),
   translationProvider: varchar("translationProvider", { length: 100 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
   }, table => ({
     translationStatusIdx: index("hospitalsTranslationStatusIdx").on(table.translationStatus),
     translationStatusIdIdx: index("hospitalsTranslationStatusIdIdx").on(
@@ -76,30 +76,30 @@ export type InsertHospital = typeof hospitals.$inferInsert;
 /**
  * Departments table - stores hospital departments/specialties
  */
-export const departments = mysqlTable(
+export const departments = pgTable(
   "departments",
   {
-    id: int("id").autoincrement().primaryKey(),
-    hospitalId: int("hospitalId").notNull(),
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    hospitalId: integer("hospitalId").notNull(),
     name: varchar("name", { length: 255 }).notNull(),
     nameEn: varchar("nameEn", { length: 255 }),
     description: text("description"),
   descriptionEn: text("descriptionEn"),
   url: varchar("url", { length: 1024 }),
   sourceHash: varchar("sourceHash", { length: 64 }),
-  translationStatus: mysqlEnum("translationStatus", [
+  translationStatus: text("translationStatus", { enum: [
     "pending",
     "done",
       "failed",
-    ]).default("pending"),
+    ] }).default("pending"),
     translatedAt: timestamp("translatedAt"),
     lastTranslationError: text("lastTranslationError"),
     translationProvider: varchar("translationProvider", { length: 100 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
   },
   table => ({
-    hospitalIdx: index("hospitalIdx").on(table.hospitalId),
+    hospitalIdx: index("departmentsHospitalIdx").on(table.hospitalId),
     translationStatusIdx: index("departmentsTranslationStatusIdx").on(table.translationStatus),
     translationStatusIdIdx: index("departmentsTranslationStatusIdIdx").on(
       table.translationStatus,
@@ -114,12 +114,12 @@ export type InsertDepartment = typeof departments.$inferInsert;
 /**
  * Doctors table - stores doctor information
  */
-export const doctors = mysqlTable(
+export const doctors = pgTable(
   "doctors",
   {
-    id: int("id").autoincrement().primaryKey(),
-    hospitalId: int("hospitalId").notNull(),
-    departmentId: int("departmentId").notNull(),
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    hospitalId: integer("hospitalId").notNull(),
+    departmentId: integer("departmentId").notNull(),
     name: varchar("name", { length: 100 }).notNull(),
     nameEn: varchar("nameEn", { length: 100 }),
     title: varchar("title", { length: 100 }),
@@ -147,32 +147,32 @@ export const doctors = mysqlTable(
     followUpPatients: varchar("followUpPatients", { length: 100 }),
     followUpFeedback: text("followUpFeedback"),
     gender: varchar("gender", { length: 20 }),
-    sequenceNumber: int("sequenceNumber"),
+    sequenceNumber: integer("sequenceNumber"),
     satisfactionRate: text("satisfactionRate"),
     satisfactionRateEn: text("satisfactionRateEn"),
     attitudeScore: text("attitudeScore"),
     attitudeScoreEn: text("attitudeScoreEn"),
-    recommendationScore: float("recommendationScore"),
+    recommendationScore: real("recommendationScore"),
     onlineConsultation: varchar("onlineConsultation", { length: 50 }),
     onlineConsultationEn: varchar("onlineConsultationEn", { length: 50 }),
     appointmentAvailable: text("appointmentAvailable"),
     appointmentAvailableEn: text("appointmentAvailableEn"),
     sourceHash: varchar("sourceHash", { length: 64 }),
-    translationStatus: mysqlEnum("translationStatus", [
+    translationStatus: text("translationStatus", { enum: [
       "pending",
       "done",
       "failed",
-    ]).default("pending"),
+    ] }).default("pending"),
     translatedAt: timestamp("translatedAt"),
     lastTranslationError: text("lastTranslationError"),
     translationProvider: varchar("translationProvider", { length: 100 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
   },
   table => ({
-    hospitalIdx: index("hospitalIdx").on(table.hospitalId),
-    departmentIdx: index("departmentIdx").on(table.departmentId),
-    recommendationIdx: index("recommendationIdx").on(table.recommendationScore),
+    hospitalIdx: index("doctorsHospitalIdx").on(table.hospitalId),
+    departmentIdx: index("doctorsDepartmentIdx").on(table.departmentId),
+    recommendationIdx: index("doctorsRecommendationIdx").on(table.recommendationScore),
     translationStatusIdx: index("doctorsTranslationStatusIdx").on(table.translationStatus),
     translationStatusIdIdx: index("doctorsTranslationStatusIdIdx").on(
       table.translationStatus,
@@ -192,18 +192,18 @@ export type InsertDoctor = typeof doctors.$inferInsert;
 /**
  * Doctor embeddings table - stores vector embeddings for RAG
  */
-export const doctorEmbeddings = mysqlTable(
+export const doctorEmbeddings = pgTable(
   "doctorEmbeddings",
   {
-    id: int("id").autoincrement().primaryKey(),
-    doctorId: int("doctorId").notNull().unique(),
-    embedding: json("embedding").notNull(), // Store as JSON array
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    doctorId: integer("doctorId").notNull().unique(),
+    embedding: jsonb("embedding").notNull(), // Store as JSON array
     content: text("content").notNull(), // Original text used for embedding
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
   },
   table => ({
-    doctorIdx: index("doctorIdx").on(table.doctorId),
+    doctorIdx: index("doctorEmbeddingsDoctorIdx").on(table.doctorId),
   })
 );
 
@@ -213,18 +213,18 @@ export type InsertDoctorEmbedding = typeof doctorEmbeddings.$inferInsert;
 /**
  * Normalized specialty tags for doctor recommendation routing.
  */
-export const doctorSpecialtyTags = mysqlTable(
+export const doctorSpecialtyTags = pgTable(
   "doctor_specialty_tags",
   {
-    id: int("id").autoincrement().primaryKey(),
-    doctorId: int("doctorId")
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    doctorId: integer("doctorId")
       .notNull()
       .references(() => doctors.id, { onDelete: "cascade" }),
     tag: varchar("tag", { length: 64 }).notNull(),
     source: varchar("source", { length: 32 }).notNull().default("rule"),
-    confidence: int("confidence").notNull().default(100),
+    confidence: integer("confidence").notNull().default(100),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
   },
   table => ({
     doctorIdx: index("doctorSpecialtyTagsDoctorIdx").on(table.doctorId),
@@ -242,24 +242,24 @@ export type InsertDoctorSpecialtyTag = typeof doctorSpecialtyTags.$inferInsert;
 /**
  * Patient sessions table - stores chat history and recommendations
  */
-export const patientSessions = mysqlTable(
+export const patientSessions = pgTable(
   "patientSessions",
   {
-    id: int("id").autoincrement().primaryKey(),
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
     sessionId: varchar("sessionId", { length: 64 }).notNull().unique(),
-    userId: int("userId").references(() => users.id, { onDelete: "set null" }),
-    chatHistory: json("chatHistory").notNull(), // Array of messages
+    userId: integer("userId").references(() => users.id, { onDelete: "set null" }),
+    chatHistory: jsonb("chatHistory").notNull(), // Array of messages
     symptoms: text("symptoms"),
     duration: varchar("duration", { length: 100 }),
-    age: int("age"),
+    age: integer("age"),
     medicalHistory: text("medicalHistory"),
-    recommendedDoctors: json("recommendedDoctors"), // Array of doctor IDs with reasons
+    recommendedDoctors: jsonb("recommendedDoctors"), // Array of doctor IDs with reasons
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
   },
   table => ({
-    sessionIdx: index("sessionIdx").on(table.sessionId),
-    userIdx: index("userIdx").on(table.userId),
+    sessionIdx: index("patientSessionsSessionIdx").on(table.sessionId),
+    userIdx: index("patientSessionsUserIdx").on(table.userId),
   })
 );
 
@@ -269,18 +269,18 @@ export type InsertPatientSession = typeof patientSessions.$inferInsert;
 /**
  * AI chat sessions table - stores one complete triage consultation session.
  */
-export const aiChatSessions = mysqlTable(
+export const aiChatSessions = pgTable(
   "ai_chat_sessions",
   {
-    id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").references(() => users.id, { onDelete: "set null" }),
-    status: mysqlEnum("status", ["active", "completed"])
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    userId: integer("userId").references(() => users.id, { onDelete: "set null" }),
+    status: text("status", { enum: ["active", "completed"] })
       .default("active")
       .notNull(),
     summary: text("summary"),
     summaryGeneratedAt: timestamp("summaryGeneratedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
   },
   table => ({
     userIdx: index("aiChatSessionsUserIdx").on(table.userId),
@@ -305,14 +305,14 @@ export type AiConsultationSession = z.infer<typeof aiConsultationSessionSchema>;
 /**
  * AI chat messages table - stores every message inside one triage session.
  */
-export const aiChatMessages = mysqlTable(
+export const aiChatMessages = pgTable(
   "ai_chat_messages",
   {
-    id: int("id").autoincrement().primaryKey(),
-    sessionId: int("sessionId")
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    sessionId: integer("sessionId")
       .notNull()
       .references(() => aiChatSessions.id, { onDelete: "cascade" }),
-    role: mysqlEnum("role", ["user", "assistant"]).notNull(),
+    role: text("role", { enum: ["user", "assistant"] }).notNull(),
     content: text("content").notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
@@ -328,14 +328,14 @@ export type InsertAiChatMessage = typeof aiChatMessages.$inferInsert;
 /**
  * Consultation messages table - normalized history view model for UI read-only playback.
  */
-export const consultationMessages = mysqlTable(
+export const consultationMessages = pgTable(
   "consultation_messages",
   {
-    id: int("id").autoincrement().primaryKey(),
-    sessionId: int("sessionId")
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    sessionId: integer("sessionId")
       .notNull()
       .references(() => aiChatSessions.id, { onDelete: "cascade" }),
-    role: mysqlEnum("role", ["user", "ai"]).notNull(),
+    role: text("role", { enum: ["user", "ai"] }).notNull(),
     content: text("content").notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
@@ -351,23 +351,23 @@ export type InsertConsultationMessage = typeof consultationMessages.$inferInsert
 /**
  * Appointments table - reserved for future online booking feature
  */
-export const appointments = mysqlTable(
+export const appointments = pgTable(
   "appointments",
   {
-    id: int("id").autoincrement().primaryKey(),
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
     sessionId: varchar("sessionId", { length: 64 }),
-    triageSessionId: int("triageSessionId")
+    triageSessionId: integer("triageSessionId")
       .notNull()
       .references(() => aiChatSessions.id, { onDelete: "restrict" }),
-    userId: int("userId").references(() => users.id, { onDelete: "set null" }),
-    doctorId: int("doctorId").notNull(),
-    appointmentType: mysqlEnum("appointmentType", [
+    userId: integer("userId").references(() => users.id, { onDelete: "set null" }),
+    doctorId: integer("doctorId").notNull(),
+    appointmentType: text("appointmentType", { enum: [
       "online_chat",
       "video_call",
       "in_person",
-    ]).notNull(),
+    ] }).notNull(),
     scheduledAt: timestamp("scheduledAt"),
-    status: mysqlEnum("status", [
+    status: text("status", { enum: [
       "draft",
       "pending_payment",
       "paid",
@@ -377,10 +377,10 @@ export const appointments = mysqlTable(
       "expired",
       "refunded",
       "canceled",
-    ])
+    ] })
       .default("draft")
       .notNull(),
-    paymentStatus: mysqlEnum("paymentStatus", [
+    paymentStatus: text("paymentStatus", { enum: [
       "unpaid",
       "pending",
       "paid",
@@ -388,14 +388,14 @@ export const appointments = mysqlTable(
       "expired",
       "refunded",
       "canceled",
-    ])
+    ] })
       .default("unpaid")
       .notNull(),
-    paymentProvider: mysqlEnum("paymentProvider", ["stripe", "paypal"])
+    paymentProvider: text("paymentProvider", { enum: ["stripe", "paypal"] })
       .notNull()
       .default("stripe"),
     stripeSessionId: varchar("stripeSessionId", { length: 255 }),
-    amount: int("amount").notNull().default(1),
+    amount: integer("amount").notNull().default(1),
     currency: varchar("currency", { length: 8 }).notNull().default("usd"),
     paidAt: timestamp("paidAt"),
     email: varchar("email", { length: 320 }).notNull(),
@@ -403,14 +403,14 @@ export const appointments = mysqlTable(
     doctorLastAccessAt: timestamp("doctorLastAccessAt"),
     notes: text("notes"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
   },
   table => ({
-    doctorIdx: index("doctorIdx").on(table.doctorId),
-    userIdx: index("userIdx").on(table.userId),
-    sessionIdx: index("sessionIdx").on(table.sessionId),
-    triageSessionIdx: index("triageSessionIdx").on(table.triageSessionId),
-    emailIdx: index("emailIdx").on(table.email),
+    doctorIdx: index("appointmentsDoctorIdx").on(table.doctorId),
+    userIdx: index("appointmentsUserIdx").on(table.userId),
+    sessionIdx: index("appointmentsSessionIdx").on(table.sessionId),
+    triageSessionIdx: index("appointmentsTriageSessionIdx").on(table.triageSessionId),
+    emailIdx: index("appointmentsEmailIdx").on(table.email),
     stripeSessionIdUk: uniqueIndex("appointmentsStripeSessionIdUk").on(
       table.stripeSessionId
     ),
@@ -420,26 +420,26 @@ export const appointments = mysqlTable(
 export type Appointment = typeof appointments.$inferSelect;
 export type InsertAppointment = typeof appointments.$inferInsert;
 
-export const appointmentTokens = mysqlTable(
+export const appointmentTokens = pgTable(
   "appointmentTokens",
   {
-    id: int("id").autoincrement().primaryKey(),
-    appointmentId: int("appointmentId")
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    appointmentId: integer("appointmentId")
       .notNull()
       .references(() => appointments.id, { onDelete: "cascade" }),
-    role: mysqlEnum("role", ["patient", "doctor"]).notNull(),
+    role: text("role", { enum: ["patient", "doctor"] }).notNull(),
     tokenHash: varchar("tokenHash", { length: 64 }).notNull(),
     expiresAt: timestamp("expiresAt").notNull(),
     lastUsedAt: timestamp("lastUsedAt"),
-    useCount: int("useCount").notNull().default(0),
-    maxUses: int("maxUses").notNull().default(1),
+    useCount: integer("useCount").notNull().default(0),
+    maxUses: integer("maxUses").notNull().default(1),
     revokedAt: timestamp("revokedAt"),
     revokeReason: text("revokeReason"),
     createdBy: varchar("createdBy", { length: 64 }),
     ipFirstSeen: varchar("ipFirstSeen", { length: 64 }),
     uaFirstSeen: varchar("uaFirstSeen", { length: 512 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
   },
   table => ({
     appointmentRoleIdx: index("appointmentTokensAppointmentRoleIdx").on(
@@ -458,17 +458,17 @@ export type InsertAppointmentToken = typeof appointmentTokens.$inferInsert;
 /**
  * Appointment messages table - stores visit chat messages.
  */
-export const appointmentMessages = mysqlTable(
+export const appointmentMessages = pgTable(
   "appointmentMessages",
   {
-    id: int("id").autoincrement().primaryKey(),
-    appointmentId: int("appointmentId").notNull(),
-    userId: int("userId").references(() => users.id, { onDelete: "set null" }),
-    senderType: mysqlEnum("senderType", [
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    appointmentId: integer("appointmentId").notNull(),
+    userId: integer("userId").references(() => users.id, { onDelete: "set null" }),
+    senderType: text("senderType", { enum: [
       "patient",
       "doctor",
       "system",
-    ]).notNull(),
+    ] }).notNull(),
     content: text("content").notNull(),
     originalContent: text("originalContent"),
     translatedContent: text("translatedContent"),
@@ -500,25 +500,25 @@ export type InsertAppointmentMessage = typeof appointmentMessages.$inferInsert;
 /**
  * Appointment status event log table - tracks all critical status transitions.
  */
-export const appointmentStatusEvents = mysqlTable(
+export const appointmentStatusEvents = pgTable(
   "appointment_status_events",
   {
-    id: int("id").autoincrement().primaryKey(),
-    appointmentId: int("appointmentId")
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    appointmentId: integer("appointmentId")
       .notNull()
       .references(() => appointments.id, { onDelete: "cascade" }),
     fromStatus: varchar("fromStatus", { length: 64 }),
     toStatus: varchar("toStatus", { length: 64 }).notNull(),
-    operatorType: mysqlEnum("operatorType", [
+    operatorType: text("operatorType", { enum: [
       "system",
       "patient",
       "doctor",
       "admin",
       "webhook",
-    ]).notNull(),
-    operatorId: int("operatorId"),
+    ] }).notNull(),
+    operatorId: integer("operatorId"),
     reason: text("reason"),
-    payloadJson: json("payloadJson"),
+    payloadJson: jsonb("payloadJson"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => ({
@@ -538,12 +538,12 @@ export type InsertAppointmentStatusEvent =
 /**
  * Stripe webhook event log table - ensures event-level idempotency.
  */
-export const stripeWebhookEvents = mysqlTable("stripe_webhook_events", {
+export const stripeWebhookEvents = pgTable("stripe_webhook_events", {
   eventId: varchar("eventId", { length: 255 }).primaryKey(),
   type: varchar("type", { length: 100 }).notNull(),
-  provider: mysqlEnum("provider", ["stripe", "paypal"]).notNull().default("stripe"),
+  provider: text("provider", { enum: ["stripe", "paypal"] }).notNull().default("stripe"),
   stripeSessionId: varchar("stripeSessionId", { length: 255 }),
-  appointmentId: int("appointmentId"),
+  appointmentId: integer("appointmentId"),
   payloadHash: varchar("payloadHash", { length: 64 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -554,21 +554,21 @@ export type InsertStripeWebhookEvent = typeof stripeWebhookEvents.$inferInsert;
 /**
  * Visit summary table - stores bilingual post-visit summaries per appointment.
  */
-export const appointmentVisitSummaries = mysqlTable(
+export const appointmentVisitSummaries = pgTable(
   "appointment_visit_summaries",
   {
-    id: int("id").autoincrement().primaryKey(),
-    appointmentId: int("appointmentId")
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    appointmentId: integer("appointmentId")
       .notNull()
       .references(() => appointments.id, { onDelete: "cascade" }),
     summaryZh: text("summaryZh").notNull(),
     summaryEn: text("summaryEn").notNull(),
     source: varchar("source", { length: 32 }).notNull().default("llm"),
-    generatedBy: int("generatedBy").references(() => users.id, {
+    generatedBy: integer("generatedBy").references(() => users.id, {
       onDelete: "set null",
     }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
   },
   table => ({
     appointmentUk: uniqueIndex("appointmentVisitSummariesAppointmentUk").on(
@@ -585,11 +585,11 @@ export type InsertAppointmentVisitSummary =
 /**
  * Structured medical summary table - stores doctor-reviewed SOAP summary per appointment.
  */
-export const appointmentMedicalSummaries = mysqlTable(
+export const appointmentMedicalSummaries = pgTable(
   "appointment_medical_summaries",
   {
-    id: int("id").autoincrement().primaryKey(),
-    appointmentId: int("appointmentId")
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    appointmentId: integer("appointmentId")
       .notNull()
       .references(() => appointments.id, { onDelete: "cascade" }),
     chiefComplaint: text("chiefComplaint").notNull(),
@@ -598,11 +598,11 @@ export const appointmentMedicalSummaries = mysqlTable(
     assessmentDiagnosis: text("assessmentDiagnosis").notNull(),
     planRecommendations: text("planRecommendations").notNull(),
     source: varchar("source", { length: 32 }).notNull().default("doctor_reviewed_ai_draft"),
-    signedBy: int("signedBy").references(() => users.id, {
+    signedBy: integer("signedBy").references(() => users.id, {
       onDelete: "set null",
     }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
   },
   table => ({
     appointmentUk: uniqueIndex("appointmentMedicalSummariesAppointmentUk").on(
@@ -619,18 +619,18 @@ export type InsertAppointmentMedicalSummary =
 /**
  * Retention policy table - configurable retention days by tier.
  */
-export const visitRetentionPolicies = mysqlTable(
+export const visitRetentionPolicies = pgTable(
   "visit_retention_policies",
   {
-    id: int("id").autoincrement().primaryKey(),
-    tier: mysqlEnum("tier", ["free", "paid"]).notNull(),
-    retentionDays: int("retentionDays").notNull(),
-    enabled: tinyint("enabled").notNull().default(1),
-    updatedBy: int("updatedBy").references(() => users.id, {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    tier: text("tier", { enum: ["free", "paid"] }).notNull(),
+    retentionDays: integer("retentionDays").notNull(),
+    enabled: integer("enabled").notNull().default(1),
+    updatedBy: integer("updatedBy").references(() => users.id, {
       onDelete: "set null",
     }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
   },
   table => ({
     tierUk: uniqueIndex("visitRetentionPoliciesTierUk").on(table.tier),
@@ -643,17 +643,17 @@ export type InsertVisitRetentionPolicy = typeof visitRetentionPolicies.$inferIns
 /**
  * Retention cleanup audit table - records every cleanup run.
  */
-export const retentionCleanupAudits = mysqlTable(
+export const retentionCleanupAudits = pgTable(
   "retention_cleanup_audits",
   {
-    id: int("id").autoincrement().primaryKey(),
-    dryRun: tinyint("dryRun").notNull().default(0),
-    freeRetentionDays: int("freeRetentionDays").notNull(),
-    paidRetentionDays: int("paidRetentionDays").notNull(),
-    scannedMessages: int("scannedMessages").notNull().default(0),
-    deletedMessages: int("deletedMessages").notNull().default(0),
-    detailsJson: json("detailsJson"),
-    createdBy: int("createdBy").references(() => users.id, {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    dryRun: integer("dryRun").notNull().default(0),
+    freeRetentionDays: integer("freeRetentionDays").notNull(),
+    paidRetentionDays: integer("paidRetentionDays").notNull(),
+    scannedMessages: integer("scannedMessages").notNull().default(0),
+    deletedMessages: integer("deletedMessages").notNull().default(0),
+    detailsJson: jsonb("detailsJson"),
+    createdBy: integer("createdBy").references(() => users.id, {
       onDelete: "set null",
     }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),

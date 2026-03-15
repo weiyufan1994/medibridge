@@ -22,6 +22,21 @@ type IntakeInput = {
   otherSymptoms?: string;
 };
 
+function readInsertedId(value: unknown) {
+  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+
+  const directInsertId = Number(
+    (value as { insertId?: number })?.insertId ??
+      (Array.isArray(value)
+        ? (value[0] as { insertId?: number } | undefined)?.insertId
+        : Number.NaN)
+  );
+
+  return Number.isInteger(directInsertId) && directInsertId > 0 ? directInsertId : null;
+}
+
 function formatIntakeToNotes(
   input?: IntakeInput,
   selectedPackage?: CheckoutPackage
@@ -47,41 +62,6 @@ function formatIntakeToNotes(
     packageDurationMinutes: selectedPackage?.durationMinutes,
     ...normalized,
   });
-}
-
-async function resolveInsertedAppointmentId(
-  insertResult: unknown,
-  fallbackLookup: {
-    doctorId: number;
-    email: string;
-    scheduledAt: Date;
-    triageSessionId: number;
-    status?: "draft";
-    paymentStatus?: "unpaid";
-  }
-): Promise<number> {
-  const directInsertId = Number(
-    (insertResult as { insertId?: number })?.insertId ??
-      (Array.isArray(insertResult)
-        ? (insertResult[0] as { insertId?: number } | undefined)?.insertId
-        : Number.NaN)
-  );
-
-  if (Number.isInteger(directInsertId) && directInsertId > 0) {
-    return directInsertId;
-  }
-
-  const resolvedId =
-    await appointmentsRepo.findLatestAppointmentIdByLookup(fallbackLookup);
-
-  if (!resolvedId) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Failed to resolve appointment ID after creation",
-    });
-  }
-
-  return resolvedId;
 }
 
 export async function resolveCreateInputToStoredEmail(input: {
@@ -113,7 +93,7 @@ export async function createAppointmentCheckoutFlow(input: {
   intake?: IntakeInput;
   req: Request;
 }) {
-  const insertResult = await appointmentsRepo.createAppointmentDraft({
+  const draftResult = await appointmentsRepo.createAppointmentDraft({
     doctorId: input.doctorId,
     triageSessionId: input.triageSessionId,
     appointmentType: input.appointmentType,
@@ -126,14 +106,23 @@ export async function createAppointmentCheckoutFlow(input: {
     notes: formatIntakeToNotes(input.intake, input.selectedPackage),
   });
 
-  const appointmentId = await resolveInsertedAppointmentId(insertResult, {
-    doctorId: input.doctorId,
-    email: input.email,
-    scheduledAt: input.scheduledAt,
-    triageSessionId: input.triageSessionId,
-    status: "draft",
-    paymentStatus: "unpaid",
-  });
+  const appointmentId =
+    readInsertedId(draftResult) ??
+    (await appointmentsRepo.findLatestAppointmentIdByLookup({
+      doctorId: input.doctorId,
+      email: input.email,
+      scheduledAt: input.scheduledAt,
+      triageSessionId: input.triageSessionId,
+      status: "draft",
+      paymentStatus: "unpaid",
+    }));
+
+  if (!appointmentId) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Failed to resolve appointment ID after creation",
+    });
+  }
 
   await appointmentsRepo.insertStatusEvent({
     appointmentId,

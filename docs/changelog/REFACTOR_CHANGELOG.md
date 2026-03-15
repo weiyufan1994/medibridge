@@ -80,7 +80,7 @@
 - “资产不丢失”与“计费拦截”两条生命线具备回归保护
 
 ## 6. 兼容与迁移注意事项
-- 任何 `drizzle/schema.ts` 更新后必须执行：`pnpm db:push`
+- 任何 `drizzle/schema.ts` 更新后必须生成并执行 PostgreSQL migration：`pnpm db:migrate:safe`
 - OTP 当前使用进程内存储（开发态），生产建议迁移到 Redis/DB
 - 现有路由与前端已切到新认证与计费模型，避免回退到旧流程
 
