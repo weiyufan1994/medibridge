@@ -8,9 +8,7 @@ import {
 } from "../../../drizzle/schema";
 import { getDb } from "../../db";
 import {
-  cosineSimilarity,
   DOCTOR_EMBEDDING_DIMENSIONS,
-  normalizeEmbedding,
   toPgVectorLiteral,
 } from "./embedding";
 
@@ -191,82 +189,25 @@ export async function searchDoctorsByEmbedding(
     .innerJoin(doctors, eq(doctorEmbeddings.doctorId, doctors.id))
     .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
     .innerJoin(departments, eq(doctors.departmentId, departments.id));
+  const rows =
+    candidateDoctorIds.length > 0
+      ? await rowsQuery
+          .where(inArray(doctors.id, candidateDoctorIds))
+          .orderBy(
+            sql`${doctorEmbeddings.embeddingVector} <=> ${queryVector}::vector`,
+            desc(doctors.recommendationScore)
+          )
+          .limit(limit)
+      : await rowsQuery
+          .orderBy(
+            sql`${doctorEmbeddings.embeddingVector} <=> ${queryVector}::vector`,
+            desc(doctors.recommendationScore)
+          )
+          .limit(limit);
 
-  try {
-    const rows =
-      candidateDoctorIds.length > 0
-        ? await rowsQuery
-            .where(inArray(doctors.id, candidateDoctorIds))
-            .orderBy(
-              sql`${doctorEmbeddings.embeddingVector} <=> ${queryVector}::vector`,
-              desc(doctors.recommendationScore)
-            )
-            .limit(limit)
-        : await rowsQuery
-            .orderBy(
-              sql`${doctorEmbeddings.embeddingVector} <=> ${queryVector}::vector`,
-              desc(doctors.recommendationScore)
-            )
-            .limit(limit);
-    return rows
-      .filter(row => Number.isFinite(row.similarity) && row.similarity > 0)
-      .map(({ doctor, hospital, department }) => ({ doctor, hospital, department }));
-  } catch (error) {
-    console.warn(
-      "[Doctors] pgvector retrieval failed, falling back to JSON embedding search:",
-      error
-    );
-
-    const fallbackRowsQuery = db
-      .select({
-        doctor: doctors,
-        hospital: hospitals,
-        department: departments,
-        embedding: doctorEmbeddings.embedding,
-      })
-      .from(doctorEmbeddings)
-      .innerJoin(doctors, eq(doctorEmbeddings.doctorId, doctors.id))
-      .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
-      .innerJoin(departments, eq(doctors.departmentId, departments.id));
-
-    const fallbackRows =
-      candidateDoctorIds.length > 0
-        ? await fallbackRowsQuery.where(inArray(doctors.id, candidateDoctorIds))
-        : await fallbackRowsQuery;
-
-    const ranked = fallbackRows
-      .map(row => {
-        const vector = normalizeEmbedding(row.embedding);
-        if (!vector) return null;
-        const similarity = cosineSimilarity(queryEmbedding, vector);
-        if (!Number.isFinite(similarity) || similarity <= 0) {
-          return null;
-        }
-
-        return {
-          doctor: row.doctor,
-          hospital: row.hospital,
-          department: row.department,
-          similarity,
-        };
-      })
-      .filter((item): item is DoctorSearchResult & { similarity: number } => {
-        return item !== null && Number.isFinite(item.similarity) && item.similarity > 0;
-      })
-      .sort((left, right) => {
-        if (right.similarity !== left.similarity) {
-          return right.similarity - left.similarity;
-        }
-        return (
-          (right.doctor.recommendationScore ?? 0) -
-          (left.doctor.recommendationScore ?? 0)
-        );
-      })
-      .slice(0, limit)
-      .map(({ doctor, hospital, department }) => ({ doctor, hospital, department }));
-
-    return ranked;
-  }
+  return rows
+    .filter(row => Number.isFinite(row.similarity) && row.similarity > 0)
+    .map(({ doctor, hospital, department }) => ({ doctor, hospital, department }));
 }
 
 export async function listDoctorSpecialtyTagsByDoctorIds(doctorIds: number[]) {

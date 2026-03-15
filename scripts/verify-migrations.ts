@@ -141,6 +141,42 @@ async function verify() {
       throw new Error("Missing required column: doctorEmbeddings.embeddingVector");
     }
 
+    const embeddingModelColumnRows = await pool.query<{ columnName: string }>(
+      `select column_name as "columnName"
+       from information_schema.columns
+       where table_schema = current_schema()
+         and table_name = 'doctorEmbeddings'
+         and column_name = 'embeddingModel'
+       limit 1`
+    );
+    if (embeddingModelColumnRows.rows.length === 0) {
+      throw new Error("Missing required column: doctorEmbeddings.embeddingModel");
+    }
+
+    const embeddingDimensionsColumnRows = await pool.query<{ columnName: string }>(
+      `select column_name as "columnName"
+       from information_schema.columns
+       where table_schema = current_schema()
+         and table_name = 'doctorEmbeddings'
+         and column_name = 'embeddingDimensions'
+       limit 1`
+    );
+    if (embeddingDimensionsColumnRows.rows.length === 0) {
+      throw new Error("Missing required column: doctorEmbeddings.embeddingDimensions");
+    }
+
+    const legacyEmbeddingColumnRows = await pool.query<{ columnName: string }>(
+      `select column_name as "columnName"
+       from information_schema.columns
+       where table_schema = current_schema()
+         and table_name = 'doctorEmbeddings'
+         and column_name = 'embedding'
+       limit 1`
+    );
+    if (legacyEmbeddingColumnRows.rows.length > 0) {
+      throw new Error("Legacy column still present: doctorEmbeddings.embedding");
+    }
+
     const vectorIndexRows = await pool.query<{ indexName: string }>(
       `select indexname as "indexName"
        from pg_indexes

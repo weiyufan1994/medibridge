@@ -216,10 +216,11 @@ export const doctorEmbeddings = pgTable(
   {
     id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
     doctorId: integer("doctorId").notNull().unique(),
-    embedding: jsonb("embedding").notNull(), // Store as JSON array
     embeddingVector: vector("embeddingVector", {
       dimensions: DOCTOR_EMBEDDING_DIMENSIONS,
     }).notNull(),
+    embeddingModel: varchar("embeddingModel", { length: 128 }).notNull(),
+    embeddingDimensions: integer("embeddingDimensions").notNull(),
     content: text("content").notNull(), // Original text used for embedding
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),

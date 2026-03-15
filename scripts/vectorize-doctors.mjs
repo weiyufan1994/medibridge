@@ -155,8 +155,9 @@ async function vectorizeDoctors() {
       // Store embedding
       await db.insert(doctorEmbeddings).values({
         doctorId: doctor.id,
-        embedding,
         embeddingVector: embedding,
+        embeddingModel: EMBEDDING_MODEL,
+        embeddingDimensions: DOCTOR_EMBEDDING_DIMENSIONS,
         content: content
       });
       

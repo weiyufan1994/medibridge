@@ -34,26 +34,3 @@ export const toPgVectorLiteral = (embedding: number[]) => {
 
   return `[${embedding.join(",")}]`;
 };
-
-export const cosineSimilarity = (left: number[], right: number[]) => {
-  if (!isFiniteEmbedding(left) || !isFiniteEmbedding(right)) {
-    return 0;
-  }
-
-  let dotProduct = 0;
-  let leftNorm = 0;
-  let rightNorm = 0;
-  for (let index = 0; index < DOCTOR_EMBEDDING_DIMENSIONS; index++) {
-    const leftValue = left[index];
-    const rightValue = right[index];
-    dotProduct += leftValue * rightValue;
-    leftNorm += leftValue * leftValue;
-    rightNorm += rightValue * rightValue;
-  }
-
-  if (leftNorm === 0 || rightNorm === 0) {
-    return 0;
-  }
-
-  return dotProduct / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm));
-};
