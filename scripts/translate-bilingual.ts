@@ -39,6 +39,27 @@ const SOURCE_EMPTY_MARKERS = new Set([
   "--",
 ]);
 
+const TRANSLATED_EMPTY_PATTERNS = [
+  /<empty/i,
+  /missing value/i,
+  /not specified/i,
+  /cannot be determined/i,
+  /not available/i,
+  /no information provided/i,
+  /empty_string_value_please_do_not_replace/i,
+];
+
+const HOSPITAL_CITY_TRANSLATIONS: Record<string, string> = {
+  上海: "Shanghai",
+};
+
+const HOSPITAL_LEVEL_TRANSLATIONS: Record<string, string> = {
+  三级甲等: "Grade III Class A",
+  三级乙等: "Grade III Class B",
+  二级甲等: "Grade II Class A",
+  二级乙等: "Grade II Class B",
+};
+
 const createTranslationDb = (pool: Pool) => drizzle(pool);
 type TranslationDb = ReturnType<typeof createTranslationDb>;
 
@@ -142,12 +163,21 @@ const sanitizeTranslatedText = (value: unknown) => {
   if (value === undefined || value === null) return null;
   if (typeof value === "string") {
     const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
+    if (trimmed.length === 0) return null;
+    if (TRANSLATED_EMPTY_PATTERNS.some(pattern => pattern.test(trimmed))) {
+      return null;
+    }
+    return trimmed;
   }
   if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
   return null;
+};
+
+const clampText = (value: string | null | undefined, maxLength: number) => {
+  if (!value) return null;
+  return value.length <= maxLength ? value : value.slice(0, maxLength);
 };
 
 type EntityRunStats = {
@@ -631,6 +661,43 @@ const translateDepartment = async (input: {
   };
 };
 
+const translateDepartmentNameOnly = async (name: string) => {
+  const response = await invokeLLM({
+    model: translationModelOverride,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a professional medical translator. Translate a Chinese medical department name into patient-friendly English. Use the style 'Department of ...' when appropriate. Return JSON only.",
+      },
+      {
+        role: "user",
+        content: `Translate this department name into English.\n\n${JSON.stringify({
+          name,
+        })}`,
+      },
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "department_name_translation",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            nameEn: { type: ["string", "null"] },
+          },
+          required: ["nameEn"],
+          additionalProperties: false,
+        },
+      },
+    },
+  });
+
+  const parsed = JSON.parse(readMessageText(response.choices[0].message.content));
+  return sanitizeTranslatedText(parsed.nameEn);
+};
+
 const departmentTranslationIsComplete = (
   row: Pick<DepartmentRow, "description">,
   translated: Pick<DepartmentBatchTranslation, "nameEn" | "descriptionEn">
@@ -781,6 +848,51 @@ const translateDoctor = async (
     readMessageText(response.choices[0].message.content),
     requestedFields
   );
+};
+
+const translateDoctorFieldText = async (
+  field: DoctorTranslatedField,
+  sourceValue: string
+) => {
+  const fieldInstructions: Record<DoctorTranslatedField, string> = {
+    nameEn:
+      "Translate the Chinese doctor's name into English using pinyin or the format 'Dr. + pinyin'. Return plain text only.",
+    titleEn:
+      "Translate the Chinese medical title into concise English. Return plain text only.",
+    specialtyEn:
+      "Translate the Chinese specialty or department into patient-friendly English. Return plain text only.",
+    expertiseEn:
+      "Translate the Chinese doctor expertise summary into concise patient-friendly English. Return plain text only.",
+    onlineConsultationEn:
+      "Translate the Chinese online consultation field into concise English. Return plain text only. If unavailable, return an empty string.",
+    appointmentAvailableEn:
+      "Translate the Chinese appointment availability field into concise English. Return plain text only. If unavailable, return an empty string.",
+    satisfactionRateEn:
+      "Translate the Chinese satisfaction-rate field into concise English. Return plain text only. If unavailable, return an empty string.",
+    attitudeScoreEn:
+      "Translate the Chinese attitude-score field into concise English. Return plain text only. If unavailable, return an empty string.",
+  };
+
+  const response = await invokeLLM({
+    model: translationModelOverride,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a professional medical translator. Return plain English text only. Do not add notes, placeholders, or explanations.",
+      },
+      {
+        role: "user",
+        content: `${fieldInstructions[field]}\n\n${sourceValue}`,
+      },
+    ],
+    response_format: {
+      type: "text",
+    },
+    max_tokens: 512,
+  });
+
+  return sanitizeTranslatedText(readMessageText(response.choices[0].message.content));
 };
 
 const doctorTranslationIsComplete = (
@@ -1235,11 +1347,11 @@ const applyDoctorTranslation = async (
   await db
     .update(doctors)
     .set({
-      nameEn,
-      titleEn,
+      nameEn: clampText(nameEn, 100),
+      titleEn: clampText(titleEn, 100),
       specialtyEn,
       expertiseEn,
-      onlineConsultationEn,
+      onlineConsultationEn: clampText(onlineConsultationEn, 50),
       appointmentAvailableEn,
       satisfactionRateEn,
       attitudeScoreEn,
@@ -1296,8 +1408,14 @@ const completeHospitalTranslation = async (
 
   return {
     nameEn: pickEnglish(current.nameEn, fallback.nameEn),
-    cityEn: pickEnglish(current.cityEn, fallback.cityEn),
-    levelEn: pickEnglish(current.levelEn, fallback.levelEn),
+    cityEn: pickEnglish(
+      current.cityEn,
+      fallback.cityEn ?? (row.city ? HOSPITAL_CITY_TRANSLATIONS[row.city] ?? null : null)
+    ),
+    levelEn: pickEnglish(
+      current.levelEn,
+      fallback.levelEn ?? (row.level ? HOSPITAL_LEVEL_TRANSLATIONS[row.level] ?? null : null)
+    ),
     addressEn: pickEnglish(current.addressEn, fallback.addressEn),
     descriptionEn: pickEnglish(current.descriptionEn, fallback.descriptionEn),
   };
@@ -1313,6 +1431,19 @@ const completeDepartmentTranslation = async (
     nameEn: pickEnglish(row.nameEn, translated.nameEn),
     descriptionEn: pickEnglish(row.descriptionEn, translated.descriptionEn),
   };
+
+  if (!current.nameEn) {
+    const translatedName = await withRetry(
+      () => translateDepartmentNameOnly(row.name),
+      config.maxRetries,
+      () => {
+        stats.fallbackCalls += 1;
+        stats.llmCalls += 1;
+        stats.rowsPerCallTotal += 1;
+      }
+    );
+    current.nameEn = pickEnglish(current.nameEn, translatedName);
+  }
 
   if (departmentTranslationIsComplete(row, current)) {
     return current;
@@ -1383,6 +1514,27 @@ const completeDoctorTranslation = async (
       ...merged,
       [field]: pickEnglish(merged[field], partial[field] ?? null),
     };
+    if (!merged[field]) {
+      const sourceField = DOCTOR_TRANSLATION_FIELDS.find(
+        candidate => candidate.translatedKey === field
+      );
+      const sourceValue = sourceField ? source[sourceField.sourceKey] : null;
+      if (sourceValue) {
+        const translatedText = await withRetry(
+          () => translateDoctorFieldText(field, sourceValue),
+          config.maxRetries,
+          () => {
+            stats.fallbackCalls += 1;
+            stats.llmCalls += 1;
+            stats.rowsPerCallTotal += 1;
+          }
+        );
+        merged = {
+          ...merged,
+          [field]: pickEnglish(merged[field], translatedText),
+        };
+      }
+    }
     await delay(config.rateLimitMs);
   }
 
