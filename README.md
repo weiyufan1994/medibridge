@@ -7,7 +7,7 @@ This README is the single handover document for onboarding, architecture underst
 ## Tech Stack
 - Frontend: React 19, Vite, TypeScript, TanStack Query, tRPC client
 - Backend: Express, tRPC server, TypeScript
-- Database: MySQL + Drizzle ORM
+- Database: PostgreSQL + Drizzle ORM
 - Auth: Progressive Profiling (Guest shadow account + passwordless OTP + Magic Link)
 
 ## Quick Start
@@ -60,7 +60,8 @@ pnpm test
 ### Infrastructure
 - `server/_core/*`: tRPC bootstrap, context, env, SDK, cookie/session, mailer, LLM adapter
 - `drizzle/schema.ts`: source of truth for schema
-- `drizzle/*.sql` + `drizzle/meta/*`: migration and snapshots
+- `drizzle/*.sql` + `drizzle/meta/*`: PostgreSQL migrations and snapshots
+- `drizzle/archive/mysql/*`: archived MySQL-era migration history
 - `shared/*`: cross-runtime constants and shared types
 
 ### Email (Resend) Configuration
@@ -165,6 +166,8 @@ Quota is charged by **Session**, with a **Message-count fallback guard** inside 
 - Any schema change must be followed by migration apply + verification:
   - `pnpm db:migrate:safe` (recommended)
   - or `pnpm db:migrate` then `pnpm db:verify:migrations`
+- Brand-new local PostgreSQL databases should bootstrap with `pnpm db:migrate`, not `pnpm db:push`
+- If a local PostgreSQL database was created earlier via `db:push`, run `pnpm db:repair:migration-history` once before normal migrations
 - If schema was manually patched and Drizzle history is behind, repair history once:
   - `pnpm db:repair:migration-history`
 - Auth and billing constraints are business-critical and must be covered by tests before release

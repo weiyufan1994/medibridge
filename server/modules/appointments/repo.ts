@@ -28,6 +28,7 @@ import {
   isAllowedPaymentStatusForAppointment,
   isAllowedStatusTransition,
 } from "./stateMachine";
+import { extractAffectedRows } from "../../_core/dbCompat";
 
 export type AppointmentTokenRole = "patient" | "doctor";
 type PaymentProvider = "stripe" | "paypal";
@@ -35,15 +36,6 @@ const ACTIVE_TOKEN_LIMIT_PER_ROLE = 5;
 type BaseDb = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 type DbExecutor = Pick<BaseDb, "select" | "insert" | "update">;
 export type AppointmentRepoExecutor = DbExecutor;
-
-function extractAffectedRows(result: unknown): number {
-  const header =
-    Array.isArray(result) && result.length > 0
-      ? (result[0] as { affectedRows?: unknown })
-      : (result as { affectedRows?: unknown });
-  const value = Number(header?.affectedRows ?? 0);
-  return Number.isFinite(value) ? value : 0;
-}
 
 async function resolveDbExecutor(dbExecutor?: DbExecutor) {
   const db = dbExecutor ?? (await getDb());
@@ -254,7 +246,7 @@ export async function getAppointmentTokenCooldownRemainingSeconds(input: {
   const rows = await db
     .select({
       remainingSeconds:
-        sql<number>`greatest(${input.cooldownSeconds} - timestampdiff(second, ${appointmentTokens.createdAt}, now()), 0)`,
+        sql<number>`greatest(${input.cooldownSeconds} - cast(extract(epoch from (now() - ${appointmentTokens.createdAt})) as integer), 0)`,
     })
     .from(appointmentTokens)
     .where(
@@ -513,22 +505,27 @@ export async function createAppointmentDraft(input: {
     throw new Error("Database not available");
   }
 
-  return db.insert(appointments).values({
-    doctorId: input.doctorId,
-    triageSessionId: input.triageSessionId,
-    appointmentType: input.appointmentType,
-    scheduledAt: input.scheduledAt,
-    status: "draft",
-    paymentStatus: "unpaid",
-    amount: input.amount,
-    currency: input.currency,
-    email: input.email,
-    userId: input.userId ?? null,
-    sessionId: input.sessionId,
-    notes: input.notes ?? null,
-    lastAccessAt: null,
-    doctorLastAccessAt: null,
-  });
+  const rows = await db
+    .insert(appointments)
+    .values({
+      doctorId: input.doctorId,
+      triageSessionId: input.triageSessionId,
+      appointmentType: input.appointmentType,
+      scheduledAt: input.scheduledAt,
+      status: "draft",
+      paymentStatus: "unpaid",
+      amount: input.amount,
+      currency: input.currency,
+      email: input.email,
+      userId: input.userId ?? null,
+      sessionId: input.sessionId,
+      notes: input.notes ?? null,
+      lastAccessAt: null,
+      doctorLastAccessAt: null,
+    })
+    .returning({ id: appointments.id });
+
+  return rows[0]?.id ?? null;
 }
 
 export async function updateAppointmentById(
@@ -610,7 +607,8 @@ export async function upsertMedicalSummaryByAppointmentId(input: {
       source: input.source,
       signedBy: input.signedBy ?? null,
     })
-    .onDuplicateKeyUpdate({
+    .onConflictDoUpdate({
+      target: appointmentMedicalSummaries.appointmentId,
       set: {
         chiefComplaint: input.chiefComplaint,
         historyOfPresentIllness: input.historyOfPresentIllness,

@@ -1,17 +1,6 @@
 import { sql } from "drizzle-orm";
 import { getDb } from "../server/db";
-
-function extractAffectedRows(result: unknown): number {
-  if (result && typeof result === "object" && "affectedRows" in result) {
-    const value = Number((result as { affectedRows?: unknown }).affectedRows);
-    return Number.isFinite(value) ? value : 0;
-  }
-  if (Array.isArray(result) && result[0] && typeof result[0] === "object") {
-    const value = Number((result[0] as { affectedRows?: unknown }).affectedRows);
-    return Number.isFinite(value) ? value : 0;
-  }
-  return 0;
-}
+import { extractAffectedRows } from "../server/_core/dbCompat";
 
 async function main() {
   const db = await getDb();

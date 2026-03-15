@@ -1,5 +1,5 @@
-import { drizzle } from "drizzle-orm/mysql2";
-import { createPool, type Pool } from "mysql2";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 let _pool: Pool | null = null;
@@ -8,14 +8,10 @@ let _pool: Pool | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _pool = createPool({
-        uri: process.env.DATABASE_URL,
-        timezone: "Z",
+      _pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        options: "-c timezone=UTC",
       });
-      _pool.on("connection", connection => {
-        connection.query("SET time_zone = '+00:00'");
-      });
-      await _pool.promise().query("SET time_zone = '+00:00'");
       _db = drizzle(_pool);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);

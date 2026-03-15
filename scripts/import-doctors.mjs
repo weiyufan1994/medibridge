@@ -1,13 +1,13 @@
-import { drizzle } from "drizzle-orm/mysql2";
-import mysql from "mysql2/promise";
+import { drizzle } from "drizzle-orm/node-postgres";
 import { readdirSync, statSync, existsSync, readFileSync } from "fs";
 import { join, dirname, basename, relative, sep } from "path";
 import { fileURLToPath } from "url";
 import ExcelJS from "exceljs";
 import { hospitals, departments, doctors } from "../drizzle/schema.ts";
 import { eq, and } from "drizzle-orm";
-import "dotenv/config";
+import "../server/_core/loadEnv.ts";
 import { createHash } from "crypto";
+import { Pool } from "pg";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -28,8 +28,11 @@ const computeSourceHash = (payload) => {
   return createHash("sha256").update(JSON.stringify(normalized)).digest("hex");
 };
 
-const connection = await mysql.createConnection(process.env.DATABASE_URL);
-const db = drizzle(connection);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+await pool.query("SET TIME ZONE 'UTC'");
+const db = drizzle(pool);
 
 const hospitalMapping = {
   "复旦大学附属华山医院": { name: "复旦大学附属华山医院", nameEn: "Huashan Hospital Affiliated to Fudan University" },
@@ -369,16 +372,19 @@ async function importDoctors() {
               .where(eq(hospitals.id, hospitalId));
           }
         } else {
-          const result = await db.insert(hospitals).values({
-            name: hospitalInfo.name,
-            nameEn: hospitalInfo.nameEn,
-            city: "上海",
-            level: "三级甲等",
-            sourceHash: hospitalSourceHash,
-            translationStatus: "pending",
-          });
+          const result = await db
+            .insert(hospitals)
+            .values({
+              name: hospitalInfo.name,
+              nameEn: hospitalInfo.nameEn,
+              city: "上海",
+              level: "三级甲等",
+              sourceHash: hospitalSourceHash,
+              translationStatus: "pending",
+            })
+            .returning({ id: hospitals.id });
 
-          hospitalId = Number(result[0].insertId);
+          hospitalId = Number(result[0]?.id);
           totalHospitals++;
         }
 
@@ -426,15 +432,18 @@ async function importDoctors() {
                 .where(eq(departments.id, deptId));
             }
           } else {
-            const result = await db.insert(departments).values({
-              hospitalId,
-              name: deptName,
-              url: deptUrl,
-              sourceHash: departmentSourceHash,
-              translationStatus: "pending",
-            });
+            const result = await db
+              .insert(departments)
+              .values({
+                hospitalId,
+                name: deptName,
+                url: deptUrl,
+                sourceHash: departmentSourceHash,
+                translationStatus: "pending",
+              })
+              .returning({ id: departments.id });
 
-            deptId = Number(result[0].insertId);
+            deptId = Number(result[0]?.id);
             totalDepartments++;
           }
 
@@ -513,7 +522,12 @@ async function importDoctors() {
                 sourceHash,
                 translationStatus: "pending",
               })
-              .onDuplicateKeyUpdate({
+              .onConflictDoUpdate({
+                target: [
+                  doctors.hospitalId,
+                  doctors.departmentId,
+                  doctors.name,
+                ],
                 set: {
                   title: doctorValues.title,
                   specialty: doctorValues.specialty,
@@ -544,7 +558,7 @@ async function importDoctors() {
   console.log(`Total doctors: ${totalDoctors}`);
   console.log("Import completed successfully!");
 
-  await connection.end();
+  await pool.end();
 }
 
 importDoctors().catch(console.error);

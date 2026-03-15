@@ -10,6 +10,7 @@ import {
   visitRetentionPolicies,
 } from "../../../drizzle/schema";
 import { getDb } from "../../db";
+import { extractAffectedRows } from "../../_core/dbCompat";
 
 const DEFAULT_RETENTION_DAYS = {
   free: 7,
@@ -135,7 +136,8 @@ export async function upsertVisitSummary(input: {
       source: input.source,
       generatedBy: input.generatedBy ?? null,
     })
-    .onDuplicateKeyUpdate({
+    .onConflictDoUpdate({
+      target: appointmentVisitSummaries.appointmentId,
       set: {
         summaryZh: input.summaryZh,
         summaryEn: input.summaryEn,
@@ -180,11 +182,7 @@ export async function ensureDefaultRetentionPolicies() {
         enabled: 1,
       },
     ])
-    .onDuplicateKeyUpdate({
-      set: {
-        tier: sql`values(${visitRetentionPolicies.tier})`,
-      },
-    });
+    .onConflictDoNothing();
 
   return listRetentionPolicies();
 }
@@ -208,7 +206,8 @@ export async function upsertRetentionPolicy(input: {
       enabled: input.enabled ? 1 : 0,
       updatedBy: input.updatedBy ?? null,
     })
-    .onDuplicateKeyUpdate({
+    .onConflictDoUpdate({
+      target: visitRetentionPolicies.tier,
       set: {
         retentionDays: input.retentionDays,
         enabled: input.enabled ? 1 : 0,
@@ -415,7 +414,7 @@ export async function runRetentionCleanup(input: {
               )`
             )
           );
-        deletedMessages += Number((freeDelete as { affectedRows?: number }).affectedRows ?? 0);
+        deletedMessages += extractAffectedRows(freeDelete);
       }
 
       if (policyMap.paidEnabled) {
@@ -432,11 +431,11 @@ export async function runRetentionCleanup(input: {
               )`
             )
           );
-        deletedMessages += Number((paidDelete as { affectedRows?: number }).affectedRows ?? 0);
+        deletedMessages += extractAffectedRows(paidDelete);
       }
 
       const guestDelete = await db.delete(users).where(guestCandidatePredicate);
-      deletedGuests = Number((guestDelete as { affectedRows?: number }).affectedRows ?? 0);
+      deletedGuests = extractAffectedRows(guestDelete);
     }
 
     const totalCandidates = freeCandidates + paidCandidates + guestCandidates;

@@ -8,35 +8,20 @@ export async function createAiChatSession(userId: number) {
     throw new Error("Database not available");
   }
 
-  // Use explicit column list to stay compatible with partially migrated schemas.
-  const insertResult = await db.execute(
-    sql`insert into ai_chat_sessions (userId, status) values (${userId}, ${"active"})`
-  );
-
-  const directInsertId = Number(
-    (insertResult as { insertId?: number })?.insertId ??
-      (Array.isArray(insertResult)
-        ? (insertResult[0] as { insertId?: number } | undefined)?.insertId
-        : NaN)
-  );
-
-  if (Number.isInteger(directInsertId) && directInsertId > 0) {
-    return directInsertId;
-  }
-
   const rows = await db
-    .select({ id: aiChatSessions.id })
-    .from(aiChatSessions)
-    .where(eq(aiChatSessions.userId, userId))
-    .orderBy(desc(aiChatSessions.id))
-    .limit(1);
+    .insert(aiChatSessions)
+    .values({
+      userId,
+      status: "active",
+    })
+    .returning({ id: aiChatSessions.id });
 
-  const fallbackId = rows[0]?.id;
-  if (!fallbackId) {
+  const insertedId = rows[0]?.id;
+  if (!insertedId) {
     throw new Error("Failed to resolve ai chat session id after insert");
   }
 
-  return fallbackId;
+  return insertedId;
 }
 
 export async function countAiChatSessionsByUser(userId: number) {

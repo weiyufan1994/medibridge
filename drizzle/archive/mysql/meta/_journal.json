@@ -1,0 +1,216 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1770604138674,
+      "tag": "0000_cultured_husk",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1770604285816,
+      "tag": "0001_mature_spitfire",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1770604456422,
+      "tag": "0002_right_machine_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1770604547333,
+      "tag": "0003_smooth_the_spike",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1770604728430,
+      "tag": "0004_damp_hydra",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1770607325712,
+      "tag": "0005_burly_wild_pack",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1771677544031,
+      "tag": "0006_bilingual_translation",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1771754117778,
+      "tag": "0007_heavy_freak",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1772352000000,
+      "tag": "0008_appointment_magic_link",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1772363257108,
+      "tag": "0009_dapper_tarantula",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1772370266487,
+      "tag": "0010_famous_ink",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1772461550317,
+      "tag": "0011_thick_otto_octavius",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1772464918027,
+      "tag": "0012_wet_skullbuster",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1772500000000,
+      "tag": "0013_phase1_paid_appointments",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "5",
+      "when": 1772562447710,
+      "tag": "0014_flawless_firebrand",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "5",
+      "when": 1772624160000,
+      "tag": "0016_stripe_webhook_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "5",
+      "when": 1772626200000,
+      "tag": "0017_appointment_token_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1772639009394,
+      "tag": "0017_appointment_messages_client_message_id_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1772700000000,
+      "tag": "0018_appointment_state_machine_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1772780000000,
+      "tag": "0019_realtime_chat_client_message_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1772860000000,
+      "tag": "0020_ops_admin_summary_retention",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "5",
+      "when": 1772940000000,
+      "tag": "0021_appointment_messages_composite_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "5",
+      "when": 1773060000000,
+      "tag": "0022_appointment_medical_summary_and_completed_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1773133299453,
+      "tag": "0023_hospitals_image_url",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1773133299453,
+      "tag": "0024_doctor_import_extended_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1773149657325,
+      "tag": "0025_translation_status_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "5",
+      "when": 1773165000000,
+      "tag": "0026_payment_provider_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "5",
+      "when": 1773166000000,
+      "tag": "0027_payment_provider_events_provider",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "5",
+      "when": 1773300000000,
+      "tag": "0028_seed_visit_retention_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "5",
+      "when": 1773350000000,
+      "tag": "0029_add_departments_url",
+      "breakpoints": true
+    }
+  ]
+}

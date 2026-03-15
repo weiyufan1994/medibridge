@@ -1,9 +1,14 @@
-import { drizzle } from 'drizzle-orm/mysql2';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { doctors } from '../drizzle/schema.ts';
 import { eq, isNotNull, or } from 'drizzle-orm';
-import 'dotenv/config';
+import "../server/_core/loadEnv.ts";
+import { Pool } from 'pg';
 
-const db = drizzle(process.env.DATABASE_URL);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+await pool.query("SET TIME ZONE 'UTC'");
+const db = drizzle(pool);
 
 async function translateText(text) {
   if (!text || text.trim() === '') return text;
@@ -117,6 +122,7 @@ async function translateDoctors() {
   console.log(`✅ Translated: ${translated}`);
   console.log(`⏭️  Skipped: ${skipped}`);
   console.log(`❌ Failed: ${failed}`);
+  await pool.end();
 }
 
 translateDoctors().catch(console.error);

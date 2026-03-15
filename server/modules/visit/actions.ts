@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import type { Request } from "express";
+import { isDuplicateDbError, isForeignKeyDbError } from "../../_core/dbCompat";
 import * as appointmentsRepo from "../appointments/repo";
 import { appointmentCore } from "../appointments/routerApi";
 import { validateAppointmentAccessToken } from "../appointments/tokenValidation";
@@ -62,6 +63,27 @@ function toMessageSendResult(message: {
     id: message.id,
     senderType: toMessageSenderType(message.senderType),
     createdAt: message.createdAt,
+  };
+}
+
+function readInsertedMessage(input: Awaited<ReturnType<typeof visitRepo.createMessage>>) {
+  const insertedId = Number(
+    (input as { id?: number })?.id ??
+      (input as { insertId?: number })?.insertId ??
+      Number.NaN
+  );
+
+  if (!Number.isInteger(insertedId) || insertedId <= 0) {
+    return null;
+  }
+
+  return {
+    id: insertedId,
+    senderType: (input as { senderType?: unknown })?.senderType ?? "patient",
+    createdAt:
+      (input as { createdAt?: Date })?.createdAt instanceof Date
+        ? ((input as { createdAt?: Date }).createdAt as Date)
+        : new Date(),
   };
 }
 
@@ -192,13 +214,6 @@ export async function sendMessageByToken(
   const createdAt = new Date();
   const senderType = role === "doctor" ? "doctor" : "patient";
   const messageUserId = role === "patient" ? (appointment.userId ?? null) : null;
-  const getMysqlErrorCode = (error: unknown) =>
-    (error as { cause?: { code?: string } })?.cause?.code ??
-    (error as { code?: string })?.code;
-  const isDuplicate = (error: unknown) => getMysqlErrorCode(error) === "ER_DUP_ENTRY";
-  const isFkViolation = (error: unknown) =>
-    getMysqlErrorCode(error) === "ER_NO_REFERENCED_ROW_2";
-
   const insertOnce = (userId: number | null) =>
     visitRepo.createMessage({
       appointmentId: appointment.id,
@@ -214,15 +229,15 @@ export async function sendMessageByToken(
       clientMessageId: dedupeClientMessageId,
     });
 
-  let insertResult: unknown;
+  let insertedMessage: Awaited<ReturnType<typeof visitRepo.createMessage>>;
   try {
-    insertResult = await insertOnce(messageUserId);
+    insertedMessage = await insertOnce(messageUserId);
   } catch (error) {
-    if (messageUserId !== null && isFkViolation(error)) {
+    if (messageUserId !== null && isForeignKeyDbError(error)) {
       try {
-        insertResult = await insertOnce(null);
+        insertedMessage = await insertOnce(null);
       } catch (retryError) {
-        if (dedupeClientMessageId && isDuplicate(retryError)) {
+        if (dedupeClientMessageId && isDuplicateDbError(retryError)) {
           const existing = await visitRepo.getMessageByClientMessageId(
             appointment.id,
             dedupeClientMessageId
@@ -235,7 +250,7 @@ export async function sendMessageByToken(
 
         throw retryError;
       }
-    } else if (dedupeClientMessageId && isDuplicate(error)) {
+    } else if (dedupeClientMessageId && isDuplicateDbError(error)) {
       const existing = await visitRepo.getMessageByClientMessageId(
         appointment.id,
         dedupeClientMessageId
@@ -253,19 +268,9 @@ export async function sendMessageByToken(
 
   await markInSessionIfTransitioned(appointment.id);
 
-  const insertId = Number(
-    (insertResult as { insertId?: number })?.insertId ??
-      (Array.isArray(insertResult)
-        ? (insertResult[0] as { insertId?: number } | undefined)?.insertId
-        : NaN)
-  );
-
-  if (Number.isInteger(insertId) && insertId > 0) {
-    return toMessageSendResult({
-      id: insertId,
-      senderType,
-      createdAt,
-    });
+  const inserted = readInsertedMessage(insertedMessage);
+  if (inserted) {
+    return toMessageSendResult(inserted);
   }
 
   const latest = await visitRepo.getLatestMessage(appointment.id);

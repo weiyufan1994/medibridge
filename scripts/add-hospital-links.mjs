@@ -1,9 +1,14 @@
-import { drizzle } from 'drizzle-orm/mysql2';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { hospitals } from '../drizzle/schema.ts';
 import { eq } from 'drizzle-orm';
-import 'dotenv/config';
+import "../server/_core/loadEnv.ts";
+import { Pool } from 'pg';
 
-const db = drizzle(process.env.DATABASE_URL);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+await pool.query("SET TIME ZONE 'UTC'");
+const db = drizzle(pool);
 
 // Official hospital websites (verified)
 const hospitalWebsites = {
@@ -35,6 +40,7 @@ async function addHospitalLinks() {
   }
 
   console.log('\n✅ Hospital links added successfully');
+  await pool.end();
 }
 
 addHospitalLinks().catch(console.error);
