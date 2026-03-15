@@ -4,6 +4,10 @@ import { eq } from "drizzle-orm";
 import axios from "axios";
 import "../server/_core/loadEnv.ts";
 import { Pool } from "pg";
+import {
+  DOCTOR_EMBEDDING_DIMENSIONS,
+  isFiniteEmbedding,
+} from "../server/modules/doctors/embedding.ts";
 
 // Database connection
 const pool = new Pool({
@@ -62,7 +66,16 @@ async function generateEmbedding(text) {
       }
     );
     
-    return response.data.data[0].embedding;
+    const embedding = response.data.data[0].embedding;
+    if (!isFiniteEmbedding(embedding)) {
+      throw new Error(
+        `Expected ${DOCTOR_EMBEDDING_DIMENSIONS}-dimensional embedding but received ${
+          Array.isArray(embedding) ? embedding.length : "invalid"
+        }`
+      );
+    }
+
+    return embedding;
   } catch (error) {
     console.error("Error generating embedding:", error.response?.data || error.message);
     throw error;
@@ -143,6 +156,7 @@ async function vectorizeDoctors() {
       await db.insert(doctorEmbeddings).values({
         doctorId: doctor.id,
         embedding,
+        embeddingVector: embedding,
         content: content
       });
       

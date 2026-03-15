@@ -1,4 +1,5 @@
 import {
+  customType,
   integer,
   pgTable,
   text,
@@ -10,6 +11,24 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { z } from "zod";
+import { DOCTOR_EMBEDDING_DIMENSIONS } from "../server/modules/doctors/embedding";
+
+const vector = customType<{
+  data: number[];
+  driverData: string;
+  config: { dimensions: number };
+}>({
+  dataType(config) {
+    if (!config?.dimensions) {
+      throw new Error("vector column requires a dimensions config");
+    }
+
+    return `vector(${config.dimensions})`;
+  },
+  toDriver(value) {
+    return `[${value.join(",")}]`;
+  },
+});
 
 /**
  * Core user table backing auth flow.
@@ -198,12 +217,19 @@ export const doctorEmbeddings = pgTable(
     id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
     doctorId: integer("doctorId").notNull().unique(),
     embedding: jsonb("embedding").notNull(), // Store as JSON array
+    embeddingVector: vector("embeddingVector", {
+      dimensions: DOCTOR_EMBEDDING_DIMENSIONS,
+    }).notNull(),
     content: text("content").notNull(), // Original text used for embedding
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
   },
   table => ({
     doctorIdx: index("doctorEmbeddingsDoctorIdx").on(table.doctorId),
+    vectorIdx: index("doctorEmbeddingsVectorIdx").using(
+      "hnsw",
+      table.embeddingVector.op("vector_cosine_ops")
+    ),
   })
 );
 
