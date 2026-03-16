@@ -3,6 +3,7 @@ import type { TrpcContext } from "./_core/context";
 
 vi.mock("./modules/ai/repo", () => ({
   createAiChatSession: vi.fn(),
+  createTriageConsent: vi.fn(),
   countAiChatSessionsByUser: vi.fn(),
   countAiChatSessionsByUserBetween: vi.fn(),
   getAiChatSessionById: vi.fn(),
@@ -57,7 +58,13 @@ describe("ai billing guard on createSession", () => {
 
     const caller = aiRouter.createCaller(createTestContext(null));
 
-    await expect(caller.createSession()).resolves.toEqual({ sessionId: 701 });
+    await expect(
+      caller.createSession({
+        consentAccepted: true,
+        consentVersion: "stream_b_v1",
+        lang: "zh",
+      })
+    ).resolves.toEqual({ sessionId: 701 });
     expect(authRepo.findOrCreateGuestUserByDeviceId).toHaveBeenCalledWith(
       "guest-device-anon"
     );
@@ -83,7 +90,13 @@ describe("ai billing guard on createSession", () => {
       })
     );
 
-    await expect(caller.createSession()).rejects.toMatchObject({
+    await expect(
+      caller.createSession({
+        consentAccepted: true,
+        consentVersion: "stream_b_v1",
+        lang: "zh",
+      })
+    ).rejects.toMatchObject({
       code: "FORBIDDEN",
       message: "游客试用额度已尽，请验证邮箱获取每日免费问诊次数。",
     });
@@ -109,7 +122,13 @@ describe("ai billing guard on createSession", () => {
       })
     );
 
-    await expect(caller.createSession()).rejects.toMatchObject({
+    await expect(
+      caller.createSession({
+        consentAccepted: true,
+        consentVersion: "stream_b_v1",
+        lang: "zh",
+      })
+    ).rejects.toMatchObject({
       code: "FORBIDDEN",
       message: "今日免费会诊次数已用完，请升级 Pro 或明天再来。",
     });

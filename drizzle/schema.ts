@@ -9,6 +9,7 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { vector } from "drizzle-orm/pg-core/columns/vector_extension/vector";
 import { z } from "zod";
 
 /**
@@ -239,6 +240,78 @@ export const doctorSpecialtyTags = pgTable(
 export type DoctorSpecialtyTag = typeof doctorSpecialtyTags.$inferSelect;
 export type InsertDoctorSpecialtyTag = typeof doctorSpecialtyTags.$inferInsert;
 
+export const doctorUserBindings = pgTable(
+  "doctor_user_bindings",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    doctorId: integer("doctorId")
+      .notNull()
+      .references(() => doctors.id, { onDelete: "cascade" }),
+    userId: integer("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    email: varchar("email", { length: 320 }).notNull(),
+    status: text("status", {
+      enum: ["pending_invite", "active", "revoked"],
+    }).notNull().default("pending_invite"),
+    boundAt: timestamp("boundAt"),
+    revokedAt: timestamp("revokedAt"),
+    createdByUserId: integer("createdByUserId").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedByUserId: integer("updatedByUserId").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  },
+  table => ({
+    doctorIdx: index("doctorUserBindingsDoctorIdx").on(table.doctorId),
+    userIdx: index("doctorUserBindingsUserIdx").on(table.userId),
+    statusIdx: index("doctorUserBindingsStatusIdx").on(table.status),
+    emailIdx: index("doctorUserBindingsEmailIdx").on(table.email),
+  })
+);
+
+export type DoctorUserBinding = typeof doctorUserBindings.$inferSelect;
+export type InsertDoctorUserBinding = typeof doctorUserBindings.$inferInsert;
+
+export const doctorAccountInvites = pgTable(
+  "doctor_account_invites",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    doctorId: integer("doctorId")
+      .notNull()
+      .references(() => doctors.id, { onDelete: "cascade" }),
+    email: varchar("email", { length: 320 }).notNull(),
+    tokenHash: varchar("tokenHash", { length: 64 }).notNull(),
+    status: text("status", {
+      enum: ["pending", "sent", "accepted", "expired", "canceled"],
+    }).notNull().default("pending"),
+    expiresAt: timestamp("expiresAt").notNull(),
+    sentAt: timestamp("sentAt"),
+    acceptedAt: timestamp("acceptedAt"),
+    createdByUserId: integer("createdByUserId").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    claimedByUserId: integer("claimedByUserId").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  },
+  table => ({
+    doctorIdx: index("doctorAccountInvitesDoctorIdx").on(table.doctorId),
+    emailIdx: index("doctorAccountInvitesEmailIdx").on(table.email),
+    statusIdx: index("doctorAccountInvitesStatusIdx").on(table.status),
+    expiresIdx: index("doctorAccountInvitesExpiresIdx").on(table.expiresAt),
+    tokenHashUk: uniqueIndex("doctorAccountInvitesTokenHashUk").on(table.tokenHash),
+  })
+);
+
+export type DoctorAccountInvite = typeof doctorAccountInvites.$inferSelect;
+export type InsertDoctorAccountInvite = typeof doctorAccountInvites.$inferInsert;
+
 /**
  * Patient sessions table - stores chat history and recommendations
  */
@@ -325,6 +398,238 @@ export const aiChatMessages = pgTable(
 export type AiChatMessage = typeof aiChatMessages.$inferSelect;
 export type InsertAiChatMessage = typeof aiChatMessages.$inferInsert;
 
+export const triageKnowledgeDocuments = pgTable(
+  "triage_knowledge_documents",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    sourceType: varchar("sourceType", { length: 64 }).notNull().default("internal_card"),
+    title: varchar("title", { length: 255 }).notNull(),
+    lang: varchar("lang", { length: 8 }).notNull().default("zh"),
+    body: text("body").notNull(),
+    version: varchar("version", { length: 32 }).notNull().default("v1"),
+    status: varchar("status", { length: 32 }).notNull().default("active"),
+    sourceUrl: varchar("sourceUrl", { length: 1024 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  },
+  table => ({
+    sourceTypeIdx: index("triageKnowledgeDocumentsSourceTypeIdx").on(table.sourceType),
+    statusIdx: index("triageKnowledgeDocumentsStatusIdx").on(table.status),
+  })
+);
+
+export type TriageKnowledgeDocument = typeof triageKnowledgeDocuments.$inferSelect;
+export type InsertTriageKnowledgeDocument = typeof triageKnowledgeDocuments.$inferInsert;
+
+export const triageKnowledgeChunks = pgTable(
+  "triage_knowledge_chunks",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    documentId: integer("documentId")
+      .notNull()
+      .references(() => triageKnowledgeDocuments.id, { onDelete: "cascade" }),
+    chunkIndex: integer("chunkIndex").notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    content: text("content").notNull(),
+    keywords: jsonb("keywords").$type<string[]>().notNull().default([]),
+    specialtyTags: jsonb("specialtyTags").$type<string[]>().notNull().default([]),
+    riskCodes: jsonb("riskCodes").$type<string[]>().notNull().default([]),
+    embeddingVector: vector("embeddingVector", { dimensions: 1024 }),
+    embeddingModel: varchar("embeddingModel", { length: 128 }),
+    embeddingDimensions: integer("embeddingDimensions"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  },
+  table => ({
+    documentChunkIdx: index("triageKnowledgeChunksDocumentChunkIdx").on(
+      table.documentId,
+      table.chunkIndex
+    ),
+  })
+);
+
+export type TriageKnowledgeChunk = typeof triageKnowledgeChunks.$inferSelect;
+export type InsertTriageKnowledgeChunk = typeof triageKnowledgeChunks.$inferInsert;
+
+export const triageRiskEvents = pgTable(
+  "triage_risk_events",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    sessionId: integer("sessionId")
+      .notNull()
+      .references(() => aiChatSessions.id, { onDelete: "cascade" }),
+    messageId: integer("messageId").references(() => aiChatMessages.id, { onDelete: "set null" }),
+    riskCode: varchar("riskCode", { length: 64 }).notNull(),
+    severity: varchar("severity", { length: 16 }).notNull(),
+    recommendedAction: varchar("recommendedAction", { length: 64 }).notNull(),
+    triggerSource: varchar("triggerSource", { length: 32 }).notNull().default("rule"),
+    rawExcerpt: text("rawExcerpt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    sessionCreatedIdx: index("triageRiskEventsSessionCreatedIdx").on(
+      table.sessionId,
+      table.createdAt
+    ),
+    riskCodeIdx: index("triageRiskEventsRiskCodeIdx").on(table.riskCode),
+  })
+);
+
+export type TriageRiskEvent = typeof triageRiskEvents.$inferSelect;
+export type InsertTriageRiskEvent = typeof triageRiskEvents.$inferInsert;
+
+export const triageSessionFlags = pgTable(
+  "triage_session_flags",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    sessionId: integer("sessionId")
+      .notNull()
+      .references(() => aiChatSessions.id, { onDelete: "cascade" }),
+    flagType: varchar("flagType", { length: 64 }).notNull(),
+    flagValue: text("flagValue").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    sessionFlagTypeIdx: index("triageSessionFlagsSessionFlagTypeIdx").on(
+      table.sessionId,
+      table.flagType
+    ),
+  })
+);
+
+export type TriageSessionFlag = typeof triageSessionFlags.$inferSelect;
+export type InsertTriageSessionFlag = typeof triageSessionFlags.$inferInsert;
+
+export const triageConsents = pgTable(
+  "triage_consents",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    userId: integer("userId").references(() => users.id, { onDelete: "set null" }),
+    sessionId: integer("sessionId")
+      .notNull()
+      .references(() => aiChatSessions.id, { onDelete: "cascade" }),
+    consentType: varchar("consentType", { length: 64 }).notNull().default("triage_disclaimer"),
+    consentVersion: varchar("consentVersion", { length: 32 }).notNull().default("stream_b_v1"),
+    acceptedAt: timestamp("acceptedAt").defaultNow().notNull(),
+    lang: varchar("lang", { length: 8 }).notNull().default("zh"),
+  },
+  table => ({
+    sessionConsentTypeIdx: index("triageConsentsSessionConsentTypeIdx").on(
+      table.sessionId,
+      table.consentType
+    ),
+  })
+);
+
+export type TriageConsent = typeof triageConsents.$inferSelect;
+export type InsertTriageConsent = typeof triageConsents.$inferInsert;
+
+export const doctorScheduleRules = pgTable(
+  "doctor_schedule_rules",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    doctorId: integer("doctorId")
+      .notNull()
+      .references(() => doctors.id, { onDelete: "cascade" }),
+    timezone: varchar("timezone", { length: 64 }).notNull(),
+    weekday: integer("weekday").notNull(),
+    startLocalTime: varchar("startLocalTime", { length: 5 }).notNull(),
+    endLocalTime: varchar("endLocalTime", { length: 5 }).notNull(),
+    slotDurationMinutes: integer("slotDurationMinutes").notNull(),
+    appointmentTypeScope: text("appointmentTypeScope", {
+      enum: ["online_chat", "video_call", "in_person"],
+    }).notNull(),
+    validFrom: varchar("validFrom", { length: 10 }),
+    validTo: varchar("validTo", { length: 10 }),
+    isActive: integer("isActive").notNull().default(1),
+    createdByRole: varchar("createdByRole", { length: 32 }).notNull().default("admin"),
+    createdByUserId: integer("createdByUserId").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  },
+  table => ({
+    doctorIdx: index("doctorScheduleRulesDoctorIdx").on(table.doctorId),
+    activeIdx: index("doctorScheduleRulesDoctorActiveIdx").on(table.doctorId, table.isActive),
+  })
+);
+
+export type DoctorScheduleRule = typeof doctorScheduleRules.$inferSelect;
+export type InsertDoctorScheduleRule = typeof doctorScheduleRules.$inferInsert;
+
+export const doctorScheduleExceptions = pgTable(
+  "doctor_schedule_exceptions",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    doctorId: integer("doctorId")
+      .notNull()
+      .references(() => doctors.id, { onDelete: "cascade" }),
+    dateLocal: varchar("dateLocal", { length: 10 }).notNull(),
+    action: text("action", { enum: ["block", "extend", "replace"] }).notNull(),
+    startLocalTime: varchar("startLocalTime", { length: 5 }),
+    endLocalTime: varchar("endLocalTime", { length: 5 }),
+    reason: text("reason"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  },
+  table => ({
+    doctorDateIdx: index("doctorScheduleExceptionsDoctorDateIdx").on(
+      table.doctorId,
+      table.dateLocal
+    ),
+  })
+);
+
+export type DoctorScheduleException = typeof doctorScheduleExceptions.$inferSelect;
+export type InsertDoctorScheduleException = typeof doctorScheduleExceptions.$inferInsert;
+
+export const doctorSlots = pgTable(
+  "doctor_slots",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    doctorId: integer("doctorId")
+      .notNull()
+      .references(() => doctors.id, { onDelete: "cascade" }),
+    appointmentType: text("appointmentType", {
+      enum: ["online_chat", "video_call", "in_person"],
+    }).notNull(),
+    slotDurationMinutes: integer("slotDurationMinutes").notNull(),
+    timezone: varchar("timezone", { length: 64 }).notNull(),
+    localDate: varchar("localDate", { length: 10 }).notNull(),
+    startAt: timestamp("startAt").notNull(),
+    endAt: timestamp("endAt").notNull(),
+    status: text("status", {
+      enum: ["open", "held", "booked", "blocked", "expired"],
+    })
+      .notNull()
+      .default("open"),
+    source: text("source", { enum: ["rule", "manual"] }).notNull().default("rule"),
+    scheduleRuleId: integer("scheduleRuleId").references(() => doctorScheduleRules.id, {
+      onDelete: "set null",
+    }),
+    holdExpiresAt: timestamp("holdExpiresAt"),
+    heldBySessionId: varchar("heldBySessionId", { length: 128 }),
+    appointmentId: integer("appointmentId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  },
+  table => ({
+    doctorLocalDateIdx: index("doctorSlotsDoctorLocalDateIdx").on(table.doctorId, table.localDate),
+    statusStartIdx: index("doctorSlotsStatusStartIdx").on(table.status, table.startAt),
+    holdExpiresIdx: index("doctorSlotsHoldExpiresIdx").on(table.holdExpiresAt),
+    appointmentIdx: index("doctorSlotsAppointmentIdx").on(table.appointmentId),
+    slotUk: uniqueIndex("doctorSlotsDoctorTypeStartUk").on(
+      table.doctorId,
+      table.appointmentType,
+      table.startAt
+    ),
+  })
+);
+
+export type DoctorSlot = typeof doctorSlots.$inferSelect;
+export type InsertDoctorSlot = typeof doctorSlots.$inferInsert;
+
 /**
  * Consultation messages table - normalized history view model for UI read-only playback.
  */
@@ -355,6 +660,7 @@ export const appointments = pgTable(
   "appointments",
   {
     id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    slotId: integer("slotId"),
     sessionId: varchar("sessionId", { length: 64 }),
     triageSessionId: integer("triageSessionId")
       .notNull()
@@ -407,6 +713,7 @@ export const appointments = pgTable(
   },
   table => ({
     doctorIdx: index("appointmentsDoctorIdx").on(table.doctorId),
+    slotIdx: index("appointmentsSlotIdx").on(table.slotId),
     userIdx: index("appointmentsUserIdx").on(table.userId),
     sessionIdx: index("appointmentsSessionIdx").on(table.sessionId),
     triageSessionIdx: index("appointmentsTriageSessionIdx").on(table.triageSessionId),

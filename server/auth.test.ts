@@ -26,6 +26,9 @@ vi.mock("./modules/auth/repo", () => ({
   mergeGuestDataIntoFormalUser: vi.fn(),
   getFormalUserByEmail: vi.fn(),
 }));
+vi.mock("./modules/doctorAccounts/repo", () => ({
+  getActiveBindingByUserId: vi.fn(),
+}));
 
 vi.mock("./modules/appointments/repo", () => ({
   bindAppointmentsToUserByEmail: vi.fn(),
@@ -53,6 +56,7 @@ vi.mock("./_core/cookies", () => ({
 }));
 
 import * as authRepo from "./modules/auth/repo";
+import * as doctorAccountRepo from "./modules/doctorAccounts/repo";
 import * as appointmentsRepo from "./modules/appointments/repo";
 import { authRouter } from "./routers/auth";
 
@@ -138,6 +142,87 @@ describe("auth.verifyOtpAndMerge", () => {
       success: true,
       userId: 200,
       mergedGuestUserId: 100,
+    });
+  });
+});
+
+describe("auth.me", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns doctorBinding for authenticated formal users", async () => {
+    const ctx = createTestContext();
+    ctx.user = {
+      id: 42,
+      openId: "email_openid_42",
+      email: "doctor@example.com",
+      name: "Doctor",
+      isGuest: 0,
+      deviceId: null,
+      loginMethod: "otp",
+      role: "free",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastSignedIn: new Date(),
+    };
+
+    vi.mocked(doctorAccountRepo.getActiveBindingByUserId).mockResolvedValue({
+      id: 1,
+      doctorId: 11,
+      userId: 42,
+      email: "doctor@example.com",
+      status: "active",
+      boundAt: new Date("2026-03-16T10:00:00.000Z"),
+      revokedAt: null,
+      createdByUserId: 99,
+      updatedByUserId: 42,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never);
+
+    const caller = authRouter.createCaller(ctx);
+    const result = await caller.me();
+
+    expect(result).toMatchObject({
+      id: 42,
+      email: "doctor@example.com",
+      doctorBinding: {
+        doctorId: 11,
+        userId: 42,
+        email: "doctor@example.com",
+        status: "active",
+      },
+    });
+  });
+
+  it("returns the signed-in user when doctor binding lookup fails", async () => {
+    const ctx = createTestContext();
+    ctx.user = {
+      id: 43,
+      openId: "email_openid_43",
+      email: "patient@example.com",
+      name: "Patient",
+      isGuest: 0,
+      deviceId: null,
+      loginMethod: "otp",
+      role: "free",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastSignedIn: new Date(),
+    };
+
+    vi.mocked(doctorAccountRepo.getActiveBindingByUserId).mockRejectedValue(
+      new Error('relation "doctor_user_bindings" does not exist') as never
+    );
+
+    const caller = authRouter.createCaller(ctx);
+    const result = await caller.me();
+
+    expect(result).toMatchObject({
+      id: 43,
+      email: "patient@example.com",
+      doctorBinding: null,
     });
   });
 });

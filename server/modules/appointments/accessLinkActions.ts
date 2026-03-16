@@ -5,6 +5,7 @@ import { setCachedPatientAccessToken } from "./tokenCache";
 import { buildAppointmentAccessLink } from "./linkService";
 import * as appointmentsRepo from "./repo";
 import { issueAppointmentAccessLinks } from "./tokenService";
+import { resolveBoundDoctorIdForUser } from "../doctorAccounts/actions";
 import {
   assertAppointmentBelongsToCurrentUser,
   getAppointmentByIdOrThrow,
@@ -162,6 +163,30 @@ export async function issueAccessLinksForAppointmentById(input: {
   return issueAccessLinksForAppointment({
     appointment,
     createdBy: input.createdBy,
+  });
+}
+
+export async function issueAccessLinksForDoctorUserByAppointmentId(input: {
+  appointmentId: number;
+  userId: number;
+  userRole?: string | null;
+}) {
+  const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
+  const doctorId = await resolveBoundDoctorIdForUser({
+    userId: input.userId,
+    userRole: input.userRole,
+  });
+
+  if (appointment.doctorId !== doctorId) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Appointment does not belong to the current doctor workbench",
+    });
+  }
+
+  return issueAccessLinksForAppointment({
+    appointment,
+    createdBy: `doctor:${input.userId}`,
   });
 }
 

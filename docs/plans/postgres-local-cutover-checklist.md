@@ -14,6 +14,7 @@ Use this checklist to validate the PostgreSQL migration in local or test environ
   - `pnpm exec tsx scripts/repair-migration-history.ts`
   - `pnpm db:migrate`
   - `pnpm db:verify:migrations`
+- `pnpm db:verify:migrations` 现在会同时检查 `doctor_user_bindings`、`doctor_account_invites` 及其关键索引。
 - Do not run the archived MySQL SQL migration files directly against PostgreSQL.
 
 ## 2. Seed and Backfill

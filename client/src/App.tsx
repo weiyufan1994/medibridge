@@ -13,6 +13,8 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { LanguageProvider, useLanguage } from "./contexts/LanguageContext";
 import Home from "./pages/Home";
 import DoctorDetail from "./pages/DoctorDetail";
+import DoctorClaimInvitePage from "./pages/DoctorClaimInvite";
+import DoctorWorkbenchPage from "./pages/DoctorWorkbench";
 import Hospitals from "./pages/Hospitals";
 import AITriagePage from "./pages/AITriage";
 import DashboardPage from "./pages/Dashboard";
@@ -27,6 +29,10 @@ import { getDashboardCopy } from "@/features/dashboard/copy";
 
 function parseMagicLinkTokenFromUrl(): string | null {
   if (typeof window === "undefined") {
+    return null;
+  }
+
+  if (!/^\/appointment\/\d+$/.test(window.location.pathname)) {
     return null;
   }
 
@@ -92,6 +98,9 @@ function Router() {
       <Route path={"/payment/cancel"} component={PaymentCancelPage} />
       <Route path={"/mock-checkout/:bookingId"} component={MockCheckoutPage} />
       <Route path={"/visit/:id"} component={VisitRoomPage} />
+      <Route path={"/doctor/claim"} component={DoctorClaimInvitePage} />
+      <Route path={"/doctor/workbench"} component={DoctorWorkbenchPage} />
+      <Route path={"/doctor/:id/workbench"} component={DoctorWorkbenchPage} />
       <Route path={"/doctor/:id"} component={DoctorDetail} />
       <Route path={"/hospitals"} component={Hospitals} />
       <Route path={"/__dev__/components"} component={ComponentShowcase} />

@@ -24,6 +24,7 @@
     "retention:cleanup": "tsx scripts/run-retention-cleanup.ts",
     "retention:cleanup:dry-run": "tsx scripts/run-retention-cleanup.ts --dry-run",
     "import:doctors": "tsx scripts/import-doctors.mjs",
+    "import:triage-knowledge": "tsx scripts/import-triage-knowledge.ts",
     "vectorize:doctors": "tsx scripts/vectorize-doctors.mjs",
     "translate:bilingual": "tsx scripts/translate-bilingual.ts",
     "verify:doctors:postgres": "tsx scripts/verify-doctors-postgres.ts",

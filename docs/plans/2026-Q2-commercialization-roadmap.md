@@ -45,6 +45,22 @@
 - 患者按 slot 预约
 - 医生工作台 MVP
 
+实施补充：
+
+- 医生工作台访问不再依赖裸 `doctorId` URL，而是依赖后台邀请建立的医生身份绑定
+- 统一邮箱 OTP 登录继续保留，不引入单独的医生密码体系
+- 首版由 admin / ops 单个发送医生工作台邀请
+- 医生通过邀请链接登录后 claim 身份，再进入 `/doctor/workbench`
+- 后续如医生规模扩大，可在不改绑定模型的前提下补 CSV 批量邀请
+
+实施顺序：
+
+1. 新增 `doctor_account_invites` 与 `doctor_user_bindings`
+2. 完成后台邀请、重发、取消、撤销绑定接口
+3. 完成医生 claim flow 和 `/doctor/workbench` 授权改造
+4. 在 admin console 增加医生账号开通 UI
+5. 同步更新 roadmap、权限边界和 workbench 文档
+
 ### Stream B: 医疗安全与风控
 
 目标：把 AI 分诊从“可用”升级为“有安全边界”。

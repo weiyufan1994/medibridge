@@ -489,6 +489,7 @@ async function revokeOldActiveTokensBeyondLimit(input: {
 }
 
 export async function createAppointmentDraft(input: {
+  slotId?: number | null;
   doctorId: number;
   triageSessionId: number;
   appointmentType: "online_chat" | "video_call" | "in_person";
@@ -499,15 +500,14 @@ export async function createAppointmentDraft(input: {
   userId?: number | null;
   sessionId?: string;
   notes?: string | null;
+  dbExecutor?: DbExecutor;
 }) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
+  const db = await resolveDbExecutor(input.dbExecutor);
 
   const rows = await db
     .insert(appointments)
     .values({
+      slotId: input.slotId ?? null,
       doctorId: input.doctorId,
       triageSessionId: input.triageSessionId,
       appointmentType: input.appointmentType,
@@ -867,19 +867,21 @@ export async function tryMarkPaidByStripeSessionId(input: {
   return transitioned.ok ? 1 : 0;
 }
 export async function findLatestAppointmentIdByLookup(lookup: {
+  slotId?: number | null;
   doctorId: number;
   email: string;
   scheduledAt: Date;
   triageSessionId: number;
   status?: AppointmentStatus;
   paymentStatus?: PaymentStatus;
+  dbExecutor?: DbExecutor;
 }) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
+  const db = await resolveDbExecutor(lookup.dbExecutor);
 
   let whereClause = and(
+    typeof lookup.slotId === "number"
+      ? eq(appointments.slotId, lookup.slotId)
+      : isNull(appointments.slotId),
     eq(appointments.doctorId, lookup.doctorId),
     eq(appointments.email, lookup.email),
     eq(appointments.scheduledAt, lookup.scheduledAt),
@@ -975,6 +977,23 @@ export async function listAppointmentsByEmail(email: string) {
     .from(appointments)
     .where(eq(appointments.email, email))
     .orderBy(desc(appointments.createdAt), desc(appointments.id));
+}
+
+export async function listAppointmentsByDoctor(input: {
+  doctorId: number;
+  limit: number;
+}) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  return db
+    .select()
+    .from(appointments)
+    .where(eq(appointments.doctorId, input.doctorId))
+    .orderBy(asc(appointments.scheduledAt), desc(appointments.createdAt), desc(appointments.id))
+    .limit(input.limit);
 }
 
 export async function listAppointmentsForAdmin(input: {

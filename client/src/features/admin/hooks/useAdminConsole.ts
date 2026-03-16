@@ -105,6 +105,7 @@ export function useAdminConsole({
   tr,
 }: UseAdminConsoleParams): UseAdminConsoleResult {
   const [emailQuery, setEmailQuery] = useState("");
+  const [userSearchQuery, setUserSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
   const [page, setPage] = useState(1);
@@ -339,6 +340,12 @@ export function useAdminConsole({
     },
     { enabled: canReadAdmin }
   );
+  const triageRiskEventsQuery = trpc.system.adminTriageRiskEvents.useQuery(
+    {
+      limit: 50,
+    },
+    { enabled: canReadAdmin }
+  );
   const metricsQuery = trpc.system.metrics.useQuery(undefined, { enabled: canReadAdmin });
   const appointmentDetailQuery = trpc.system.adminAppointmentDetail.useQuery(
     { appointmentId: selectedAppointmentId ?? 0 },
@@ -354,6 +361,13 @@ export function useAdminConsole({
   const hospitalsQuery = trpc.system.adminHospitals.useQuery(undefined, {
     enabled: canReadAdmin,
   });
+  const adminUsersQuery = trpc.system.adminUsers.useQuery(
+    {
+      emailQuery: userSearchQuery.trim() || undefined,
+      limit: 50,
+    },
+    { enabled: canReadAdmin && canMutateAdmin }
+  );
   const retentionAuditsQuery = trpc.system.adminRetentionCleanupAudits.useQuery(
     { limit: 20 },
     { enabled: canReadAdmin }
@@ -435,14 +449,17 @@ export function useAdminConsole({
       appointmentsQuery.refetch(),
       operationAuditQuery.refetch(),
       triageQuery.refetch(),
+      triageRiskEventsQuery.refetch(),
       metricsQuery.refetch(),
       selectedAppointmentId ? appointmentDetailQuery.refetch() : Promise.resolve(),
       selectedAppointmentId ? visitSummaryQuery.refetch() : Promise.resolve(),
       hospitalsQuery.refetch(),
+      adminUsersQuery.refetch(),
       retentionPoliciesQuery.refetch(),
       retentionAuditsQuery.refetch(),
     ]);
   }, [
+    adminUsersQuery,
     appointmentDetailQuery,
     appointmentsQuery,
     hospitalsQuery,
@@ -452,6 +469,7 @@ export function useAdminConsole({
     retentionPoliciesQuery,
     selectedAppointmentId,
     triageQuery,
+    triageRiskEventsQuery,
     visitSummaryQuery,
   ]);
 
@@ -537,6 +555,15 @@ export function useAdminConsole({
     onSuccess: async () => {
       toast.success(tr("保留策略已更新。", "Retention policy updated."));
       await retentionPoliciesQuery.refetch();
+    },
+    onError: error => {
+      toast.error(toUiError(error.message));
+    },
+  });
+  const updateUserRoleMutation = trpc.system.adminUpdateUserRole.useMutation({
+    onSuccess: async () => {
+      toast.success(tr("用户权限已更新。", "User role updated."));
+      await adminUsersQuery.refetch();
     },
     onError: error => {
       toast.error(toUiError(error.message));
@@ -1127,6 +1154,8 @@ export function useAdminConsole({
   };
 
   return {
+    userSearchQuery,
+    setUserSearchQuery,
     emailQuery,
     setEmailQuery,
     page,
@@ -1180,6 +1209,7 @@ export function useAdminConsole({
     paymentStatusOptions,
     appointmentsQuery,
     triageQuery,
+    triageRiskEventsQuery,
     metricsQuery,
     appointmentDetailQuery,
     visitSummaryQuery,
@@ -1203,6 +1233,7 @@ export function useAdminConsole({
     canIssueAccessLinks,
     canNotifyFollowup,
     hospitalsQuery,
+    adminUsersQuery,
     refreshAdminData,
     resendPaymentMutation,
     resendAccessLinkMutation,
@@ -1221,6 +1252,7 @@ export function useAdminConsole({
     generateSummaryMutation,
     exportSummaryPdfMutation,
     updateRetentionPolicyMutation,
+    updateUserRoleMutation,
     runRetentionCleanupMutation,
     batchAppointmentsMutation: {
       isPending: adminBatchMutation.isPending,

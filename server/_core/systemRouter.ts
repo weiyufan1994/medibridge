@@ -19,6 +19,7 @@ import { sendMagicLinkEmail } from "./mailer";
 import { setCachedPatientAccessToken } from "../modules/appointments/tokenCache";
 import * as visitRepo from "../modules/visit/repo";
 import * as adminRepo from "../modules/admin/repo";
+import * as schedulingRepo from "../modules/scheduling/repo";
 import { generateBilingualVisitSummary } from "../modules/admin/visitSummary";
 import { renderSimpleTextPdf } from "../modules/admin/pdf";
 import { storagePut } from "../storage";
@@ -147,10 +148,25 @@ const adminOperationAuditInputSchema = z.object({
   to: z.coerce.date().optional(),
 });
 
+const adminUsersInputSchema = z.object({
+  emailQuery: z.string().trim().max(320).optional(),
+  limit: z.number().int().min(1).max(200).optional().default(50),
+});
+
+const adminUserRoleSchema = z.enum(["free", "pro", "admin", "ops"]);
+
+const adminUpdateUserRoleSchema = z.object({
+  userId: z.number().int().positive(),
+  role: adminUserRoleSchema,
+});
+
 const adminTriageSessionsInputSchema = z.object({
   limit: z.number().int().min(1).max(200).optional().default(50),
   status: z.enum(["active", "completed"]).optional(),
   userId: z.number().int().positive().optional(),
+});
+const adminTriageRiskEventsInputSchema = z.object({
+  limit: z.number().int().min(1).max(200).optional().default(50),
 });
 
 const adminAppointmentDetailInputSchema = z.object({
@@ -434,6 +450,40 @@ export const systemRouter = router({
         sortBy: input.sortBy,
         sortDirection: input.sortDirection,
       });
+    }),
+
+  adminUsers: adminProcedure
+    .input(adminUsersInputSchema)
+    .query(async ({ input }) => {
+      return adminRepo.listAdminUsers({
+        emailQuery: input.emailQuery,
+        limit: input.limit,
+      });
+    }),
+
+  adminUpdateUserRole: adminProcedure
+    .input(adminUpdateUserRoleSchema)
+    .mutation(async ({ input, ctx }) => {
+      if (ctx.user.id === input.userId && input.role !== "admin") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You cannot remove your own admin role",
+        });
+      }
+
+      const updated = await adminRepo.updateAdminUserRole({
+        userId: input.userId,
+        role: input.role,
+      });
+
+      if (!updated) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "User not found",
+        });
+      }
+
+      return updated;
     }),
 
   adminBatchAppointmentsAction: adminOrOpsProcedure
@@ -765,6 +815,9 @@ export const systemRouter = router({
               actorRole,
             },
           });
+          await schedulingRepo.releaseHeldSlotByAppointmentId({
+            appointmentId: event.appointmentId,
+          });
           return { ok: true, skipped: false, action: result.action, eventId: event.eventId } as const;
         }
 
@@ -801,6 +854,9 @@ export const systemRouter = router({
               idempotencyKey: replayKey,
               actorRole,
             },
+          });
+          await schedulingRepo.releaseHeldSlotByAppointmentId({
+            appointmentId: event.appointmentId,
           });
           return { ok: true, skipped: false, action: result.action, eventId: event.eventId } as const;
         }
@@ -1143,6 +1199,32 @@ export const systemRouter = router({
         status: input.status,
         userId: input.userId,
       });
+    }),
+
+  adminTriageRiskEvents: adminOrOpsProcedure
+    .input(adminTriageRiskEventsInputSchema)
+    .query(async ({ input }) => {
+      const [events, flags] = await Promise.all([
+        aiRepo.listTriageRiskEventsForAdmin(input.limit),
+        aiRepo.listLatestKnowledgeFlagsForAdmin(input.limit * 2),
+      ]);
+
+      const latestKnowledgeTraceBySessionId = new Map<number, unknown>();
+      for (const flag of flags) {
+        if (latestKnowledgeTraceBySessionId.has(flag.sessionId)) {
+          continue;
+        }
+        try {
+          latestKnowledgeTraceBySessionId.set(flag.sessionId, JSON.parse(flag.flagValue));
+        } catch {
+          latestKnowledgeTraceBySessionId.set(flag.sessionId, null);
+        }
+      }
+
+      return events.map(event => ({
+        ...event,
+        knowledgeTrace: latestKnowledgeTraceBySessionId.get(event.sessionId) ?? null,
+      }));
     }),
 
   adminAppointmentDetail: adminOrOpsProcedure

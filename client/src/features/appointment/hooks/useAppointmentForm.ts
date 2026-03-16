@@ -36,15 +36,6 @@ export function useAppointmentForm({
   triagePrefill,
   onBooked,
 }: UseAppointmentFormParams) {
-  const toLocalDateTimeValue = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const hour = String(date.getHours()).padStart(2, "0");
-    const minute = String(date.getMinutes()).padStart(2, "0");
-    return `${year}-${month}-${day}T${hour}:${minute}`;
-  };
-
   const t = getAppointmentCopy(resolved);
   const utils = trpc.useUtils();
   const meQuery = trpc.auth.me.useQuery(undefined, {
@@ -56,6 +47,7 @@ export function useAppointmentForm({
   const [bookingOtpCode, setBookingOtpCode] = useState("");
   const [otpRequestedEmail, setOtpRequestedEmail] = useState("");
   const [otpCooldownSeconds, setOtpCooldownSeconds] = useState(0);
+  const [bookingSlotId, setBookingSlotId] = useState<number | null>(null);
   const [bookingScheduledAt, setBookingScheduledAt] = useState("");
   const [bookingType, setBookingType] = useState<AppointmentType>("online_chat");
   const [bookingPackageId, setBookingPackageId] =
@@ -77,13 +69,6 @@ export function useAppointmentForm({
   );
 
   useEffect(() => {
-    if (!open || !doctorId) return;
-
-    const defaultDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    setBookingScheduledAt(toLocalDateTimeValue(defaultDate));
-  }, [open, doctorId]);
-
-  useEffect(() => {
     if (otpCooldownSeconds <= 0) {
       return;
     }
@@ -100,6 +85,8 @@ export function useAppointmentForm({
       setBookingOtpCode("");
       setOtpRequestedEmail("");
       setOtpCooldownSeconds(0);
+      setBookingSlotId(null);
+      setBookingScheduledAt("");
       setBookingType("online_chat");
       setBookingPackageId("chat_standard_60m");
       setIntake({ ...EMPTY_APPOINTMENT_INTAKE });
@@ -178,7 +165,7 @@ export function useAppointmentForm({
     verifyOtpMutation.isPending || createAppointmentMutation.isPending;
 
   const handleCreateBooking = async () => {
-    if (!doctorId || !createEmail || !bookingScheduledAt.trim()) {
+    if (!doctorId || !createEmail || !bookingScheduledAt.trim() || !bookingSlotId) {
       toast.error(t.bookingInvalid);
       return;
     }
@@ -230,10 +217,10 @@ export function useAppointmentForm({
 
         await createAppointmentMutation.mutateAsync({
           doctorId,
+          slotId: bookingSlotId,
           triageSessionId,
           appointmentType: bookingType,
           packageId: bookingPackageId,
-          scheduledAt: new Date(bookingScheduledAt).toISOString(),
           contact: {
             email: createEmail,
           },
@@ -247,10 +234,10 @@ export function useAppointmentForm({
     }
     await createAppointmentMutation.mutateAsync({
       doctorId,
+      slotId: bookingSlotId,
       triageSessionId,
       appointmentType: bookingType,
       packageId: bookingPackageId,
-      scheduledAt: new Date(bookingScheduledAt).toISOString(),
       contact: {
         email: createEmail,
       },
@@ -269,6 +256,7 @@ export function useAppointmentForm({
   };
 
   return {
+    bookingSlotId,
     bookingEmail,
     bookingOtpCode,
     isLoggedInWithEmail,
@@ -285,6 +273,7 @@ export function useAppointmentForm({
     packagesLoading: packagesQuery.isLoading,
     intake,
     createAppointmentMutation,
+    setBookingSlotId,
     setBookingEmail,
     setBookingOtpCode,
     setBookingScheduledAt,

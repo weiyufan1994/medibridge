@@ -29,7 +29,7 @@
 当前推荐规则是：
 
 - brand-new PostgreSQL 数据库：直接使用 `pnpm db:migrate`
-- `pnpm db:verify:migrations`：用于校验 baseline、seed migration、关键表和默认数据
+- `pnpm db:verify:migrations`：用于校验 baseline、seed migration、关键表、关键索引和默认数据
 - 旧 MySQL SQL：只作为归档保留，不再参与 PostgreSQL 主流程
 
 ## Team Rule
@@ -42,3 +42,8 @@
   - `pnpm exec tsx scripts/repair-migration-history.ts`
   - `pnpm db:migrate`
   - `pnpm db:verify:migrations`
+
+## Important Note
+
+- `repair-migration-history.ts` 只对齐 `drizzle.__drizzle_migrations` 记录，不会补建缺失表。
+- 如果 migration history 已显示某条 migration 已应用，但 `pnpm db:verify:migrations` 仍报缺表或缺索引，需要补执行缺失 migration 的 SQL，再重新校验。

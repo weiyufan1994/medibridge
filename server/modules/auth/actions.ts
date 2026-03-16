@@ -7,6 +7,7 @@ import { sdk } from "../../_core/sdk";
 import * as appointmentsRepo from "../appointments/repo";
 import { validateAppointmentAccessToken } from "../appointments/tokenValidation";
 import * as authRepo from "./repo";
+import * as doctorAccountRepo from "../doctorAccounts/repo";
 import type { RequestOtpInput, VerifyMagicLinkInput, VerifyOtpInput } from "./schemas";
 
 const OTP_TTL_MS = 10 * 60 * 1000;
@@ -82,8 +83,36 @@ async function setSessionCookieByUser(input: {
   input.res.cookie(COOKIE_NAME, sessionToken, cookieOptions);
 }
 
-export function getMeUser(user: TrpcContext["user"]): TrpcContext["user"] {
-  return user;
+export async function getMeUser(user: TrpcContext["user"]) {
+  if (!user) {
+    return null;
+  }
+
+  let doctorBinding = null;
+  if (user.isGuest === 0) {
+    try {
+      doctorBinding = await doctorAccountRepo.getActiveBindingByUserId(user.id);
+    } catch (error) {
+      console.warn(
+        `[Auth] Failed to load doctor binding for user ${user.id}:`,
+        error
+      );
+    }
+  }
+
+  return {
+    ...user,
+    doctorBinding: doctorBinding
+      ? {
+          doctorId: doctorBinding.doctorId,
+          userId: doctorBinding.userId,
+          email: doctorBinding.email,
+          status: doctorBinding.status,
+          boundAt: doctorBinding.boundAt ?? null,
+          revokedAt: doctorBinding.revokedAt ?? null,
+        }
+      : null,
+  };
 }
 
 export function requestOtpAction(input: RequestOtpInput) {

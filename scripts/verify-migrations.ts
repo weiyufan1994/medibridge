@@ -2,6 +2,12 @@ import "../server/_core/loadEnv";
 import fs from "node:fs";
 import path from "node:path";
 import { Pool } from "pg";
+import {
+  REQUIRED_COLUMNS,
+  REQUIRED_INDEXES,
+  REQUIRED_TABLES,
+  validateRequiredArtifacts,
+} from "./verify-migrations-core";
 
 type JournalEntry = {
   idx: number;
@@ -81,43 +87,40 @@ async function verify() {
       `select table_name as "tableName"
        from information_schema.tables
        where table_schema = current_schema()
-         and table_name in ('appointment_visit_summaries','visit_retention_policies','retention_cleanup_audits')
-       order by table_name`
+         and table_name = any($1::text[])
+       order by table_name`,
+      [REQUIRED_TABLES]
     );
-    const existingTables = new Set(
-      tableRows.rows.map(row => row.tableName)
-    );
-    const missingTables = [
-      "appointment_visit_summaries",
-      "visit_retention_policies",
-      "retention_cleanup_audits",
-    ].filter(name => !existingTables.has(name));
-    if (missingTables.length > 0) {
-      throw new Error(`Missing required tables: ${missingTables.join(", ")}`);
-    }
 
     const indexRows = await pool.query<{ indexName: string }>(
       `select indexname as "indexName"
        from pg_indexes
        where schemaname = current_schema()
-         and tablename = 'appointmentMessages'
-         and indexname = 'appointmentMessagesAppointmentCreatedAtIdx'`
+         and indexname = any($1::text[])
+       order by indexname`,
+      [REQUIRED_INDEXES]
     );
-    if (indexRows.rows.length === 0) {
-      throw new Error("Missing required index: appointmentMessagesAppointmentCreatedAtIdx");
-    }
 
-    const departmentUrlRows = await pool.query<{ columnName: string }>(
-      `select column_name as "columnName"
+    const requiredColumnTables = Array.from(
+      new Set(REQUIRED_COLUMNS.map(column => column.tableName))
+    );
+    const requiredColumnNames = Array.from(
+      new Set(REQUIRED_COLUMNS.map(column => column.columnName))
+    );
+    const columnRows = await pool.query<{ tableName: string; columnName: string }>(
+      `select table_name as "tableName", column_name as "columnName"
        from information_schema.columns
        where table_schema = current_schema()
-         and table_name = 'departments'
-         and column_name = 'url'
-       limit 1`
+         and table_name = any($1::text[])
+         and column_name = any($2::text[])`,
+      [requiredColumnTables, requiredColumnNames]
     );
-    if (departmentUrlRows.rows.length === 0) {
-      throw new Error("Missing required column: departments.url");
-    }
+
+    validateRequiredArtifacts({
+      tableNames: tableRows.rows.map(row => row.tableName),
+      indexNames: indexRows.rows.map(row => row.indexName),
+      columns: columnRows.rows,
+    });
 
     const retentionRows = await pool.query<{ count: string }>(
       "select count(*) as count from visit_retention_policies"
@@ -134,7 +137,7 @@ async function verify() {
         "- warning: __drizzle_migrations count is behind local journal, but required schema artifacts exist."
       );
     }
-    console.log("- required tables/index: present");
+    console.log("- required tables/index/columns: present");
     console.log(`- retention policies rows: ${retentionCount}`);
     console.log(`- required tags: ${Array.from(requiredTagSet).join(", ")}`);
     if (migrationDrift) {

@@ -22,6 +22,14 @@ export interface TriageResponse {
 }
 
 export type TriageLang = "en" | "zh";
+export type TriageKnowledgeContext = {
+  snippets: Array<{
+    title: string;
+    content: string;
+    riskCodes: string[];
+    specialtyTags: string[];
+  }>;
+};
 
 type JsonSchema = {
   name: string;
@@ -111,6 +119,29 @@ Behavior requirements:
      age (number or null),
      urgency (low/medium/high).
 5) Return JSON only. No markdown, no code block, no extra keys.`;
+
+const formatKnowledgeContext = (
+  knowledgeContext: TriageKnowledgeContext | undefined,
+  lang: TriageLang
+) => {
+  if (!knowledgeContext || knowledgeContext.snippets.length === 0) {
+    return "";
+  }
+
+  const intro =
+    lang === "zh"
+      ? "以下是仅供分诊参考的内部知识片段。你只能在追问、摘要、关键词和 urgency 辅助判断中参考它们，不能据此做最终诊断，也不能决定是否中断。"
+      : "Below are internal triage knowledge snippets. Use them only to improve follow-up questions, summary quality, keyword stability, and urgency guidance. Do not make a final diagnosis and do not decide interruption.";
+
+  const snippets = knowledgeContext.snippets
+    .map(
+      (snippet, index) =>
+        `#${index + 1} ${snippet.title}\n${snippet.content}\nRisk codes: ${snippet.riskCodes.join(", ") || "none"}\nSpecialty tags: ${snippet.specialtyTags.join(", ") || "none"}`
+    )
+    .join("\n\n");
+
+  return `${intro}\n\n${snippets}`;
+};
 
 const TRIAGE_FALLBACK_REPLY_ZH =
   "我已收到你的信息。为更准确匹配医生，请补充：主要不适部位、持续时间，以及是否有既往病史或正在用药。";
@@ -216,7 +247,8 @@ const extractAssistantText = (
 
 export async function processTriageChat(
   messages: TriageChatMessage[],
-  lang: TriageLang = "en"
+  lang: TriageLang = "en",
+  knowledgeContext?: TriageKnowledgeContext
 ): Promise<TriageResponse> {
   const sanitizedHistory = messages
     .filter(
@@ -239,7 +271,12 @@ export async function processTriageChat(
       messages: [
         {
           role: "system",
-          content: lang === "zh" ? TRIAGE_SYSTEM_PROMPT_ZH : TRIAGE_SYSTEM_PROMPT_EN,
+          content: [
+            lang === "zh" ? TRIAGE_SYSTEM_PROMPT_ZH : TRIAGE_SYSTEM_PROMPT_EN,
+            formatKnowledgeContext(knowledgeContext, lang),
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
         },
         ...sanitizedHistory,
       ],

@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import type { Request } from "express";
 import { z } from "zod";
 import * as aiRepo from "../ai/repo";
+import * as schedulingRepo from "../scheduling/repo";
 import {
   createAppointmentCheckoutFlow,
   resolveCreateInputToStoredEmail,
@@ -92,12 +93,26 @@ export async function prepareCreateV2Checkout(input: {
     });
   }
 
-  const appointmentType = input.createInput.appointmentType ?? "online_chat";
-  const scheduledAt = input.createInput.scheduledAt ?? new Date(Date.now() + 10 * 60 * 1000);
+  const slot = await schedulingRepo.getSlotById(input.createInput.slotId);
+  if (!slot) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Selected slot not found",
+    });
+  }
+  if (slot.doctorId !== input.createInput.doctorId) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Slot doctor does not match appointment doctor",
+    });
+  }
+
+  const appointmentType = input.createInput.appointmentType ?? slot.appointmentType;
   return {
+    slotId: slot.id,
     triageSessionId,
     appointmentType,
-    scheduledAt,
+    scheduledAt: slot.startAt,
     email,
     sessionId: input.createInput.sessionId,
     selectedPackage: resolveAppointmentPackage({
@@ -147,6 +162,7 @@ export async function createCheckoutFromCreateV2Input(input: {
   });
 
   return createAppointmentCheckoutFlow({
+    slotId: prepared.slotId,
     doctorId: input.createInput.doctorId,
     triageSessionId: prepared.triageSessionId,
     appointmentType: prepared.appointmentType,

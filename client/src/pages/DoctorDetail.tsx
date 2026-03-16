@@ -125,6 +125,13 @@ export default function DoctorDetail() {
           </nav>
 
           <section className="flex flex-col gap-4 mt-4">
+            <div className="flex justify-end">
+              <Link href="/doctor/workbench">
+                <Button variant="outline">
+                  {resolved === "zh" ? "医生工作台" : "Doctor Workbench"}
+                </Button>
+              </Link>
+            </div>
             <DoctorDetailContent
               data={data}
               resolved={resolved}

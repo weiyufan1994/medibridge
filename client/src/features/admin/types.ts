@@ -48,8 +48,24 @@ export type NotifyDoctorFollowupMutation = SimpleMutation;
 
 export type UpdateRetentionPolicyMutation = SimpleMutation;
 
+export type AdminUserRole = "free" | "pro" | "admin" | "ops";
+
+export type UpdateUserRoleMutation = SimpleMutation & {
+  mutate: (input: { userId: number; role: AdminUserRole }) => void;
+};
+
 export type RunRetentionCleanupMutation = SimpleMutation & {
   mutate: (input: { dryRun: boolean }) => void;
+};
+
+export type AdminUserItem = {
+  id: number;
+  email: string | null;
+  name: string | null;
+  role: AdminUserRole;
+  loginMethod: string | null;
+  lastSignedIn: Date | string;
+  createdAt: Date | string;
 };
 
 export type AdminHospital = {
@@ -186,6 +202,23 @@ export type AdminTriageSessionItem = {
   updatedAt: Date | string;
 };
 
+export type AdminTriageRiskEventItem = {
+  id: number;
+  sessionId: number;
+  messageId: number | null;
+  riskCode: string;
+  severity: string;
+  recommendedAction: string;
+  triggerSource: string;
+  rawExcerpt: string | null;
+  createdAt: Date | string;
+  knowledgeTrace: {
+    mode?: string;
+    queryTerms?: string[];
+    documentTitles?: string[];
+  } | null;
+};
+
 export type AdminMetricsData = {
   generatedAt?: string;
   counters?: unknown[];
@@ -248,6 +281,8 @@ export type UseAdminConsoleResult = {
   canResendAccessLink: boolean;
   canIssueAccessLinks: boolean;
   canNotifyFollowup: boolean;
+  userSearchQuery: string;
+  setUserSearchQuery: (value: string) => void;
   emailQuery: string;
   setEmailQuery: (value: string) => void;
   page: number;
@@ -305,12 +340,14 @@ export type UseAdminConsoleResult = {
   paymentStatusOptions: readonly string[];
   appointmentsQuery: QueryState<AdminAppointmentListResult | null>;
   triageQuery: QueryState<AdminTriageSessionItem[]>;
+  triageRiskEventsQuery: QueryState<AdminTriageRiskEventItem[]>;
   metricsQuery: QueryState<AdminMetricsData>;
   appointmentDetailQuery: QueryState<AppointmentDetailData>;
   visitSummaryQuery: VisitSummaryQuery;
   retentionPoliciesQuery: QueryState<AdminRetentionPolicy[]>;
   retentionAuditsQuery: QueryState<AdminRetentionAudit[]>;
   hospitalsQuery: QueryState<AdminHospital[]>;
+  adminUsersQuery: QueryState<AdminUserItem[]>;
   operationAuditQuery: QueryState<AdminOperationAuditResult | null>;
   operationAuditPage: number;
   setOperationAuditPage: (value: number) => void;
@@ -334,6 +371,7 @@ export type UseAdminConsoleResult = {
   generateSummaryMutation: GenerateSummaryMutation;
   exportSummaryPdfMutation: ExportSummaryPdfMutation;
   updateRetentionPolicyMutation: UpdateRetentionPolicyMutation;
+  updateUserRoleMutation: UpdateUserRoleMutation;
   runRetentionCleanupMutation: RunRetentionCleanupMutation;
   selectedAppointmentIds: number[];
   selectedCount: number;

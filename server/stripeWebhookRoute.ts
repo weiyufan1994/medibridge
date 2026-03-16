@@ -7,6 +7,7 @@ import {
 import { settleStripePaymentBySessionId } from "./modules/payments/settlement";
 import { getDb } from "./db";
 import * as appointmentsRepo from "./modules/appointments/repo";
+import * as schedulingRepo from "./modules/scheduling/repo";
 import { APPOINTMENT_INVALID_TRANSITION_ERROR } from "./modules/appointments/stateMachine";
 import { incrementMetric } from "./_core/metrics";
 import { isDuplicateDbError } from "./_core/dbCompat";
@@ -173,7 +174,7 @@ export async function handleStripeWebhook(req: Request, res: Response) {
       }
 
       if (event.type === "checkout.session.expired" && stripeSessionId) {
-        await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
+        const expired = await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
           stripeSessionId,
           allowedFrom: ["pending_payment"],
           toStatus: "expired",
@@ -183,11 +184,20 @@ export async function handleStripeWebhook(req: Request, res: Response) {
           payloadJson: { eventId: event.id },
           dbExecutor: tx,
         });
+        if (expired.ok) {
+          const appointment = await appointmentsRepo.getAppointmentByStripeSessionId(stripeSessionId, tx);
+          if (appointment) {
+            await schedulingRepo.releaseHeldSlotByAppointmentId({
+              appointmentId: appointment.id,
+              dbExecutor: tx,
+            });
+          }
+        }
         return;
       }
 
       if (event.type === "payment_intent.payment_failed" && stripeSessionId) {
-        await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
+        const failed = await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
           stripeSessionId,
           allowedFrom: ["pending_payment"],
           toStatus: "canceled",
@@ -197,6 +207,15 @@ export async function handleStripeWebhook(req: Request, res: Response) {
           payloadJson: { eventId: event.id },
           dbExecutor: tx,
         });
+        if (failed.ok) {
+          const appointment = await appointmentsRepo.getAppointmentByStripeSessionId(stripeSessionId, tx);
+          if (appointment) {
+            await schedulingRepo.releaseHeldSlotByAppointmentId({
+              appointmentId: appointment.id,
+              dbExecutor: tx,
+            });
+          }
+        }
         return;
       }
 

@@ -697,29 +697,67 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                 {!isHistoryReadOnly && triageResult?.isComplete && (
                   <div className={getTriageResultContainerClass()}>
                     <div className="w-full max-w-[85%]">
-                      <TriageResultCard
-                        summary={effectiveSummary}
-                        onEdit={() => setIsEditSummaryOpen(true)}
-                        doctors={recommendedDoctors}
-                        isLoadingDoctors={recommendQuery.isFetching}
-                        resolved={resolved}
-                        labels={{
-                          summary: t.triage_card.summary,
-                          recommendedDoctors: t.triage_card.recommended_doctors,
-                          edit: t.common.edit,
-                          selectBook: t.common.select_book,
-                          viewProfile: t.common.view_profile,
-                        }}
-                        onViewProfile={doctor => setProfileDoctor(doctor)}
-                        onSelectDoctor={doctorId => {
-                          onSelectDoctor?.({
-                            doctorId,
-                            summary: effectiveSummary,
-                            keywords: triageResult?.keywords ?? [],
-                          });
-                          openBookingDialog(doctorId);
-                        }}
-                      />
+                      {triageResult.interrupted ? (
+                        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 shadow-md">
+                          <h4 className="text-base font-semibold text-rose-800">
+                            {resolved === "zh" ? "高风险症状已触发安全中断" : "High-risk symptoms triggered safety interruption"}
+                          </h4>
+                          <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-rose-700">
+                            {triageResult.reply}
+                          </p>
+                          {(triageResult.riskCodes ?? []).length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {(triageResult.riskCodes ?? []).map(code => (
+                                <Badge
+                                  key={code}
+                                  className="border-0 bg-rose-100 text-rose-800"
+                                >
+                                  {code}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                          <div className="mt-4 flex gap-2">
+                            <Button
+                              variant="outline"
+                              className="border-rose-200 bg-white text-rose-700 hover:bg-rose-100"
+                              onClick={() => setLocation("/")}
+                            >
+                              {resolved === "zh" ? "返回首页" : "Back to home"}
+                            </Button>
+                            <Button
+                              className="bg-rose-600 hover:bg-rose-700"
+                              onClick={() => setLocation("/hospitals")}
+                            >
+                              {resolved === "zh" ? "去预约医生" : "Find a doctor"}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <TriageResultCard
+                          summary={effectiveSummary}
+                          onEdit={() => setIsEditSummaryOpen(true)}
+                          doctors={recommendedDoctors}
+                          isLoadingDoctors={recommendQuery.isFetching}
+                          resolved={resolved}
+                          labels={{
+                            summary: t.triage_card.summary,
+                            recommendedDoctors: t.triage_card.recommended_doctors,
+                            edit: t.common.edit,
+                            selectBook: t.common.select_book,
+                            viewProfile: t.common.view_profile,
+                          }}
+                          onViewProfile={doctor => setProfileDoctor(doctor)}
+                          onSelectDoctor={doctorId => {
+                            onSelectDoctor?.({
+                              doctorId,
+                              summary: effectiveSummary,
+                              keywords: triageResult?.keywords ?? [],
+                            });
+                            openBookingDialog(doctorId);
+                          }}
+                        />
+                      )}
                     </div>
                   </div>
                 )}

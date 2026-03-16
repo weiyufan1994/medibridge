@@ -25,6 +25,18 @@ export const appointmentsRouter = router({
     .output(appointmentSchemas.listMyAppointmentsOutputSchema)
     .query(async ({ ctx }) => appointmentActions.listMyAppointmentsByContext(ctx)),
 
+  listDoctorWorkbench: protectedProcedure
+    .input(appointmentSchemas.listDoctorWorkbenchInputSchema)
+    .output(appointmentSchemas.listDoctorWorkbenchOutputSchema)
+    .query(async ({ input, ctx }) =>
+      appointmentActions.listDoctorWorkbenchAppointments({
+        doctorId: input.doctorId,
+        limit: input.limit,
+        currentUserId: ctx.user.id,
+        currentUserRole: ctx.user.role,
+      })
+    ),
+
   create: publicProcedure
     .input(appointmentSchemas.createInputSchema)
     .output(appointmentSchemas.createOutputSchema)
@@ -117,9 +129,10 @@ export const appointmentsRouter = router({
     .input(appointmentSchemas.issueLinksInputSchema)
     .output(appointmentSchemas.issueLinksOutputSchema)
     .mutation(async ({ input, ctx }) =>
-      appointmentActions.issueAccessLinksForAppointmentById({
+      appointmentActions.issueAccessLinksForDoctorUserByAppointmentId({
         appointmentId: input.appointmentId,
-        createdBy: `user:${ctx.user.id}`,
+        userId: ctx.user.id,
+        userRole: ctx.user.role,
       })
     ),
 

@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { appointments } from "../../../drizzle/schema";
 import * as appointmentsRepo from "./repo";
+import * as schedulingRepo from "../scheduling/repo";
 import { APPOINTMENT_INVALID_TRANSITION_ERROR } from "./stateMachine";
 import { getAppointmentByIdOrThrow } from "./accessValidation";
 
@@ -33,6 +34,9 @@ export async function cancelAppointmentByPatient(input: {
   await appointmentsRepo.revokeAppointmentTokens({
     appointmentId: appointment.id,
     reason: "appointment_canceled",
+  });
+  await schedulingRepo.releaseHeldSlotByAppointmentId({
+    appointmentId: appointment.id,
   });
 
   const updated = await appointmentsRepo.getAppointmentById(appointment.id);

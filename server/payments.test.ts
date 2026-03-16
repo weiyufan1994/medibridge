@@ -14,6 +14,10 @@ vi.mock("./modules/appointments/repo", () => ({
   revokeAppointmentTokens: vi.fn(),
   insertStatusEvent: vi.fn(),
 }));
+vi.mock("./modules/scheduling/repo", () => ({
+  bookHeldSlotByAppointmentId: vi.fn(),
+  releaseHeldSlotByAppointmentId: vi.fn(),
+}));
 
 vi.mock("./_core/mailer", () => ({
   sendMagicLinkEmail: vi.fn(),
@@ -32,6 +36,7 @@ vi.mock("./modules/payments/providerManager", () => ({
 }));
 
 import * as appointmentsRepo from "./modules/appointments/repo";
+import * as schedulingRepo from "./modules/scheduling/repo";
 import { sendMagicLinkEmail } from "./_core/mailer";
 import { issueAppointmentAccessLinks } from "./modules/appointments/tokenService";
 import { paymentsRouter, settleStripePaymentBySessionId } from "./routers/payments";
@@ -60,6 +65,9 @@ describe("payments router", () => {
     vi.clearAllMocks();
     clearTokenValidationStateForTests();
     process.env.APP_BASE_URL = "https://medibridge.test";
+    vi.mocked(schedulingRepo.bookHeldSlotByAppointmentId).mockResolvedValue({
+      id: 10,
+    } as never);
   });
 
   it("getCheckoutResult returns checkout summary by stripe session id without token", async () => {

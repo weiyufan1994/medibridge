@@ -20,6 +20,8 @@ export type ChatMessage = {
 export type TriageResult = {
   isComplete: boolean;
   reply: string;
+  interrupted?: boolean;
+  riskCodes?: string[];
   summary?: string;
   keywords?: string[];
   extraction?: {
@@ -208,7 +210,11 @@ export function useTriageChat({
     let activeSessionId = triageSessionId;
     if (!activeSessionId) {
       try {
-        const created = await createSessionMutation.mutateAsync();
+        const created = await createSessionMutation.mutateAsync({
+          consentAccepted: disclaimerAccepted,
+          consentVersion: "stream_b_v1",
+          lang: resolved,
+        });
         activeSessionId = String(created.sessionId);
         setTriageSessionId(activeSessionId);
         await syncSessionCreationState();
@@ -264,7 +270,11 @@ export function useTriageChat({
         });
       } catch (error) {
         if (error instanceof TRPCClientError && isSessionAccessDeniedError(error)) {
-          const recreated = await createSessionMutation.mutateAsync();
+          const recreated = await createSessionMutation.mutateAsync({
+            consentAccepted: disclaimerAccepted,
+            consentVersion: "stream_b_v1",
+            lang: resolved,
+          });
           const refreshedSessionId = String(recreated.sessionId);
           setTriageSessionId(refreshedSessionId);
           await syncSessionCreationState();
@@ -291,6 +301,8 @@ export function useTriageChat({
           urgency: "low" | "medium" | "high";
         };
         hitMessageLimit?: boolean;
+        interrupted?: boolean;
+        riskCodes?: string[];
       };
 
       const safeReply =
@@ -313,6 +325,12 @@ export function useTriageChat({
       setTriageResult({
         isComplete: Boolean(normalizedResult.isComplete),
         reply: safeReply,
+        interrupted: normalizedResult.interrupted === true,
+        riskCodes: Array.isArray(normalizedResult.riskCodes)
+          ? normalizedResult.riskCodes.filter(
+              item => typeof item === "string" && item.trim().length > 0
+            )
+          : undefined,
         summary:
           typeof normalizedResult.summary === "string" &&
           normalizedResult.summary.trim().length > 0

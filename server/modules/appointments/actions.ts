@@ -4,6 +4,7 @@ export {
 } from "./bookingActions";
 export {
   getAppointmentStatus,
+  listDoctorWorkbenchAppointments,
   listMineAppointments,
   listMyAppointmentsByContext,
 } from "./queryActions";
@@ -14,6 +15,7 @@ export {
 } from "./accessReadActions";
 export {
   issueAccessLinksForAppointmentById,
+  issueAccessLinksForDoctorUserByAppointmentId,
   openMyRoomForCurrentUserById,
   resendDoctorAccessLinkInDevById,
   resendPatientAccessLinkById,
