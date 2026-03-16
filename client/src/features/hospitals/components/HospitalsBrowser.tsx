@@ -73,6 +73,22 @@ type Props = {
   onBackToDepartments: () => void;
 };
 
+const getLocalizedFieldWithZhFallback = ({
+  lang,
+  zh,
+  en,
+}: {
+  lang: Lang;
+  zh?: string | null;
+  en?: string | null;
+}) =>
+  getLocalizedField({
+    lang,
+    zh,
+    en,
+    placeholder: zh ?? "",
+  });
+
 export function HospitalsBrowser({
   viewMode,
   selectedHospitalName,
@@ -107,17 +123,17 @@ export function HospitalsBrowser({
     }
 
     return hospitals.filter((hospital) => {
-      const hospitalName = getLocalizedField({
+      const hospitalName = getLocalizedFieldWithZhFallback({
         lang: resolved,
         zh: hospital.name,
         en: hospital.nameEn,
       });
-      const hospitalCity = getLocalizedField({
+      const hospitalCity = getLocalizedFieldWithZhFallback({
         lang: resolved,
         zh: hospital.city,
         en: hospital.cityEn,
       });
-      const hospitalLevel = getLocalizedField({
+      const hospitalLevel = getLocalizedFieldWithZhFallback({
         lang: resolved,
         zh: hospital.level,
         en: hospital.levelEn,
@@ -234,17 +250,17 @@ export function HospitalsBrowser({
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
             {filteredHospitals.map((hospital) => {
-              const hospitalName = getLocalizedField({
+              const hospitalName = getLocalizedFieldWithZhFallback({
                 lang: resolved,
                 zh: hospital.name,
                 en: hospital.nameEn,
               });
-              const hospitalCity = getLocalizedField({
+              const hospitalCity = getLocalizedFieldWithZhFallback({
                 lang: resolved,
                 zh: hospital.city,
                 en: hospital.cityEn,
               });
-              const hospitalLevel = getLocalizedField({
+              const hospitalLevel = getLocalizedFieldWithZhFallback({
                 lang: resolved,
                 zh: hospital.level,
                 en: hospital.levelEn,
@@ -342,7 +358,7 @@ export function HospitalsBrowser({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-8">
             {departments?.map((dept) => {
-              const departmentName = getLocalizedField({
+              const departmentName = getLocalizedFieldWithZhFallback({
                 lang: resolved,
                 zh: dept.name,
                 en: dept.nameEn,
@@ -407,17 +423,17 @@ export function HospitalsBrowser({
               </div>
             )}
             {filteredDoctors?.map(({ doctor }) => {
-              const doctorName = getLocalizedField({
+              const doctorName = getLocalizedFieldWithZhFallback({
                 lang: resolved,
                 zh: doctor.name,
                 en: doctor.nameEn,
               });
-              const doctorTitle = getLocalizedField({
+              const doctorTitle = getLocalizedFieldWithZhFallback({
                 lang: resolved,
                 zh: doctor.title,
                 en: doctor.titleEn,
               });
-              const doctorExpertise = getLocalizedField({
+              const doctorExpertise = getLocalizedFieldWithZhFallback({
                 lang: resolved,
                 zh: doctor.expertise,
                 en: doctor.expertiseEn,
