@@ -5,6 +5,22 @@ import { getLocalizedField, getSearchableText } from "@/lib/i18n";
 
 export type HospitalsViewMode = "hospitals" | "departments" | "doctors";
 
+const getLocalizedFieldWithZhFallback = ({
+  lang,
+  zh,
+  en,
+}: {
+  lang: "zh" | "en";
+  zh?: string | null;
+  en?: string | null;
+}) =>
+  getLocalizedField({
+    lang,
+    zh,
+    en,
+    placeholder: zh ?? "",
+  });
+
 export function useHospitals() {
   const [viewMode, setViewMode] = useState<HospitalsViewMode>("hospitals");
   const [selectedHospitalId, setSelectedHospitalId] = useState<number | null>(null);
@@ -28,11 +44,15 @@ export function useHospitals() {
   const selectedDepartment = departments?.find((d) => d.id === selectedDepartmentId);
 
   const selectedHospitalName = selectedHospital
-    ? getLocalizedField({ lang: resolved, zh: selectedHospital.name, en: selectedHospital.nameEn })
+    ? getLocalizedFieldWithZhFallback({
+        lang: resolved,
+        zh: selectedHospital.name,
+        en: selectedHospital.nameEn,
+      })
     : "";
 
   const selectedHospitalLevel = selectedHospital
-    ? getLocalizedField({
+    ? getLocalizedFieldWithZhFallback({
         lang: resolved,
         zh: selectedHospital.level,
         en: selectedHospital.levelEn,
@@ -41,14 +61,30 @@ export function useHospitals() {
   const selectedHospitalImageUrl = selectedHospital?.imageUrl ?? null;
 
   const selectedDepartmentName = selectedDepartment
-    ? getLocalizedField({ lang: resolved, zh: selectedDepartment.name, en: selectedDepartment.nameEn })
+    ? getLocalizedFieldWithZhFallback({
+        lang: resolved,
+        zh: selectedDepartment.name,
+        en: selectedDepartment.nameEn,
+      })
     : "";
 
   const filteredDoctors = useMemo(() => {
     return doctors?.filter((d) => {
-      const name = resolved === "zh" ? d.doctor.name : d.doctor.nameEn || "";
-      const expertise = resolved === "zh" ? d.doctor.expertise : d.doctor.expertiseEn || "";
-      const specialty = resolved === "zh" ? d.doctor.specialty : d.doctor.specialtyEn || "";
+      const name = getLocalizedFieldWithZhFallback({
+        lang: resolved,
+        zh: d.doctor.name,
+        en: d.doctor.nameEn,
+      });
+      const expertise = getLocalizedFieldWithZhFallback({
+        lang: resolved,
+        zh: d.doctor.expertise,
+        en: d.doctor.expertiseEn,
+      });
+      const specialty = getLocalizedFieldWithZhFallback({
+        lang: resolved,
+        zh: d.doctor.specialty,
+        en: d.doctor.specialtyEn,
+      });
       const query = searchQuery.toLowerCase();
 
       return (
