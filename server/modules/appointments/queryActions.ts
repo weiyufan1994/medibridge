@@ -1,10 +1,13 @@
+import { TRPCError } from "@trpc/server";
+import * as aiRepo from "../ai/repo";
 import * as appointmentsRepo from "./repo";
 import { resolveBoundDoctorIdForUser } from "../doctorAccounts/actions";
 import {
   getAppointmentByIdOrThrow,
   getSessionEmailFromContext,
 } from "./accessValidation";
-import { parseIntakeFromNotes } from "./accessQueryActions";
+import { localizeTriageContent, parseIntakeFromNotes } from "./accessQueryActions";
+import { resolveConsultationTimerState } from "./consultationTimer";
 import {
   classifyMyAppointments,
   toMyAppointmentItem,
@@ -71,6 +74,30 @@ function extractPackageId(notes: string | null | undefined) {
   }
 }
 
+function assertDoctorOwnsAppointment(input: {
+  doctorId: number;
+  appointmentDoctorId: number;
+}) {
+  if (input.doctorId !== input.appointmentDoctorId) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Appointment does not belong to the current doctor workbench",
+    });
+  }
+}
+
+function canDoctorStartAppointment(status: string, paymentStatus: string) {
+  return status === "paid" && paymentStatus === "paid";
+}
+
+function canDoctorOpenRoom(status: string, paymentStatus: string) {
+  return paymentStatus === "paid" && ["paid", "active", "ended", "completed"].includes(status);
+}
+
+function canDoctorCompleteAppointment(status: string, paymentStatus: string) {
+  return paymentStatus === "paid" && ["paid", "active"].includes(status);
+}
+
 export async function listDoctorWorkbenchAppointments(input: {
   doctorId?: number;
   limit: number;
@@ -119,5 +146,70 @@ export async function listDoctorWorkbenchAppointments(input: {
         return scheduledAt < now || ["ended", "completed", "canceled", "expired"].includes(item.status);
       })
       .slice(0, 10),
+  };
+}
+
+export async function getDoctorWorkbenchAppointmentDetail(input: {
+  appointmentId: number;
+  doctorId?: number;
+  lang: "en" | "zh";
+  currentUserId: number;
+  currentUserRole?: string | null;
+}) {
+  const doctorId = await resolveBoundDoctorIdForUser({
+    userId: input.currentUserId,
+    allowAdminDoctorId: input.doctorId,
+    userRole: input.currentUserRole,
+  });
+  const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
+  assertDoctorOwnsAppointment({
+    doctorId,
+    appointmentDoctorId: appointment.doctorId,
+  });
+
+  const triageSession = await aiRepo.getAiChatSessionById(appointment.triageSessionId);
+  const intake = parseIntakeFromNotes(appointment.notes, value =>
+    appointmentIntakeSchema.safeParse(value)
+  );
+  const localizedTriage = await localizeTriageContent({
+    summary: triageSession?.summary ?? null,
+    intake,
+    targetLang: input.lang,
+  });
+  const medicalSummary = await appointmentsRepo.getMedicalSummaryByAppointmentId(appointment.id);
+  const timer = resolveConsultationTimerState(appointment.notes);
+
+  return {
+    ...toPublicAppointment(appointment),
+    patient: {
+      email: appointment.email,
+      sessionId: appointment.sessionId,
+    },
+    triageSummary: localizedTriage.summary,
+    intake: localizedTriage.intake,
+    medicalSummary: medicalSummary
+      ? {
+          chiefComplaint: medicalSummary.chiefComplaint,
+          historyOfPresentIllness: medicalSummary.historyOfPresentIllness,
+          pastMedicalHistory: medicalSummary.pastMedicalHistory,
+          assessmentDiagnosis: medicalSummary.assessmentDiagnosis,
+          planRecommendations: medicalSummary.planRecommendations,
+          source: medicalSummary.source,
+          signedBy: medicalSummary.signedBy ?? null,
+          createdAt: medicalSummary.createdAt,
+          updatedAt: medicalSummary.updatedAt,
+        }
+      : null,
+    packageId: extractPackageId(appointment.notes),
+    consultationDurationMinutes: timer.baseDurationMinutes,
+    consultationExtensionMinutes: timer.extensionMinutes,
+    consultationTotalMinutes: timer.totalDurationMinutes,
+    canStartConsultation: canDoctorStartAppointment(appointment.status, appointment.paymentStatus),
+    canOpenRoom: canDoctorOpenRoom(appointment.status, appointment.paymentStatus),
+    canCompleteConsultation: canDoctorCompleteAppointment(
+      appointment.status,
+      appointment.paymentStatus
+    ),
+    hasSignedMedicalSummary: Boolean(medicalSummary?.signedBy),
   };
 }

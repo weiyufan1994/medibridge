@@ -4,6 +4,7 @@ export {
 } from "./bookingActions";
 export {
   getAppointmentStatus,
+  getDoctorWorkbenchAppointmentDetail,
   listDoctorWorkbenchAppointments,
   listMineAppointments,
   listMyAppointmentsByContext,
@@ -20,7 +21,7 @@ export {
   resendDoctorAccessLinkInDevById,
   resendPatientAccessLinkById,
 } from "./accessLinkActions";
-export { cancelAppointmentByPatientById } from "./statusActions";
+export { cancelAppointmentByPatientById, startAppointmentByDoctorUser } from "./statusActions";
 export {
   completeAppointmentByTokenFlow,
   generateMedicalSummaryDraftByTokenFlow,

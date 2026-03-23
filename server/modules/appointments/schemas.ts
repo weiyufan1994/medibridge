@@ -2,6 +2,11 @@ import { z } from "zod";
 import { APPOINTMENT_STATUS_VALUES, PAYMENT_STATUS_VALUES } from "./stateMachine";
 import { APPOINTMENT_PACKAGE_VALUES, APPOINTMENT_TYPE_VALUES } from "./packageCatalog";
 
+const localizedTextSchema = z.object({
+  zh: z.string(),
+  en: z.string(),
+});
+
 const createScheduledAtSchema = z
   .union([z.string().datetime(), z.date()])
   .transform(value => (value instanceof Date ? value : new Date(value)))
@@ -294,10 +299,8 @@ export const listPackagesInputSchema = z.object({
 const appointmentPackageSchema = z.object({
   id: z.enum(APPOINTMENT_PACKAGE_VALUES),
   appointmentType: z.enum(APPOINTMENT_TYPE_VALUES),
-  titleZh: z.string(),
-  titleEn: z.string(),
-  descriptionZh: z.string(),
-  descriptionEn: z.string(),
+  title: localizedTextSchema,
+  description: localizedTextSchema,
   durationMinutes: z.number().int().positive(),
   amount: z.number().int().nonnegative(),
   currency: z.string(),
@@ -317,6 +320,17 @@ export const listDoctorWorkbenchInputSchema = z.object({
   limit: z.number().int().min(1).max(100).optional().default(20),
 });
 
+export const getDoctorWorkbenchAppointmentDetailInputSchema = z.object({
+  appointmentId: z.number().int().positive(),
+  doctorId: z.number().int().positive().optional(),
+  lang: z.enum(["en", "zh"]).optional().default("en"),
+});
+
+export const startDoctorWorkbenchAppointmentInputSchema = z.object({
+  appointmentId: z.number().int().positive(),
+  doctorId: z.number().int().positive().optional(),
+});
+
 const doctorWorkbenchAppointmentSchema = z.object({
   id: z.number().int().positive(),
   slotId: z.number().int().positive().nullable(),
@@ -334,4 +348,22 @@ const doctorWorkbenchAppointmentSchema = z.object({
 export const listDoctorWorkbenchOutputSchema = z.object({
   upcoming: z.array(doctorWorkbenchAppointmentSchema),
   recent: z.array(doctorWorkbenchAppointmentSchema),
+});
+
+export const doctorWorkbenchAppointmentDetailOutputSchema = appointmentPublicSchema.extend({
+  patient: z.object({
+    email: z.string().email(),
+    sessionId: z.string().nullable(),
+  }),
+  triageSummary: z.string().nullable(),
+  intake: appointmentIntakeSchema.nullable(),
+  medicalSummary: appointmentMedicalSummarySchema.nullable(),
+  packageId: z.string().nullable(),
+  consultationDurationMinutes: z.number().int().positive(),
+  consultationExtensionMinutes: z.number().int().nonnegative(),
+  consultationTotalMinutes: z.number().int().positive(),
+  canStartConsultation: z.boolean(),
+  canOpenRoom: z.boolean(),
+  canCompleteConsultation: z.boolean(),
+  hasSignedMedicalSummary: z.boolean(),
 });

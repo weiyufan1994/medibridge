@@ -25,6 +25,8 @@ import {
   type AppointmentType,
 } from "@/features/appointment/hooks/useAppointmentForm";
 import { getAppointmentCopy } from "@/features/appointment/copy";
+import { buildSlotGroups } from "@/features/appointment/utils/slotDates";
+import { getLocalizedText, getLocalizedTextWithZhFallback } from "@/lib/i18n";
 import type { TriagePrefillInput } from "@shared/appointmentIntake";
 import { trpc } from "@/lib/trpc";
 
@@ -57,10 +59,6 @@ function formatDateInput(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function formatSlotDate(date: Date) {
-  return formatDateInput(date);
-}
-
 function formatSlotLabel(date: Date, locale: "en" | "zh") {
   return new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "en-US", {
     hour: "2-digit",
@@ -70,22 +68,6 @@ function formatSlotLabel(date: Date, locale: "en" | "zh") {
 
 function formatSlotRange(slot: SlotItem, locale: "en" | "zh") {
   return `${formatSlotLabel(slot.startAt, locale)} - ${formatSlotLabel(slot.endAt, locale)}`;
-}
-
-function getLocalDateForSlot(slot: SlotItem) {
-  return formatSlotDate(slot.startAt);
-}
-
-function buildSlotGroups(slots: SlotItem[]) {
-  const map = new Map<string, SlotItem[]>();
-  for (const slot of slots) {
-    const key = getLocalDateForSlot(slot);
-    const items = map.get(key) ?? [];
-    items.push(slot);
-    map.set(key, items);
-  }
-
-  return map;
 }
 
 export function AppointmentModal({
@@ -209,9 +191,9 @@ export function AppointmentModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl overflow-hidden rounded-3xl border-0 bg-white p-0 shadow-2xl">
-        <div className="grid gap-0 md:grid-cols-[1.05fr,0.95fr]">
-          <div className="bg-gradient-to-br from-teal-50 via-white to-slate-100 p-6 md:p-8">
+      <DialogContent className="max-h-[min(92vh,980px)] max-w-2xl overflow-hidden rounded-3xl border-0 bg-white p-0 shadow-2xl">
+        <div className="max-h-[min(92vh,980px)]">
+          <div className="overflow-y-auto bg-gradient-to-br from-teal-50 via-white to-slate-100 p-6 md:max-h-[min(92vh,980px)] md:p-8">
             <DialogHeader className="space-y-3 text-left">
               <div className="inline-flex w-fit items-center rounded-full bg-white px-3 py-1 text-xs font-medium text-teal-700 shadow-sm ring-1 ring-teal-100">
                 {step === 1 ? t.step1Title : t.step2Title}
@@ -232,21 +214,35 @@ export function AppointmentModal({
                 <Avatar className="h-12 w-12 ring-2 ring-white">
                   <AvatarImage src={selectedDoctor?.imageUrl ?? undefined} />
                   <AvatarFallback className="bg-teal-600 text-white">
-                    {(selectedDoctor?.name ?? t.doctorFallback.replace("{{id}}", String(doctorId ?? "")))
+                    {(
+                      getLocalizedTextWithZhFallback({
+                        lang: resolved,
+                        value: selectedDoctor?.name,
+                        placeholder: t.doctorFallback.replace("{{id}}", String(doctorId ?? "")),
+                      }) ?? t.doctorFallback.replace("{{id}}", String(doctorId ?? ""))
+                    )
                       .slice(0, 1)
                       .toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
                   <p className="truncate font-semibold text-slate-900">
-                    {resolved === "zh"
-                      ? selectedDoctor?.name || selectedDoctor?.nameEn || t.doctorFallback.replace("{{id}}", String(doctorId ?? ""))
-                      : selectedDoctor?.nameEn || selectedDoctor?.name || t.doctorFallback.replace("{{id}}", String(doctorId ?? ""))}
+                    {selectedDoctor
+                      ? getLocalizedTextWithZhFallback({
+                          lang: resolved,
+                          value: selectedDoctor.name,
+                          placeholder: t.doctorFallback.replace("{{id}}", String(doctorId ?? "")),
+                        })
+                      : t.doctorFallback.replace("{{id}}", String(doctorId ?? ""))}
                   </p>
                   <p className="truncate text-sm text-slate-500">
-                    {resolved === "zh"
-                      ? selectedDoctor?.title || selectedDoctor?.titleEn || t.bookingTypeOnline
-                      : selectedDoctor?.titleEn || selectedDoctor?.title || t.bookingTypeOnline}
+                    {selectedDoctor
+                      ? getLocalizedTextWithZhFallback({
+                          lang: resolved,
+                          value: selectedDoctor.title,
+                          placeholder: t.bookingTypeOnline,
+                        })
+                      : t.bookingTypeOnline}
                   </p>
                 </div>
               </div>
@@ -270,9 +266,7 @@ export function AppointmentModal({
                   <p className="mt-2 text-xs text-slate-500">
                     {selectedSlot
                       ? `${t.bookingTime}: ${formatSlotRange(selectedSlot, resolved)}`
-                      : resolved === "zh"
-                        ? "请选择一个真实可售时间段。"
-                        : "Choose one real sellable slot."}
+                      : t.slotSelectionHint}
                   </p>
                 </div>
 
@@ -303,9 +297,7 @@ export function AppointmentModal({
                   </div>
                   {!slotQuery.isLoading && activeSlots.length === 0 ? (
                     <p className="mt-3 text-sm text-slate-500">
-                      {resolved === "zh"
-                        ? "该日期暂无可售 slot。请换一天。"
-                        : "No sellable slots on this date. Pick another day."}
+                      {t.noSellableSlots}
                     </p>
                   ) : null}
                 </div>
@@ -361,10 +353,13 @@ export function AppointmentModal({
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <p className="font-medium text-slate-900">
-                              {resolved === "zh" ? option.titleZh : option.titleEn}
+                              {getLocalizedText({ lang: resolved, value: option.title })}
                             </p>
                             <p className="mt-1 text-xs text-slate-500">
-                              {resolved === "zh" ? option.descriptionZh : option.descriptionEn}
+                              {getLocalizedText({
+                                lang: resolved,
+                                value: option.description,
+                              })}
                             </p>
                           </div>
                           <div className="text-right">
@@ -567,62 +562,21 @@ export function AppointmentModal({
             )}
           </div>
 
-          <div className="flex flex-col bg-slate-950 p-6 text-white md:p-8">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-              <p className="text-xs uppercase tracking-[0.2em] text-teal-300">
-                {resolved === "zh" ? "预约摘要" : "Booking Summary"}
-              </p>
-              <div className="mt-4 space-y-4 text-sm text-slate-200">
-                <div>
-                  <p className="text-xs text-slate-400">{t.bookingTime}</p>
-                  <p className="mt-1 font-medium text-white">
-                    {selectedSlot
-                      ? `${activeDate} ${formatSlotRange(selectedSlot, resolved)}`
-                      : resolved === "zh"
-                        ? "尚未选择"
-                        : "Not selected"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-400">{t.bookingType}</p>
-                  <p className="mt-1 font-medium text-white">
-                    {bookingType === "video_call" ? t.bookingTypeVideo : t.bookingTypeOnline}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-400">{t.bookingPackage}</p>
-                  <p className="mt-1 font-medium text-white">
-                    {selectedPackage
-                      ? resolved === "zh"
-                        ? selectedPackage.titleZh
-                        : selectedPackage.titleEn
-                      : t.bookingPackageFallback}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-400">{t.intakeChiefComplaint}</p>
-                  <p className="mt-1 line-clamp-4 text-sm text-slate-200">
-                    {intake.chiefComplaint || (resolved === "zh" ? "未填写" : "Not provided")}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-auto pt-6">
+            <div className="mt-6">
               <DialogFooter className="flex-col gap-3 sm:flex-col">
                 {step === 1 ? (
                   <>
                     <Button
                       type="button"
                       variant="outline"
-                      className="w-full border-white/15 bg-transparent text-white hover:bg-white/10 hover:text-white"
+                      className="w-full"
                       onClick={() => onOpenChange(false)}
                     >
                       {t.bookingCancel}
                     </Button>
                     <Button
                       type="button"
-                      className="w-full bg-teal-500 text-slate-950 hover:bg-teal-400"
+                      className="w-full bg-teal-600 text-white hover:bg-teal-500"
                       onClick={handleContinue}
                       disabled={!selectedSlot || !selectedPackage || slotQuery.isLoading}
                     >
@@ -634,7 +588,7 @@ export function AppointmentModal({
                     <Button
                       type="button"
                       variant="outline"
-                      className="w-full border-white/15 bg-transparent text-white hover:bg-white/10 hover:text-white"
+                      className="w-full"
                       onClick={() => setStep(1)}
                       disabled={isSubmitting}
                     >
@@ -642,7 +596,7 @@ export function AppointmentModal({
                     </Button>
                     <Button
                       type="button"
-                      className="w-full bg-teal-500 text-slate-950 hover:bg-teal-400"
+                      className="w-full bg-teal-600 text-white hover:bg-teal-500"
                       onClick={() => void handleCreateBooking()}
                       disabled={isSubmitting || !bookingSlotId || !bookingScheduledAt}
                     >
@@ -652,7 +606,6 @@ export function AppointmentModal({
                 )}
               </DialogFooter>
             </div>
-          </div>
         </div>
       </DialogContent>
     </Dialog>

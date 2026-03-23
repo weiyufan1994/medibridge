@@ -178,11 +178,7 @@ export function useAppointmentForm({
     const triageSessionId = Number(normalizedSessionId ?? NaN);
 
     if (!Number.isInteger(triageSessionId) || triageSessionId <= 0) {
-      toast.error(
-        resolved === "zh"
-          ? "请先完成 AI 分诊后再预约医生。"
-          : "Please complete AI triage before booking a doctor."
-      );
+      toast.error(t.bookingRequiresTriage);
       return;
     }
 

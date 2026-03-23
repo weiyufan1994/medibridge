@@ -1107,6 +1107,132 @@ describe("appointments router", () => {
     });
   });
 
+  it("getDoctorWorkbenchAppointmentDetail returns localized intake and summary for bound doctor", async () => {
+    vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue({
+      id: 9001,
+      slotId: 501,
+      doctorId: 11,
+      triageSessionId: 99,
+      appointmentType: "online_chat",
+      scheduledAt: new Date("2026-03-03T09:00:00.000Z"),
+      status: "active",
+      paymentStatus: "paid",
+      amount: 4900,
+      currency: "usd",
+      paidAt: new Date("2026-03-03T08:00:00.000Z"),
+      email: "patient@example.com",
+      sessionId: "patient-session-1",
+      userId: 1,
+      lastAccessAt: null,
+      doctorLastAccessAt: null,
+      stripeSessionId: "cs_paid",
+      notes: JSON.stringify({
+        chiefComplaint: "cough",
+        medicalHistory: "asthma",
+        packageId: "chat_standard_60m",
+        packageDurationMinutes: 60,
+      }),
+      createdAt: new Date("2026-03-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+    } as never);
+    vi.mocked(aiRepo.getAiChatSessionById).mockResolvedValue({
+      id: 99,
+      userId: 1,
+      status: "completed",
+      summary: "Likely upper respiratory infection",
+    } as never);
+    vi.mocked(appointmentsRepo.getMedicalSummaryByAppointmentId).mockResolvedValue({
+      id: 73,
+      appointmentId: 9001,
+      chiefComplaint: "Cough",
+      historyOfPresentIllness: "Two days of cough",
+      pastMedicalHistory: "Asthma",
+      assessmentDiagnosis: "URI",
+      planRecommendations: "Hydration and follow-up",
+      source: "doctor_reviewed_ai_draft",
+      signedBy: 1,
+      createdAt: new Date("2026-03-03T10:00:00.000Z"),
+      updatedAt: new Date("2026-03-03T10:05:00.000Z"),
+    } as never);
+
+    const caller = appointmentsRouter.createCaller(createTestContext());
+    const result = await caller.getDoctorWorkbenchAppointmentDetail({
+      appointmentId: 9001,
+      lang: "en",
+    });
+
+    expect(result).toMatchObject({
+      id: 9001,
+      patient: {
+        email: "patient@example.com",
+        sessionId: "patient-session-1",
+      },
+      triageSummary: "Likely upper respiratory infection",
+      packageId: "chat_standard_60m",
+      consultationDurationMinutes: 60,
+      consultationTotalMinutes: 60,
+      canStartConsultation: false,
+      canOpenRoom: true,
+      canCompleteConsultation: true,
+      hasSignedMedicalSummary: true,
+      intake: {
+        chiefComplaint: "cough",
+        medicalHistory: "asthma",
+      },
+      medicalSummary: {
+        assessmentDiagnosis: "URI",
+      },
+    });
+  });
+
+  it("startDoctorWorkbenchAppointment transitions paid visit to active", async () => {
+    vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue({
+      id: 9010,
+      doctorId: 11,
+      status: "paid",
+      paymentStatus: "paid",
+    } as never);
+    vi.mocked(appointmentsRepo.tryTransitionAppointmentById).mockResolvedValue({
+      ok: true,
+      reason: "updated",
+      current: {
+        id: 9010,
+        status: "paid",
+        paymentStatus: "paid",
+      },
+    } as never);
+    vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValueOnce({
+      id: 9010,
+      doctorId: 11,
+      status: "paid",
+      paymentStatus: "paid",
+    } as never).mockResolvedValueOnce({
+      id: 9010,
+      doctorId: 11,
+      status: "active",
+      paymentStatus: "paid",
+    } as never);
+
+    const caller = appointmentsRouter.createCaller(createTestContext());
+    const result = await caller.startDoctorWorkbenchAppointment({
+      appointmentId: 9010,
+    });
+
+    expect(appointmentsRepo.tryTransitionAppointmentById).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appointmentId: 9010,
+        toStatus: "active",
+        toPaymentStatus: "paid",
+        operatorType: "doctor",
+      })
+    );
+    expect(result).toEqual({
+      appointmentId: 9010,
+      status: "active",
+      paymentStatus: "paid",
+    });
+  });
+
   it("cancel rejects illegal transition with unified error code", async () => {
     vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue({
       id: 3001,

@@ -1,13 +1,45 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRoute, Link } from "wouter";
-import { Calendar, Clock3, ExternalLink, Loader2, Stethoscope } from "lucide-react";
+import {
+  Calendar,
+  ChevronRight,
+  Clock3,
+  ExternalLink,
+  FileSearch,
+  Loader2,
+  Sparkles,
+  Stethoscope,
+} from "lucide-react";
 import AppLayout from "@/components/layout/AppLayout";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { DoctorWorkbenchAppointmentSheet } from "@/features/doctorWorkbench/components/DoctorWorkbenchAppointmentSheet";
+import { MedicalSummaryModal } from "@/features/visit/components/MedicalSummaryModal";
+import { getVisitCopy } from "@/features/visit/copy";
 import { useLanguage } from "@/contexts/LanguageContext";
+import {
+  getDisplayLocale,
+  getLocalizedText,
+  getLocalizedTextWithZhFallback,
+} from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+
+type WorkbenchItem = {
+  id: number;
+  slotId: number | null;
+  doctorId: number;
+  appointmentType: "online_chat" | "video_call" | "in_person";
+  scheduledAt: Date | string | null;
+  status: string;
+  paymentStatus: string;
+  patientEmail: string;
+  chiefComplaint: string | null;
+  packageId: string | null;
+  createdAt: Date | string;
+};
 
 function formatDateTime(value: Date | string | null, locale: string) {
   if (!value) return "-";
@@ -46,16 +78,54 @@ function statusLabel(status: string, lang: "zh" | "en") {
   return labels[status]?.[lang] ?? status;
 }
 
+function appointmentTypeLabel(type: string, lang: "zh" | "en") {
+  const labels: Record<string, { zh: string; en: string }> = {
+    online_chat: { zh: "图文问诊", en: "Online Chat" },
+    video_call: { zh: "视频问诊", en: "Video Call" },
+    in_person: { zh: "线下面诊", en: "In Person" },
+  };
+  return labels[type]?.[lang] ?? type;
+}
+
+function parseDoctorToken(doctorLink: string) {
+  try {
+    const url = new URL(doctorLink);
+    return url.searchParams.get("t")?.trim() || url.searchParams.get("token")?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
+}
+
 export default function DoctorWorkbenchPage() {
   const [isCompatRoute, compatParams] = useRoute("/doctor/:id/workbench");
   const [isPrimaryRoute] = useRoute("/doctor/workbench");
   const compatDoctorId = compatParams?.id ? Number(compatParams.id) : null;
   const { resolved } = useLanguage();
   const lang = resolved as "zh" | "en";
-  const locale = lang === "zh" ? "zh-CN" : "en-US";
+  const locale = getDisplayLocale(lang);
+  const visitCopy = getVisitCopy(lang);
   const { loading, isAuthenticated, openLoginModal, user } = useAuth();
-  const tr = (zh: string, en: string) => (lang === "zh" ? zh : en);
+  const tr = useCallback(
+    (zh: string, en: string) =>
+      getLocalizedText({ lang, value: { zh, en }, placeholder: zh }),
+    [lang]
+  );
 
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<number | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [summaryContext, setSummaryContext] = useState<{
+    appointmentId: number;
+    token: string;
+  } | null>(null);
+
+  const utils = trpc.useUtils();
   const myBindingQuery = trpc.doctorAccounts.getMyBinding.useQuery(undefined, {
     enabled: isAuthenticated,
   });
@@ -88,24 +158,183 @@ export default function DoctorWorkbenchPage() {
         effectiveDoctorId > 0,
     }
   );
-  const issueLinksMutation = trpc.appointments.issueAccessLinks.useMutation({
+  const detailQuery = trpc.appointments.getDoctorWorkbenchAppointmentDetail.useQuery(
+    {
+      appointmentId: selectedAppointmentId ?? 0,
+      doctorId: isCompatRoute && compatDoctorId ? compatDoctorId : undefined,
+      lang,
+    },
+    {
+      enabled:
+        isAuthenticated &&
+        !bindingMismatch &&
+        typeof selectedAppointmentId === "number" &&
+        selectedAppointmentId > 0,
+    }
+  );
+
+  const issueLinksMutation = trpc.appointments.issueAccessLinks.useMutation();
+  const startAppointmentMutation = trpc.appointments.startDoctorWorkbenchAppointment.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        workbenchQuery.refetch(),
+        detailQuery.refetch(),
+      ]);
+      toast.success(tr("已开始接诊。", "Consultation started."));
+    },
     onError: error => {
-      toast.error(error.message || tr("无法生成医生访问链接。", "Unable to issue doctor access link."));
+      toast.error(error.message || tr("开始接诊失败。", "Failed to start consultation."));
     },
   });
+  const completeAppointmentMutation = trpc.appointments.completeAppointment.useMutation();
 
   const doctorName = useMemo(() => {
     const doctor = doctorQuery.data?.doctor;
     if (!doctor) {
       return tr("医生工作台", "Doctor Workbench");
     }
-    return lang === "zh" ? doctor.name : doctor.nameEn || doctor.name;
-  }, [doctorQuery.data?.doctor, lang]);
+    return getLocalizedTextWithZhFallback({
+      lang,
+      value: doctor.name,
+      placeholder: tr("医生工作台", "Doctor Workbench"),
+    });
+  }, [doctorQuery.data?.doctor, lang, tr]);
 
-  const openDoctorRoom = async (appointmentId: number) => {
-    const issued = await issueLinksMutation.mutateAsync({ appointmentId });
-    window.location.href = issued.doctorLink;
+  const allAppointments = useMemo(
+    () => [
+      ...(workbenchQuery.data?.upcoming ?? []),
+      ...(workbenchQuery.data?.recent ?? []),
+    ] as WorkbenchItem[],
+    [workbenchQuery.data?.recent, workbenchQuery.data?.upcoming]
+  );
+
+  const openDetailSheet = (appointmentId: number) => {
+    setSelectedAppointmentId(appointmentId);
+    setSheetOpen(true);
   };
+
+  const refreshWorkbenchData = useCallback(async () => {
+    await Promise.all([
+      workbenchQuery.refetch(),
+      slotsQuery.refetch(),
+      detailQuery.refetch(),
+      myBindingQuery.refetch(),
+    ]);
+  }, [detailQuery, myBindingQuery, slotsQuery, workbenchQuery]);
+
+  const ensureDoctorAccessToken = useCallback(
+    async (appointmentId: number) => {
+      const issued = await issueLinksMutation.mutateAsync({ appointmentId });
+      const token = parseDoctorToken(issued.doctorLink);
+      if (!token) {
+        throw new Error(tr("无法解析医生房间 token。", "Failed to parse doctor room token."));
+      }
+      return {
+        token,
+        doctorLink: issued.doctorLink,
+      };
+    },
+    [issueLinksMutation, tr]
+  );
+
+  const startConsultation = useCallback(
+    async (appointmentId: number) => {
+      try {
+        await startAppointmentMutation.mutateAsync({
+          appointmentId,
+          doctorId: isCompatRoute && compatDoctorId ? compatDoctorId : undefined,
+        });
+      } catch {
+        // Mutation handles toast messaging.
+      }
+    },
+    [compatDoctorId, isCompatRoute, startAppointmentMutation]
+  );
+
+  const openDoctorRoom = useCallback(
+    async (appointmentId: number) => {
+      try {
+        const item = allAppointments.find(entry => entry.id === appointmentId);
+        if (item?.status === "paid") {
+          await startConsultation(appointmentId);
+        }
+        const issued = await ensureDoctorAccessToken(appointmentId);
+        window.location.href = issued.doctorLink;
+      } catch (error) {
+        toast.error(
+          normalizeErrorMessage(
+            error,
+            tr("无法打开医生房间。", "Unable to open doctor room.")
+          )
+        );
+      }
+    },
+    [allAppointments, ensureDoctorAccessToken, startConsultation, tr]
+  );
+
+  const openSummaryModalFromWorkbench = useCallback(
+    async (appointmentId: number) => {
+      try {
+        const item = allAppointments.find(entry => entry.id === appointmentId);
+        const access = await ensureDoctorAccessToken(appointmentId);
+
+        if (item && (item.status === "paid" || item.status === "active")) {
+          try {
+            await completeAppointmentMutation.mutateAsync({
+              appointmentId,
+              token: access.token,
+            });
+          } catch (error) {
+            const message = normalizeErrorMessage(
+              error,
+              tr("结束问诊失败。", "Failed to end consultation.")
+            );
+            if (message !== "APPOINTMENT_INVALID_STATUS_TRANSITION") {
+              throw error;
+            }
+          }
+        }
+
+        setSummaryContext({
+          appointmentId,
+          token: access.token,
+        });
+        await refreshWorkbenchData();
+      } catch (error) {
+        toast.error(
+          normalizeErrorMessage(
+            error,
+            tr("无法打开病历摘要流程。", "Unable to open medical summary workflow.")
+          )
+        );
+      }
+    },
+    [allAppointments, completeAppointmentMutation, ensureDoctorAccessToken, refreshWorkbenchData, tr]
+  );
+
+  const summaryModalCopy = useMemo(
+    () => ({
+      title: visitCopy.reviewMedicalSummaryTitle,
+      aiDisclaimer: visitCopy.medicalSummaryAIDisclaimer,
+      chiefComplaintLabel: visitCopy.medicalSummaryChiefComplaint,
+      hpiLabel: visitCopy.medicalSummaryHpi,
+      pmhLabel: visitCopy.medicalSummaryPmh,
+      assessmentLabel: visitCopy.medicalSummaryAssessment,
+      planLabel: visitCopy.medicalSummaryPlan,
+      cancelText: visitCopy.medicalSummaryCancel,
+      regenerateText: visitCopy.medicalSummaryRegenerate,
+      signText: visitCopy.medicalSummarySign,
+      generatingText: visitCopy.medicalSummaryGenerating,
+      signingText: visitCopy.medicalSummarySigning,
+      signSuccessText: visitCopy.consultationEndedSuccess,
+      draftFailedText: visitCopy.medicalSummaryDraftFailed,
+      draftTimeoutText: visitCopy.medicalSummaryDraftTimeout,
+      draftTimeoutHintText: visitCopy.medicalSummaryDraftTimeoutHint,
+      requiredFieldsText: visitCopy.medicalSummaryRequiredFields,
+      signFailedText: visitCopy.medicalSummarySignFailed,
+    }),
+    [visitCopy]
+  );
 
   if (loading) {
     return (
@@ -198,7 +427,7 @@ export default function DoctorWorkbenchPage() {
         ) : undefined
       }
     >
-      <main className="min-h-screen w-full bg-slate-50">
+      <main className="min-h-screen w-full bg-[radial-gradient(circle_at_top_left,rgba(20,184,166,0.08),transparent_28%),linear-gradient(180deg,#f8fafc_0%,#f8fafc_48%,#ffffff_100%)]">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
           {isPrimaryRoute ? null : (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -210,29 +439,35 @@ export default function DoctorWorkbenchPage() {
           )}
 
           <section className="grid gap-4 lg:grid-cols-[1.35fr,0.65fr]">
-            <Card className="border-slate-200/80 shadow-sm">
+            <Card className="overflow-hidden border-slate-200/80 shadow-sm">
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-500 via-emerald-400 to-cyan-500" />
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl">
                   <Stethoscope className="h-5 w-5 text-teal-600" />
                   {doctorName}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm text-slate-600">
+              <CardContent className="space-y-3 text-sm text-slate-600">
                 <p>
                   {tr(
-                    "这是医生工作台的只读 MVP：查看未来预约、未来 slots，并通过现有访问链接进入问诊房间。",
-                    "This is the read-only doctor workbench MVP: view upcoming bookings, future slots, and enter visit rooms through issued access links."
+                    "工作台现在支持查看诊前资料、AI 分诊摘要、快速开始接诊，以及从这里直接结束问诊并签发病历摘要。",
+                    "The workbench now supports pre-visit context review, AI triage summary, quick consultation start, and ending the visit with summary signing directly from here."
                   )}
                 </p>
                 {doctorQuery.data?.doctor ? (
-                  <p className="text-xs text-slate-500">
-                    {tr("科室", "Department")} #{doctorQuery.data.doctor.departmentId} · ID #{doctorQuery.data.doctor.id}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                    <Badge variant="outline" className="border-slate-300 bg-white text-slate-700">
+                      {tr("科室", "Department")} #{doctorQuery.data.doctor.departmentId}
+                    </Badge>
+                    <Badge variant="outline" className="border-slate-300 bg-white text-slate-700">
+                      ID #{doctorQuery.data.doctor.id}
+                    </Badge>
+                  </div>
                 ) : null}
               </CardContent>
             </Card>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
               <Card className="border-slate-200/80 shadow-sm">
                 <CardContent className="p-5">
                   <p className="text-xs uppercase tracking-wide text-slate-500">{tr("未来预约", "Upcoming Visits")}</p>
@@ -246,6 +481,18 @@ export default function DoctorWorkbenchPage() {
                   <p className="text-xs uppercase tracking-wide text-slate-500">{tr("未来 Slots", "Future Slots")}</p>
                   <p className="mt-2 text-3xl font-semibold text-slate-900">
                     {slotsQuery.data?.length ?? 0}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border-slate-200/80 shadow-sm">
+                <CardContent className="p-5">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">{tr("已签摘要", "Signed Summaries")}</p>
+                  <p className="mt-2 text-3xl font-semibold text-slate-900">
+                    {
+                      allAppointments.filter(item =>
+                        item.status === "completed" || item.status === "ended"
+                      ).length
+                    }
                   </p>
                 </CardContent>
               </Card>
@@ -267,26 +514,60 @@ export default function DoctorWorkbenchPage() {
                   <p className="text-sm text-destructive">{workbenchQuery.error.message}</p>
                 ) : (
                   <>
-                    {[...(workbenchQuery.data?.upcoming ?? []), ...(workbenchQuery.data?.recent ?? [])].map(item => (
-                      <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div className="space-y-1">
+                    {allAppointments.map(item => (
+                      <div key={item.id} className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge className="border-0 bg-slate-900 text-white">
+                                {appointmentTypeLabel(item.appointmentType, lang)}
+                              </Badge>
+                              <Badge variant="outline" className="border-slate-300 bg-white text-slate-700">
+                                {statusLabel(item.status, lang)}
+                              </Badge>
+                              {item.packageId ? (
+                                <Badge variant="outline" className="border-slate-300 bg-white text-slate-700">
+                                  {item.packageId}
+                                </Badge>
+                              ) : null}
+                            </div>
                             <p className="text-sm font-medium text-slate-900">
                               {formatDateTime(item.scheduledAt, locale)}
                             </p>
                             <p className="text-xs text-slate-500">
-                              {maskEmail(item.patientEmail)} · {statusLabel(item.status, lang)} · {item.appointmentType}
+                              {maskEmail(item.patientEmail)} · {item.paymentStatus}
                             </p>
-                            <p className="text-sm text-slate-700">
+                            <p className="line-clamp-2 text-sm text-slate-700">
                               {item.chiefComplaint || tr("主诉待补充", "Chief complaint pending")}
                             </p>
                           </div>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex shrink-0 flex-wrap gap-2">
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
-                              disabled={!["paid", "active", "ended", "completed"].includes(item.status) || issueLinksMutation.isPending}
+                              onClick={() => openDetailSheet(item.id)}
+                            >
+                              <FileSearch className="mr-1.5 h-4 w-4" />
+                              {tr("查看资料", "Review Context")}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={item.status !== "paid" || startAppointmentMutation.isPending}
+                              onClick={() => void startConsultation(item.id)}
+                            >
+                              <Sparkles className="mr-1.5 h-4 w-4" />
+                              {tr("开始接诊", "Start")}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={
+                                !["paid", "active", "ended", "completed"].includes(item.status) ||
+                                issueLinksMutation.isPending
+                              }
                               onClick={() => void openDoctorRoom(item.id)}
                             >
                               <ExternalLink className="mr-1.5 h-4 w-4" />
@@ -296,7 +577,7 @@ export default function DoctorWorkbenchPage() {
                         </div>
                       </div>
                     ))}
-                    {(workbenchQuery.data?.upcoming.length ?? 0) + (workbenchQuery.data?.recent.length ?? 0) === 0 ? (
+                    {allAppointments.length === 0 ? (
                       <p className="text-sm text-slate-500">{tr("当前没有可显示的预约。", "No appointments to show.")}</p>
                     ) : null}
                   </>
@@ -331,6 +612,7 @@ export default function DoctorWorkbenchPage() {
                               {slot.slotDurationMinutes} min · {slot.appointmentType} · {slot.status}
                             </p>
                           </div>
+                          <ChevronRight className="h-4 w-4 text-slate-400" />
                         </div>
                       </div>
                     ))}
@@ -344,6 +626,47 @@ export default function DoctorWorkbenchPage() {
           </section>
         </div>
       </main>
+
+      <DoctorWorkbenchAppointmentSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        detail={detailQuery.data}
+        isLoading={detailQuery.isLoading}
+        errorMessage={detailQuery.error?.message ?? null}
+        locale={locale}
+        tr={tr}
+        onStartConsultation={appointmentId => {
+          void startConsultation(appointmentId);
+        }}
+        onOpenRoom={appointmentId => {
+          void openDoctorRoom(appointmentId);
+        }}
+        onCompleteAndSummarize={appointmentId => {
+          void openSummaryModalFromWorkbench(appointmentId);
+        }}
+        isStarting={startAppointmentMutation.isPending}
+        isOpeningRoom={issueLinksMutation.isPending}
+        isCompleting={completeAppointmentMutation.isPending || issueLinksMutation.isPending}
+      />
+
+      {summaryContext ? (
+        <MedicalSummaryModal
+          open={Boolean(summaryContext)}
+          onOpenChange={open => {
+            if (!open) {
+              setSummaryContext(null);
+            }
+          }}
+          visitId={summaryContext.appointmentId}
+          token={summaryContext.token}
+          lang={lang}
+          copy={summaryModalCopy}
+          onSigned={() => {
+            void refreshWorkbenchData();
+            void detailQuery.refetch();
+          }}
+        />
+      ) : null}
     </AppLayout>
   );
 }

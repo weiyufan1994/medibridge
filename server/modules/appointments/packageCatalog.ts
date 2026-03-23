@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import type { LocalizedText } from "@shared/types";
 
 export const APPOINTMENT_TYPE_VALUES = [
   "online_chat",
@@ -21,10 +22,8 @@ export type AppointmentType = (typeof APPOINTMENT_TYPE_VALUES)[number];
 export type AppointmentPackageDefinition = {
   id: AppointmentPackageId;
   appointmentType: AppointmentType;
-  titleZh: string;
-  titleEn: string;
-  descriptionZh: string;
-  descriptionEn: string;
+  title: LocalizedText;
+  description: LocalizedText;
   durationMinutes: number;
   amount: number;
   currency: "usd";
@@ -34,10 +33,14 @@ export const APPOINTMENT_PACKAGE_CATALOG: AppointmentPackageDefinition[] = [
   {
     id: "chat_quick_30m",
     appointmentType: "online_chat",
-    titleZh: "图文快问（30 分钟）",
-    titleEn: "Chat Quick (30 min)",
-    descriptionZh: "适合单次明确问题，快速给出方向建议。",
-    descriptionEn: "Best for one focused question and quick guidance.",
+    title: {
+      zh: "图文快问（30 分钟）",
+      en: "Chat Quick (30 min)",
+    },
+    description: {
+      zh: "适合单次明确问题，快速给出方向建议。",
+      en: "Best for one focused question and quick guidance.",
+    },
     durationMinutes: 30,
     amount: 2900,
     currency: "usd",
@@ -45,10 +48,14 @@ export const APPOINTMENT_PACKAGE_CATALOG: AppointmentPackageDefinition[] = [
   {
     id: "chat_standard_60m",
     appointmentType: "online_chat",
-    titleZh: "图文标准（60 分钟）",
-    titleEn: "Chat Standard (60 min)",
-    descriptionZh: "完整沟通病情与检查，适合多数初诊场景。",
-    descriptionEn: "Full case discussion for most first-visit scenarios.",
+    title: {
+      zh: "图文标准（60 分钟）",
+      en: "Chat Standard (60 min)",
+    },
+    description: {
+      zh: "完整沟通病情与检查，适合多数初诊场景。",
+      en: "Full case discussion for most first-visit scenarios.",
+    },
     durationMinutes: 60,
     amount: 4900,
     currency: "usd",
@@ -56,10 +63,14 @@ export const APPOINTMENT_PACKAGE_CATALOG: AppointmentPackageDefinition[] = [
   {
     id: "chat_extended_24h",
     appointmentType: "online_chat",
-    titleZh: "图文加长（24 小时）",
-    titleEn: "Chat Extended (24h)",
-    descriptionZh: "24 小时内可多轮追问，适合复杂病情跟进。",
-    descriptionEn: "Multi-round follow-up within 24 hours.",
+    title: {
+      zh: "图文加长（24 小时）",
+      en: "Chat Extended (24h)",
+    },
+    description: {
+      zh: "24 小时内可多轮追问，适合复杂病情跟进。",
+      en: "Multi-round follow-up within 24 hours.",
+    },
     durationMinutes: 24 * 60,
     amount: 8900,
     currency: "usd",
@@ -67,10 +78,14 @@ export const APPOINTMENT_PACKAGE_CATALOG: AppointmentPackageDefinition[] = [
   {
     id: "video_quick_30m",
     appointmentType: "video_call",
-    titleZh: "视频快诊（30 分钟）",
-    titleEn: "Video Quick (30 min)",
-    descriptionZh: "短时视频沟通，聚焦核心症状判断。",
-    descriptionEn: "Short video consult focused on key symptoms.",
+    title: {
+      zh: "视频快诊（30 分钟）",
+      en: "Video Quick (30 min)",
+    },
+    description: {
+      zh: "短时视频沟通，聚焦核心症状判断。",
+      en: "Short video consult focused on key symptoms.",
+    },
     durationMinutes: 30,
     amount: 6900,
     currency: "usd",
@@ -78,10 +93,14 @@ export const APPOINTMENT_PACKAGE_CATALOG: AppointmentPackageDefinition[] = [
   {
     id: "video_standard_60m",
     appointmentType: "video_call",
-    titleZh: "视频标准（60 分钟）",
-    titleEn: "Video Standard (60 min)",
-    descriptionZh: "标准时长视频咨询，适合综合评估与答疑。",
-    descriptionEn: "Standard-length video consult for deeper evaluation.",
+    title: {
+      zh: "视频标准（60 分钟）",
+      en: "Video Standard (60 min)",
+    },
+    description: {
+      zh: "标准时长视频咨询，适合综合评估与答疑。",
+      en: "Standard-length video consult for deeper evaluation.",
+    },
     durationMinutes: 60,
     amount: 11900,
     currency: "usd",
@@ -89,10 +108,14 @@ export const APPOINTMENT_PACKAGE_CATALOG: AppointmentPackageDefinition[] = [
   {
     id: "inperson_standard_45m",
     appointmentType: "in_person",
-    titleZh: "线下面诊（45 分钟）",
-    titleEn: "In-Person Standard (45 min)",
-    descriptionZh: "线下面诊时间预留，适合需要当面评估的场景。",
-    descriptionEn: "Reserved in-person consultation slot.",
+    title: {
+      zh: "线下面诊（45 分钟）",
+      en: "In-Person Standard (45 min)",
+    },
+    description: {
+      zh: "线下面诊时间预留，适合需要当面评估的场景。",
+      en: "Reserved in-person consultation slot.",
+    },
     durationMinutes: 45,
     amount: 14900,
     currency: "usd",

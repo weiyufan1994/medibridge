@@ -107,9 +107,17 @@ export function getAppointmentCopy(lang: Lang) {
     hideEditInfo: isZh ? "收起编辑" : "Hide Edit",
     doctorDetailConfirmBook: isZh ? "确认选择并预约" : "Confirm & Book",
     doctorFallback: t.doctorFallback,
+    slotSelectionHint: isZh ? "请选择一个真实可售时间段。" : "Choose one real sellable slot.",
+    noSellableSlots: isZh ? "该日期暂无可售 slot。请换一天。" : "No sellable slots on this date. Pick another day.",
+    bookingSummaryTitle: isZh ? "预约摘要" : "Booking Summary",
+    notSelected: isZh ? "尚未选择" : "Not selected",
+    notProvided: isZh ? "未填写" : "Not provided",
     bookingChiefComplaintRequired: isZh
       ? "请至少填写主诉后再创建预约。"
       : "Please provide chief complaint before creating booking.",
+    bookingRequiresTriage: isZh
+      ? "请先完成 AI 分诊后再预约医生。"
+      : "Please complete AI triage before booking a doctor.",
     intakeTitle: isZh ? "诊前信息（结构化）" : "Pre-visit Intake",
     intakeDesc: isZh
       ? "先收集关键信息，医生可更快进入问诊。"
