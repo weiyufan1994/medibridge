@@ -1,9 +1,13 @@
 import { TRPCError } from "@trpc/server";
+import type { LocalizedText } from "@shared/types";
 import { processTriageChat } from "./service";
 import * as aiRepo from "./repo";
 import type { TrpcContext } from "../../_core/context";
 import * as authRepo from "../auth/repo";
+import { setSessionFlag, recordRiskEvents, scanMessage } from "../triageSafety";
+import { runRetrieval } from "../triageKnowledge";
 import type {
+  CreateSessionInput,
   ChatTriageInput,
   ListMySessionsInput,
   SendMessageInput,
@@ -34,6 +38,11 @@ function requireUser(user: TrpcContext["user"], message: string): AuthUser {
   }
   return user;
 }
+
+const resolveLocalizedReply = (
+  message: LocalizedText,
+  lang: "en" | "zh"
+) => message[lang];
 
 export async function getUsageSummaryAction(user: AuthUser) {
   const todayStart = new Date();
@@ -111,11 +120,30 @@ async function resolveSessionOwner(ctx: Pick<TrpcContext, "user" | "deviceId">) 
   return guestUser;
 }
 
-export async function createSessionAction(ctx: Pick<TrpcContext, "user" | "deviceId">) {
+export async function createSessionAction(
+  ctx: Pick<TrpcContext, "user" | "deviceId">,
+  input: CreateSessionInput
+) {
+  if (!input.consentAccepted) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Please accept the triage disclaimer before starting.",
+    });
+  }
+
   const authUser = await resolveSessionOwner(ctx);
 
   if (authUser.role === "pro") {
     const sessionId = await aiRepo.createAiChatSession(authUser.id);
+    if (input.consentAccepted) {
+      await aiRepo.createTriageConsent({
+        userId: authUser.id,
+        sessionId,
+        consentType: "triage_disclaimer",
+        consentVersion: input.consentVersion,
+        lang: input.lang,
+      });
+    }
     return { sessionId };
   }
 
@@ -129,6 +157,15 @@ export async function createSessionAction(ctx: Pick<TrpcContext, "user" | "devic
     }
 
     const sessionId = await aiRepo.createAiChatSession(authUser.id);
+    if (input.consentAccepted) {
+      await aiRepo.createTriageConsent({
+        userId: authUser.id,
+        sessionId,
+        consentType: "triage_disclaimer",
+        consentVersion: input.consentVersion,
+        lang: input.lang,
+      });
+    }
     return { sessionId };
   }
 
@@ -150,6 +187,15 @@ export async function createSessionAction(ctx: Pick<TrpcContext, "user" | "devic
   }
 
   const sessionId = await aiRepo.createAiChatSession(authUser.id);
+  if (input.consentAccepted) {
+    await aiRepo.createTriageConsent({
+      userId: authUser.id,
+      sessionId,
+      consentType: "triage_disclaimer",
+      consentVersion: input.consentVersion,
+      lang: input.lang,
+    });
+  }
   return { sessionId };
 }
 
@@ -188,7 +234,7 @@ export async function sendMessageAction(input: SendMessageInput, user: TrpcConte
     };
   }
 
-  await aiRepo.createAiChatMessage({
+  const userMessageId = await aiRepo.createAiChatMessage({
     sessionId: session.id,
     role: "user",
     content: input.content,
@@ -201,7 +247,74 @@ export async function sendMessageAction(input: SendMessageInput, user: TrpcConte
   }));
   const resolvedLang =
     input.lang === "auto" ? detectTriageLanguage(triageMessages) : input.lang;
-  const triageResult = await processTriageChat(triageMessages, resolvedLang);
+  try {
+    const riskScan = scanMessage({
+      latestMessage: input.content,
+      priorMessages: triageMessages.slice(0, -1),
+      lang: resolvedLang,
+    });
+
+    if (riskScan.shouldInterrupt && riskScan.displayMessage) {
+      const localizedReply = resolveLocalizedReply(riskScan.displayMessage, resolvedLang);
+      const assistantMessageId = await aiRepo.createAiChatMessage({
+        sessionId: session.id,
+        role: "assistant",
+        content: localizedReply,
+      });
+      await recordRiskEvents({
+        sessionId: session.id,
+        messageId: userMessageId,
+        scanResult: riskScan,
+      });
+      await setSessionFlag({
+        sessionId: session.id,
+        flagType: "interrupted",
+        flagValue: JSON.stringify({
+          riskCodes: riskScan.matchedRiskCodes,
+          severity: riskScan.highestSeverity,
+          assistantMessageId,
+        }),
+      });
+      await aiRepo.updateAiChatSessionStatus(session.id, "completed");
+      return {
+        isComplete: true,
+        reply: localizedReply,
+        interruptionMessage: riskScan.displayMessage,
+        sessionStatus: "completed" as const,
+        hitMessageLimit: false as const,
+        interrupted: true as const,
+        riskCodes: riskScan.matchedRiskCodes,
+      };
+    }
+  } catch (error) {
+    console.error("[TriageSafety] scanMessage failed:", error);
+  }
+
+  let knowledgeContext:
+    | Awaited<ReturnType<typeof runRetrieval>>
+    | undefined;
+  try {
+    knowledgeContext =
+      (await runRetrieval({
+        latestMessage: input.content,
+        sessionSummary: session.summary,
+      })) ?? undefined;
+    if (knowledgeContext) {
+      await setSessionFlag({
+        sessionId: session.id,
+        flagType: "knowledge_trace",
+        flagValue: JSON.stringify(knowledgeContext.trace),
+      });
+    }
+  } catch (error) {
+    console.error("[TriageKnowledge] runRetrieval failed:", error);
+  }
+
+  const triageResult = await processTriageChat(
+    triageMessages,
+    resolvedLang,
+    knowledgeContext ?? undefined
+  );
   const safeReply =
     typeof triageResult.reply === "string" && triageResult.reply.trim().length > 0
       ? triageResult.reply.trim()

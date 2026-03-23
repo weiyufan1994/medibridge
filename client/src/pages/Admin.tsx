@@ -5,27 +5,32 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getDisplayLocale, getLocalizedText } from "@/lib/i18n";
 import { useAdminConsole } from "@/features/admin/hooks/useAdminConsole";
 import { FiltersCard } from "@/features/admin/components/FiltersCard";
 import { AppointmentsCard } from "@/features/admin/components/AppointmentsCard";
 import { TriageSessionsCard } from "@/features/admin/components/TriageSessionsCard";
+import { TriageRiskEventsCard } from "@/features/admin/components/TriageRiskEventsCard";
 import { RiskMetricsCard } from "@/features/admin/components/RiskMetricsCard";
 import { OperationAuditCard } from "@/features/admin/components/OperationAuditCard";
 import { RetentionCard } from "@/features/admin/components/RetentionCard";
 import { AppointmentDetailCard } from "@/features/admin/components/AppointmentDetailCard";
 import { HospitalImageManagementCard } from "@/features/admin/components/HospitalImageManagementCard";
 import { ExportCenterCard } from "@/features/admin/components/ExportCenterCard";
+import { SchedulingManagementCard } from "@/features/admin/components/SchedulingManagementCard";
+import { DoctorAccountManagementCard } from "@/features/admin/components/DoctorAccountManagementCard";
 import { UserRoleManagementCard } from "@/features/admin/components/UserRoleManagementCard";
 
 export default function AdminPage() {
   const { user, loading } = useAuth();
   const { resolved } = useLanguage();
-  const [activeTab, setActiveTab] = useState<"overview" | "appointments" | "users" | "operations">(
-    "overview"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "appointments" | "users" | "operations"
+  >("overview");
   const lang = resolved as "zh" | "en";
-  const locale = lang === "zh" ? "zh-CN" : "en-US";
-  const tr = (zh: string, en: string) => (lang === "zh" ? zh : en);
+  const locale = getDisplayLocale(lang);
+  const tr = (zh: string, en: string) =>
+    getLocalizedText({ lang, value: { zh, en }, placeholder: zh });
   const role = (user as { role?: string } | null)?.role;
   const isAdmin = role === "admin";
   const isOps = role === "ops";
@@ -102,6 +107,7 @@ export default function AdminPage() {
     webhookReplayMutation,
     appointmentsQuery,
     triageQuery,
+    triageRiskEventsQuery,
     metricsQuery,
     operationAuditQuery,
     operationAuditPage,
@@ -187,7 +193,10 @@ export default function AdminPage() {
               <CardTitle>{tr("无访问权限", "Access denied")}</CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              {tr("仅管理员或 ops 可访问。", "This page is available to admin and ops users only.")}
+              {tr(
+                "仅管理员或 ops 可访问。",
+                "This page is available to admin and ops users only."
+              )}
             </CardContent>
           </Card>
         </div>
@@ -198,32 +207,51 @@ export default function AdminPage() {
   return (
     <AppLayout title={tr("管理后台", "Admin Console")}>
       <div className="mx-auto flex-1 w-full max-w-7xl overflow-y-auto py-2">
-        <Tabs value={activeTab} onValueChange={value => setActiveTab(value as typeof activeTab)} className="gap-6">
+        <Tabs
+          value={activeTab}
+          onValueChange={value => setActiveTab(value as typeof activeTab)}
+          className="gap-6"
+        >
           <div className="rounded-3xl border border-slate-200/80 bg-white/90 p-4 shadow-sm">
             <div className="mb-4 flex flex-col gap-2">
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-600">
                 {tr("后台导航", "Console sections")}
               </div>
               <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-                {tr("集中查看预约、风险、分诊会话与运营操作。", "Review appointments, risk signals, triage sessions, and operations in one place.")}
+                {tr(
+                  "集中查看预约、风险、分诊会话与运营操作。",
+                  "Review appointments, risk signals, triage sessions, and operations in one place."
+                )}
               </h1>
             </div>
             <TabsList className="h-auto w-full flex-wrap justify-start gap-2 rounded-2xl bg-slate-100 p-2">
-              <TabsTrigger value="overview" className="h-10 rounded-xl px-4 data-[state=active]:bg-white data-[state=active]:text-teal-700">
+              <TabsTrigger
+                value="overview"
+                className="h-10 rounded-xl px-4 data-[state=active]:bg-white data-[state=active]:text-teal-700"
+              >
                 <Search className="h-4 w-4" />
                 {tr("总览", "Overview")}
               </TabsTrigger>
-              <TabsTrigger value="appointments" className="h-10 rounded-xl px-4 data-[state=active]:bg-white data-[state=active]:text-teal-700">
+              <TabsTrigger
+                value="appointments"
+                className="h-10 rounded-xl px-4 data-[state=active]:bg-white data-[state=active]:text-teal-700"
+              >
                 <Workflow className="h-4 w-4" />
                 {tr("预约工作台", "Appointments")}
               </TabsTrigger>
               {isAdmin ? (
-                <TabsTrigger value="users" className="h-10 rounded-xl px-4 data-[state=active]:bg-white data-[state=active]:text-teal-700">
+                <TabsTrigger
+                  value="users"
+                  className="h-10 rounded-xl px-4 data-[state=active]:bg-white data-[state=active]:text-teal-700"
+                >
                   <ShieldCheck className="h-4 w-4" />
                   {tr("用户与权限", "Users & Roles")}
                 </TabsTrigger>
               ) : null}
-              <TabsTrigger value="operations" className="h-10 rounded-xl px-4 data-[state=active]:bg-white data-[state=active]:text-teal-700">
+              <TabsTrigger
+                value="operations"
+                className="h-10 rounded-xl px-4 data-[state=active]:bg-white data-[state=active]:text-teal-700"
+              >
                 <Wrench className="h-4 w-4" />
                 {tr("运营工具", "Operations")}
               </TabsTrigger>
@@ -248,6 +276,14 @@ export default function AdminPage() {
               errorMessage={triageQuery.error?.message}
               items={triageQuery.data ?? []}
             />
+
+            <TriageRiskEventsCard
+              tr={tr}
+              locale={locale}
+              isLoading={triageRiskEventsQuery.isLoading}
+              errorMessage={triageRiskEventsQuery.error?.message}
+              items={triageRiskEventsQuery.data ?? []}
+            />
           </TabsContent>
 
           <TabsContent value="appointments" className="space-y-6">
@@ -257,10 +293,7 @@ export default function AdminPage() {
               onEmailQueryChange={setEmailQuery}
               appointmentIdInput={appointmentIdInput}
               onAppointmentIdInputChange={setAppointmentIdInput}
-              onOpenAppointmentById={() => {
-                openAppointmentById();
-                setActiveTab("appointments");
-              }}
+              onOpenAppointmentById={openAppointmentById}
               statusFilter={statusFilter}
               onStatusFilterChange={setStatusFilter}
               paymentStatusFilter={paymentStatusFilter}
@@ -291,9 +324,7 @@ export default function AdminPage() {
               onPageSizeChange={setPageSize}
               page={page}
               totalPages={appointmentsQuery.data?.totalPages ?? 1}
-              onPageChange={value => {
-                setPage(value);
-              }}
+              onPageChange={setPage}
               onRefresh={() => {
                 void refreshAdminData();
               }}
@@ -325,7 +356,10 @@ export default function AdminPage() {
               selectedIds={selectedAppointmentIds}
               isAllVisibleSelected={isAllVisibleSelected}
               isAnyVisibleSelected={isAnyVisibleSelected}
-              onSelectAppointment={openAppointmentInAdmin}
+              onSelectAppointment={id => {
+                setSelectedAppointmentId(id);
+                setIssuedLinks(null);
+              }}
               onToggleSelect={toggleAppointmentSelection}
               onToggleAllVisible={toggleSelectAllVisible}
               onClearSelection={clearSelection}
@@ -399,9 +433,11 @@ export default function AdminPage() {
                 searchQuery={userSearchQuery}
                 onSearchQueryChange={setUserSearchQuery}
                 onRefresh={() => {
-                  void refreshAdminData();
+                  void adminUsersQuery.refetch();
                 }}
-                onUpdateRole={updateUserRoleMutation.mutate}
+                onUpdateRole={input => {
+                  updateUserRoleMutation.mutate(input);
+                }}
               />
             </TabsContent>
           ) : null}
@@ -473,7 +509,9 @@ export default function AdminPage() {
               lang={lang}
               isLoading={hospitalsQuery.isLoading}
               errorMessage={
-                hospitalsQuery.error?.message ? toUiError(hospitalsQuery.error.message) : undefined
+                hospitalsQuery.error?.message
+                  ? toUiError(hospitalsQuery.error.message)
+                  : undefined
               }
               hospitals={hospitalsQuery.data ?? []}
               isReadOnly={!isAdmin}
@@ -481,12 +519,18 @@ export default function AdminPage() {
               clearState={adminHospitalImageClearMutation}
             />
 
+            <SchedulingManagementCard tr={tr} lang={lang} isReadOnly={!isAdmin} />
+
+            <DoctorAccountManagementCard tr={tr} lang={lang} />
+
             <RetentionCard
               tr={tr}
               locale={locale}
               isPoliciesLoading={retentionPoliciesQuery.isLoading}
               policiesErrorMessage={
-                retentionPoliciesQuery.error?.message ? toUiError(retentionPoliciesQuery.error.message) : undefined
+                retentionPoliciesQuery.error?.message
+                  ? toUiError(retentionPoliciesQuery.error.message)
+                  : undefined
               }
               policies={retentionPoliciesQuery.data ?? []}
               freeRetentionDaysInput={freeRetentionDaysInput}
@@ -498,11 +542,17 @@ export default function AdminPage() {
               isReadOnly={!isAdmin}
               isUpdateRetentionPending={updateRetentionPolicyMutation.isPending}
               isCleanupPending={runRetentionCleanupMutation.isPending}
-              onRunCleanupDryRun={() => runRetentionCleanupMutation.mutate({ dryRun: true })}
-              onRunCleanupReal={() => runRetentionCleanupMutation.mutate({ dryRun: false })}
+              onRunCleanupDryRun={() =>
+                runRetentionCleanupMutation.mutate({ dryRun: true })
+              }
+              onRunCleanupReal={() =>
+                runRetentionCleanupMutation.mutate({ dryRun: false })
+              }
               isAuditsLoading={retentionAuditsQuery.isLoading}
               auditsErrorMessage={
-                retentionAuditsQuery.error?.message ? toUiError(retentionAuditsQuery.error.message) : undefined
+                retentionAuditsQuery.error?.message
+                  ? toUiError(retentionAuditsQuery.error.message)
+                  : undefined
               }
               audits={retentionAuditsQuery.data ?? []}
             />

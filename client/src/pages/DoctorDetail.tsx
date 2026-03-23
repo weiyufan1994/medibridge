@@ -31,6 +31,7 @@ function useTranslation(): TranslationFn {
       "doctor.hospital_website": doctorDetail.hospitalWebsite,
       "doctor.view_on_haodf": doctorDetail.viewOnHaodf,
       "doctor.default_name": doctorDetail.defaultDoctorName,
+      "doctor.workbench": doctorDetail.doctorWorkbench,
       "doctor.back_navigation": doctorDetail.backNavigation,
       "doctor.booking_panel_aria": doctorDetail.bookingPanelAria,
       "common.no_details": doctorDetail.noDataYet,
@@ -125,6 +126,13 @@ export default function DoctorDetail() {
           </nav>
 
           <section className="flex flex-col gap-4 mt-4">
+            <div className="flex justify-end">
+              <Link href="/doctor/workbench">
+                <Button variant="outline">
+                  {t("doctor.workbench")}
+                </Button>
+              </Link>
+            </div>
             <DoctorDetailContent
               data={data}
               resolved={resolved}

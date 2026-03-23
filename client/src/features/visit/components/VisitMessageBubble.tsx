@@ -5,6 +5,7 @@ import type {
 } from "@/features/visit/types";
 import type { ResolvedLanguage } from "@/contexts/LanguageContext";
 import { getVisitMessageDisplayLines } from "@/features/visit/hooks/useVisits.helpers";
+import { getVisitCopy } from "@/features/visit/copy";
 
 type VisitMessageBubbleProps = {
   message: VisitMessageItem;
@@ -42,7 +43,7 @@ export function VisitMessageBubble({
     ? "text-right text-[11px] text-slate-500"
     : "text-left text-[11px] text-slate-500";
   const lines = getVisitMessageDisplayLines(message, resolved);
-  const translationBadgeText = resolved === "zh" ? "AI 翻译支持" : "AI Translation";
+  const translationBadgeText = getVisitCopy(resolved).translationBadgeText;
 
   return (
     <div

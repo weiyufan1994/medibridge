@@ -46,15 +46,9 @@ export default function TopHeader(props: TopHeaderProps) {
     try {
       await logout();
       setLocation("/");
-      toast.success(resolved === "zh" ? "已退出登录" : "Signed out");
+      toast.success(t.logoutSuccess);
     } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : resolved === "zh"
-            ? "退出失败，请重试。"
-            : "Logout failed, please retry."
-      );
+      toast.error(error instanceof Error ? error.message : t.logoutFailed);
     }
   };
 

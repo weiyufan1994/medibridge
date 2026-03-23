@@ -137,6 +137,7 @@ export function AppointmentDetailCard({
           <div className="space-y-4">
             <OverviewSection
               tr={tr}
+              lang={lang}
               locale={locale}
               detailData={appointmentDetailQuery.data}
               risks={risks}

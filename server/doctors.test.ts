@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
+import * as llm from "./_core/llm";
 
 const mockDoctors = [
   {
@@ -44,12 +45,33 @@ const mockDoctors = [
     experience: "10年",
     recommendationScore: 96,
   },
+  {
+    id: 4,
+    name: "陈颌面",
+    nameEn: "Dr. Chen",
+    title: "主任医师",
+    titleEn: "Chief Physician",
+    specialty: "口腔颌面外科",
+    specialtyEn: "Oral and Maxillofacial Surgery",
+    expertise: "颌面骨折、下颌损伤、口腔颌面创伤",
+    expertiseEn: "Jaw fractures, mandibular trauma, oral and maxillofacial surgery",
+    description: "",
+    experience: "18年",
+    recommendationScore: 99,
+  },
 ];
 
 const mockHospitals = [
   {
     id: 10,
     name: "示例医院",
+    nameEn: "Example Hospital",
+    city: "上海",
+    cityEn: "Shanghai",
+    level: "三甲",
+    levelEn: "Tier 3A",
+    address: "上海市徐汇区示例路 1 号",
+    addressEn: "1 Sample Rd, Xuhui District, Shanghai",
   },
 ];
 
@@ -72,6 +94,12 @@ const mockDepartments = [
     name: "口腔黏膜科",
     nameEn: "Oral Medicine",
   },
+  {
+    id: 103,
+    hospitalId: 10,
+    name: "口腔颌面外科",
+    nameEn: "Oral and Maxillofacial Surgery",
+  },
 ];
 
 const mockRecommendationCandidates = [
@@ -90,27 +118,35 @@ const mockRecommendationCandidates = [
     hospital: mockHospitals[0],
     department: mockDepartments[2],
   },
+  {
+    doctor: mockDoctors[3],
+    hospital: mockHospitals[0],
+    department: mockDepartments[3],
+  },
 ];
 
 vi.mock("./modules/doctors/repo", () => {
+  const filterByCandidateDoctorIds = (
+    results: typeof mockRecommendationCandidates,
+    candidateDoctorIds?: number[]
+  ) => {
+    if (!candidateDoctorIds || candidateDoctorIds.length === 0) {
+      return results;
+    }
+    return results.filter(result => candidateDoctorIds.includes(result.doctor.id));
+  };
+
   return {
-    searchDoctors: vi.fn(async () => [
-      {
-        doctor: mockDoctors[0],
-        hospital: mockHospitals[0],
-        department: mockDepartments[0],
-      },
-      {
-        doctor: mockDoctors[1],
-        hospital: mockHospitals[0],
-        department: mockDepartments[1],
-      },
-      {
-        doctor: mockDoctors[2],
-        hospital: mockHospitals[0],
-        department: mockDepartments[2],
-      },
-    ]),
+    searchDoctors: vi.fn(async (
+      _keywords: string[],
+      _limit?: number,
+      options?: { candidateDoctorIds?: number[] }
+    ) =>
+      filterByCandidateDoctorIds(
+        mockRecommendationCandidates,
+        options?.candidateDoctorIds
+      )
+    ),
     getDoctorById: vi.fn(async (id: number) => {
       if (id === 999999) return null;
       return {
@@ -124,18 +160,27 @@ vi.mock("./modules/doctors/repo", () => {
       mockDepartments.filter(item => item.hospitalId === hospitalId)
     ),
     getDoctorsByDepartment: vi.fn(async () => []),
-    searchDoctorsByEmbedding: vi.fn(async () => [
-      {
-        doctor: mockDoctors[1],
-        hospital: mockHospitals[0],
-        department: mockDepartments[1],
-      },
-      {
-        doctor: mockDoctors[0],
-        hospital: mockHospitals[0],
-        department: mockDepartments[0],
-      },
-    ]),
+    searchDoctorsByEmbedding: vi.fn(async (
+      _embedding: number[],
+      _limit?: number,
+      options?: { candidateDoctorIds?: number[] }
+    ) =>
+      filterByCandidateDoctorIds(
+        [
+          {
+            doctor: mockDoctors[3],
+            hospital: mockHospitals[0],
+            department: mockDepartments[3],
+          },
+          {
+            doctor: mockDoctors[0],
+            hospital: mockHospitals[0],
+            department: mockDepartments[0],
+          },
+        ],
+        options?.candidateDoctorIds
+      )
+    ),
     listRecommendationCandidates: vi.fn(async () => mockRecommendationCandidates),
     listDoctorSpecialtyTagsByDoctorIds: vi.fn(async () => new Map()),
   };
@@ -207,6 +252,18 @@ describe("doctors router", () => {
       expect(result).toHaveProperty("hospital");
       expect(result).toHaveProperty("department");
       expect(result!.doctor.id).toBe(doctorId);
+      expect(result!.doctor.name).toEqual({
+        zh: "张医生",
+        en: "Dr. Zhang",
+      });
+      expect(result!.hospital.name).toEqual({
+        zh: "示例医院",
+        en: "Example Hospital",
+      });
+      expect(result!.department.name).toEqual({
+        zh: "骨科",
+        en: "Orthopedics",
+      });
     }
   });
 
@@ -229,15 +286,15 @@ describe("doctors router", () => {
       limit: 3,
     });
 
-    expect(result).toHaveLength(3);
-    expect(result[0]?.department.name).toBe("骨科");
-    expect(result[0]?.doctor.name).toBe("张医生");
+    expect(result).toHaveLength(2);
+    expect(result[0]?.department.name.zh).toBe("骨科");
+    expect(result[0]?.doctor.name.zh).toBe("张医生");
 
-    const orthoIndex = result.findIndex(item => item.department.name === "骨科");
+    const orthoIndex = result.findIndex(item => item.department.name.zh === "骨科");
     const reproductiveIndex = result.findIndex(
-      item => item.department.name === "辅助生殖科"
+      item => item.department.name.zh === "辅助生殖科"
     );
-    const oralIndex = result.findIndex(item => item.department.name === "口腔黏膜科");
+    const oralIndex = result.findIndex(item => item.department.name.zh === "口腔黏膜科");
 
     expect(orthoIndex).toBeGreaterThanOrEqual(0);
     expect(reproductiveIndex === -1 || orthoIndex < reproductiveIndex).toBe(true);
@@ -257,13 +314,124 @@ describe("doctors router", () => {
     expect(doctorsRepo.searchDoctorsByEmbedding).toHaveBeenCalledWith(
       [0.1, 0.2, 0.3],
       20,
-      { candidateDoctorIds: [1] }
+      { candidateDoctorIds: [1, 4] }
     );
     expect(doctorsRepo.searchDoctors).toHaveBeenCalledWith(
       expect.any(Array),
       20,
-      expect.objectContaining({ candidateDoctorIds: [1] })
+      expect.objectContaining({ candidateDoctorIds: [1, 4] })
     );
+  });
+
+  it("returns a non-empty orthopedic recommendation for tibia fracture triage", async () => {
+    const ctx = createTestContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.doctors.recommend({
+      keywords: ["胫骨骨折", "摔伤", "右小腿红肿"],
+      summary: "患者昨日摔倒后右侧小腿疼痛，拍片提示胫骨骨折。",
+      limit: 3,
+    });
+
+    expect(result.length).toBeGreaterThan(0);
+    expect(result[0]?.department.name.zh).toBe("骨科");
+  });
+
+  it("returns oral and maxillofacial recommendations for jaw fracture triage", async () => {
+    vi.mocked(llm.invokeLLM).mockResolvedValue({
+      id: "resp_1",
+      created: Date.now(),
+      model: "mock",
+      choices: [
+        {
+          index: 0,
+          finish_reason: "stop",
+          message: {
+            role: "assistant",
+            content: JSON.stringify({
+              keywordsZh: ["颌面骨折", "口腔颌面外科"],
+            }),
+          },
+        },
+      ],
+    });
+
+    const ctx = createTestContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.doctors.recommend({
+      keywords: ["jaw fracture", "maxillofacial swelling", "oral surgery"],
+      summary: "Facial fracture with jaw pain and swelling after trauma.",
+      limit: 3,
+    });
+
+    expect(result.length).toBeGreaterThan(0);
+    expect(
+      result.some(
+        item =>
+          item.department.name.en === "Oral and Maxillofacial Surgery" ||
+          item.department.name.en === "Oral Medicine"
+      )
+    ).toBe(true);
+  });
+
+  it("falls back to unrestricted search when specialty candidate retrieval is empty", async () => {
+    vi.mocked(doctorsRepo.searchDoctors).mockImplementation(
+      async (
+        _keywords: string[],
+        _limit?: number,
+        options?: { candidateDoctorIds?: number[] }
+      ) =>
+        options?.candidateDoctorIds
+          ? []
+          : [
+              {
+                doctor: mockDoctors[0],
+                hospital: mockHospitals[0],
+                department: mockDepartments[0],
+              },
+            ]
+    );
+    vi.mocked(doctorsRepo.searchDoctorsByEmbedding).mockImplementation(
+      async (
+        _embedding: number[],
+        _limit?: number,
+        options?: { candidateDoctorIds?: number[] }
+      ) => (options?.candidateDoctorIds ? [] : [])
+    );
+
+    const ctx = createTestContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.doctors.recommend({
+      keywords: ["胫骨骨折", "摔伤"],
+      summary: "患者下肢摔伤后拍片提示胫骨骨折。",
+      limit: 3,
+    });
+
+    expect(result.length).toBeGreaterThan(0);
+    expect(
+      vi
+        .mocked(doctorsRepo.searchDoctors)
+        .mock.calls.some(([, , options]) => options?.candidateDoctorIds === undefined)
+    ).toBe(true);
+  });
+
+  it("returns ranked fallback candidates instead of an empty list when retrieval misses everything", async () => {
+    vi.mocked(doctorsRepo.searchDoctors).mockResolvedValue([]);
+    vi.mocked(doctorsRepo.searchDoctorsByEmbedding).mockResolvedValue([]);
+
+    const ctx = createTestContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.doctors.recommend({
+      keywords: ["胫骨骨折", "摔伤"],
+      summary: "患者下肢摔伤后拍片提示胫骨骨折。",
+      limit: 3,
+    });
+
+    expect(result.length).toBeGreaterThan(0);
+    expect(result[0]?.department.name.zh).toBe("骨科");
   });
 });
 
@@ -281,6 +449,10 @@ describe("hospitals router", () => {
     const firstHospital = result[0];
     expect(firstHospital).toHaveProperty("id");
     expect(firstHospital).toHaveProperty("name");
+    expect(firstHospital?.name).toEqual({
+      zh: "示例医院",
+      en: "Example Hospital",
+    });
   });
 
   it("should get departments by hospital ID", async () => {
@@ -303,6 +475,10 @@ describe("hospitals router", () => {
         expect(firstDept).toHaveProperty("id");
         expect(firstDept).toHaveProperty("name");
         expect(firstDept.hospitalId).toBe(hospitalId);
+        expect(firstDept.name).toEqual({
+          zh: "骨科",
+          en: "Orthopedics",
+        });
       }
     }
   });

@@ -1,5 +1,11 @@
-import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
-import { aiChatMessages, aiChatSessions } from "../../../drizzle/schema";
+import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
+import {
+  aiChatMessages,
+  aiChatSessions,
+  triageConsents,
+  triageRiskEvents,
+  triageSessionFlags,
+} from "../../../drizzle/schema";
 import { getDb } from "../../db";
 
 export async function createAiChatSession(userId: number) {
@@ -101,7 +107,7 @@ export async function listFirstUserMessagesBySessionIds(sessionIds: number[]) {
     .from(aiChatMessages)
     .where(
       and(
-        sql`${aiChatMessages.sessionId} in ${normalizedIds}`,
+        inArray(aiChatMessages.sessionId, normalizedIds),
         eq(aiChatMessages.role, "user"),
         sql`${aiChatMessages.id} = (
           select min(msg.id)
@@ -195,11 +201,16 @@ export async function createAiChatMessage(input: {
     throw new Error("Database not available");
   }
 
-  await db.insert(aiChatMessages).values({
-    sessionId: input.sessionId,
-    role: input.role,
-    content: input.content,
-  });
+  const rows = await db
+    .insert(aiChatMessages)
+    .values({
+      sessionId: input.sessionId,
+      role: input.role,
+      content: input.content,
+    })
+    .returning({ id: aiChatMessages.id });
+
+  return rows[0]?.id ?? null;
 }
 
 export async function updateAiChatSessionStatus(
@@ -239,4 +250,52 @@ export async function setAiChatSessionSummaryIfEmpty(
     .where(
       and(eq(aiChatSessions.id, sessionId), sql`${aiChatSessions.summary} is null`)
     );
+}
+
+export async function createTriageConsent(input: {
+  userId?: number | null;
+  sessionId: number;
+  consentType: string;
+  consentVersion: string;
+  lang: "zh" | "en";
+}) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  await db.insert(triageConsents).values({
+    userId: input.userId ?? null,
+    sessionId: input.sessionId,
+    consentType: input.consentType,
+    consentVersion: input.consentVersion,
+    lang: input.lang,
+  });
+}
+
+export async function listTriageRiskEventsForAdmin(limit: number) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  return db
+    .select()
+    .from(triageRiskEvents)
+    .orderBy(desc(triageRiskEvents.createdAt), desc(triageRiskEvents.id))
+    .limit(limit);
+}
+
+export async function listLatestKnowledgeFlagsForAdmin(limit: number) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  return db
+    .select()
+    .from(triageSessionFlags)
+    .where(eq(triageSessionFlags.flagType, "knowledge_trace"))
+    .orderBy(desc(triageSessionFlags.createdAt), desc(triageSessionFlags.id))
+    .limit(limit);
 }

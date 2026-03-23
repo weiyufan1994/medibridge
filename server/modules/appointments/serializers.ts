@@ -3,6 +3,7 @@ import { appointments } from "../../../drizzle/schema";
 export function toPublicAppointment(appointment: typeof appointments.$inferSelect) {
   return {
     id: appointment.id,
+    slotId: appointment.slotId,
     doctorId: appointment.doctorId,
     triageSessionId: appointment.triageSessionId,
     appointmentType: appointment.appointmentType,
@@ -23,6 +24,7 @@ export function toPublicAppointment(appointment: typeof appointments.$inferSelec
 export function toMyAppointmentItem(appointment: typeof appointments.$inferSelect) {
   return {
     id: appointment.id,
+    slotId: appointment.slotId,
     doctorId: appointment.doctorId,
     appointmentType: appointment.appointmentType,
     scheduledAt: appointment.scheduledAt,

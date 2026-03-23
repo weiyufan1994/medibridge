@@ -9,6 +9,7 @@ import { trpc } from "@/lib/trpc";
 import { getTriageCopy } from "@/features/triage/copy";
 import { shouldLockInputForReportGeneration } from "@/features/triage/hooks/triageReportState";
 import { TRPCClientError } from "@trpc/client";
+import type { LocalizedText } from "@shared/types";
 
 export type ChatRole = "user" | "assistant";
 
@@ -20,6 +21,9 @@ export type ChatMessage = {
 export type TriageResult = {
   isComplete: boolean;
   reply: string;
+  interrupted?: boolean;
+  riskCodes?: string[];
+  interruptionMessage?: LocalizedText;
   summary?: string;
   keywords?: string[];
   extraction?: {
@@ -186,11 +190,13 @@ export function useTriageChat({
     }
   };
 
-  const syncSessionCreationState = async () => {
-    await Promise.all([
+  const syncSessionCreationState = () => {
+    void Promise.all([
       utils.consultation.getHistory.invalidate(),
       utils.auth.me.invalidate(),
-    ]);
+    ]).catch(error => {
+      console.error("[AITriageChat] failed to refresh session creation state:", error);
+    });
   };
 
   const sendMessage = async (content: string) => {
@@ -208,10 +214,14 @@ export function useTriageChat({
     let activeSessionId = triageSessionId;
     if (!activeSessionId) {
       try {
-        const created = await createSessionMutation.mutateAsync();
+        const created = await createSessionMutation.mutateAsync({
+          consentAccepted: disclaimerAccepted,
+          consentVersion: "stream_b_v1",
+          lang: resolved,
+        });
         activeSessionId = String(created.sessionId);
         setTriageSessionId(activeSessionId);
-        await syncSessionCreationState();
+        syncSessionCreationState();
       } catch (error) {
         if (error instanceof TRPCClientError) {
           const message = error.message || "无法创建问诊会话";
@@ -264,10 +274,14 @@ export function useTriageChat({
         });
       } catch (error) {
         if (error instanceof TRPCClientError && isSessionAccessDeniedError(error)) {
-          const recreated = await createSessionMutation.mutateAsync();
+          const recreated = await createSessionMutation.mutateAsync({
+            consentAccepted: disclaimerAccepted,
+            consentVersion: "stream_b_v1",
+            lang: resolved,
+          });
           const refreshedSessionId = String(recreated.sessionId);
           setTriageSessionId(refreshedSessionId);
-          await syncSessionCreationState();
+          syncSessionCreationState();
           result = await sendMessageMutation.mutateAsync({
             sessionId: Number(refreshedSessionId),
             content,
@@ -291,6 +305,9 @@ export function useTriageChat({
           urgency: "low" | "medium" | "high";
         };
         hitMessageLimit?: boolean;
+        interrupted?: boolean;
+        riskCodes?: string[];
+        interruptionMessage?: LocalizedText;
       };
 
       const safeReply =
@@ -313,6 +330,19 @@ export function useTriageChat({
       setTriageResult({
         isComplete: Boolean(normalizedResult.isComplete),
         reply: safeReply,
+        interrupted: normalizedResult.interrupted === true,
+        riskCodes: Array.isArray(normalizedResult.riskCodes)
+          ? normalizedResult.riskCodes.filter(
+              item => typeof item === "string" && item.trim().length > 0
+            )
+          : undefined,
+        interruptionMessage:
+          normalizedResult.interruptionMessage &&
+          typeof normalizedResult.interruptionMessage === "object" &&
+          typeof normalizedResult.interruptionMessage.zh === "string" &&
+          typeof normalizedResult.interruptionMessage.en === "string"
+            ? normalizedResult.interruptionMessage
+            : undefined,
         summary:
           typeof normalizedResult.summary === "string" &&
           normalizedResult.summary.trim().length > 0

@@ -19,6 +19,11 @@ vi.mock("./modules/visit/repo", () => ({
   getRecentMessages: vi.fn(),
 }));
 
+vi.mock("./modules/doctors/repo", () => ({
+  getAllHospitals: vi.fn(),
+  getDoctorById: vi.fn(),
+}));
+
 vi.mock("./modules/admin/repo", () => ({
   getVisitSummaryByAppointmentId: vi.fn(),
   upsertVisitSummary: vi.fn(),
@@ -34,6 +39,7 @@ vi.mock("./modules/admin/visitSummary", () => ({
 
 import * as appointmentsRepo from "./modules/appointments/repo";
 import * as aiRepo from "./modules/ai/repo";
+import * as doctorsRepo from "./modules/doctors/repo";
 import * as visitRepo from "./modules/visit/repo";
 import * as adminRepo from "./modules/admin/repo";
 import { generateBilingualVisitSummary } from "./modules/admin/visitSummary";
@@ -115,7 +121,7 @@ describe("system admin ops", () => {
     });
 
     expect(result.cached).toBe(true);
-    expect(result.summaryZh).toBe("中文摘要");
+    expect(result.summary.zh).toBe("中文摘要");
     expect(generateBilingualVisitSummary).not.toHaveBeenCalled();
   });
 
@@ -154,7 +160,7 @@ describe("system admin ops", () => {
     });
 
     expect(result.cached).toBe(false);
-    expect(result.summaryEn).toBe("New English summary");
+    expect(result.summary.en).toBe("New English summary");
     expect(adminRepo.upsertVisitSummary).toHaveBeenCalled();
   });
 
@@ -187,6 +193,91 @@ describe("system admin ops", () => {
       expect.objectContaining({ tier: "free", enabled: true }),
       expect.objectContaining({ tier: "paid", enabled: false }),
     ]);
+  });
+
+  it("adminHospitals returns localized hospital fields", async () => {
+    vi.mocked(doctorsRepo.getAllHospitals).mockResolvedValue([
+      {
+        id: 10,
+        name: "示例医院",
+        nameEn: "Example Hospital",
+        city: "上海",
+        cityEn: "Shanghai",
+        level: "三甲",
+        levelEn: "Tier 3A",
+        address: "上海市徐汇区示例路 1 号",
+        addressEn: "1 Sample Rd, Xuhui District, Shanghai",
+        imageUrl: "https://example.com/hospital.jpg",
+      },
+    ] as never);
+
+    const caller = createAdminCaller();
+    const result = await caller.adminHospitals();
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: 10,
+        name: { zh: "示例医院", en: "Example Hospital" },
+        city: { zh: "上海", en: "Shanghai" },
+        level: { zh: "三甲", en: "Tier 3A" },
+      }),
+    ]);
+  });
+
+  it("adminAppointmentDetail returns localized doctor summary fields", async () => {
+    vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue({
+      id: 321,
+      userId: 12,
+      email: "patient@example.com",
+      doctorId: 88,
+      triageSessionId: 77,
+      appointmentType: "online_chat",
+      status: "paid",
+      paymentStatus: "paid",
+      amount: 19900,
+      currency: "USD",
+      stripeSessionId: "cs_test_123",
+      scheduledAt: new Date("2026-03-01T10:00:00.000Z"),
+      paidAt: new Date("2026-03-01T09:00:00.000Z"),
+      createdAt: new Date("2026-03-01T08:00:00.000Z"),
+      updatedAt: new Date("2026-03-01T09:30:00.000Z"),
+      notes: null,
+    } as never);
+    vi.mocked(aiRepo.getAiChatSessionById).mockResolvedValue({
+      id: 77,
+      status: "completed",
+      summary: "triage summary",
+      summaryGeneratedAt: new Date("2026-03-01T09:10:00.000Z"),
+    } as never);
+    vi.mocked(appointmentsRepo.listActiveAppointmentTokens).mockResolvedValue([] as never);
+    vi.mocked(appointmentsRepo.listStatusEventsByAppointment).mockResolvedValue([] as never);
+    vi.mocked(appointmentsRepo.listStripeWebhookEventsForAppointment).mockResolvedValue([] as never);
+    vi.mocked(visitRepo.getRecentMessages).mockResolvedValue([] as never);
+    vi.mocked(doctorsRepo.getDoctorById).mockResolvedValue({
+      doctor: {
+        id: 88,
+        name: "张医生",
+        nameEn: "Dr. Zhang",
+      },
+      hospital: {
+        name: "示例医院",
+        nameEn: "Example Hospital",
+      },
+      department: {
+        name: "骨科",
+        nameEn: "Orthopedics",
+      },
+    } as never);
+
+    const caller = createAdminCaller();
+    const result = await caller.adminAppointmentDetail({ appointmentId: 321 });
+
+    expect(result.doctor).toEqual({
+      id: 88,
+      name: { zh: "张医生", en: "Dr. Zhang" },
+      hospitalName: { zh: "示例医院", en: "Example Hospital" },
+      departmentName: { zh: "骨科", en: "Orthopedics" },
+    });
   });
 
   it("adminRunRetentionCleanup forwards createdBy", async () => {

@@ -2,11 +2,21 @@ import { useMemo } from "react";
 import { format } from "date-fns";
 import { enUS, zhCN } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
-import { getLocalizedField } from "@/lib/i18n";
+import { getLocalizedTextWithZhFallback } from "@/lib/i18n";
 import { getVisitCopy } from "@/features/visit/copy";
 import type { ConsultationTimerStatus } from "@/features/visit/types";
+import type { LocalizedText } from "@shared/types";
 
 type VisitCopy = ReturnType<typeof getVisitCopy>;
+const DATE_PATTERN_BY_LANGUAGE = {
+  en: "MMM d, yyyy HH:mm",
+  zh: "yyyy年M月d日 HH:mm",
+} as const;
+
+const DATE_LOCALE_BY_LANGUAGE = {
+  en: enUS,
+  zh: zhCN,
+} as const;
 
 type AppointmentForView = {
   role: "patient" | "doctor";
@@ -27,14 +37,11 @@ type AppointmentForView = {
 
 type DoctorDataForView = {
   doctor: {
-    name?: string | null;
-    nameEn?: string | null;
-    title?: string | null;
-    titleEn?: string | null;
+    name?: LocalizedText | null;
+    title?: LocalizedText | null;
   };
   department: {
-    name?: string | null;
-    nameEn?: string | null;
+    name?: LocalizedText | null;
   };
 } | null;
 
@@ -57,32 +64,17 @@ function isClosedStatus(status: string | null | undefined) {
 }
 
 function getConsultationStatusText(input: {
-  resolved: "en" | "zh";
+  t: VisitCopy;
   roomClosedByStatus: boolean;
   timerStatus: ConsultationTimerStatus;
 }) {
   if (input.roomClosedByStatus) {
-    return input.resolved === "zh" ? "会诊已结束" : "Consultation Ended";
+    return input.t.consultationEnded;
   }
   if (input.timerStatus === "expired") {
-    return input.resolved === "zh" ? "会诊超时" : "Time Exceeded";
+    return input.t.consultationTimeExceeded;
   }
-  return input.resolved === "zh" ? "会诊进行中" : "Consultation Live";
-}
-
-function getDoctorUiLabel(
-  key:
-    | "doctor.workbench"
-    | "doctor.triage_summary"
-    | "doctor.ai_recommendation",
-  lang: "en" | "zh"
-) {
-  const map = {
-    "doctor.workbench": lang === "zh" ? "医生工作台" : "Doctor's Workbench",
-    "doctor.triage_summary": lang === "zh" ? "AI 分诊摘要" : "AI Triage Summary",
-    "doctor.ai_recommendation": lang === "zh" ? "AI 建议" : "AI Recommendation",
-  } as const;
-  return map[key];
+  return input.t.consultationLive;
 }
 
 export function buildVisitRoomPresentation(input: VisitRoomPresentationInput) {
@@ -90,29 +82,26 @@ export function buildVisitRoomPresentation(input: VisitRoomPresentationInput) {
   const isDoctorView = viewerRole === "doctor";
 
   const doctorName = input.doctorData
-    ? getLocalizedField({
+    ? getLocalizedTextWithZhFallback({
         lang: input.resolved,
-        zh: input.doctorData.doctor.name,
-        en: input.doctorData.doctor.nameEn,
+        value: input.doctorData.doctor.name,
         placeholder: input.t.assignedDoctorFallback,
       })
     : input.t.assignedDoctorFallback;
 
   const departmentName = input.doctorData
-    ? getLocalizedField({
+    ? getLocalizedTextWithZhFallback({
         lang: input.resolved,
-        zh: input.doctorData.department.name,
-        en: input.doctorData.department.nameEn,
+        value: input.doctorData.department.name,
         placeholder: input.t.departmentFallback,
       })
     : input.t.departmentFallback;
 
-  const doctorRoleFallback = input.resolved === "zh" ? "医生" : "Doctor";
+  const doctorRoleFallback = input.t.doctorRoleFallback;
   const doctorTitle = input.doctorData
-    ? getLocalizedField({
+    ? getLocalizedTextWithZhFallback({
         lang: input.resolved,
-        zh: input.doctorData.doctor.title,
-        en: input.doctorData.doctor.titleEn,
+        value: input.doctorData.doctor.title,
         placeholder: doctorRoleFallback,
       })
     : doctorRoleFallback;
@@ -126,27 +115,24 @@ export function buildVisitRoomPresentation(input: VisitRoomPresentationInput) {
   const composerDisabled =
     input.isSending || !effectiveCanSendMessage || Boolean(input.pollingFatalError);
 
-  const datePattern = input.resolved === "zh" ? "yyyy年M月d日 HH:mm" : "MMM d, yyyy HH:mm";
-  const dateLocale = input.resolved === "zh" ? zhCN : enUS;
+  const datePattern = DATE_PATTERN_BY_LANGUAGE[input.resolved];
+  const dateLocale = DATE_LOCALE_BY_LANGUAGE[input.resolved];
   const localNowText = format(input.now, datePattern, { locale: dateLocale });
   const chinaNowText = formatInTimeZone(input.now, "Asia/Shanghai", datePattern, {
     locale: dateLocale,
   });
 
   const consultationLiveText = getConsultationStatusText({
-    resolved: input.resolved,
+    t: input.t,
     roomClosedByStatus,
     timerStatus: input.timerStatus,
   });
   const doctorTitleDisplay = doctorTitle || doctorRoleFallback;
-  const localTimeLabel = input.resolved === "zh" ? "当地时间" : "Local";
-  const beijingTimeLabel = input.resolved === "zh" ? "北京时间" : "Beijing";
-  const doctorWorkbenchTitle = getDoctorUiLabel("doctor.workbench", input.resolved);
-  const triageSidebarTitle = getDoctorUiLabel("doctor.triage_summary", input.resolved);
-  const triageRecommendationTitle = getDoctorUiLabel(
-    "doctor.ai_recommendation",
-    input.resolved
-  );
+  const localTimeLabel = input.t.localTimeLabelShort;
+  const beijingTimeLabel = input.t.beijingTimeLabelShort;
+  const doctorWorkbenchTitle = input.t.doctorWorkbenchTitle;
+  const triageSidebarTitle = input.t.triageSidebarTitle;
+  const triageRecommendationTitle = input.t.triageRecommendationTitle;
 
   const intakeItemsRaw: Array<{ label: string; value: string | undefined }> = [
     { label: input.t.intakeChiefComplaint, value: input.appointment.intake?.chiefComplaint },

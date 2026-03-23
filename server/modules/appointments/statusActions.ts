@@ -1,6 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { appointments } from "../../../drizzle/schema";
 import * as appointmentsRepo from "./repo";
+import * as schedulingRepo from "../scheduling/repo";
+import { resolveBoundDoctorIdForUser } from "../doctorAccounts/actions";
 import { APPOINTMENT_INVALID_TRANSITION_ERROR } from "./stateMachine";
 import { getAppointmentByIdOrThrow } from "./accessValidation";
 
@@ -33,6 +35,9 @@ export async function cancelAppointmentByPatient(input: {
   await appointmentsRepo.revokeAppointmentTokens({
     appointmentId: appointment.id,
     reason: "appointment_canceled",
+  });
+  await schedulingRepo.releaseHeldSlotByAppointmentId({
+    appointmentId: appointment.id,
   });
 
   const updated = await appointmentsRepo.getAppointmentById(appointment.id);
@@ -101,6 +106,58 @@ export async function completeAppointmentByDoctor(input: {
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
       message: "Appointment disappeared after completion",
+    });
+  }
+
+  return {
+    appointmentId: updated.id,
+    status: updated.status,
+    paymentStatus: updated.paymentStatus,
+  };
+}
+
+export async function startAppointmentByDoctorUser(input: {
+  appointmentId: number;
+  currentUserId: number;
+  currentUserRole?: string | null;
+  doctorId?: number;
+}) {
+  const doctorId = await resolveBoundDoctorIdForUser({
+    userId: input.currentUserId,
+    allowAdminDoctorId: input.doctorId,
+    userRole: input.currentUserRole,
+  });
+  const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
+
+  if (appointment.doctorId !== doctorId) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Appointment does not belong to the current doctor workbench",
+    });
+  }
+
+  const transitioned = await appointmentsRepo.tryTransitionAppointmentById({
+    appointmentId: appointment.id,
+    allowedFrom: ["paid", "active"],
+    toStatus: "active",
+    toPaymentStatus: "paid",
+    operatorType: "doctor",
+    operatorId: input.currentUserId,
+    reason: "doctor_started_consultation",
+  });
+
+  if (!transitioned.ok) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: APPOINTMENT_INVALID_TRANSITION_ERROR,
+    });
+  }
+
+  const updated = await appointmentsRepo.getAppointmentById(appointment.id);
+  if (!updated) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Appointment disappeared after activation",
     });
   }
 

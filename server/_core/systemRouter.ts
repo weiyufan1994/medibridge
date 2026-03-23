@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import type { LocalizedText } from "@shared/types";
 import { notifyOwner } from "./notification";
 import {
   adminOrOpsProcedure,
@@ -19,8 +20,13 @@ import { sendMagicLinkEmail } from "./mailer";
 import { setCachedPatientAccessToken } from "../modules/appointments/tokenCache";
 import * as visitRepo from "../modules/visit/repo";
 import * as adminRepo from "../modules/admin/repo";
+import * as schedulingRepo from "../modules/scheduling/repo";
 import { generateBilingualVisitSummary } from "../modules/admin/visitSummary";
 import { renderSimpleTextPdf } from "../modules/admin/pdf";
+import {
+  toLocalizedTextValue,
+  toPublicLocalizedHospital,
+} from "../modules/doctors/presentation";
 import { storagePut } from "../storage";
 import { settleStripePaymentBySessionId } from "../modules/payments/settlement";
 import {
@@ -163,6 +169,9 @@ const adminTriageSessionsInputSchema = z.object({
   limit: z.number().int().min(1).max(200).optional().default(50),
   status: z.enum(["active", "completed"]).optional(),
   userId: z.number().int().positive().optional(),
+});
+const adminTriageRiskEventsInputSchema = z.object({
+  limit: z.number().int().min(1).max(200).optional().default(50),
 });
 
 const adminAppointmentDetailInputSchema = z.object({
@@ -330,6 +339,14 @@ const deriveSummaryText = (input: {
     body.trim(),
   ].join("\n");
 };
+
+const toLocalizedText = (input: {
+  zh: string | null | undefined;
+  en: string | null | undefined;
+}): LocalizedText => ({
+  zh: input.zh ?? "",
+  en: input.en ?? "",
+});
 
 const toCsvCell = (value: unknown) => {
   const raw = value === undefined || value === null ? "" : String(value);
@@ -811,6 +828,9 @@ export const systemRouter = router({
               actorRole,
             },
           });
+          await schedulingRepo.releaseHeldSlotByAppointmentId({
+            appointmentId: event.appointmentId,
+          });
           return { ok: true, skipped: false, action: result.action, eventId: event.eventId } as const;
         }
 
@@ -847,6 +867,9 @@ export const systemRouter = router({
               idempotencyKey: replayKey,
               actorRole,
             },
+          });
+          await schedulingRepo.releaseHeldSlotByAppointmentId({
+            appointmentId: event.appointmentId,
           });
           return { ok: true, skipped: false, action: result.action, eventId: event.eventId } as const;
         }
@@ -1110,7 +1133,8 @@ export const systemRouter = router({
     }),
 
   adminHospitals: adminOrOpsProcedure.query(async () => {
-    return await doctorsRepo.getAllHospitals();
+    const hospitals = await doctorsRepo.getAllHospitals();
+    return hospitals.map(toPublicLocalizedHospital);
   }),
 
   adminUploadHospitalImage: adminProcedure
@@ -1191,6 +1215,32 @@ export const systemRouter = router({
       });
     }),
 
+  adminTriageRiskEvents: adminOrOpsProcedure
+    .input(adminTriageRiskEventsInputSchema)
+    .query(async ({ input }) => {
+      const [events, flags] = await Promise.all([
+        aiRepo.listTriageRiskEventsForAdmin(input.limit),
+        aiRepo.listLatestKnowledgeFlagsForAdmin(input.limit * 2),
+      ]);
+
+      const latestKnowledgeTraceBySessionId = new Map<number, unknown>();
+      for (const flag of flags) {
+        if (latestKnowledgeTraceBySessionId.has(flag.sessionId)) {
+          continue;
+        }
+        try {
+          latestKnowledgeTraceBySessionId.set(flag.sessionId, JSON.parse(flag.flagValue));
+        } catch {
+          latestKnowledgeTraceBySessionId.set(flag.sessionId, null);
+        }
+      }
+
+      return events.map(event => ({
+        ...event,
+        knowledgeTrace: latestKnowledgeTraceBySessionId.get(event.sessionId) ?? null,
+      }));
+    }),
+
   adminAppointmentDetail: adminOrOpsProcedure
     .input(adminAppointmentDetailInputSchema)
     .query(async ({ input }) => {
@@ -1240,10 +1290,18 @@ export const systemRouter = router({
         doctor: doctor
           ? {
               id: doctor.doctor.id,
-              name: doctor.doctor.name,
-              nameEn: doctor.doctor.nameEn,
-              hospitalName: doctor.hospital.name,
-              departmentName: doctor.department.name,
+              name: toLocalizedTextValue(
+                doctor.doctor.name,
+                doctor.doctor.nameEn
+              ),
+              hospitalName: toLocalizedTextValue(
+                doctor.hospital.name,
+                doctor.hospital.nameEn
+              ),
+              departmentName: toLocalizedTextValue(
+                doctor.department.name,
+                doctor.department.nameEn
+              ),
             }
           : null,
         triageSession: triageSession
@@ -1559,8 +1617,10 @@ export const systemRouter = router({
       return {
         id: summary.id,
         appointmentId: summary.appointmentId,
-        summaryZh: summary.summaryZh,
-        summaryEn: summary.summaryEn,
+        summary: toLocalizedText({
+          zh: summary.summaryZh,
+          en: summary.summaryEn,
+        }),
         source: summary.source,
         generatedBy: summary.generatedBy,
         createdAt: summary.createdAt,
@@ -1583,8 +1643,10 @@ export const systemRouter = router({
       if (existing && !input.forceRegenerate) {
         return {
           appointmentId: appointment.id,
-          summaryZh: existing.summaryZh,
-          summaryEn: existing.summaryEn,
+          summary: toLocalizedText({
+            zh: existing.summaryZh,
+            en: existing.summaryEn,
+          }),
           source: existing.source,
           generatedAt: existing.updatedAt ?? existing.createdAt,
           cached: true,
@@ -1616,8 +1678,10 @@ export const systemRouter = router({
 
       return {
         appointmentId: appointment.id,
-        summaryZh: persisted?.summaryZh ?? generated.summaryZh,
-        summaryEn: persisted?.summaryEn ?? generated.summaryEn,
+        summary: toLocalizedText({
+          zh: persisted?.summaryZh ?? generated.summaryZh,
+          en: persisted?.summaryEn ?? generated.summaryEn,
+        }),
         source: persisted?.source ?? generated.source,
         generatedAt: persisted?.updatedAt ?? persisted?.createdAt ?? new Date(),
         cached: false,

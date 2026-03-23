@@ -60,7 +60,7 @@ function toErrorMessage(error: unknown, fallback: string) {
 export function VisitRoomScreen() {
   const { resolved } = useLanguage();
   const t = getVisitCopy(resolved);
-  const pageTitle = resolved === "zh" ? "线上会诊室" : "Visit Room";
+  const pageTitle = t.pageTitle;
   const { validInput, accessInput } = useVisitRoomAccess(resolved);
   const [, setLocation] = useLocation();
   const utils = trpc.useUtils();
@@ -221,11 +221,7 @@ export function VisitRoomScreen() {
     composerPlaceholder: t.composerPlaceholder,
     composerHint: presentation.composerHint,
     onSelectAttachment: (file: File) => {
-      toast.info(
-        resolved === "zh"
-          ? `已选择附件：${file.name}（上传功能即将开放）`
-          : `Attachment selected: ${file.name} (upload will be enabled soon)`
-      );
+      toast.info(t.attachmentSelected.replace("{{fileName}}", file.name));
     },
     showRoomClosedPrompt: !presentation.isDoctorView && presentation.roomClosedByStatus,
     roomClosedPromptTitle: t.roomClosedReturnTitle,

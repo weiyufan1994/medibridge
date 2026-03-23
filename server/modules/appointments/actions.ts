@@ -4,6 +4,8 @@ export {
 } from "./bookingActions";
 export {
   getAppointmentStatus,
+  getDoctorWorkbenchAppointmentDetail,
+  listDoctorWorkbenchAppointments,
   listMineAppointments,
   listMyAppointmentsByContext,
 } from "./queryActions";
@@ -14,11 +16,12 @@ export {
 } from "./accessReadActions";
 export {
   issueAccessLinksForAppointmentById,
+  issueAccessLinksForDoctorUserByAppointmentId,
   openMyRoomForCurrentUserById,
   resendDoctorAccessLinkInDevById,
   resendPatientAccessLinkById,
 } from "./accessLinkActions";
-export { cancelAppointmentByPatientById } from "./statusActions";
+export { cancelAppointmentByPatientById, startAppointmentByDoctorUser } from "./statusActions";
 export {
   completeAppointmentByTokenFlow,
   generateMedicalSummaryDraftByTokenFlow,

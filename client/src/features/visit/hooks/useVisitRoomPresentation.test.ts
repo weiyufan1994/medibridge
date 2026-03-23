@@ -20,8 +20,11 @@ describe("buildVisitRoomPresentation", () => {
         },
       },
       doctorData: {
-        doctor: { name: "张医生", nameEn: "Dr. Zhang", title: "主任医师", titleEn: "Chief Physician" },
-        department: { name: "内科", nameEn: "Internal Medicine" },
+        doctor: {
+          name: { zh: "张医生", en: "Dr. Zhang" },
+          title: { zh: "主任医师", en: "Chief Physician" },
+        },
+        department: { name: { zh: "内科", en: "Internal Medicine" } },
       },
       role: "doctor",
       currentStatus: "active",
@@ -37,6 +40,10 @@ describe("buildVisitRoomPresentation", () => {
     expect(result.departmentName).toBe("Internal Medicine");
     expect(result.doctorTitleDisplay).toBe("Chief Physician");
     expect(result.composerDisabled).toBe(false);
+    expect(result.consultationLiveText).toBe(t.consultationLive);
+    expect(result.doctorWorkbenchTitle).toBe(t.doctorWorkbenchTitle);
+    expect(result.triageSidebarTitle).toBe(t.triageSidebarTitle);
+    expect(result.triageRecommendationTitle).toBe(t.triageRecommendationTitle);
     expect(result.intakeItems).toEqual([
       { label: t.intakeChiefComplaint, value: "cough" },
       { label: t.intakeAllergies, value: "penicillin" },
@@ -122,7 +129,7 @@ describe("buildVisitRoomPresentation", () => {
       pollingFatalError: null,
     });
 
-    expect(result.consultationLiveText).toBe("会诊超时");
+    expect(result.consultationLiveText).toBe(t.consultationTimeExceeded);
   });
 
   it("treats currentStatus completed as room-closed even when appointment status lags", () => {
@@ -147,6 +154,6 @@ describe("buildVisitRoomPresentation", () => {
     });
 
     expect(result.roomClosedByStatus).toBe(true);
-    expect(result.consultationLiveText).toBe("Consultation Ended");
+    expect(result.consultationLiveText).toBe(t.consultationEnded);
   });
 });

@@ -7,6 +7,7 @@ const hospitalsCopyByLang = {
       backToHome: "Back to Home",
     },
     browser: {
+      navigationAria: "Hospital navigation",
       breadcrumbHospitals: "Hospitals",
       breadcrumbDepartmentsFallback: "Departments",
       breadcrumbDoctorsFallback: "Doctors",
@@ -25,6 +26,7 @@ const hospitalsCopyByLang = {
       searchDoctorsLabel: "Search doctors",
       cityLabel: "City",
       allCities: "All cities",
+      shanghaiCity: "Shanghai",
       noHospitalsFound: "No hospitals found.",
       noDepartmentsFound: "No departments found.",
       backToHospitals: "Back to Hospitals",
@@ -42,6 +44,7 @@ const hospitalsCopyByLang = {
       specialtyLabel: "Specialty: ",
       expertiseLabel: "Expertise: ",
       viewProfile: "View Profile",
+      viewDoctorHomepage: "View Profile",
     },
     doctorDetail: {
       subtitle: "AI-Powered Medical Bridge to China",
@@ -59,6 +62,7 @@ const hospitalsCopyByLang = {
       hospitalWebsite: "Hospital Website",
       viewOnHaodf: "View on Haodf",
       defaultDoctorName: "Doctor",
+      doctorWorkbench: "Doctor Workbench",
       satisfactionLabel: "Satisfaction",
       attitudeLabel: "Attitude",
       recommendationLabel: "Recommendation",
@@ -75,6 +79,7 @@ const hospitalsCopyByLang = {
       backToHome: "返回首页",
     },
     browser: {
+      navigationAria: "医院列表导航",
       breadcrumbHospitals: "医院",
       breadcrumbDepartmentsFallback: "科室",
       breadcrumbDoctorsFallback: "医生",
@@ -92,6 +97,7 @@ const hospitalsCopyByLang = {
       searchDoctorsLabel: "搜索医生",
       cityLabel: "城市",
       allCities: "全部城市",
+      shanghaiCity: "上海",
       noHospitalsFound: "未找到医院。",
       noDepartmentsFound: "未找到科室。",
       backToHospitals: "返回医院列表",
@@ -108,6 +114,7 @@ const hospitalsCopyByLang = {
       specialtyLabel: "专科：",
       expertiseLabel: "擅长：",
       viewProfile: "查看详情",
+      viewDoctorHomepage: "查看医生主页",
     },
     doctorDetail: {
       subtitle: "AI 驱动的中外医疗桥梁",
@@ -125,6 +132,7 @@ const hospitalsCopyByLang = {
       hospitalWebsite: "医院官网",
       viewOnHaodf: "查看好大夫",
       defaultDoctorName: "医生",
+      doctorWorkbench: "医生工作台",
       satisfactionLabel: "满意度",
       attitudeLabel: "态度",
       recommendationLabel: "推荐度",

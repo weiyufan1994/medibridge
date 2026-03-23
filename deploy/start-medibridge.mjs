@@ -44,6 +44,7 @@ async function getSecureParameter(client, name) {
 async function main() {
   const fileEnv = parseEnvFile(envFilePath);
   const runtimeEnv = { ...process.env, ...fileEnv };
+  runtimeEnv.NODE_ENV ||= "production";
 
   const region =
     runtimeEnv.AWS_REGION || runtimeEnv.AWS_DEFAULT_REGION || "ap-southeast-1";

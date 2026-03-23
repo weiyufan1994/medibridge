@@ -11,8 +11,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getLocalizedField } from "@/lib/i18n";
+import { getLocalizedTextWithZhFallback } from "@/lib/i18n";
 import { getHospitalsCopy } from "@/features/hospitals/copy";
+import type { LocalizedText } from "@shared/types";
 
 export type ViewMode = "hospitals" | "departments" | "doctors";
 
@@ -20,31 +21,23 @@ type Lang = "zh" | "en";
 
 type HospitalItem = {
   id: number;
-  name: string;
-  nameEn: string | null;
-  city: string | null;
-  cityEn: string | null;
-  level: string | null;
-  levelEn: string | null;
+  name: LocalizedText;
+  city: LocalizedText;
+  level: LocalizedText;
   imageUrl: string | null;
 };
 
 type DepartmentItem = {
   id: number;
-  name: string;
-  nameEn: string | null;
+  name: LocalizedText;
 };
 
 type DoctorItem = {
   id: number;
-  name: string;
-  nameEn: string | null;
-  title: string | null;
-  titleEn: string | null;
-  specialty: string | null;
-  specialtyEn: string | null;
-  expertise: string | null;
-  expertiseEn: string | null;
+  name: LocalizedText;
+  title: LocalizedText;
+  specialty: LocalizedText;
+  expertise: LocalizedText;
   recommendationScore: string | number | null;
 };
 
@@ -72,22 +65,6 @@ type Props = {
   onBackToHospitals: () => void;
   onBackToDepartments: () => void;
 };
-
-const getLocalizedFieldWithZhFallback = ({
-  lang,
-  zh,
-  en,
-}: {
-  lang: Lang;
-  zh?: string | null;
-  en?: string | null;
-}) =>
-  getLocalizedField({
-    lang,
-    zh,
-    en,
-    placeholder: zh ?? "",
-  });
 
 export function HospitalsBrowser({
   viewMode,
@@ -123,20 +100,17 @@ export function HospitalsBrowser({
     }
 
     return hospitals.filter((hospital) => {
-      const hospitalName = getLocalizedFieldWithZhFallback({
+      const hospitalName = getLocalizedTextWithZhFallback({
         lang: resolved,
-        zh: hospital.name,
-        en: hospital.nameEn,
+        value: hospital.name,
       });
-      const hospitalCity = getLocalizedFieldWithZhFallback({
+      const hospitalCity = getLocalizedTextWithZhFallback({
         lang: resolved,
-        zh: hospital.city,
-        en: hospital.cityEn,
+        value: hospital.city,
       });
-      const hospitalLevel = getLocalizedFieldWithZhFallback({
+      const hospitalLevel = getLocalizedTextWithZhFallback({
         lang: resolved,
-        zh: hospital.level,
-        en: hospital.levelEn,
+        value: hospital.level,
       });
 
       const cityMatch =
@@ -166,7 +140,7 @@ export function HospitalsBrowser({
   return (
     <div className={isDoctorsView ? "min-h-screen bg-slate-50 w-full" : "w-full"}>
       <nav
-        aria-label={resolved === "en" ? "Hospital navigation" : "医院列表导航"}
+        aria-label={copy.browser.navigationAria}
         className="flex items-center gap-2 mb-6 text-sm text-slate-500"
       >
         <button
@@ -234,7 +208,7 @@ export function HospitalsBrowser({
               className="h-11 rounded-md border border-slate-200 bg-white px-3 text-slate-700 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-teal-500 min-w-44"
             >
               <option value="all">{copy.browser.allCities}</option>
-              <option value="上海">{resolved === "en" ? "Shanghai" : "上海"}</option>
+              <option value="上海">{copy.browser.shanghaiCity}</option>
             </select>
           </div>
 
@@ -250,20 +224,17 @@ export function HospitalsBrowser({
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
             {filteredHospitals.map((hospital) => {
-              const hospitalName = getLocalizedFieldWithZhFallback({
+              const hospitalName = getLocalizedTextWithZhFallback({
                 lang: resolved,
-                zh: hospital.name,
-                en: hospital.nameEn,
+                value: hospital.name,
               });
-              const hospitalCity = getLocalizedFieldWithZhFallback({
+              const hospitalCity = getLocalizedTextWithZhFallback({
                 lang: resolved,
-                zh: hospital.city,
-                en: hospital.cityEn,
+                value: hospital.city,
               });
-              const hospitalLevel = getLocalizedFieldWithZhFallback({
+              const hospitalLevel = getLocalizedTextWithZhFallback({
                 lang: resolved,
-                zh: hospital.level,
-                en: hospital.levelEn,
+                value: hospital.level,
               });
               const hospitalImage = hospital.imageUrl?.trim();
               const description = copy.browser.hospitalCardDescription;
@@ -358,10 +329,9 @@ export function HospitalsBrowser({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-8">
             {departments?.map((dept) => {
-              const departmentName = getLocalizedFieldWithZhFallback({
+              const departmentName = getLocalizedTextWithZhFallback({
                 lang: resolved,
-                zh: dept.name,
-                en: dept.nameEn,
+                value: dept.name,
               });
               return (
                 <button
@@ -423,20 +393,17 @@ export function HospitalsBrowser({
               </div>
             )}
             {filteredDoctors?.map(({ doctor }) => {
-              const doctorName = getLocalizedFieldWithZhFallback({
+              const doctorName = getLocalizedTextWithZhFallback({
                 lang: resolved,
-                zh: doctor.name,
-                en: doctor.nameEn,
+                value: doctor.name,
               });
-              const doctorTitle = getLocalizedFieldWithZhFallback({
+              const doctorTitle = getLocalizedTextWithZhFallback({
                 lang: resolved,
-                zh: doctor.title,
-                en: doctor.titleEn,
+                value: doctor.title,
               });
-              const doctorExpertise = getLocalizedFieldWithZhFallback({
+              const doctorExpertise = getLocalizedTextWithZhFallback({
                 lang: resolved,
-                zh: doctor.expertise,
-                en: doctor.expertiseEn,
+                value: doctor.expertise,
               });
               return (
                 <article
@@ -467,7 +434,7 @@ export function HospitalsBrowser({
                   >
                     <Button className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white font-medium px-6 py-2.5 rounded-xl transition-colors text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2">
                       <span className="inline-flex items-center justify-center gap-1">
-                        {resolved === "en" ? "View Profile" : "查看医生主页"}
+                        {copy.browser.viewDoctorHomepage}
                         <ArrowRight className="w-4 h-4" aria-hidden="true" />
                       </span>
                     </Button>

@@ -68,12 +68,34 @@ async function main() {
   });
 
   const appointmentCheckout = await caller.appointments.createV2({
+  const adminCaller = appRouter.createCaller(
+    createContext({
+      ...user,
+      role: "admin",
+    })
+  );
+  const manualSlots = await adminCaller.scheduling.bulkCreateManualSlots({
+    slots: [
+      {
+        doctorId: doctorSearch[0]!.doctor.id,
+        appointmentType: "online_chat",
+        slotDurationMinutes: 60,
+        timezone: "Asia/Shanghai",
+        startAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
+    ],
+  });
+  if (manualSlots.length === 0) {
+    throw new Error("Failed to create manual slots");
+  }
+
+  const appointmentCheckout = await caller.appointments.createV2({
     doctorId: doctorSearch[0]!.doctor.id,
+    slotId: manualSlots[0]!.id,
     contact: {
       email: user.email ?? "",
     },
     appointmentType: "online_chat",
-    scheduledAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     triageSessionId: triageSession.sessionId,
     packageId: "chat_standard_60m",
     intake: {
@@ -83,12 +105,6 @@ async function main() {
     },
   });
 
-  const adminCaller = appRouter.createCaller(
-    createContext({
-      ...user,
-      role: "admin",
-    })
-  );
   const adminAppointments = await adminCaller.system.adminAppointments({
     page: 1,
     pageSize: 10,

@@ -122,3 +122,46 @@ export async function sendMagicLinkEmail(to: string, link: string): Promise<void
     config
   );
 }
+
+export async function sendDoctorInviteEmail(
+  to: string,
+  claimUrl: string,
+  input: { expiresAt: Date }
+): Promise<void> {
+  const expiresAt = input.expiresAt.toISOString();
+  const subject = "Your MediBridge doctor workbench invite";
+  const text =
+    `You have been invited to activate your MediBridge doctor workbench.\n` +
+    `Sign in with this email address, then complete the claim here: ${claimUrl}\n` +
+    `This link expires at ${expiresAt}.`;
+  const html =
+    `<p>You have been invited to activate your MediBridge doctor workbench.</p>` +
+    `<p>Please sign in with this email address, then complete the claim here:</p>` +
+    `<p><a href="${claimUrl}">${claimUrl}</a></p>` +
+    `<p>This invite expires at ${expiresAt}.</p>`;
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`[Mailer][DEV] To: ${to}`);
+    console.log(`[Mailer][DEV] Doctor invite: ${claimUrl}`);
+    return;
+  }
+
+  const config = getResendConfig();
+  if (!config) {
+    console.warn("[Mailer] Resend is not configured for production.");
+    if (getSmtpConfig()) {
+      console.warn("[Mailer] SMTP config exists, but production currently uses Resend API first.");
+    }
+    throw new Error("Email provider is not configured for production. Set RESEND_API_KEY.");
+  }
+
+  await sendViaResend(
+    {
+      to,
+      subject,
+      text,
+      html,
+    },
+    config
+  );
+}

@@ -4,6 +4,8 @@ import * as appointmentsRepo from "./repo";
 import { createPaymentCheckoutSession } from "../payments/providerManager";
 import { APPOINTMENT_INVALID_TRANSITION_ERROR } from "./stateMachine";
 import { getPublicBaseUrl } from "../../_core/getPublicBaseUrl";
+import { getDb } from "../../db";
+import * as schedulingRepo from "../scheduling/repo";
 
 type CheckoutPackage = {
   id: string;
@@ -82,6 +84,7 @@ export async function resolveCreateInputToStoredEmail(input: {
 }
 
 export async function createAppointmentCheckoutFlow(input: {
+  slotId?: number;
   doctorId: number;
   triageSessionId: number;
   appointmentType: "online_chat" | "video_call" | "in_person";
@@ -93,29 +96,99 @@ export async function createAppointmentCheckoutFlow(input: {
   intake?: IntakeInput;
   req: Request;
 }) {
-  const draftResult = await appointmentsRepo.createAppointmentDraft({
-    doctorId: input.doctorId,
-    triageSessionId: input.triageSessionId,
-    appointmentType: input.appointmentType,
-    scheduledAt: input.scheduledAt,
-    sessionId: input.sessionId,
-    email: input.email,
-    amount: input.selectedPackage.amount,
-    currency: input.selectedPackage.currency,
-    userId: input.userId,
-    notes: formatIntakeToNotes(input.intake, input.selectedPackage),
-  });
+  const slotId = input.slotId ?? null;
+  const holdKey =
+    input.sessionId?.trim() ||
+    `booking:${input.userId ?? "anon"}:${input.email}:${Date.now()}`;
+  let appointmentId: number | null = null;
 
-  const appointmentId =
-    readInsertedId(draftResult) ??
-    (await appointmentsRepo.findLatestAppointmentIdByLookup({
+  if (slotId) {
+    const db = await getDb();
+    if (!db) {
+      throw new Error("Database not available");
+    }
+
+    await db.transaction(async tx => {
+      const heldSlot = await schedulingRepo.holdSlot({
+        slotId,
+        heldBySessionId: holdKey,
+        dbExecutor: tx,
+      });
+
+      if (!heldSlot) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "SLOT_UNAVAILABLE",
+        });
+      }
+
+      const draftResult = await appointmentsRepo.createAppointmentDraft({
+        slotId: input.slotId,
+        doctorId: input.doctorId,
+        triageSessionId: input.triageSessionId,
+        appointmentType: input.appointmentType,
+        scheduledAt: input.scheduledAt,
+        sessionId: input.sessionId,
+        email: input.email,
+        amount: input.selectedPackage.amount,
+        currency: input.selectedPackage.currency,
+        userId: input.userId,
+        notes: formatIntakeToNotes(input.intake, input.selectedPackage),
+        dbExecutor: tx,
+      });
+
+      appointmentId =
+        readInsertedId(draftResult) ??
+        (await appointmentsRepo.findLatestAppointmentIdByLookup({
+          slotId,
+          doctorId: input.doctorId,
+          email: input.email,
+          scheduledAt: input.scheduledAt,
+          triageSessionId: input.triageSessionId,
+          status: "draft",
+          paymentStatus: "unpaid",
+          dbExecutor: tx,
+        }));
+
+      if (!appointmentId) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to resolve appointment ID after creation",
+        });
+      }
+
+      await schedulingRepo.attachHeldSlotToAppointment({
+        slotId,
+        appointmentId,
+        heldBySessionId: holdKey,
+        dbExecutor: tx,
+      });
+    });
+  } else {
+    const draftResult = await appointmentsRepo.createAppointmentDraft({
       doctorId: input.doctorId,
-      email: input.email,
-      scheduledAt: input.scheduledAt,
       triageSessionId: input.triageSessionId,
-      status: "draft",
-      paymentStatus: "unpaid",
-    }));
+      appointmentType: input.appointmentType,
+      scheduledAt: input.scheduledAt,
+      sessionId: input.sessionId,
+      email: input.email,
+      amount: input.selectedPackage.amount,
+      currency: input.selectedPackage.currency,
+      userId: input.userId,
+      notes: formatIntakeToNotes(input.intake, input.selectedPackage),
+    });
+
+    appointmentId =
+      readInsertedId(draftResult) ??
+      (await appointmentsRepo.findLatestAppointmentIdByLookup({
+        doctorId: input.doctorId,
+        email: input.email,
+        scheduledAt: input.scheduledAt,
+        triageSessionId: input.triageSessionId,
+        status: "draft",
+        paymentStatus: "unpaid",
+      }));
+  }
 
   if (!appointmentId) {
     throw new TRPCError({
@@ -137,34 +210,45 @@ export async function createAppointmentCheckoutFlow(input: {
     },
   });
 
-  const publicUrlBase = getPublicBaseUrl(input.req);
-  const checkout = await createPaymentCheckoutSession({
-    appointmentId,
-    amount: input.selectedPackage.amount,
-    currency: input.selectedPackage.currency,
-    successUrl: `${publicUrlBase}/payment/success`,
-    cancelUrl: `${publicUrlBase}/payment/cancel`,
-  });
-
-  const transitioned = await appointmentsRepo.markAppointmentPendingPayment({
-    appointmentId,
-    stripeSessionId: checkout.id,
-    paymentProvider: checkout.provider,
-  });
-  if (transitioned && "ok" in transitioned && !transitioned.ok) {
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message: APPOINTMENT_INVALID_TRANSITION_ERROR,
+  try {
+    const publicUrlBase = getPublicBaseUrl(input.req);
+    const checkout = await createPaymentCheckoutSession({
+      appointmentId,
+      amount: input.selectedPackage.amount,
+      currency: input.selectedPackage.currency,
+      successUrl: `${publicUrlBase}/payment/success`,
+      cancelUrl: `${publicUrlBase}/payment/cancel`,
     });
-  }
 
-  return {
-    appointmentId,
-    checkoutUrl: checkout.url,
-    checkoutSessionUrl: checkout.url,
-    status: "pending_payment" as const,
-    paymentStatus: "pending" as const,
-    stripeSessionId:
-      process.env.NODE_ENV === "development" ? checkout.id : undefined,
-  };
+    const transitioned = await appointmentsRepo.markAppointmentPendingPayment({
+      appointmentId,
+      stripeSessionId: checkout.id,
+      paymentProvider: checkout.provider,
+    });
+    if (transitioned && "ok" in transitioned && !transitioned.ok) {
+      if (slotId) {
+        await schedulingRepo.releaseHeldSlotByAppointmentId({ appointmentId });
+      }
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: APPOINTMENT_INVALID_TRANSITION_ERROR,
+      });
+    }
+
+    return {
+      appointmentId,
+      slotId,
+      checkoutUrl: checkout.url,
+      checkoutSessionUrl: checkout.url,
+      status: "pending_payment" as const,
+      paymentStatus: "pending" as const,
+      stripeSessionId:
+        process.env.NODE_ENV === "development" ? checkout.id : undefined,
+    };
+  } catch (error) {
+    if (slotId && appointmentId) {
+      await schedulingRepo.releaseHeldSlotByAppointmentId({ appointmentId });
+    }
+    throw error;
+  }
 }

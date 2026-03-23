@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, like, notLike, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, like, notLike, or } from "drizzle-orm";
 import {
   departments,
   doctorEmbeddings,
@@ -7,10 +7,6 @@ import {
   hospitals,
 } from "../../../drizzle/schema";
 import { getDb } from "../../db";
-import {
-  DOCTOR_EMBEDDING_DIMENSIONS,
-  toPgVectorLiteral,
-} from "./embedding";
 
 type SearchLanguage = "en" | "zh";
 
@@ -148,6 +144,45 @@ export async function searchDoctors(
   return Array.from(merged.values()).slice(0, limit);
 }
 
+const parseEmbedding = (value: unknown): number[] | null => {
+  if (!value) return null;
+
+  if (Array.isArray(value)) {
+    const vector = value.map(Number).filter(Number.isFinite);
+    return vector.length > 0 ? vector : null;
+  }
+
+  if (typeof value === "string") {
+    try {
+      return parseEmbedding(JSON.parse(value));
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+};
+
+const cosineSimilarity = (left: number[], right: number[]) => {
+  const dimensions = Math.min(left.length, right.length);
+  if (dimensions === 0) return 0;
+
+  let dotProduct = 0;
+  let leftNorm = 0;
+  let rightNorm = 0;
+
+  for (let index = 0; index < dimensions; index++) {
+    const leftValue = left[index];
+    const rightValue = right[index];
+    dotProduct += leftValue * rightValue;
+    leftNorm += leftValue * leftValue;
+    rightNorm += rightValue * rightValue;
+  }
+
+  if (leftNorm === 0 || rightNorm === 0) return 0;
+  return dotProduct / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm));
+};
+
 export async function searchDoctorsByEmbedding(
   queryEmbedding: number[],
   limit: number = 20,
@@ -158,11 +193,7 @@ export async function searchDoctorsByEmbedding(
     throw new Error("Database not available");
   }
 
-  if (
-    !Array.isArray(queryEmbedding) ||
-    queryEmbedding.length !== DOCTOR_EMBEDDING_DIMENSIONS ||
-    !queryEmbedding.every(Number.isFinite)
-  ) {
+  if (!Array.isArray(queryEmbedding) || queryEmbedding.length === 0) {
     return [];
   }
 
@@ -173,40 +204,48 @@ export async function searchDoctorsByEmbedding(
     return [];
   }
 
-  const queryVector = toPgVectorLiteral(queryEmbedding);
-  const similarityExpression = sql<number>`
-    1 - (${doctorEmbeddings.embeddingVector} <=> ${queryVector}::vector)
-  `;
-
   const rowsQuery = db
     .select({
       doctor: doctors,
       hospital: hospitals,
       department: departments,
-      similarity: similarityExpression,
+      embedding: doctorEmbeddings.embeddingVector,
     })
     .from(doctorEmbeddings)
     .innerJoin(doctors, eq(doctorEmbeddings.doctorId, doctors.id))
     .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
     .innerJoin(departments, eq(doctors.departmentId, departments.id));
+
   const rows =
     candidateDoctorIds.length > 0
-      ? await rowsQuery
-          .where(inArray(doctors.id, candidateDoctorIds))
-          .orderBy(
-            sql`${doctorEmbeddings.embeddingVector} <=> ${queryVector}::vector`,
-            desc(doctors.recommendationScore)
-          )
-          .limit(limit)
-      : await rowsQuery
-          .orderBy(
-            sql`${doctorEmbeddings.embeddingVector} <=> ${queryVector}::vector`,
-            desc(doctors.recommendationScore)
-          )
-          .limit(limit);
+      ? await rowsQuery.where(inArray(doctors.id, candidateDoctorIds))
+      : await rowsQuery;
 
   return rows
-    .filter(row => Number.isFinite(row.similarity) && row.similarity > 0)
+    .map(row => {
+      const vector = parseEmbedding(row.embedding);
+      if (!vector) return null;
+      const similarity = cosineSimilarity(queryEmbedding, vector);
+      return {
+        doctor: row.doctor,
+        hospital: row.hospital,
+        department: row.department,
+        similarity,
+      };
+    })
+    .filter((item): item is DoctorSearchResult & { similarity: number } => {
+      return item !== null && Number.isFinite(item.similarity) && item.similarity > 0;
+    })
+    .sort((left, right) => {
+      if (right.similarity !== left.similarity) {
+        return right.similarity - left.similarity;
+      }
+      return (
+        (right.doctor.recommendationScore ?? 0) -
+        (left.doctor.recommendationScore ?? 0)
+      );
+    })
+    .slice(0, limit)
     .map(({ doctor, hospital, department }) => ({ doctor, hospital, department }));
 }
 

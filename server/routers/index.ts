@@ -9,6 +9,8 @@ import { chatRouter } from "./chat";
 import { doctorsRouter } from "./doctors";
 import { hospitalsRouter } from "./hospitals";
 import { consultationRouter } from "./consultation";
+import { schedulingRouter } from "./scheduling";
+import { doctorAccountsRouter } from "./doctorAccounts";
 
 export const appRouter = router({
   system: systemRouter,
@@ -19,6 +21,8 @@ export const appRouter = router({
   hospitals: hospitalsRouter,
   consultation: consultationRouter,
   appointments: appointmentsRouter,
+  scheduling: schedulingRouter,
+  doctorAccounts: doctorAccountsRouter,
   payments: paymentsRouter,
   visit: visitRouter,
 });

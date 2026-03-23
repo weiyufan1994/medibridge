@@ -1,0 +1,72 @@
+[
+  {
+    "title": "胸痛分诊基础卡",
+    "body": "主诉：胸痛。必问：持续时间、压榨感或刺痛、是否伴呼吸困难、大汗、恶心、左臂或下颌放射痛。红旗：胸痛伴呼吸困难、大汗、濒死感。推荐科室：心内科、急诊科。建议 urgency：high。",
+    "keywords": ["胸痛", "呼吸困难", "心内科", "急诊"],
+    "specialtyTags": ["cardiology", "emergency"],
+    "riskCodes": ["CHEST_PAIN_BREATHING"]
+  },
+  {
+    "title": "呼吸困难分诊基础卡",
+    "body": "主诉：呼吸困难。必问：起病时间、是否发热、是否有喘鸣、胸闷、是否无法完整说话。红旗：静息呼吸困难、口唇发紫、胸痛合并呼吸困难。推荐科室：呼吸科、急诊科。建议 urgency：high。",
+    "keywords": ["呼吸困难", "胸闷", "呼吸科", "急诊"],
+    "specialtyTags": ["respiratory", "emergency"],
+    "riskCodes": ["CHEST_PAIN_BREATHING", "SEVERE_ALLERGIC_REACTION"]
+  },
+  {
+    "title": "发热分诊基础卡",
+    "body": "主诉：发热。必问：体温、持续时间、伴随咳嗽/腹泻/皮疹、是否服药。红旗：婴幼儿高热伴精神差、抽搐史、持续高热不退。推荐科室：全科、儿科、感染科。建议 urgency：medium。",
+    "keywords": ["发热", "高热", "儿科", "感染科"],
+    "specialtyTags": ["pediatrics", "infectious_disease", "general_medicine"],
+    "riskCodes": ["PEDIATRIC_HIGH_FEVER_ALERT"]
+  },
+  {
+    "title": "腹痛分诊基础卡",
+    "body": "主诉：腹痛。必问：疼痛部位、持续时间、是否呕吐腹泻、是否黑便或便血。红旗：持续剧烈腹痛、黑便、呕血、妊娠期腹痛合并出血。推荐科室：消化内科、急诊科、妇科。建议 urgency：medium。",
+    "keywords": ["腹痛", "黑便", "消化内科", "妇科"],
+    "specialtyTags": ["gastroenterology", "gynecology", "emergency"],
+    "riskCodes": ["MAJOR_BLEEDING", "PREGNANCY_BLEEDING_ALERT"]
+  },
+  {
+    "title": "头痛分诊基础卡",
+    "body": "主诉：头痛。必问：突发还是渐进、是否伴发热、视物模糊、呕吐、肢体无力。红旗：突发最严重头痛、言语不清、单侧无力、意识变化。推荐科室：神经内科、急诊科。建议 urgency：medium。",
+    "keywords": ["头痛", "单侧无力", "神经内科", "急诊"],
+    "specialtyTags": ["neurology", "emergency"],
+    "riskCodes": ["STROKE_NEURO_DEFICIT"]
+  },
+  {
+    "title": "皮疹分诊基础卡",
+    "body": "主诉：皮疹。必问：部位、持续时间、是否瘙痒、是否接触新药或新食物。红旗：皮疹迅速扩散伴呼吸困难、口唇舌头肿胀。推荐科室：皮肤科、急诊科。建议 urgency：medium。",
+    "keywords": ["皮疹", "过敏", "皮肤科", "急诊"],
+    "specialtyTags": ["dermatology", "emergency"],
+    "riskCodes": ["SEVERE_ALLERGIC_REACTION"]
+  },
+  {
+    "title": "呕吐腹泻分诊基础卡",
+    "body": "主诉：呕吐/腹泻。必问：频次、是否发热、是否有脱水表现、是否有便血。红旗：持续无法进水、便血黑便、明显意识差。推荐科室：消化内科、急诊科。建议 urgency：medium。",
+    "keywords": ["呕吐", "腹泻", "便血", "消化内科"],
+    "specialtyTags": ["gastroenterology", "emergency"],
+    "riskCodes": ["MAJOR_BLEEDING", "SEIZURE_OR_LOSS_CONSCIOUSNESS"]
+  },
+  {
+    "title": "肢体无力分诊基础卡",
+    "body": "主诉：肢体无力。必问：单侧还是双侧、起病时间、是否言语不清、是否面瘫。红旗：突发单侧无力、言语障碍、面瘫。推荐科室：神经内科、急诊科。建议 urgency：high。",
+    "keywords": ["肢体无力", "面瘫", "神经内科", "急诊"],
+    "specialtyTags": ["neurology", "emergency"],
+    "riskCodes": ["STROKE_NEURO_DEFICIT"]
+  },
+  {
+    "title": "妊娠出血分诊基础卡",
+    "body": "主诉：妊娠期出血。必问：孕周、出血量、是否伴腹痛、是否头晕乏力。红旗：妊娠期出血合并腹痛、头晕、量多。推荐科室：妇产科、急诊科。建议 urgency：high。",
+    "keywords": ["妊娠出血", "腹痛", "妇产科", "急诊"],
+    "specialtyTags": ["gynecology", "obstetrics", "emergency"],
+    "riskCodes": ["PREGNANCY_BLEEDING_ALERT"]
+  },
+  {
+    "title": "自伤自杀风险分诊基础卡",
+    "body": "主诉：自伤/自杀风险。必问：是否有明确计划、是否有工具、是否独处、是否有可信任的人在身边。红旗：明确自杀计划、自伤行为正在发生、无人陪同。推荐动作：立即联系当地急救或危机热线。建议 urgency：high。",
+    "keywords": ["自杀", "自伤", "心理危机", "急救"],
+    "specialtyTags": ["mental_health", "emergency"],
+    "riskCodes": ["SUICIDE_SELF_HARM"]
+  }
+]

@@ -340,6 +340,12 @@ export function useAdminConsole({
     },
     { enabled: canReadAdmin }
   );
+  const triageRiskEventsQuery = trpc.system.adminTriageRiskEvents.useQuery(
+    {
+      limit: 50,
+    },
+    { enabled: canReadAdmin }
+  );
   const metricsQuery = trpc.system.metrics.useQuery(undefined, { enabled: canReadAdmin });
   const appointmentDetailQuery = trpc.system.adminAppointmentDetail.useQuery(
     { appointmentId: selectedAppointmentId ?? 0 },
@@ -360,9 +366,7 @@ export function useAdminConsole({
       emailQuery: userSearchQuery.trim() || undefined,
       limit: 50,
     },
-    {
-      enabled: canMutateAdmin,
-    }
+    { enabled: canReadAdmin && canMutateAdmin }
   );
   const retentionAuditsQuery = trpc.system.adminRetentionCleanupAudits.useQuery(
     { limit: 20 },
@@ -445,11 +449,12 @@ export function useAdminConsole({
       appointmentsQuery.refetch(),
       operationAuditQuery.refetch(),
       triageQuery.refetch(),
+      triageRiskEventsQuery.refetch(),
       metricsQuery.refetch(),
       selectedAppointmentId ? appointmentDetailQuery.refetch() : Promise.resolve(),
       selectedAppointmentId ? visitSummaryQuery.refetch() : Promise.resolve(),
       hospitalsQuery.refetch(),
-      canMutateAdmin ? adminUsersQuery.refetch() : Promise.resolve(),
+      adminUsersQuery.refetch(),
       retentionPoliciesQuery.refetch(),
       retentionAuditsQuery.refetch(),
     ]);
@@ -457,7 +462,6 @@ export function useAdminConsole({
     adminUsersQuery,
     appointmentDetailQuery,
     appointmentsQuery,
-    canMutateAdmin,
     hospitalsQuery,
     metricsQuery,
     operationAuditQuery,
@@ -465,6 +469,7 @@ export function useAdminConsole({
     retentionPoliciesQuery,
     selectedAppointmentId,
     triageQuery,
+    triageRiskEventsQuery,
     visitSummaryQuery,
   ]);
 
@@ -556,13 +561,8 @@ export function useAdminConsole({
     },
   });
   const updateUserRoleMutation = trpc.system.adminUpdateUserRole.useMutation({
-    onSuccess: async result => {
-      toast.success(
-        tr(
-          `用户 #${result.id} 权限已更新为 ${result.role}。`,
-          `User #${result.id} role updated to ${result.role}.`
-        )
-      );
+    onSuccess: async () => {
+      toast.success(tr("用户权限已更新。", "User role updated."));
       await adminUsersQuery.refetch();
     },
     onError: error => {
@@ -639,10 +639,10 @@ export function useAdminConsole({
   const adminBatchMutation = trpc.system.adminBatchAppointmentsAction.useMutation({
     onSuccess: result => {
       setBatchLastResult(result.results);
-      const msg =
-        lang === "zh"
-          ? `批量处理完成：成功 ${result.summary.success}，跳过 ${result.summary.skipped}，失败 ${result.summary.failed}`
-          : `Batch done: ${result.summary.success} success, ${result.summary.skipped} skipped, ${result.summary.failed} failed`;
+      const msg = tr(
+        `批量处理完成：成功 ${result.summary.success}，跳过 ${result.summary.skipped}，失败 ${result.summary.failed}`,
+        `Batch done: ${result.summary.success} success, ${result.summary.skipped} skipped, ${result.summary.failed} failed`
+      );
       toast.success(msg);
       refreshAdminData().catch(() => {
         toast.error(tr("刷新列表失败，请重试。", "Failed to refresh list. Please retry."));
@@ -851,13 +851,6 @@ export function useAdminConsole({
       retentionDays,
       enabled,
     });
-  };
-
-  const updateUserRole = (input: {
-    userId: number;
-    role: "free" | "pro" | "admin" | "ops";
-  }) => {
-    updateUserRoleMutation.mutate(input);
   };
 
   const handleCopyDebugSnapshot = async () => {
@@ -1216,6 +1209,7 @@ export function useAdminConsole({
     paymentStatusOptions,
     appointmentsQuery,
     triageQuery,
+    triageRiskEventsQuery,
     metricsQuery,
     appointmentDetailQuery,
     visitSummaryQuery,
@@ -1258,10 +1252,7 @@ export function useAdminConsole({
     generateSummaryMutation,
     exportSummaryPdfMutation,
     updateRetentionPolicyMutation,
-    updateUserRoleMutation: {
-      isPending: updateUserRoleMutation.isPending,
-      mutate: updateUserRole,
-    },
+    updateUserRoleMutation,
     runRetentionCleanupMutation,
     batchAppointmentsMutation: {
       isPending: adminBatchMutation.isPending,

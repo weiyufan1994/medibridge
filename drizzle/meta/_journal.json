@@ -29,6 +29,27 @@
       "version": "7",
       "when": 1773563200000,
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "tag": "0002_stream_b_triage_safety_and_knowledge",
+      "version": "7",
+      "when": 1773627600000,
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "tag": "0003_stream_a_scheduling_slots",
+      "version": "7",
+      "when": 1773628200000,
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "tag": "0004_doctor_account_invites_and_bindings",
+      "version": "7",
+      "when": 1773651000000,
+      "breakpoints": true
     }
   ]
 }

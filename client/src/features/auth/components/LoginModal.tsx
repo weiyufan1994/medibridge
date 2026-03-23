@@ -17,6 +17,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getAuthCopy } from "@/features/auth/copy";
 import { getOrCreateDeviceId } from "@/features/auth/deviceId";
 import { trpc } from "@/lib/trpc";
 
@@ -27,6 +28,7 @@ type LoginModalProps = {
 
 export function LoginModal({ open, onOpenChange }: LoginModalProps) {
   const { resolved } = useLanguage();
+  const t = getAuthCopy(resolved);
   const utils = trpc.useUtils();
   const setLocation = useLocation()[1];
   const [email, setEmail] = useState("");
@@ -40,14 +42,10 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
     onSuccess: () => {
       setStep("otp");
       setCode("");
-      toast.success(
-        resolved === "zh"
-          ? "验证码已发送，请查看邮箱。"
-          : "Verification code sent. Please check your email."
-      );
+      toast.success(t.loginModal.otpSent);
     },
     onError: error => {
-      toast.error(error.message || "验证码发送失败");
+      toast.error(error.message || t.loginModal.otpRequestFailed);
     },
   });
 
@@ -59,13 +57,13 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
       if (role === "admin" || role === "ops") {
         setLocation("/admin");
       }
-      toast.success(resolved === "zh" ? "登录成功" : "Signed in successfully");
+      toast.success(t.loginModal.signInSuccess);
       handleOpenChange(false);
       setStep("email");
       setCode("");
     },
     onError: error => {
-      toast.error(error.message || "验证码校验失败");
+      toast.error(error.message || t.loginModal.verifyFailed);
     },
   });
 
@@ -96,7 +94,7 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
   const handleVerifyOtp = async () => {
     const deviceId = getOrCreateDeviceId();
     if (!deviceId) {
-      toast.error("无法获取设备标识，请刷新页面后重试。");
+      toast.error(t.loginModal.deviceIdMissing);
       return;
     }
     await verifyOtpMutation.mutateAsync({
@@ -116,16 +114,15 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
             <Stethoscope className="w-6 h-6" aria-hidden="true" />
           </div>
           <DialogTitle className="text-2xl font-bold text-slate-900">
-            {resolved === "zh" ? "登录或注册" : "Welcome to MediBridge"}
+            {t.loginModal.title}
           </DialogTitle>
           <DialogDescription className="text-slate-500 text-sm mt-2 mb-8">
             {step === "email"
-              ? resolved === "zh"
-                ? "输入邮箱获取验证码，无需设置密码即可快速进入。"
-                : "Enter your email to receive a secure login code."
-              : resolved === "zh"
-                ? `验证码已发送至 ${trimmedEmail || "你的邮箱"}`
-                : `Code sent to ${trimmedEmail || "your email"}`}
+              ? t.loginModal.emailStepDescription
+              : t.loginModal.otpStepDescription.replace(
+                  "{email}",
+                  trimmedEmail || t.loginModal.otpStepDescriptionFallback
+                )}
           </DialogDescription>
         </DialogHeader>
 
@@ -156,12 +153,8 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
                 disabled={!canRequestOtp}
               >
                 {requestOtpMutation.isPending
-                  ? resolved === "zh"
-                    ? "发送中..."
-                    : "Sending..."
-                  : resolved === "zh"
-                    ? "获取验证码"
-                    : "Send Verification Code"}
+                  ? t.loginModal.sending
+                  : t.loginModal.sendCode}
               </Button>
             </div>
           ) : (
@@ -200,12 +193,8 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
                 disabled={!canVerifyOtp}
               >
                 {verifyOtpMutation.isPending
-                  ? resolved === "zh"
-                    ? "登录中..."
-                    : "Signing in..."
-                  : resolved === "zh"
-                    ? "确认并登录"
-                    : "Confirm and sign in"}
+                  ? t.loginModal.signingIn
+                  : t.loginModal.confirmSignIn}
               </Button>
               <Button
                 type="button"
@@ -217,7 +206,7 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
                   setStep("email");
                 }}
               >
-                {resolved === "zh" ? "返回修改邮箱" : "Back to email"}
+                {t.loginModal.backToEmail}
               </Button>
             </div>
           )}
