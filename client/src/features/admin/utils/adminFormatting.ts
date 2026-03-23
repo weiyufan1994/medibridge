@@ -1,3 +1,5 @@
+import { getAdminReasonLabel, getAdminWebhookTypeLabel } from "@/features/admin/copy";
+
 export function formatDate(value: Date | string | null, locale?: string) {
   if (!value) {
     return "-";
@@ -57,55 +59,11 @@ export function toOperatorBadgeClass(operatorType: string) {
 }
 
 export function toReasonLabel(reason: string | null | undefined, lang: "zh" | "en") {
-  const raw = (reason ?? "").trim();
-  if (!raw) {
-    return "-";
-  }
-  const baseReason = raw.includes(":") ? raw.split(":")[0] : raw;
-
-  const map: Record<string, string> = {
-    appointment_draft_created: lang === "zh" ? "已创建草稿" : "Draft created",
-    checkout_session_created: lang === "zh" ? "已创建支付会话" : "Checkout created",
-    stripe_webhook_paid: lang === "zh" ? "Stripe 支付已确认" : "Stripe payment settled",
-    payment_reinitiated: lang === "zh" ? "已重启支付" : "Payment re-initiated",
-    payment_refunded: lang === "zh" ? "已退款" : "Payment refunded",
-    checkout_session_expired: lang === "zh" ? "支付会话已过期" : "Checkout expired",
-    payment_failed: lang === "zh" ? "支付失败" : "Payment failed",
-    admin_reinitiate_payment: lang === "zh" ? "管理员重启支付" : "Admin re-initiated payment",
-    admin_resend_access_link: lang === "zh" ? "管理员重发访问链接" : "Admin resent access link",
-    admin_issue_access_links: lang === "zh" ? "管理员签发新访问链接" : "Admin issued new access links",
-    admin_status_update: lang === "zh" ? "管理员更新状态" : "Admin updated status",
-    appointment_canceled: lang === "zh" ? "预约已取消" : "Appointment canceled",
-    payment_link_email_failed: lang === "zh" ? "支付链接邮件发送失败" : "Link email failed",
-  };
-  if (map[baseReason]) {
-    return raw.startsWith(`${baseReason}:`)
-      ? `${map[baseReason]} (${raw.slice(baseReason.length + 1)})`
-      : map[baseReason];
-  }
-  return raw;
+  return getAdminReasonLabel(reason, lang);
 }
 
 export function toWebhookTypeLabel(type: string, lang: "zh" | "en") {
-  const map: Record<string, string> = {
-    "checkout.session.completed": lang === "zh" ? "结账完成" : "Checkout completed",
-    "checkout.session.expired": lang === "zh" ? "结账过期" : "Checkout expired",
-    "payment_intent.payment_failed": lang === "zh" ? "支付失败" : "Payment failed",
-    "charge.refunded": lang === "zh" ? "已退款" : "Charge refunded",
-    "refund.updated": lang === "zh" ? "退款更新" : "Refund updated",
-    signature_invalid: lang === "zh" ? "签名无效" : "Signature invalid",
-    signature_verification_failed:
-      lang === "zh" ? "签名校验失败" : "Signature verification failed",
-    missing_session_id: lang === "zh" ? "缺少 session id" : "Missing session id",
-    malformed_event: lang === "zh" ? "事件格式错误" : "Malformed event",
-    db_unavailable: lang === "zh" ? "数据库不可用" : "DB unavailable",
-    processing_error: lang === "zh" ? "处理失败" : "Processing error",
-    webhook_error_missing_session_id:
-      lang === "zh" ? "Webhook 缺少 session id" : "Webhook missing session id",
-    webhook_error_processing:
-      lang === "zh" ? "Webhook 处理失败" : "Webhook processing error",
-  };
-  return map[type] ?? type;
+  return getAdminWebhookTypeLabel(type, lang);
 }
 
 export function toWebhookOutcome(type: string): "success" | "warning" | "failure" {

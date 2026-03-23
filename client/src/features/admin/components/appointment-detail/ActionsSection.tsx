@@ -293,13 +293,13 @@ export function ActionsSection({
             <div className="rounded bg-slate-50 p-2">
               <p className="mb-1 text-xs font-medium text-slate-700">{tr("中文", "Chinese")}</p>
               <pre className="overflow-auto whitespace-pre-wrap text-xs">
-                {visitSummaryQuery.data.summaryZh}
+                {visitSummaryQuery.data.summary.zh}
               </pre>
             </div>
             <div className="rounded bg-slate-50 p-2">
               <p className="mb-1 text-xs font-medium text-slate-700">{tr("English", "English")}</p>
               <pre className="overflow-auto whitespace-pre-wrap text-xs">
-                {visitSummaryQuery.data.summaryEn}
+                {visitSummaryQuery.data.summary.en}
               </pre>
             </div>
           </div>

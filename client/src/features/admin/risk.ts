@@ -1,3 +1,9 @@
+import {
+  getAdminRiskMessage,
+  getAdminSuggestionCopy,
+  type AdminLang,
+} from "@/features/admin/copy";
+
 export type AdminRiskLevel = "warning" | "critical";
 
 export type AdminRiskItem = {
@@ -21,8 +27,6 @@ export type AdminSuggestion = {
   action: AdminSuggestionAction;
   priority: number;
 };
-
-type AdminLang = "zh" | "en";
 
 type AdminDetailInput = {
   appointment?: {
@@ -91,10 +95,7 @@ export function computeAdminRisks(
       risks.push({
         code: "PENDING_PAYMENT_TIMEOUT",
         level: "warning",
-        message:
-          lang === "zh"
-            ? "支付待处理超过 30 分钟。"
-            : "Payment has been pending for over 30 minutes.",
+        message: getAdminRiskMessage("PENDING_PAYMENT_TIMEOUT", lang),
       });
     }
   }
@@ -109,14 +110,11 @@ export function computeAdminRisks(
     return diffMs > 0 && diffMs <= 2 * 60 * 60 * 1000;
   });
   if (soonExpiring) {
-    risks.push({
-      code: "TOKEN_EXPIRING_SOON",
-      level: "warning",
-      message:
-        lang === "zh"
-          ? "至少有一个有效访问令牌将在 2 小时内过期。"
-          : "At least one active access token expires within 2 hours.",
-    });
+      risks.push({
+        code: "TOKEN_EXPIRING_SOON",
+        level: "warning",
+        message: getAdminRiskMessage("TOKEN_EXPIRING_SOON", lang),
+      });
   }
 
   const exhaustedToken = tokens.some(token => {
@@ -125,37 +123,28 @@ export function computeAdminRisks(
     return maxUses > 0 && useCount >= maxUses;
   });
   if (exhaustedToken) {
-    risks.push({
-      code: "TOKEN_USAGE_EXHAUSTED",
-      level: "critical",
-      message:
-        lang === "zh"
-          ? "有一个活跃令牌已达最大使用次数，可能会阻止进入会诊室。"
-          : "An active token reached max uses and may block room access.",
-    });
+      risks.push({
+        code: "TOKEN_USAGE_EXHAUSTED",
+        level: "critical",
+        message: getAdminRiskMessage("TOKEN_USAGE_EXHAUSTED", lang),
+      });
   }
 
   if (hasWebhookFailure(detail.webhookEvents)) {
-    risks.push({
-      code: "WEBHOOK_FAILURE",
-      level: "critical",
-      message:
-        lang === "zh"
-          ? "支付时间线中检测到 Webhook 失败事件。"
-          : "Webhook failure events detected in payment timeline.",
-    });
+      risks.push({
+        code: "WEBHOOK_FAILURE",
+        level: "critical",
+        message: getAdminRiskMessage("WEBHOOK_FAILURE", lang),
+      });
   }
 
   const hasMessages = (detail.recentMessages?.length ?? 0) > 0;
   if (paymentStatus === "paid" && status === "paid" && hasMessages) {
-    risks.push({
-      code: "PAID_BUT_NOT_ACTIVE",
-      level: "warning",
-      message:
-        lang === "zh"
-          ? "在未激活状态下已产生会诊消息。"
-          : "Messages exist while appointment is not active yet.",
-    });
+      risks.push({
+        code: "PAID_BUT_NOT_ACTIVE",
+        level: "warning",
+        message: getAdminRiskMessage("PAID_BUT_NOT_ACTIVE", lang),
+      });
   }
 
   if (paymentStatus === "paid" && (status === "paid" || status === "active")) {
@@ -192,10 +181,9 @@ export function computeAdminRisks(
       risks.push({
         code: "DOCTOR_REPLY_SLA_OVERDUE",
         level: isCritical ? "critical" : "warning",
-        message:
-          lang === "zh"
-            ? `医生回复超时：患者已等待 ${waitingMinutes} 分钟。`
-            : `Doctor reply SLA overdue: patient has waited ${waitingMinutes} minutes.`,
+        message: getAdminRiskMessage("DOCTOR_REPLY_SLA_OVERDUE", lang, {
+          waitingMinutes,
+        }),
       });
     }
     }
@@ -219,78 +207,63 @@ export function computeAdminSuggestions(
   const riskCodes = new Set(risks.map(item => item.code));
 
   if (riskCodes.has("PENDING_PAYMENT_TIMEOUT")) {
+    const copy = getAdminSuggestionCopy("suggest_reinitiate_payment", lang);
     suggestions.push({
       key: "suggest_reinitiate_payment",
-      title: lang === "zh" ? "重发起支付流程" : "Re-initiate checkout",
-      detail:
-        lang === "zh"
-          ? "支付待处理时间过长。创建新的支付会话。"
-          : "Pending payment timed out. Create a fresh checkout session.",
+      title: copy.title,
+      detail: copy.detail,
       action: "reinitiate_payment",
       priority: 100,
     });
   }
 
   if (riskCodes.has("WEBHOOK_FAILURE")) {
+    const copy = getAdminSuggestionCopy("suggest_inspect_webhook", lang);
     suggestions.push({
       key: "suggest_inspect_webhook",
-      title: lang === "zh" ? "检查 webhook 时间线" : "Inspect webhook timeline",
-      detail:
-        lang === "zh"
-          ? "检测到 webhook 失败。请先检查事件顺序，再重试支付。"
-          : "Webhook failures detected. Check event sequence before retrying payment.",
+      title: copy.title,
+      detail: copy.detail,
       action: "inspect_webhook_timeline",
       priority: 95,
     });
   }
 
   if (riskCodes.has("DOCTOR_REPLY_SLA_OVERDUE")) {
+    const copy = getAdminSuggestionCopy("suggest_notify_doctor_followup", lang);
     suggestions.push({
       key: "suggest_notify_doctor_followup",
-      title: lang === "zh" ? "提醒医生跟进" : "Notify doctor follow-up",
-      detail:
-        lang === "zh"
-          ? "患者消息尚未被处理。立即触发医生跟进提醒。"
-          : "Patient message is waiting. Trigger doctor follow-up reminder now.",
+      title: copy.title,
+      detail: copy.detail,
       action: "notify_doctor_followup",
       priority: 92,
     });
   }
 
   if (paymentStatus === "paid" && (status === "paid" || status === "active")) {
+    const resendCopy = getAdminSuggestionCopy("suggest_resend_access_link", lang);
     suggestions.push({
       key: "suggest_resend_access_link",
-      title: lang === "zh" ? "重发患者入室链接" : "Resend patient access link",
-      detail:
-        lang === "zh"
-          ? "支付已完成。若患者无法进入会诊室，请重新发送入室链接。"
-          : "Payment is settled. Resend entry link if patient cannot enter room.",
+      title: resendCopy.title,
+      detail: resendCopy.detail,
       action: "resend_access_link",
       priority: 80,
     });
+    const issueCopy = getAdminSuggestionCopy("suggest_issue_access_links", lang);
     suggestions.push({
       key: "suggest_issue_access_links",
-      title:
-        lang === "zh"
-          ? "签发新的患者/医生访问链接"
-          : "Issue new access links",
-      detail:
-        lang === "zh"
-          ? "作废旧链接并重新签发一对新的患者/医生链接。"
-          : "Revoke old links and issue a fresh patient/doctor pair.",
+      title: issueCopy.title,
+      detail: issueCopy.detail,
       action: "issue_access_links",
       priority: 70,
     });
   }
 
   if (suggestions.length === 0) {
+    const copy = getAdminSuggestionCopy("suggest_monitor_only", lang);
     suggestions.push({
       key: "suggest_monitor_only",
-      title: lang === "zh" ? "无紧急动作" : "No urgent action",
-      detail:
-        lang === "zh"
-          ? "当前状态看起来稳定，持续监测时间线更新。"
-          : "Current state looks stable. Continue monitoring timeline updates.",
+      title: copy.title,
+      detail: copy.detail,
       action: "monitor_only",
       priority: 10,
     });

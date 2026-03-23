@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getDisplayLocale, getLocalizedText } from "@/lib/i18n";
 import { useAdminConsole } from "@/features/admin/hooks/useAdminConsole";
 import { FiltersCard } from "@/features/admin/components/FiltersCard";
 import { AppointmentsCard } from "@/features/admin/components/AppointmentsCard";
@@ -27,8 +28,9 @@ export default function AdminPage() {
     "overview" | "appointments" | "users" | "operations"
   >("overview");
   const lang = resolved as "zh" | "en";
-  const locale = lang === "zh" ? "zh-CN" : "en-US";
-  const tr = (zh: string, en: string) => (lang === "zh" ? zh : en);
+  const locale = getDisplayLocale(lang);
+  const tr = (zh: string, en: string) =>
+    getLocalizedText({ lang, value: { zh, en }, placeholder: zh });
   const role = (user as { role?: string } | null)?.role;
   const isAdmin = role === "admin";
   const isOps = role === "ops";
@@ -519,7 +521,7 @@ export default function AdminPage() {
 
             <SchedulingManagementCard tr={tr} lang={lang} isReadOnly={!isAdmin} />
 
-            <DoctorAccountManagementCard tr={tr} />
+            <DoctorAccountManagementCard tr={tr} lang={lang} />
 
             <RetentionCard
               tr={tr}

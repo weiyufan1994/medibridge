@@ -8,6 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  getAppointmentTypeOptions,
+  getExceptionActionOptions,
+  getWeekdayLabel,
+  getWeekdayOptions,
+} from "@/features/admin/copy";
+import { getDisplayLocale, getLocalizedTextWithZhFallback } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
 
 type TranslateFn = (zh: string, en: string) => string;
@@ -18,31 +25,9 @@ type Props = {
   isReadOnly?: boolean;
 };
 
-const APPOINTMENT_TYPES = [
-  { value: "online_chat", zh: "图文问诊", en: "Online Chat" },
-  { value: "video_call", zh: "视频问诊", en: "Video Call" },
-  { value: "in_person", zh: "线下面诊", en: "In Person" },
-] as const;
-
-const WEEKDAYS = [
-  { value: "0", zh: "周日", en: "Sunday" },
-  { value: "1", zh: "周一", en: "Monday" },
-  { value: "2", zh: "周二", en: "Tuesday" },
-  { value: "3", zh: "周三", en: "Wednesday" },
-  { value: "4", zh: "周四", en: "Thursday" },
-  { value: "5", zh: "周五", en: "Friday" },
-  { value: "6", zh: "周六", en: "Saturday" },
-] as const;
-
-const EXCEPTION_ACTIONS = [
-  { value: "block", zh: "停诊/封盘", en: "Block" },
-  { value: "extend", zh: "加班扩容", en: "Extend" },
-  { value: "replace", zh: "替换时段", en: "Replace" },
-] as const;
-
 function formatDateTime(value: Date | string, lang: "zh" | "en") {
   const date = value instanceof Date ? value : new Date(value);
-  return new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : "en-US", {
+  return new Intl.DateTimeFormat(getDisplayLocale(lang), {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -198,6 +183,9 @@ export function SchedulingManagementCard({ tr, lang, isReadOnly = false }: Props
     regenerateSlotsMutation.isPending ||
     blockSlotMutation.isPending ||
     unblockSlotMutation.isPending;
+  const weekdayOptions = getWeekdayOptions(lang);
+  const appointmentTypeOptions = getAppointmentTypeOptions(lang);
+  const exceptionActionOptions = getExceptionActionOptions(lang);
 
   const doctorLabel = useMemo(() => {
     if (!hasDoctorId) {
@@ -207,9 +195,11 @@ export function SchedulingManagementCard({ tr, lang, isReadOnly = false }: Props
     if (!doctor) {
       return tr(`医生 #${doctorId}`, `Doctor #${doctorId}`);
     }
-    return lang === "zh"
-      ? `${doctor.name} (#${doctor.id})`
-      : `${doctor.nameEn || doctor.name} (#${doctor.id})`;
+    return `${getLocalizedTextWithZhFallback({
+      lang,
+      value: doctor.name,
+      placeholder: tr(`医生 #${doctorId}`, `Doctor #${doctorId}`),
+    })} (#${doctor.id})`;
   }, [doctorId, doctorQuery.data?.doctor, hasDoctorId, lang, tr]);
 
   return (
@@ -261,9 +251,9 @@ export function SchedulingManagementCard({ tr, lang, isReadOnly = false }: Props
                 <Select value={weekday} onValueChange={setWeekday} disabled={isReadOnly || isBusy}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {WEEKDAYS.map(item => (
+                    {weekdayOptions.map(item => (
                       <SelectItem key={item.value} value={item.value}>
-                        {lang === "zh" ? item.zh : item.en}
+                        {item.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -274,9 +264,9 @@ export function SchedulingManagementCard({ tr, lang, isReadOnly = false }: Props
                 <Select value={ruleAppointmentType} onValueChange={value => setRuleAppointmentType(value as typeof ruleAppointmentType)} disabled={isReadOnly || isBusy}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {APPOINTMENT_TYPES.map(item => (
+                    {appointmentTypeOptions.map(item => (
                       <SelectItem key={item.value} value={item.value}>
-                        {lang === "zh" ? item.zh : item.en}
+                        {item.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -341,7 +331,7 @@ export function SchedulingManagementCard({ tr, lang, isReadOnly = false }: Props
                   <div key={rule.id} className="flex flex-wrap items-center justify-between gap-3 rounded border bg-slate-50 p-3">
                     <div className="text-sm">
                       <div className="font-medium text-slate-900">
-                        {(lang === "zh" ? WEEKDAYS.find(item => item.value === String(rule.weekday))?.zh : WEEKDAYS.find(item => item.value === String(rule.weekday))?.en) ?? rule.weekday}
+                        {getWeekdayLabel(String(rule.weekday), lang)}
                         {" · "}
                         {rule.startLocalTime} - {rule.endLocalTime}
                       </div>
@@ -379,9 +369,9 @@ export function SchedulingManagementCard({ tr, lang, isReadOnly = false }: Props
                 <Select value={exceptionAction} onValueChange={value => setExceptionAction(value as typeof exceptionAction)} disabled={isReadOnly || isBusy}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {EXCEPTION_ACTIONS.map(item => (
+                    {exceptionActionOptions.map(item => (
                       <SelectItem key={item.value} value={item.value}>
-                        {lang === "zh" ? item.zh : item.en}
+                        {item.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -473,9 +463,9 @@ export function SchedulingManagementCard({ tr, lang, isReadOnly = false }: Props
                 <Select value={manualAppointmentType} onValueChange={value => setManualAppointmentType(value as typeof manualAppointmentType)} disabled={isReadOnly || isBusy}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {APPOINTMENT_TYPES.map(item => (
+                    {appointmentTypeOptions.map(item => (
                       <SelectItem key={item.value} value={item.value}>
-                        {lang === "zh" ? item.zh : item.en}
+                        {item.label}
                       </SelectItem>
                     ))}
                   </SelectContent>

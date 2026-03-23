@@ -2,11 +2,13 @@ import { Button } from "@/components/ui/button";
 import { formatDate, formatMoneyFromMinorUnit } from "@/features/admin/utils/adminFormatting";
 import type { AdminSuggestion } from "@/features/admin/risk";
 import type { AppointmentDetailData } from "@/features/admin/types";
+import { getLocalizedTextWithZhFallback } from "@/lib/i18n";
 
 type TranslateFn = (zh: string, en: string) => string;
 
 type OverviewSectionProps = {
   tr: TranslateFn;
+  lang: "zh" | "en";
   locale: string;
   detailData: AppointmentDetailData;
   risks: Array<{ code: string; level: "critical" | "warning"; message: string }>;
@@ -21,6 +23,7 @@ type OverviewSectionProps = {
 
 export function OverviewSection({
   tr,
+  lang,
   locale,
   detailData,
   risks,
@@ -52,6 +55,20 @@ export function OverviewSection({
   };
 
   const canExecuteSuggestion = (action: AdminSuggestion["action"]) => !suggestionDisabledReason(action);
+  const doctorName = detailData.doctor
+    ? getLocalizedTextWithZhFallback({
+        lang,
+        value: detailData.doctor.name,
+        placeholder: tr("未知", "Unknown"),
+      })
+    : tr("未知", "Unknown");
+  const departmentName = detailData.doctor
+    ? getLocalizedTextWithZhFallback({
+        lang,
+        value: detailData.doctor.departmentName,
+        placeholder: tr("未知科室", "Unknown department"),
+      })
+    : tr("未知科室", "Unknown department");
   return (
     <>
       <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
@@ -146,7 +163,7 @@ export function OverviewSection({
         <p className="text-sm text-muted-foreground">
           {tr("医生：", "Doctor: ")}
           {detailData?.doctor
-            ? `${detailData.doctor.name} (${detailData.doctor.departmentName})`
+            ? `${doctorName} (${departmentName})`
             : tr("未知", "Unknown")}
         </p>
         <p className="text-sm text-muted-foreground">

@@ -3,7 +3,7 @@ import { Loader2, Trash2, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { getLocalizedField } from "@/lib/i18n";
+import { getLocalizedTextWithZhFallback } from "@/lib/i18n";
 import type { AdminHospital } from "@/features/admin/types";
 import type { HospitalImageClearState, HospitalImageUploadState } from "@/features/admin/types";
 
@@ -76,16 +76,14 @@ export function HospitalImageManagementCard({
         ) : (
       <div className="space-y-3">
             {hospitals.map(hospital => {
-              const hospitalName = getLocalizedField({
+              const hospitalName = getLocalizedTextWithZhFallback({
                 lang,
-                zh: hospital.name,
-                en: hospital.nameEn ?? "",
+                value: hospital.name,
               });
               const imageUrl = hospital.imageUrl?.trim();
-              const hospitalCity = getLocalizedField({
+              const hospitalCity = getLocalizedTextWithZhFallback({
                 lang,
-                zh: hospital.city,
-                en: hospital.cityEn ?? "",
+                value: hospital.city,
               });
 
               return (

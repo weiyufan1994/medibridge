@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getLocalizedTextWithZhFallback } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
 
 type TranslateFn = (zh: string, en: string) => string;
 
 type Props = {
   tr: TranslateFn;
+  lang: "zh" | "en";
 };
 
 function formatDateTime(value: Date | string | null) {
@@ -20,7 +22,7 @@ function formatDateTime(value: Date | string | null) {
   return date.toLocaleString();
 }
 
-export function DoctorAccountManagementCard({ tr }: Props) {
+export function DoctorAccountManagementCard({ tr, lang }: Props) {
   const [doctorIdInput, setDoctorIdInput] = useState("");
   const [email, setEmail] = useState("");
   const doctorId = Number(doctorIdInput.trim());
@@ -89,8 +91,12 @@ export function DoctorAccountManagementCard({ tr }: Props) {
     if (!doctor) {
       return hasDoctorId ? tr(`医生 #${doctorId}`, `Doctor #${doctorId}`) : tr("请输入医生 ID", "Enter a doctor ID");
     }
-    return `${doctor.nameEn || doctor.name} (#${doctor.id})`;
-  }, [doctorId, doctorQuery.data?.doctor, hasDoctorId, tr]);
+    return `${getLocalizedTextWithZhFallback({
+      lang,
+      value: doctor.name,
+      placeholder: doctor.name.zh || tr(`医生 #${doctorId}`, `Doctor #${doctorId}`),
+    })} (#${doctor.id})`;
+  }, [doctorId, doctorQuery.data?.doctor, hasDoctorId, lang, tr]);
 
   const latestInvite = statusQuery.data?.latestInvite;
   const activeBinding = statusQuery.data?.activeBinding;

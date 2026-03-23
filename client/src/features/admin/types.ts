@@ -1,4 +1,5 @@
 import type { AdminSuggestion } from "@/features/admin/risk";
+import type { LocalizedText } from "@shared/types";
 
 export type AdminErrorLike = {
   message: string;
@@ -70,12 +71,9 @@ export type AdminUserItem = {
 
 export type AdminHospital = {
   id: number;
-  name: string;
-  nameEn: string | null;
-  city: string | null;
-  cityEn: string | null;
-  level: string | null;
-  levelEn: string | null;
+  name: LocalizedText;
+  city: LocalizedText;
+  level: LocalizedText;
   imageUrl: string | null;
 };
 
@@ -90,8 +88,7 @@ export type HospitalImageClearState = {
 };
 
 export type VisitSummaryData = {
-  summaryZh: string;
-  summaryEn: string;
+  summary: LocalizedText;
 };
 
 export type VisitSummaryQuery = {
@@ -150,8 +147,10 @@ export type AppointmentDetailData = {
     paidAt: Date | string | null;
   };
   doctor: {
-    name: string;
-    departmentName: string;
+    id: number;
+    name: LocalizedText;
+    hospitalName: LocalizedText;
+    departmentName: LocalizedText;
   } | null;
   triageSession: {
     summary: string | null;

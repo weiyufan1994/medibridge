@@ -639,10 +639,10 @@ export function useAdminConsole({
   const adminBatchMutation = trpc.system.adminBatchAppointmentsAction.useMutation({
     onSuccess: result => {
       setBatchLastResult(result.results);
-      const msg =
-        lang === "zh"
-          ? `批量处理完成：成功 ${result.summary.success}，跳过 ${result.summary.skipped}，失败 ${result.summary.failed}`
-          : `Batch done: ${result.summary.success} success, ${result.summary.skipped} skipped, ${result.summary.failed} failed`;
+      const msg = tr(
+        `批量处理完成：成功 ${result.summary.success}，跳过 ${result.summary.skipped}，失败 ${result.summary.failed}`,
+        `Batch done: ${result.summary.success} success, ${result.summary.skipped} skipped, ${result.summary.failed} failed`
+      );
       toast.success(msg);
       refreshAdminData().catch(() => {
         toast.error(tr("刷新列表失败，请重试。", "Failed to refresh list. Please retry."));

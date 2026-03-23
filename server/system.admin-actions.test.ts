@@ -15,6 +15,9 @@ vi.mock("./modules/visit/repo", () => ({
 vi.mock("./modules/doctors/repo", () => ({
   getDoctorById: vi.fn(),
 }));
+vi.mock("./modules/scheduling/repo", () => ({
+  releaseHeldSlotByAppointmentId: vi.fn(),
+}));
 
 vi.mock("./modules/payments/reinitiateCheckout", () => ({
   reinitiateCheckoutForAppointment: vi.fn(),
@@ -38,6 +41,7 @@ vi.mock("./modules/appointments/tokenCache", () => ({
 import * as appointmentsRepo from "./modules/appointments/repo";
 import * as visitRepo from "./modules/visit/repo";
 import * as doctorsRepo from "./modules/doctors/repo";
+import * as schedulingRepo from "./modules/scheduling/repo";
 import { reinitiateCheckoutForAppointment } from "./modules/payments/reinitiateCheckout";
 import { issueAppointmentAccessLinks } from "./modules/appointments/tokenService";
 import { sendMagicLinkEmail } from "./_core/mailer";
@@ -339,6 +343,9 @@ describe("system admin actions", () => {
         reason: expect.stringContaining("admin_webhook_replay"),
       })
     );
+    expect(schedulingRepo.releaseHeldSlotByAppointmentId).toHaveBeenCalledWith({
+      appointmentId: 321,
+    });
   });
 
   it("ops cannot reinitiate payment", async () => {
