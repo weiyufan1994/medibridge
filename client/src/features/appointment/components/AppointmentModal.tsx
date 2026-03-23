@@ -192,8 +192,8 @@ export function AppointmentModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[min(92vh,980px)] max-w-2xl overflow-hidden rounded-3xl border-0 bg-white p-0 shadow-2xl">
-        <div className="max-h-[min(92vh,980px)]">
-          <div className="overflow-y-auto bg-gradient-to-br from-teal-50 via-white to-slate-100 p-6 md:max-h-[min(92vh,980px)] md:p-8">
+        <div className="flex max-h-[min(92vh,980px)] flex-col">
+          <div className="flex-1 overflow-y-auto bg-gradient-to-br from-teal-50 via-white to-slate-100 p-6 md:p-8">
             <DialogHeader className="space-y-3 text-left">
               <div className="inline-flex w-fit items-center rounded-full bg-white px-3 py-1 text-xs font-medium text-teal-700 shadow-sm ring-1 ring-teal-100">
                 {step === 1 ? t.step1Title : t.step2Title}
@@ -562,7 +562,7 @@ export function AppointmentModal({
             )}
           </div>
 
-            <div className="mt-6">
+            <div className="border-t border-slate-200/80 bg-white/95 p-6 backdrop-blur md:p-8">
               <DialogFooter className="flex-col gap-3 sm:flex-col">
                 {step === 1 ? (
                   <>
