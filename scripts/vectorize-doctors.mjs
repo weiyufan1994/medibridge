@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import axios from "axios";
 import "../server/_core/loadEnv.ts";
 import { Pool } from "pg";
+import { deriveDoctorSpecialtyTags } from "../server/modules/doctors/taxonomy.ts";
 
 // Database connection
 const pool = new Pool({
@@ -29,6 +30,13 @@ const EMBEDDING_MODEL =
   process.env.LLM_EMBEDDING_MODEL ||
   process.env.EMBEDDING_MODEL ||
   "text-embedding-3-small";
+const argv = process.argv.slice(2);
+const refreshExisting = argv.includes("--refresh-existing");
+const doctorIdFlagIndex = argv.indexOf("--doctor-id");
+const targetDoctorId =
+  doctorIdFlagIndex >= 0 && argv[doctorIdFlagIndex + 1]
+    ? Number(argv[doctorIdFlagIndex + 1])
+    : null;
 
 function assertVectorizeConfig() {
   if (!process.env.DATABASE_URL) {
@@ -43,6 +51,9 @@ function assertVectorizeConfig() {
     throw new Error(
       "Embedding API key is missing. Set BUILT_IN_FORGE_API_KEY or FORGE_API_KEY or OPENAI_API_KEY"
     );
+  }
+  if (doctorIdFlagIndex >= 0 && !Number.isInteger(targetDoctorId)) {
+    throw new Error("--doctor-id requires a valid integer");
   }
 }
 
@@ -70,25 +81,36 @@ async function generateEmbedding(text) {
 }
 
 function buildDoctorText(doctor, hospital, department) {
-  // Build comprehensive text for embedding
   const parts = [];
-  
-  parts.push(`医院：${hospital.name}`);
-  parts.push(`科室：${department.name}`);
-  parts.push(`医生：${doctor.name}`);
-  
-  if (doctor.title) {
-    parts.push(`职称：${doctor.title}`);
-  }
-  
-  if (doctor.specialty) {
-    parts.push(`专业方向：${doctor.specialty}`);
-  }
-  
-  if (doctor.expertise) {
-    parts.push(`专业擅长：${doctor.expertise}`);
-  }
-  
+  const specialtyTags = deriveDoctorSpecialtyTags({
+    departmentName: department.name,
+    departmentNameEn: department.nameEn,
+    specialty: doctor.specialty,
+    specialtyEn: doctor.specialtyEn,
+    expertise: doctor.expertise,
+    expertiseEn: doctor.expertiseEn,
+  });
+
+  const addLine = (label, value) => {
+    if (typeof value === "string" && value.trim().length > 0) {
+      parts.push(`${label}: ${value.trim()}`);
+    }
+  };
+
+  addLine("Hospital (ZH)", hospital.name);
+  addLine("Hospital (EN)", hospital.nameEn);
+  addLine("Department (ZH)", department.name);
+  addLine("Department (EN)", department.nameEn);
+  addLine("Doctor (ZH)", doctor.name);
+  addLine("Doctor (EN)", doctor.nameEn);
+  addLine("Title (ZH)", doctor.title);
+  addLine("Title (EN)", doctor.titleEn);
+  addLine("Specialty (ZH)", doctor.specialty);
+  addLine("Specialty (EN)", doctor.specialtyEn);
+  addLine("Expertise (ZH)", doctor.expertise);
+  addLine("Expertise (EN)", doctor.expertiseEn);
+  addLine("Tags", specialtyTags.join(", "));
+
   return parts.join("\n");
 }
 
@@ -96,9 +118,9 @@ async function vectorizeDoctors() {
   assertVectorizeConfig();
   console.log("Starting doctor vectorization...");
   console.log(`Embedding model: ${EMBEDDING_MODEL}`);
+  console.log(JSON.stringify({ refreshExisting, targetDoctorId }));
   
-  // Get all doctors with hospital and department info
-  const allDoctors = await db
+  let query = db
     .select({
       doctor: doctors,
       hospital: hospitals,
@@ -107,6 +129,12 @@ async function vectorizeDoctors() {
     .from(doctors)
     .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
     .innerJoin(departments, eq(doctors.departmentId, departments.id));
+
+  if (Number.isInteger(targetDoctorId)) {
+    query = query.where(eq(doctors.id, targetDoctorId));
+  }
+
+  const allDoctors = await query;
   
   console.log(`Found ${allDoctors.length} doctors to vectorize`);
   
@@ -125,7 +153,7 @@ async function vectorizeDoctors() {
         .where(eq(doctorEmbeddings.doctorId, doctor.id))
         .limit(1);
       
-      if (existing.length > 0) {
+      if (existing.length > 0 && !refreshExisting) {
         skipped++;
         if (skipped % 100 === 0) {
           console.log(`  Skipped ${skipped} existing embeddings...`);
@@ -139,12 +167,21 @@ async function vectorizeDoctors() {
       // Generate embedding
       const embedding = await generateEmbedding(content);
       
-      // Store embedding
-      await db.insert(doctorEmbeddings).values({
-        doctorId: doctor.id,
-        embedding,
-        content: content
-      });
+      await db
+        .insert(doctorEmbeddings)
+        .values({
+          doctorId: doctor.id,
+          embedding,
+          content: content
+        })
+        .onConflictDoUpdate({
+          target: doctorEmbeddings.doctorId,
+          set: {
+            embedding,
+            content,
+            updatedAt: new Date(),
+          },
+        });
       
       processed++;
       
