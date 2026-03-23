@@ -188,6 +188,7 @@ function TriageResultCard(props: {
   onEdit: () => void;
   doctors: RecommendedDoctor[];
   isLoadingDoctors: boolean;
+  doctorError: string | null;
   resolved: "en" | "zh";
   onSelectDoctor: (doctorId: number) => void;
   labels: {
@@ -196,6 +197,7 @@ function TriageResultCard(props: {
     edit: string;
     selectBook: string;
     viewProfile: string;
+    doctorQueryError: string;
     noDoctors: string;
     doctorPlaceholder: string;
     specialtyUnavailable: string;
@@ -232,6 +234,15 @@ function TriageResultCard(props: {
             <Skeleton className="h-16 w-full rounded-xl" />
             <Skeleton className="h-16 w-full rounded-xl" />
             <Skeleton className="h-16 w-full rounded-xl" />
+          </div>
+        ) : props.doctorError ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm font-medium text-amber-900">
+              {props.labels.doctorQueryError}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-amber-700">
+              {props.doctorError}
+            </p>
           </div>
         ) : props.doctors.length === 0 ? (
           <p className="text-sm text-slate-500">{props.labels.noDoctors}</p>
@@ -337,6 +348,7 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
     createSessionMutation,
     sendMessageMutation,
     recommendQuery,
+    applyEditedSummary,
     setInput,
     setBookingOpen,
     setDisclaimerOpen,
@@ -495,6 +507,9 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
       : null;
 
   const recommendedDoctors = (recommendQuery.data ?? []) as RecommendedDoctor[];
+  const doctorRecommendationError = recommendQuery.isError
+    ? recommendQuery.error.message
+    : null;
   const profileDoctorName = getLocalizedTextWithZhFallback({
     lang: resolved,
     value: profileDoctor?.doctor.name,
@@ -578,6 +593,15 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
   useEffect(() => {
     scrollToBottom();
   }, [renderedMessages.length, historyMessagesQuery.data?.length, triageResult?.isComplete]);
+
+  const handleSaveSummary = () => {
+    const normalizedSummary = summaryDraft.trim();
+    if (normalizedSummary.length > 0) {
+      applyEditedSummary(normalizedSummary);
+      void recommendQuery.refetch();
+    }
+    setIsEditSummaryOpen(false);
+  };
 
   return (
     <>
@@ -849,6 +873,7 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                           onEdit={() => setIsEditSummaryOpen(true)}
                           doctors={recommendedDoctors}
                           isLoadingDoctors={recommendQuery.isFetching}
+                          doctorError={doctorRecommendationError}
                           resolved={resolved}
                           labels={{
                             summary: t.triage_card.summary,
@@ -856,6 +881,7 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                             edit: t.common.edit,
                             selectBook: t.common.select_book,
                             viewProfile: t.common.view_profile,
+                            doctorQueryError: t.doctorQueryError,
                             noDoctors: t.noDoctor,
                             doctorPlaceholder: t.common.doctor_placeholder,
                             specialtyUnavailable: t.common.specialty_unavailable,
@@ -972,7 +998,7 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
             </Button>
             <Button
               className="bg-teal-600 hover:bg-teal-700"
-              onClick={() => setIsEditSummaryOpen(false)}
+              onClick={handleSaveSummary}
             >
               {t.common.save}
             </Button>
