@@ -135,6 +135,8 @@ export const TRIAGE_COPY = {
     doctorTitle: "Recommended Doctors",
     doctorDesc: "Top 3-5 doctors matched by extracted keywords",
     searching: "Matching doctors...",
+    doctorQueryError:
+      "Doctor recommendations failed to load. Please retry or refresh this session.",
     noDoctor:
       "No doctors matched yet. Try adding more specific symptom details.",
     noBio: "No profile details available yet.",
@@ -262,6 +264,7 @@ export const TRIAGE_COPY = {
     doctorTitle: "推荐医生",
     doctorDesc: "基于关键词匹配前 3-5 位医生",
     searching: "正在匹配医生...",
+    doctorQueryError: "医生推荐加载失败，请重试或刷新当前会话。",
     noDoctor: "未检索到匹配医生，请补充更具体症状。",
     noBio: "暂无医生简介",
     viewProfile: "查看详情",

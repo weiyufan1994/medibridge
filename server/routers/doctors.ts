@@ -444,6 +444,7 @@ export const doctorsRouter = router({
       z.object({
         keywords: z.array(z.string()).min(1),
         summary: z.string().optional(),
+        triageSessionId: z.string().optional(),
         limit: z.number().min(1).max(5).optional(),
       })
     )

@@ -90,18 +90,22 @@ export function useTriageChat({
   const recommendationKeywords = triageResult?.isComplete
     ? (triageResult.keywords ?? [])
     : [];
+  const recommendationSummary =
+    triageResult?.isComplete === true ? triageResult.summary : undefined;
 
   const recommendQuery = trpc.doctors.recommend.useQuery(
     {
       keywords: recommendationKeywords,
-      summary: triageResult?.summary,
+      summary: recommendationSummary,
+      triageSessionId: triageSessionId || undefined,
       limit: 5,
     },
     {
       enabled:
         triageResult?.isComplete === true && recommendationKeywords.length > 0,
       retry: 1,
-      staleTime: 5 * 60 * 1000,
+      staleTime: 0,
+      refetchOnMount: "always",
     }
   );
 
@@ -440,6 +444,28 @@ export function useTriageChat({
     setBookingOpen(true);
   };
 
+  const applyEditedSummary = (summary: string) => {
+    const normalizedSummary = summary.trim();
+    if (normalizedSummary.length === 0) {
+      return;
+    }
+
+    setTriageResult(prev => {
+      if (!prev) {
+        return prev;
+      }
+
+      if (prev.summary === normalizedSummary) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        summary: normalizedSummary,
+      };
+    });
+  };
+
   return {
     messages,
     input,
@@ -462,6 +488,7 @@ export function useTriageChat({
     setBookingOpen,
     setDisclaimerOpen,
     setQuotaDialogOpen,
+    applyEditedSummary,
     resetSession,
     handleSend,
     handleAcceptDisclaimer,
