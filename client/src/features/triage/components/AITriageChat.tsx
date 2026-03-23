@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
+  AlertTriangle,
   Eye,
   FileText,
   Loader2,
@@ -14,7 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getLocalizedField } from "@/lib/i18n";
+import { getLocalizedTextWithZhFallback } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -30,7 +31,10 @@ import {
 } from "@/components/ui/dialog";
 import { DisclaimerDialog, DisclaimerNotice } from "@/components/disclaimer/DisclaimerDialog";
 import { useTriageChat } from "@/features/triage/hooks/useTriageChat";
-import { getTriageCopy } from "@/features/triage/copy";
+import {
+  getLocalizedInterruptionDetail,
+  getTriageCopy,
+} from "@/features/triage/copy";
 import {
   getAssistantMessageSignature,
   getMessageContainerClass,
@@ -41,6 +45,7 @@ import {
 import { AppointmentModal } from "@/features/appointment/components/AppointmentModal";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
+import type { LocalizedText } from "@shared/types";
 
 type AITriageChatProps = {
   onSelectDoctor?: (payload: {
@@ -57,26 +62,41 @@ type HistoryItem = {
   group: "today" | "previous7" | "older";
 };
 
+const buildCurrentSessionSidebarTitle = (input: {
+  messages: TriageDisplayMessage[];
+  triageResult: { summary?: string } | null;
+  fallbackTitle: string;
+}) => {
+  const summaryTitle = input.triageResult?.summary?.trim();
+  if (summaryTitle) {
+    return summaryTitle.slice(0, 255);
+  }
+
+  const firstUserMessage = input.messages.find(message => message.role === "user")?.content?.trim();
+  if (firstUserMessage) {
+    return firstUserMessage.replace(/\s+/g, " ").slice(0, 255);
+  }
+
+  return input.fallbackTitle;
+};
+
 type RecommendedDoctor = {
   doctor: {
     id: number;
-    name: string;
-    nameEn: string | null;
-    title: string | null;
-    titleEn: string | null;
-    specialty: string | null;
-    specialtyEn: string | null;
+    name: LocalizedText;
+    title: LocalizedText;
+    specialty: LocalizedText;
     description: string | null;
     imageUrl: string | null;
     experience: string | null;
   };
   department: {
-    name: string;
-    nameEn: string | null;
+    name: LocalizedText;
   };
-  title: string;
-  specialty: string;
-  biography: string;
+  title: LocalizedText;
+  specialty: LocalizedText;
+  biography: LocalizedText;
+  reason: LocalizedText;
   yearsOfExperience: number | null;
 };
 
@@ -176,6 +196,9 @@ function TriageResultCard(props: {
     edit: string;
     selectBook: string;
     viewProfile: string;
+    noDoctors: string;
+    doctorPlaceholder: string;
+    specialtyUnavailable: string;
   };
   onViewProfile: (doctor: RecommendedDoctor) => void;
 }) {
@@ -211,32 +234,28 @@ function TriageResultCard(props: {
             <Skeleton className="h-16 w-full rounded-xl" />
           </div>
         ) : props.doctors.length === 0 ? (
-          <p className="text-sm text-slate-500">No doctor recommendations yet.</p>
+          <p className="text-sm text-slate-500">{props.labels.noDoctors}</p>
         ) : (
           <div className="space-y-2">
             {props.doctors.slice(0, 3).map(item => {
-              const doctorName = getLocalizedField({
+              const doctorName = getLocalizedTextWithZhFallback({
                 lang: props.resolved,
-                zh: item.doctor.name,
-                en: item.doctor.nameEn,
-                placeholder: props.resolved === "zh" ? "医生" : "Doctor",
+                value: item.doctor.name,
+                placeholder: props.labels.doctorPlaceholder,
               });
-              const departmentName = getLocalizedField({
+              const departmentName = getLocalizedTextWithZhFallback({
                 lang: props.resolved,
-                zh: item.department.name,
-                en: item.department.nameEn,
+                value: item.department.name,
               });
-              const titleText = getLocalizedField({
+              const titleText = getLocalizedTextWithZhFallback({
                 lang: props.resolved,
-                zh: item.doctor.title || item.title,
-                en: item.doctor.titleEn || item.title,
-                placeholder: props.resolved === "zh" ? "医生" : "Doctor",
+                value: item.title,
+                placeholder: props.labels.doctorPlaceholder,
               });
-              const specialtyText = getLocalizedField({
+              const specialtyText = getLocalizedTextWithZhFallback({
                 lang: props.resolved,
-                zh: item.doctor.specialty || item.specialty,
-                en: item.doctor.specialtyEn || item.specialty,
-                placeholder: props.resolved === "zh" ? "暂无专长信息" : "Specialty information unavailable",
+                value: item.specialty,
+                placeholder: props.labels.specialtyUnavailable,
               });
 
               return (
@@ -354,7 +373,7 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
   const isChatPending = createSessionMutation.isPending || sendMessageMutation.isPending;
   const isRecommendationPending =
     triageResult?.isComplete === true && recommendQuery.isFetching;
-  const patientName = user?.name || user?.email || (resolved === "zh" ? "未命名患者" : "Unnamed patient");
+  const patientName = user?.name || user?.email || t.common.unnamed_patient;
 
   const historyItems = useMemo<HistoryItem[]>(() => {
     const todayStart = new Date();
@@ -403,10 +422,10 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
 
   useEffect(() => {
     if (!quotaDialogOpen) return;
-    toast.error(quotaMessage || "游客试用额度已尽，请登录后继续问诊。");
+    toast.error(quotaMessage || t.status.quota_login_required);
     openLoginModal();
     setQuotaDialogOpen(false);
-  }, [openLoginModal, quotaDialogOpen, quotaMessage, setQuotaDialogOpen]);
+  }, [openLoginModal, quotaDialogOpen, quotaMessage, setQuotaDialogOpen, t.status.quota_login_required]);
 
   useEffect(() => {
     setSummaryDraft(triageResult?.summary || "");
@@ -444,7 +463,7 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
   }, [displayMessages, isHistoryReadOnly, triageResult?.isComplete]);
 
   const inputPlaceholder = isHistoryReadOnly
-    ? (resolved === "zh" ? "这是历史会话（只读）..." : "This is a past session (Read-only)...")
+    ? t.sidebar.read_only_placeholder
     : reportGenerationLocked
       ? t.status.reviewing
     : isRecommendationPending
@@ -464,13 +483,73 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
   const effectiveSummary =
     summaryDraft.trim().length > 0
       ? summaryDraft.trim()
-      : triageResult?.summary?.trim() || "No summary available.";
+      : triageResult?.summary?.trim() || t.common.no_summary_available;
+  const localizedInterruptionDetail =
+    triageResult?.interrupted && triageResult.reply
+      ? getLocalizedInterruptionDetail({
+          lang: resolved,
+          message: triageResult.interruptionMessage,
+          riskCodes: triageResult.riskCodes,
+          fallback: triageResult.reply,
+        })
+      : null;
 
   const recommendedDoctors = (recommendQuery.data ?? []) as RecommendedDoctor[];
+  const profileDoctorName = getLocalizedTextWithZhFallback({
+    lang: resolved,
+    value: profileDoctor?.doctor.name,
+    placeholder: t.doctorFallback,
+  });
+  const profileDoctorTitle = getLocalizedTextWithZhFallback({
+    lang: resolved,
+    value: profileDoctor?.title,
+    placeholder: t.common.doctor_placeholder,
+  });
+  const profileDoctorSpecialty = getLocalizedTextWithZhFallback({
+    lang: resolved,
+    value: profileDoctor?.specialty,
+    placeholder: t.common.specialty_unavailable,
+  });
+  const profileDoctorBiography = getLocalizedTextWithZhFallback({
+    lang: resolved,
+    value: profileDoctor?.biography,
+    placeholder: t.noBio,
+  });
 
   const todayItems = historyItems.filter(item => item.group === "today");
   const previousItems = historyItems.filter(item => item.group === "previous7");
   const olderItems = historyItems.filter(item => item.group === "older");
+  const currentSessionListItem = useMemo<HistoryItem | null>(() => {
+    if (activeSessionId !== null) {
+      return null;
+    }
+    if (!triageSessionId || messages.length <= 1) {
+      return null;
+    }
+
+    const numericSessionId = Number(triageSessionId);
+    if (!Number.isInteger(numericSessionId) || numericSessionId <= 0) {
+      return null;
+    }
+
+    return {
+      id: numericSessionId,
+        title: buildCurrentSessionSidebarTitle({
+          messages,
+          triageResult,
+          fallbackTitle: t.sidebar.new_session,
+        }),
+      status: triageResult?.isComplete ? "completed" : "active",
+      group: "today",
+    };
+  }, [activeSessionId, messages, resolved, triageResult, triageSessionId]);
+  const mergedTodayItems = useMemo(() => {
+    if (!currentSessionListItem) {
+      return todayItems;
+    }
+
+    return [currentSessionListItem, ...todayItems.filter(item => item.id !== currentSessionListItem.id)];
+  }, [currentSessionListItem, todayItems]);
 
   const scrollToBottom = useCallback(() => {
     if (!messageStreamRef.current) return;
@@ -543,9 +622,13 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                     <Skeleton className="mb-2 h-10 w-full rounded-lg" />
                     <Skeleton className="mb-2 h-10 w-full rounded-lg" />
                   </div>
+                ) : historyQuery.error ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-relaxed text-amber-800">
+                    {t.sidebar.load_failed}
+                  </div>
                 ) : (
                   <div className="space-y-1">
-                    {todayItems.map(item => (
+                    {mergedTodayItems.map(item => (
                       <button
                         key={item.id}
                         type="button"
@@ -625,7 +708,7 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
 
               {!historyQuery.isLoading && historyItems.length === 0 && (
                 <div className="flex h-full items-center justify-center px-2 py-8">
-                  <p className="text-center text-sm text-slate-500">No previous sessions.</p>
+                  <p className="text-center text-sm text-slate-500">{t.sidebar.empty}</p>
                 </div>
               )}
             </div>
@@ -645,7 +728,7 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                 </button>
               )}
               <p className="text-sm font-medium text-slate-900">
-                {resolved === "zh" ? "患者" : "Patient"}: {patientName}
+                {t.patientLabel}: {patientName}
               </p>
             </div>
           </div>
@@ -661,7 +744,7 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                   </>
                 ) : renderedMessages.length === 0 ? (
                   <p className="text-sm text-slate-500">
-                    {isHistoryReadOnly ? "No messages in this session." : t.initialAssistantMessage}
+                    {isHistoryReadOnly ? t.sidebar.no_messages_in_session : t.initialAssistantMessage}
                   </p>
                 ) : (
                   renderedMessages.map((message, index) => (
@@ -698,39 +781,66 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                   <div className={getTriageResultContainerClass()}>
                     <div className="w-full max-w-[85%]">
                       {triageResult.interrupted ? (
-                        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 shadow-md">
-                          <h4 className="text-base font-semibold text-rose-800">
-                            {resolved === "zh" ? "高风险症状已触发安全中断" : "High-risk symptoms triggered safety interruption"}
-                          </h4>
-                          <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-rose-700">
-                            {triageResult.reply}
-                          </p>
-                          {(triageResult.riskCodes ?? []).length > 0 && (
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {(triageResult.riskCodes ?? []).map(code => (
-                                <Badge
-                                  key={code}
-                                  className="border-0 bg-rose-100 text-rose-800"
-                                >
-                                  {code}
-                                </Badge>
-                              ))}
+                        <div className="overflow-hidden rounded-[28px] border border-rose-200/80 bg-[linear-gradient(145deg,rgba(255,241,242,0.98),rgba(255,255,255,0.96))] shadow-[0_18px_40px_-24px_rgba(225,29,72,0.55)]">
+                          <div className="border-b border-rose-200/70 bg-white/55 px-5 py-4 backdrop-blur">
+                            <div className="flex items-start gap-3">
+                              <div className="mt-0.5 rounded-2xl bg-rose-600 p-2 text-white shadow-sm">
+                                <AlertTriangle className="h-4 w-4" />
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-rose-500">
+                                  {t.interruption.eyebrow}
+                                </p>
+                                <h4 className="text-lg font-semibold text-rose-900">
+                                  {t.interruption.title}
+                                </h4>
+                                <p className="text-sm leading-relaxed text-rose-700">
+                                  {t.interruption.description}
+                                </p>
+                              </div>
                             </div>
-                          )}
-                          <div className="mt-4 flex gap-2">
-                            <Button
-                              variant="outline"
-                              className="border-rose-200 bg-white text-rose-700 hover:bg-rose-100"
-                              onClick={() => setLocation("/")}
-                            >
-                              {resolved === "zh" ? "返回首页" : "Back to home"}
-                            </Button>
-                            <Button
-                              className="bg-rose-600 hover:bg-rose-700"
-                              onClick={() => setLocation("/hospitals")}
-                            >
-                              {resolved === "zh" ? "去预约医生" : "Find a doctor"}
-                            </Button>
+                          </div>
+
+                          <div className="space-y-5 p-5">
+                            <div className="rounded-2xl border border-rose-100 bg-white/80 p-4">
+                              <p className="mb-2 text-sm font-medium text-rose-900">
+                                {t.interruption.next_steps_title}
+                              </p>
+                              <ul className="space-y-2 text-sm leading-relaxed text-rose-800">
+                                {t.interruption.next_steps.map(step => (
+                                  <li key={step} className="flex gap-2">
+                                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-rose-500" />
+                                    <span>{step}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+
+                            <div className="rounded-2xl border border-rose-100 bg-rose-100/70 p-4">
+                              <p className="whitespace-pre-wrap text-sm leading-relaxed text-rose-700">
+                                {localizedInterruptionDetail}
+                              </p>
+                            </div>
+
+                            <div className="flex flex-wrap gap-3">
+                              <Button
+                                className="bg-rose-600 text-white shadow-sm hover:bg-rose-700"
+                                onClick={() => setLocation("/hospitals")}
+                              >
+                                {t.interruption.primary_cta}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                className="border-rose-200 bg-white text-rose-700 hover:bg-rose-50"
+                                onClick={() => setLocation("/")}
+                              >
+                                {t.interruption.secondary_cta}
+                              </Button>
+                            </div>
+
+                            <p className="text-xs leading-relaxed text-rose-500">
+                              {t.interruption.footer}
+                            </p>
                           </div>
                         </div>
                       ) : (
@@ -746,6 +856,9 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                             edit: t.common.edit,
                             selectBook: t.common.select_book,
                             viewProfile: t.common.view_profile,
+                            noDoctors: t.noDoctor,
+                            doctorPlaceholder: t.common.doctor_placeholder,
+                            specialtyUnavailable: t.common.specialty_unavailable,
                           }}
                           onViewProfile={doctor => setProfileDoctor(doctor)}
                           onSelectDoctor={doctorId => {
@@ -815,10 +928,12 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
             {messageLimitReached && (
               <div className="mx-auto mb-4 w-full max-w-3xl rounded-lg border border-amber-300 bg-amber-50 p-3">
                 <p className="mb-2 text-sm font-medium text-amber-900">
-                  本次会诊已达到消息上限，请尽快预约医生继续诊疗。
+                  {t.status.message_limit_reached}
                 </p>
                 <Link href="/hospitals">
-                  <Button className="bg-teal-600 hover:bg-teal-700">立即预约医生</Button>
+                  <Button className="bg-teal-600 hover:bg-teal-700">
+                    {t.status.message_limit_action}
+                  </Button>
                 </Link>
               </div>
             )}
@@ -874,38 +989,18 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                   <Avatar className="h-14 w-14">
                     <AvatarImage
                       src={profileDoctor.doctor.imageUrl ?? undefined}
-                      alt={getLocalizedField({
-                        lang: resolved,
-                        zh: profileDoctor.doctor.name,
-                        en: profileDoctor.doctor.nameEn,
-                        placeholder: t.doctorFallback,
-                      })}
+                      alt={profileDoctorName}
                     />
                     <AvatarFallback>
-                      {getLocalizedField({
-                        lang: resolved,
-                        zh: profileDoctor.doctor.name,
-                        en: profileDoctor.doctor.nameEn,
-                        placeholder: t.doctorFallback,
-                      }).slice(0, 1)}
+                      {profileDoctorName.slice(0, 1)}
                     </AvatarFallback>
                   </Avatar>
                   <div>
                     <DialogTitle>
-                      {getLocalizedField({
-                        lang: resolved,
-                        zh: profileDoctor.doctor.name,
-                        en: profileDoctor.doctor.nameEn,
-                        placeholder: t.doctorFallback,
-                      })}
+                      {profileDoctorName}
                     </DialogTitle>
                     <p className="mt-1 inline-flex rounded bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-600">
-                      {getLocalizedField({
-                        lang: resolved,
-                        zh: profileDoctor.doctor.title || profileDoctor.title,
-                        en: profileDoctor.doctor.titleEn || profileDoctor.title,
-                        placeholder: resolved === "zh" ? "医生" : "Doctor",
-                      })}
+                      {profileDoctorTitle}
                     </p>
                   </div>
                 </div>
@@ -918,16 +1013,11 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                     {t.doctor_detail.about}
                   </h4>
                   <p className="text-sm text-slate-600">
-                    {getLocalizedField({
-                      lang: resolved,
-                      zh: profileDoctor.doctor.specialty || profileDoctor.specialty,
-                      en: profileDoctor.doctor.specialtyEn || profileDoctor.specialty,
-                      placeholder: resolved === "zh" ? "暂无专长信息" : "Specialty information unavailable",
-                    })}
+                    {profileDoctorSpecialty}
                     {typeof profileDoctor.yearsOfExperience === "number"
-                      ? resolved === "zh"
-                        ? ` · 从业 ${profileDoctor.yearsOfExperience} 年`
-                        : ` · ${profileDoctor.yearsOfExperience} years experience`
+                      ? ` · ${t.doctor_detail.years_experience(
+                          profileDoctor.yearsOfExperience
+                        )}`
                       : ""}
                   </p>
                 </div>
@@ -936,7 +1026,7 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                     {t.doctor_detail.biography}
                   </h4>
                   <p className="max-h-52 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-                    {profileDoctor.biography?.trim() || t.noBio}
+                    {profileDoctorBiography}
                   </p>
                 </div>
               </div>

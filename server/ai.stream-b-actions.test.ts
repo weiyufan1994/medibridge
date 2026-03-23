@@ -62,7 +62,10 @@ describe("ai.sendMessageAction stream b", () => {
       highestSeverity: "critical",
       shouldInterrupt: true,
       recommendedAction: "go_to_er",
-      displayMessage: "立即去急诊。",
+      displayMessage: {
+        zh: "立即去急诊。",
+        en: "Go to the emergency department immediately.",
+      },
       triggerSource: "rule",
       rawExcerpt: "胸痛 呼吸困难",
     });
@@ -78,6 +81,10 @@ describe("ai.sendMessageAction stream b", () => {
 
     expect(result.isComplete).toBe(true);
     expect(result.interrupted).toBe(true);
+    expect(result.interruptionMessage).toEqual({
+      zh: "立即去急诊。",
+      en: "Go to the emergency department immediately.",
+    });
     expect(vi.mocked(triageKnowledge.runRetrieval)).not.toHaveBeenCalled();
     expect(vi.mocked(processTriageChat)).not.toHaveBeenCalled();
     expect(vi.mocked(triageSafety.recordRiskEvents)).toHaveBeenCalledTimes(1);

@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import {
   aiChatMessages,
   aiChatSessions,
@@ -107,7 +107,7 @@ export async function listFirstUserMessagesBySessionIds(sessionIds: number[]) {
     .from(aiChatMessages)
     .where(
       and(
-        sql`${aiChatMessages.sessionId} in ${normalizedIds}`,
+        inArray(aiChatMessages.sessionId, normalizedIds),
         eq(aiChatMessages.role, "user"),
         sql`${aiChatMessages.id} = (
           select min(msg.id)

@@ -61,9 +61,14 @@ export const consultationRouter = router({
       ctx.userId,
       CONSULTATION_HISTORY_LIMIT
     );
-    const firstUserMessagesBySessionId = await aiRepo.listFirstUserMessagesBySessionIds(
-      sessions.map(session => session.id)
-    );
+    let firstUserMessagesBySessionId = new Map<number, string>();
+    try {
+      firstUserMessagesBySessionId = await aiRepo.listFirstUserMessagesBySessionIds(
+        sessions.map(session => session.id)
+      );
+    } catch (error) {
+      console.error("[consultation.getHistory] failed to resolve first user messages", error);
+    }
 
     return sessions.map(session => ({
       id: session.id,

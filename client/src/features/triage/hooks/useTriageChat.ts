@@ -9,6 +9,7 @@ import { trpc } from "@/lib/trpc";
 import { getTriageCopy } from "@/features/triage/copy";
 import { shouldLockInputForReportGeneration } from "@/features/triage/hooks/triageReportState";
 import { TRPCClientError } from "@trpc/client";
+import type { LocalizedText } from "@shared/types";
 
 export type ChatRole = "user" | "assistant";
 
@@ -22,6 +23,7 @@ export type TriageResult = {
   reply: string;
   interrupted?: boolean;
   riskCodes?: string[];
+  interruptionMessage?: LocalizedText;
   summary?: string;
   keywords?: string[];
   extraction?: {
@@ -188,11 +190,13 @@ export function useTriageChat({
     }
   };
 
-  const syncSessionCreationState = async () => {
-    await Promise.all([
+  const syncSessionCreationState = () => {
+    void Promise.all([
       utils.consultation.getHistory.invalidate(),
       utils.auth.me.invalidate(),
-    ]);
+    ]).catch(error => {
+      console.error("[AITriageChat] failed to refresh session creation state:", error);
+    });
   };
 
   const sendMessage = async (content: string) => {
@@ -217,7 +221,7 @@ export function useTriageChat({
         });
         activeSessionId = String(created.sessionId);
         setTriageSessionId(activeSessionId);
-        await syncSessionCreationState();
+        syncSessionCreationState();
       } catch (error) {
         if (error instanceof TRPCClientError) {
           const message = error.message || "无法创建问诊会话";
@@ -277,7 +281,7 @@ export function useTriageChat({
           });
           const refreshedSessionId = String(recreated.sessionId);
           setTriageSessionId(refreshedSessionId);
-          await syncSessionCreationState();
+          syncSessionCreationState();
           result = await sendMessageMutation.mutateAsync({
             sessionId: Number(refreshedSessionId),
             content,
@@ -303,6 +307,7 @@ export function useTriageChat({
         hitMessageLimit?: boolean;
         interrupted?: boolean;
         riskCodes?: string[];
+        interruptionMessage?: LocalizedText;
       };
 
       const safeReply =
@@ -331,6 +336,13 @@ export function useTriageChat({
               item => typeof item === "string" && item.trim().length > 0
             )
           : undefined,
+        interruptionMessage:
+          normalizedResult.interruptionMessage &&
+          typeof normalizedResult.interruptionMessage === "object" &&
+          typeof normalizedResult.interruptionMessage.zh === "string" &&
+          typeof normalizedResult.interruptionMessage.en === "string"
+            ? normalizedResult.interruptionMessage
+            : undefined,
         summary:
           typeof normalizedResult.summary === "string" &&
           normalizedResult.summary.trim().length > 0

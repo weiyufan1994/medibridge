@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import type { LocalizedText } from "@shared/types";
 import { processTriageChat } from "./service";
 import * as aiRepo from "./repo";
 import type { TrpcContext } from "../../_core/context";
@@ -37,6 +38,11 @@ function requireUser(user: TrpcContext["user"], message: string): AuthUser {
   }
   return user;
 }
+
+const resolveLocalizedReply = (
+  message: LocalizedText,
+  lang: "en" | "zh"
+) => message[lang];
 
 export async function getUsageSummaryAction(user: AuthUser) {
   const todayStart = new Date();
@@ -249,10 +255,11 @@ export async function sendMessageAction(input: SendMessageInput, user: TrpcConte
     });
 
     if (riskScan.shouldInterrupt && riskScan.displayMessage) {
+      const localizedReply = resolveLocalizedReply(riskScan.displayMessage, resolvedLang);
       const assistantMessageId = await aiRepo.createAiChatMessage({
         sessionId: session.id,
         role: "assistant",
-        content: riskScan.displayMessage,
+        content: localizedReply,
       });
       await recordRiskEvents({
         sessionId: session.id,
@@ -271,7 +278,8 @@ export async function sendMessageAction(input: SendMessageInput, user: TrpcConte
       await aiRepo.updateAiChatSessionStatus(session.id, "completed");
       return {
         isComplete: true,
-        reply: riskScan.displayMessage,
+        reply: localizedReply,
+        interruptionMessage: riskScan.displayMessage,
         sessionStatus: "completed" as const,
         hitMessageLimit: false as const,
         interrupted: true as const,

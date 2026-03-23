@@ -1,3 +1,5 @@
+import type { LocalizedText } from "@shared/types";
+
 export type RiskSeverity = "critical" | "high" | "medium";
 
 export type RiskAction =
@@ -29,7 +31,7 @@ export type TriageRiskScanResult = {
   highestSeverity: RiskSeverity | null;
   shouldInterrupt: boolean;
   recommendedAction: RiskAction | null;
-  displayMessage: string | null;
+  displayMessage: LocalizedText | null;
   triggerSource: "rule";
   rawExcerpt: string;
 };

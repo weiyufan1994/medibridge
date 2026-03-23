@@ -29,6 +29,7 @@ export function scanMessage(input: {
 }): TriageRiskScanResult {
   const priorMessageText = (input.priorMessages ?? [])
     .slice(-4)
+    .filter(message => message.role === "user")
     .map(message => message.content.trim())
     .filter(Boolean)
     .join("\n");
@@ -44,9 +45,10 @@ export function scanMessage(input: {
   const displayMessage =
     matched.length === 0
       ? null
-      : input.lang === "en"
-        ? matched[0].userMessageEn
-        : matched[0].userMessageZh;
+      : {
+          zh: matched[0].userMessageZh,
+          en: matched[0].userMessageEn,
+        };
 
   return {
     matchedRiskCodes: matched.map(rule => rule.riskCode),
