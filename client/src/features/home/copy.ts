@@ -7,6 +7,8 @@ export const HOME_COPY = {
     dashboard: "My Account",
     admin: "Admin",
     logout: "Sign out",
+    logoutSuccess: "Signed out",
+    logoutFailed: "Logout failed, please retry.",
     browseHospitals: "Browse Hospitals",
     heroTitle: "Connect with Top Chinese Medical Experts",
     heroDescription:
@@ -49,6 +51,8 @@ export const HOME_COPY = {
     dashboard: "个人中心",
     admin: "管理后台",
     logout: "退出登录",
+    logoutSuccess: "已退出登录",
+    logoutFailed: "退出失败，请重试。",
     browseHospitals: "浏览医院",
     heroTitle: "连接中国顶尖医疗专家",
     heroDescription:

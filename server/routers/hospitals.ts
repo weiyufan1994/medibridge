@@ -1,5 +1,9 @@
 import * as doctorsRepo from "../modules/doctors/repo";
 import { publicProcedure, router } from "../_core/trpc";
+import {
+  toPublicLocalizedDepartment,
+  toPublicLocalizedHospital,
+} from "../modules/doctors/presentation";
 import { z } from "zod";
 
 export const hospitalsRouter = router({
@@ -7,7 +11,8 @@ export const hospitalsRouter = router({
    * Get all hospitals
    */
   getAll: publicProcedure.query(async () => {
-    return await doctorsRepo.getAllHospitals();
+    const hospitals = await doctorsRepo.getAllHospitals();
+    return hospitals.map(toPublicLocalizedHospital);
   }),
 
   /**
@@ -20,6 +25,7 @@ export const hospitalsRouter = router({
       })
     )
     .query(async ({ input }) => {
-      return await doctorsRepo.getDepartmentsByHospital(input.hospitalId);
+      const departments = await doctorsRepo.getDepartmentsByHospital(input.hospitalId);
+      return departments.map(toPublicLocalizedDepartment);
     }),
 });

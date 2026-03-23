@@ -1,6 +1,7 @@
 import { useId } from "react";
 import { X } from "lucide-react";
 import { formatAppointmentTimes } from "@/lib/appointmentTime";
+import { getDisplayLocale } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -71,7 +72,7 @@ export function PatientSummaryModal({
 }: PatientSummaryModalProps) {
   const titleId = useId();
   const descriptionId = useId();
-  const locale = resolved === "zh" ? "zh-CN" : "en-US";
+  const locale = getDisplayLocale(resolved);
   const timeDisplay = formatAppointmentTimes(scheduledAt, "-", locale);
   const displayDoctor = doctorName?.trim().length ? doctorName : copy.fallbackDoctor;
 

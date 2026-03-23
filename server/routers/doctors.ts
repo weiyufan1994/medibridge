@@ -1,6 +1,10 @@
 import { createEmbedding, invokeLLM } from "../_core/llm";
 import * as doctorsRepo from "../modules/doctors/repo";
 import {
+  toPublicLocalizedDoctorSearchResult,
+  toLocalizedTextValue,
+} from "../modules/doctors/presentation";
+import {
   deriveDoctorSpecialtyTags,
   type DoctorSpecialtyTag,
 } from "../modules/doctors/taxonomy";
@@ -273,7 +277,12 @@ export const doctorsRouter = router({
       })
     )
     .query(async ({ input }) => {
-      return await doctorsRepo.getDoctorById(input.id);
+      const result = await doctorsRepo.getDoctorById(input.id);
+      if (!result) {
+        return null;
+      }
+
+      return toPublicLocalizedDoctorSearchResult(result);
     }),
 
   /**
@@ -289,10 +298,11 @@ export const doctorsRouter = router({
       })
     )
     .query(async ({ input }) => {
-      return await doctorsRepo.searchDoctors(input.keywords, input.limit, {
+      const results = await doctorsRepo.searchDoctors(input.keywords, input.limit, {
         lang: input.lang ?? "zh",
         fallbackKeywords: input.fallbackKeywords,
       });
+      return results.map(toPublicLocalizedDoctorSearchResult);
     }),
 
   /**
@@ -549,18 +559,40 @@ export const doctorsRouter = router({
           const departmentName =
             result.department.nameEn?.trim() || result.department.name.trim();
 
-          if (looksEnglish) {
-            if (matchedKeywords.length > 0) {
-              return `Matched ${matchedKeywords.join(", ")} with ${departmentName}.`;
-            }
-            return `Relevant specialist in ${departmentName} for your triage profile.`;
-          }
+          const zh =
+            matchedKeywords.length > 0
+              ? `与关键词 ${matchedKeywords.join("、")} 匹配，建议就诊 ${result.department.name}。`
+              : `该医生所在科室（${result.department.name}）与分诊信息相关。`;
+          const en =
+            matchedKeywords.length > 0
+              ? `Matched ${matchedKeywords.join(", ")} with ${departmentName}.`
+              : `Relevant specialist in ${departmentName} for your triage profile.`;
 
-          if (matchedKeywords.length > 0) {
-            return `与关键词 ${matchedKeywords.join("、")} 匹配，建议就诊 ${result.department.name}。`;
-          }
-          return `该医生所在科室（${result.department.name}）与分诊信息相关。`;
+          return toLocalizedTextValue(zh, en);
         };
+
+        const toPublicRecommendation = (result: DoctorResult) => ({
+          reason: buildRecommendationReason(result),
+          title: toLocalizedTextValue(
+            result.doctor.title,
+            result.doctor.titleEn
+          ),
+          specialty: toLocalizedTextValue(
+            result.doctor.specialty ?? result.doctor.expertise,
+            result.doctor.specialtyEn ?? result.doctor.expertiseEn
+          ),
+          biography: toLocalizedTextValue(
+            result.doctor.description ??
+              result.doctor.expertise ??
+              result.doctor.experience,
+            result.doctor.expertiseEn ??
+              result.doctor.description ??
+              result.doctor.expertise ??
+              result.doctor.experience
+          ),
+          yearsOfExperience: parseYearsOfExperience(result.doctor.experience),
+          ...toPublicLocalizedDoctorSearchResult(result),
+        });
 
         const upsertScore = (result: DoctorResult, baseScore: number) => {
           const intentMatches = countIntentDepartmentMatches(result, matchedIntents);
@@ -601,7 +633,7 @@ export const doctorsRouter = router({
         enResults.forEach(result => upsertScore(result, 3));
         vectorResults.forEach(result => upsertScore(result, 5));
 
-        const ranked = Array.from(scored.values())
+        const rankedResults = Array.from(scored.values())
           .sort((left, right) => {
             if (right.hybridScore !== left.hybridScore) {
               return right.hybridScore - left.hybridScore;
@@ -611,44 +643,30 @@ export const doctorsRouter = router({
               (left.result.doctor.recommendationScore ?? 0)
             );
           })
-          .map(item => ({
-            ...item.result,
-            reason: buildRecommendationReason(item.result),
-            title: item.result.doctor.title ?? item.result.doctor.titleEn ?? "",
-            specialty:
-              item.result.doctor.specialty ??
-              item.result.doctor.specialtyEn ??
-              item.result.doctor.expertise ??
-              item.result.doctor.expertiseEn ??
-              "",
-            biography:
-              item.result.doctor.description ??
-              item.result.doctor.experience ??
-              item.result.doctor.expertise ??
-              "",
-            yearsOfExperience: parseYearsOfExperience(item.result.doctor.experience),
-          }));
+          .map(item => item.result);
 
         if (matchedIntents.length === 0) {
-          return ranked.slice(0, limit);
+          return rankedResults.slice(0, limit).map(toPublicRecommendation);
         }
 
-        const stronglyMatched = ranked.filter(item =>
+        const stronglyMatched = rankedResults.filter(item =>
           countIntentDepartmentMatches(item, matchedIntents) > 0 ||
           tagHints.some(tag => getNormalizedDoctorTags(item, storedTagsByDoctorId).has(tag))
         );
-        const generalFallback = ranked.filter(
+        const generalFallback = rankedResults.filter(
           item =>
             countIntentDepartmentMatches(item, matchedIntents) === 0 &&
             isGeneralDepartment(item)
         );
-        const remainder = ranked.filter(
+        const remainder = rankedResults.filter(
           item =>
             countIntentDepartmentMatches(item, matchedIntents) === 0 &&
             !isGeneralDepartment(item)
         );
 
-        return [...stronglyMatched, ...generalFallback, ...remainder].slice(0, limit);
+        return [...stronglyMatched, ...generalFallback, ...remainder]
+          .slice(0, limit)
+          .map(toPublicRecommendation);
       } catch (error) {
         console.error("[Doctors] recommend failed:", error);
         return [];
@@ -666,9 +684,11 @@ export const doctorsRouter = router({
       })
     )
     .query(async ({ input }) => {
-      return await doctorsRepo.getDoctorsByDepartment(
+      const results = await doctorsRepo.getDoctorsByDepartment(
         input.departmentId,
         input.limit
       );
+
+      return results.map(toPublicLocalizedDoctorSearchResult);
     }),
 });

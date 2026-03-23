@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { authCopy } from "@/features/auth/copy";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { getAuthCopy } from "@/features/auth/copy";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,8 @@ export function ManusDialog({
   onOpenChange,
   onClose,
 }: ManusDialogProps) {
+  const { resolved } = useLanguage();
+  const t = getAuthCopy(resolved);
   const [internalOpen, setInternalOpen] = useState(open);
 
   useEffect(() => {
@@ -71,7 +74,7 @@ export function ManusDialog({
             </DialogTitle>
           ) : null}
           <DialogDescription className="text-sm text-[#858481] leading-5 tracking-[-0.154px]">
-            {authCopy.manusDialog.description}
+            {t.manusDialog.description}
           </DialogDescription>
         </div>
 
@@ -81,7 +84,7 @@ export function ManusDialog({
             onClick={onLogin}
             className="w-full h-10 bg-[#1a1a19] hover:bg-[#1a1a19]/90 text-white rounded-[10px] text-sm font-medium leading-5 tracking-[-0.154px]"
           >
-            {authCopy.manusDialog.cta}
+            {t.manusDialog.cta}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -50,6 +50,13 @@ const mockHospitals = [
   {
     id: 10,
     name: "示例医院",
+    nameEn: "Example Hospital",
+    city: "上海",
+    cityEn: "Shanghai",
+    level: "三甲",
+    levelEn: "Tier 3A",
+    address: "上海市徐汇区示例路 1 号",
+    addressEn: "1 Sample Rd, Xuhui District, Shanghai",
   },
 ];
 
@@ -207,6 +214,18 @@ describe("doctors router", () => {
       expect(result).toHaveProperty("hospital");
       expect(result).toHaveProperty("department");
       expect(result!.doctor.id).toBe(doctorId);
+      expect(result!.doctor.name).toEqual({
+        zh: "张医生",
+        en: "Dr. Zhang",
+      });
+      expect(result!.hospital.name).toEqual({
+        zh: "示例医院",
+        en: "Example Hospital",
+      });
+      expect(result!.department.name).toEqual({
+        zh: "骨科",
+        en: "Orthopedics",
+      });
     }
   });
 
@@ -230,14 +249,14 @@ describe("doctors router", () => {
     });
 
     expect(result).toHaveLength(3);
-    expect(result[0]?.department.name).toBe("骨科");
-    expect(result[0]?.doctor.name).toBe("张医生");
+    expect(result[0]?.department.name.zh).toBe("骨科");
+    expect(result[0]?.doctor.name.zh).toBe("张医生");
 
-    const orthoIndex = result.findIndex(item => item.department.name === "骨科");
+    const orthoIndex = result.findIndex(item => item.department.name.zh === "骨科");
     const reproductiveIndex = result.findIndex(
-      item => item.department.name === "辅助生殖科"
+      item => item.department.name.zh === "辅助生殖科"
     );
-    const oralIndex = result.findIndex(item => item.department.name === "口腔黏膜科");
+    const oralIndex = result.findIndex(item => item.department.name.zh === "口腔黏膜科");
 
     expect(orthoIndex).toBeGreaterThanOrEqual(0);
     expect(reproductiveIndex === -1 || orthoIndex < reproductiveIndex).toBe(true);
@@ -281,6 +300,10 @@ describe("hospitals router", () => {
     const firstHospital = result[0];
     expect(firstHospital).toHaveProperty("id");
     expect(firstHospital).toHaveProperty("name");
+    expect(firstHospital?.name).toEqual({
+      zh: "示例医院",
+      en: "Example Hospital",
+    });
   });
 
   it("should get departments by hospital ID", async () => {
@@ -303,6 +326,10 @@ describe("hospitals router", () => {
         expect(firstDept).toHaveProperty("id");
         expect(firstDept).toHaveProperty("name");
         expect(firstDept.hospitalId).toBe(hospitalId);
+        expect(firstDept.name).toEqual({
+          zh: "骨科",
+          en: "Orthopedics",
+        });
       }
     }
   });

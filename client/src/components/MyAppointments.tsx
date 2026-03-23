@@ -3,6 +3,7 @@ import { ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { formatAppointmentTimes } from "@/lib/appointmentTime";
+import { getDisplayLocale, getLocalizedTextWithZhFallback } from "@/lib/i18n";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getDashboardAppointmentCopy } from "@/features/dashboard/copy";
 import { PatientSummaryModal } from "@/features/visit/components/PatientSummaryModal";
@@ -212,16 +213,13 @@ function AppointmentCard(props: {
     }
   );
 
-  const doctorName =
-    props.resolved === "zh"
-      ? doctorQuery.data?.doctor?.name ||
-        doctorQuery.data?.doctor?.nameEn ||
-        props.t.doctorFallback.replace("{{id}}", String(props.item.doctorId))
-      : doctorQuery.data?.doctor?.nameEn ||
-        doctorQuery.data?.doctor?.name ||
-        props.t.doctorFallback.replace("{{id}}", String(props.item.doctorId));
+  const doctorName = getLocalizedTextWithZhFallback({
+    lang: props.resolved,
+    value: doctorQuery.data?.doctor?.name,
+    placeholder: props.t.doctorFallback.replace("{{id}}", String(props.item.doctorId)),
+  });
   const doctorImage = doctorQuery.data?.doctor?.imageUrl;
-  const locale = props.resolved === "zh" ? "zh-CN" : "en-US";
+  const locale = getDisplayLocale(props.resolved);
   const timeDisplay = formatAppointmentTimes(props.item.scheduledAt, "-", locale);
   const isScheduleLocked = !canEnterVisitRoomNow(props.item);
   const actionLabel = getUpcomingActionLabel(props.item, props.t);
@@ -556,14 +554,11 @@ export function MyAppointments() {
     "{{id}}",
     summaryDoctorId ? String(summaryDoctorId) : "-"
   );
-  const summaryDoctorName =
-    resolved === "zh"
-      ? summaryDoctorQuery.data?.doctor?.name ||
-        summaryDoctorQuery.data?.doctor?.nameEn ||
-        summaryDoctorFallback
-      : summaryDoctorQuery.data?.doctor?.nameEn ||
-        summaryDoctorQuery.data?.doctor?.name ||
-        summaryDoctorFallback;
+  const summaryDoctorName = getLocalizedTextWithZhFallback({
+    lang: resolved,
+    value: summaryDoctorQuery.data?.doctor?.name,
+    placeholder: summaryDoctorFallback,
+  });
 
   return (
     <>
@@ -653,11 +648,11 @@ export function MyAppointments() {
           issuedAtLabel: t.medicalSummaryIssuedAtLabel,
           localTimeLabel: t.localTimeLabel,
           chinaTimeLabel: t.chinaTimeLabel,
-          chiefComplaintLabel: resolved === "zh" ? "主诉" : "Chief Complaint",
-          hpiLabel: resolved === "zh" ? "现病史" : "History of Present Illness",
-          pmhLabel: resolved === "zh" ? "既往史" : "Past Medical History",
-          assessmentLabel: resolved === "zh" ? "初步诊断" : "Assessment / Diagnosis",
-          planLabel: resolved === "zh" ? "处置与建议" : "Plan / Recommendations",
+          chiefComplaintLabel: t.medicalSummaryChiefComplaintLabel,
+          hpiLabel: t.medicalSummaryHpiLabel,
+          pmhLabel: t.medicalSummaryPmhLabel,
+          assessmentLabel: t.medicalSummaryAssessmentLabel,
+          planLabel: t.medicalSummaryPlanLabel,
           disclaimer: t.medicalSummaryDisclaimer,
           loadingText: t.medicalSummaryLoading,
           emptyText: t.medicalSummaryEmpty,

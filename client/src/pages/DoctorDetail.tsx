@@ -31,6 +31,7 @@ function useTranslation(): TranslationFn {
       "doctor.hospital_website": doctorDetail.hospitalWebsite,
       "doctor.view_on_haodf": doctorDetail.viewOnHaodf,
       "doctor.default_name": doctorDetail.defaultDoctorName,
+      "doctor.workbench": doctorDetail.doctorWorkbench,
       "doctor.back_navigation": doctorDetail.backNavigation,
       "doctor.booking_panel_aria": doctorDetail.bookingPanelAria,
       "common.no_details": doctorDetail.noDataYet,
@@ -128,7 +129,7 @@ export default function DoctorDetail() {
             <div className="flex justify-end">
               <Link href="/doctor/workbench">
                 <Button variant="outline">
-                  {resolved === "zh" ? "医生工作台" : "Doctor Workbench"}
+                  {t("doctor.workbench")}
                 </Button>
               </Link>
             </div>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getLocalizedText } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -20,7 +21,8 @@ export default function DoctorClaimInvitePage() {
   const token = useMemo(() => readInviteToken(), []);
   const { resolved } = useLanguage();
   const lang = resolved as "zh" | "en";
-  const tr = (zh: string, en: string) => (lang === "zh" ? zh : en);
+  const tr = (zh: string, en: string) =>
+    getLocalizedText({ lang, value: { zh, en }, placeholder: zh });
   const { loading, isAuthenticated, openLoginModal, user } = useAuth();
   const utils = trpc.useUtils();
 

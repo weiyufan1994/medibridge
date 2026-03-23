@@ -1,46 +1,38 @@
 import { Hospital, Stethoscope, Star, ThumbsUp, Globe, ExternalLink, User } from "lucide-react";
-import { getLocalizedField, MISSING_TRANSLATION, MISSING_TRANSLATION_ZH } from "@/lib/i18n";
+import {
+  MISSING_TRANSLATION,
+  MISSING_TRANSLATION_ZH,
+  getLocalizedTextWithZhFallback,
+} from "@/lib/i18n";
+import type { LocalizedText } from "@shared/types";
 
 type Lang = "zh" | "en";
 
 type Doctor = {
   id: number;
-  name: string;
-  nameEn: string | null;
-  title: string | null;
-  titleEn: string | null;
-  specialty: string | null;
-  specialtyEn: string | null;
-  expertise: string | null;
-  expertiseEn: string | null;
+  name: LocalizedText;
+  title: LocalizedText;
+  specialty: LocalizedText;
+  expertise: LocalizedText;
   recommendationScore: string | number | null;
-  onlineConsultation: string | null;
-  onlineConsultationEn: string | null;
-  appointmentAvailable: string | null;
-  appointmentAvailableEn: string | null;
-  satisfactionRate: string | null;
-  satisfactionRateEn: string | null;
-  attitudeScore: string | null;
-  attitudeScoreEn: string | null;
+  onlineConsultation: LocalizedText;
+  appointmentAvailable: LocalizedText;
+  satisfactionRate: LocalizedText;
+  attitudeScore: LocalizedText;
   haodafUrl: string | null;
 };
 
 type HospitalInfo = {
-  name: string;
-  nameEn: string | null;
-  city: string | null;
-  cityEn: string | null;
-  level: string | null;
-  levelEn: string | null;
-  address: string | null;
-  addressEn: string | null;
+  name: LocalizedText;
+  city: LocalizedText;
+  level: LocalizedText;
+  address: LocalizedText;
   website: string | null;
   imageUrl: string | null;
 };
 
 type Department = {
-  name: string;
-  nameEn: string | null;
+  name: LocalizedText;
 };
 
 type DoctorDetailData = {
@@ -83,62 +75,51 @@ export function DoctorDetailContent({
 }: Props) {
   const { doctor, hospital, department } = data;
 
-  const doctorName = getLocalizedField({
+  const doctorName = getLocalizedTextWithZhFallback({
     lang: resolved,
-    zh: doctor.name,
-    en: doctor.nameEn,
+    value: doctor.name,
   });
-  const doctorTitle = getLocalizedField({
+  const doctorTitle = getLocalizedTextWithZhFallback({
     lang: resolved,
-    zh: doctor.title,
-    en: doctor.titleEn,
+    value: doctor.title,
   });
-  const doctorSpecialty = getLocalizedField({
+  const doctorSpecialty = getLocalizedTextWithZhFallback({
     lang: resolved,
-    zh: doctor.specialty,
-    en: doctor.specialtyEn,
+    value: doctor.specialty,
   });
-  const doctorExpertise = getLocalizedField({
+  const doctorExpertise = getLocalizedTextWithZhFallback({
     lang: resolved,
-    zh: doctor.expertise,
-    en: doctor.expertiseEn,
+    value: doctor.expertise,
   });
 
-  const hospitalName = getLocalizedField({
+  const hospitalName = getLocalizedTextWithZhFallback({
     lang: resolved,
-    zh: hospital.name,
-    en: hospital.nameEn,
+    value: hospital.name,
   });
-  const departmentName = getLocalizedField({
+  const departmentName = getLocalizedTextWithZhFallback({
     lang: resolved,
-    zh: department.name,
-    en: department.nameEn,
+    value: department.name,
   });
-  const hospitalCity = getLocalizedField({
+  const hospitalCity = getLocalizedTextWithZhFallback({
     lang: resolved,
-    zh: hospital.city,
-    en: hospital.cityEn,
+    value: hospital.city,
   });
-  const hospitalLevel = getLocalizedField({
+  const hospitalLevel = getLocalizedTextWithZhFallback({
     lang: resolved,
-    zh: hospital.level,
-    en: hospital.levelEn,
+    value: hospital.level,
   });
-  const hospitalAddress = getLocalizedField({
+  const hospitalAddress = getLocalizedTextWithZhFallback({
     lang: resolved,
-    zh: hospital.address,
-    en: hospital.addressEn,
+    value: hospital.address,
   });
 
-  const satisfaction = getLocalizedField({
+  const satisfaction = getLocalizedTextWithZhFallback({
     lang: resolved,
-    zh: doctor.satisfactionRate,
-    en: doctor.satisfactionRateEn,
+    value: doctor.satisfactionRate,
   });
-  const attitude = getLocalizedField({
+  const attitude = getLocalizedTextWithZhFallback({
     lang: resolved,
-    zh: doctor.attitudeScore,
-    en: doctor.attitudeScoreEn,
+    value: doctor.attitudeScore,
   });
 
   const doctorDisplayName = cleanupText(doctorName);

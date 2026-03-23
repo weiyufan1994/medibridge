@@ -19,6 +19,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { MyAppointments } from "@/components/MyAppointments";
 import { getDashboardCopy } from "@/features/dashboard/copy";
+import { getDisplayLocale } from "@/lib/i18n";
 import PricingModal from "@/features/dashboard/components/PricingModal";
 import { useLocation } from "wouter";
 
@@ -56,7 +57,7 @@ export default function DashboardPage() {
   const { user, isAuthenticated } = useAuth();
   const { resolved } = useLanguage();
   const t = getDashboardCopy(resolved);
-  const locale = resolved === "zh" ? "zh-CN" : "en-US";
+  const locale = getDisplayLocale(resolved);
   const [, setLocation] = useLocation();
 
   const usageQuery = trpc.ai.getUsageSummary.useQuery(undefined, {
@@ -123,9 +124,7 @@ export default function DashboardPage() {
                     {t.welcomeBack.replace("{{name}}", displayName)}
                   </h1>
                   <p className="max-w-2xl text-sm leading-6 text-gray-500">
-                    {resolved === "zh"
-                      ? "这是你的健康驾驶舱，查看今日 AI 咨询额度与历史问诊数据。"
-                      : "Your health cockpit for tracking AI consultation quota and history."}
+                    {t.accountHeroDescription}
                   </p>
                 </div>
                 <Badge className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 shadow-sm">
