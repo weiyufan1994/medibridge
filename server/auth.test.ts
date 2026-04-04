@@ -52,12 +52,14 @@ vi.mock("./_core/cookies", () => ({
     path: "/",
     sameSite: "none",
     secure: true,
+    maxAge: 86_400_000,
   })),
 }));
 
 import * as authRepo from "./modules/auth/repo";
 import * as doctorAccountRepo from "./modules/doctorAccounts/repo";
 import * as appointmentsRepo from "./modules/appointments/repo";
+import { getSessionCookieOptions } from "./_core/cookies";
 import { authRouter } from "./routers/auth";
 
 function createTestContext(): TrpcContext {
@@ -224,5 +226,43 @@ describe("auth.me", () => {
       email: "patient@example.com",
       doctorBinding: null,
     });
+  });
+});
+
+describe("auth.logout", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("clears the session cookie without forwarding deprecated maxAge", async () => {
+    const ctx = createTestContext();
+    const caller = authRouter.createCaller(ctx);
+
+    vi.mocked(getSessionCookieOptions).mockReturnValue({
+      httpOnly: true,
+      path: "/",
+      sameSite: "none",
+      secure: true,
+      maxAge: 86_400_000,
+    } as never);
+
+    const result = await caller.logout();
+
+    expect(ctx.res.clearCookie).toHaveBeenCalledWith(
+      COOKIE_NAME,
+      expect.objectContaining({
+        httpOnly: true,
+        path: "/",
+        sameSite: "none",
+        secure: true,
+      })
+    );
+    expect(ctx.res.clearCookie).toHaveBeenCalledWith(
+      COOKIE_NAME,
+      expect.not.objectContaining({
+        maxAge: expect.anything(),
+      })
+    );
+    expect(result).toEqual({ success: true });
   });
 });

@@ -266,7 +266,13 @@ export async function verifyMagicLinkAction(input: {
 
 export function logoutAction(input: { req: CookieRequest; res: CookieResponse }) {
   const cookieOptions = getSessionCookieOptions(input.req);
-  input.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+  const { maxAge: _maxAge, ...clearCookieOptions } = cookieOptions as Record<
+    string,
+    unknown
+  > & {
+    maxAge?: number;
+  };
+  input.res.clearCookie(COOKIE_NAME, clearCookieOptions);
   return {
     success: true as const,
   };
