@@ -7,6 +7,8 @@ import * as visitRouterApi from "./modules/visit/routerApi";
 import * as authRouterApi from "./modules/auth/routerApi";
 import * as chatRouterApi from "./modules/chat/routerApi";
 import * as aiRouterApi from "./modules/ai/routerApi";
+import * as doctorRouterApi from "./modules/doctors/routerApi";
+import * as hospitalRouterApi from "./modules/hospitals/routerApi";
 
 function readRouterFile(fileName: string): string {
   return fs.readFileSync(path.resolve(process.cwd(), "server", "routers", fileName), "utf8");
@@ -52,6 +54,14 @@ describe("router boundary pattern", () => {
     expect(Object.keys(aiRouterApi).sort()).toEqual([
       "aiActions",
       "aiSchemas",
+    ]);
+    expect(Object.keys(doctorRouterApi).sort()).toEqual([
+      "doctorActions",
+      "doctorSchemas",
+    ]);
+    expect(Object.keys(hospitalRouterApi).sort()).toEqual([
+      "hospitalActions",
+      "hospitalSchemas",
     ]);
   });
 
@@ -115,6 +125,37 @@ describe("router boundary pattern", () => {
     );
   });
 
+  it("doctors router uses module routerApi boundary", () => {
+    const source = readRouterFile("doctors.ts");
+    expect(source).toContain("from \"../modules/doctors/routerApi\"");
+    expect(source).not.toMatch(
+      /from\s+["']\.\.\/modules\/doctors\/(?!routerApi\b)[^"']+["']/
+    );
+  });
+
+  it("hospitals router uses module routerApi boundary", () => {
+    const source = readRouterFile("hospitals.ts");
+    expect(source).toContain("from \"../modules/hospitals/routerApi\"");
+    expect(source).not.toMatch(
+      /from\s+["']\.\.\/modules\/hospitals\/(?!routerApi\b)[^"']+["']/
+    );
+  });
+
+  it("router index composes doctors and hospitals through router entrypoints", () => {
+    const source = fs.readFileSync(
+      path.resolve(process.cwd(), "server", "routers", "index.ts"),
+      "utf8"
+    );
+
+    expect(source).toContain("import { doctorsRouter } from \"./doctors\";");
+    expect(source).toContain("import { hospitalsRouter } from \"./hospitals\";");
+    expect(source).toContain("doctors: doctorsRouter");
+    expect(source).toContain("hospitals: hospitalsRouter");
+    expect(source).not.toMatch(
+      /from\s+["']\.\.\/modules\/(doctors|hospitals)\//
+    );
+  });
+
   it("all non-index routers avoid router-to-router imports", () => {
     for (const fileName of listRouterFiles()) {
       const source = readRouterFile(fileName);
@@ -127,9 +168,13 @@ describe("router boundary pattern", () => {
     const lines = {
       appointments: getRouterLineCount("appointments.ts"),
       chat: getRouterLineCount("chat.ts"),
+      doctors: getRouterLineCount("doctors.ts"),
+      hospitals: getRouterLineCount("hospitals.ts"),
     };
 
     expect(lines.appointments).toBeLessThanOrEqual(220);
     expect(lines.chat).toBeLessThanOrEqual(80);
+    expect(lines.doctors).toBeLessThanOrEqual(60);
+    expect(lines.hospitals).toBeLessThanOrEqual(30);
   });
 });

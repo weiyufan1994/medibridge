@@ -11,8 +11,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getLocalizedTextWithZhFallback } from "@/lib/i18n";
 import { getHospitalsCopy } from "@/features/hospitals/copy";
+import {
+  getHospitalBrowseText,
+  matchesHospitalCityFilter,
+} from "@/features/hospitals/presentation";
 import type { LocalizedText } from "@shared/types";
 
 export type ViewMode = "hospitals" | "departments" | "doctors";
@@ -100,27 +103,20 @@ export function HospitalsBrowser({
     }
 
     return hospitals.filter((hospital) => {
-      const hospitalName = getLocalizedTextWithZhFallback({
+      const hospitalName = getHospitalBrowseText({
         lang: resolved,
         value: hospital.name,
       });
-      const hospitalCity = getLocalizedTextWithZhFallback({
+      const hospitalCity = getHospitalBrowseText({
         lang: resolved,
         value: hospital.city,
       });
-      const hospitalLevel = getLocalizedTextWithZhFallback({
+      const hospitalLevel = getHospitalBrowseText({
         lang: resolved,
         value: hospital.level,
       });
 
-      const cityMatch =
-        cityFilter === "all" ||
-        !cityFilter ||
-        cityFilter === hospitalCity ||
-        (hospitalCity && hospitalCity.toLowerCase() === "上海".toLowerCase()) ||
-        (hospitalCity && hospitalCity.toLowerCase() === "shanghai");
-
-      if (!cityMatch) {
+      if (!matchesHospitalCityFilter({ city: hospital.city, filter: cityFilter })) {
         return false;
       }
 
@@ -224,15 +220,15 @@ export function HospitalsBrowser({
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
             {filteredHospitals.map((hospital) => {
-              const hospitalName = getLocalizedTextWithZhFallback({
+              const hospitalName = getHospitalBrowseText({
                 lang: resolved,
                 value: hospital.name,
               });
-              const hospitalCity = getLocalizedTextWithZhFallback({
+              const hospitalCity = getHospitalBrowseText({
                 lang: resolved,
                 value: hospital.city,
               });
-              const hospitalLevel = getLocalizedTextWithZhFallback({
+              const hospitalLevel = getHospitalBrowseText({
                 lang: resolved,
                 value: hospital.level,
               });
@@ -329,7 +325,7 @@ export function HospitalsBrowser({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-8">
             {departments?.map((dept) => {
-              const departmentName = getLocalizedTextWithZhFallback({
+              const departmentName = getHospitalBrowseText({
                 lang: resolved,
                 value: dept.name,
               });
@@ -393,15 +389,15 @@ export function HospitalsBrowser({
               </div>
             )}
             {filteredDoctors?.map(({ doctor }) => {
-              const doctorName = getLocalizedTextWithZhFallback({
+              const doctorName = getHospitalBrowseText({
                 lang: resolved,
                 value: doctor.name,
               });
-              const doctorTitle = getLocalizedTextWithZhFallback({
+              const doctorTitle = getHospitalBrowseText({
                 lang: resolved,
                 value: doctor.title,
               });
-              const doctorExpertise = getLocalizedTextWithZhFallback({
+              const doctorExpertise = getHospitalBrowseText({
                 lang: resolved,
                 value: doctor.expertise,
               });

@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getLocalizedTextWithZhFallback, getSearchableText } from "@/lib/i18n";
+import { getSearchableText } from "@/lib/i18n";
+import {
+  buildDepartmentDoctorsInput,
+  buildHospitalDepartmentsInput,
+  buildHospitalsListInput,
+  getHospitalBrowseText,
+} from "@/features/hospitals/presentation";
 
 export type HospitalsViewMode = "hospitals" | "departments" | "doctors";
 
@@ -41,17 +47,17 @@ export function useHospitals() {
   }, []);
 
   const { data: hospitals, isLoading: hospitalsLoading } =
-    trpc.hospitals.getAll.useQuery();
+    trpc.hospitals.getAll.useQuery(buildHospitalsListInput(resolved));
 
   const { data: departments, isLoading: departmentsLoading } =
     trpc.hospitals.getDepartments.useQuery(
-      { hospitalId: selectedHospitalId! },
+      buildHospitalDepartmentsInput(selectedHospitalId!, resolved),
       { enabled: selectedHospitalId !== null }
     );
 
   const { data: doctors, isLoading: doctorsLoading } =
     trpc.doctors.getByDepartment.useQuery(
-      { departmentId: selectedDepartmentId!, limit: 50 },
+      buildDepartmentDoctorsInput(selectedDepartmentId!, resolved),
       { enabled: selectedDepartmentId !== null }
     );
 
@@ -61,14 +67,14 @@ export function useHospitals() {
   );
 
   const selectedHospitalName = selectedHospital
-    ? getLocalizedTextWithZhFallback({
+    ? getHospitalBrowseText({
         lang: resolved,
         value: selectedHospital.name,
       })
     : "";
 
   const selectedHospitalLevel = selectedHospital
-    ? getLocalizedTextWithZhFallback({
+    ? getHospitalBrowseText({
         lang: resolved,
         value: selectedHospital.level,
       })
@@ -76,7 +82,7 @@ export function useHospitals() {
   const selectedHospitalImageUrl = selectedHospital?.imageUrl ?? null;
 
   const selectedDepartmentName = selectedDepartment
-    ? getLocalizedTextWithZhFallback({
+    ? getHospitalBrowseText({
         lang: resolved,
         value: selectedDepartment.name,
       })
@@ -84,15 +90,15 @@ export function useHospitals() {
 
   const filteredDoctors = useMemo(() => {
     return doctors?.filter(d => {
-      const name = getLocalizedTextWithZhFallback({
+      const name = getHospitalBrowseText({
         lang: resolved,
         value: d.doctor.name,
       });
-      const expertise = getLocalizedTextWithZhFallback({
+      const expertise = getHospitalBrowseText({
         lang: resolved,
         value: d.doctor.expertise,
       });
-      const specialty = getLocalizedTextWithZhFallback({
+      const specialty = getHospitalBrowseText({
         lang: resolved,
         value: d.doctor.specialty,
       });

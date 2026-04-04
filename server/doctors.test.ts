@@ -125,6 +125,34 @@ const mockRecommendationCandidates = [
   },
 ];
 
+const toLocalizedHospital = (hospital: typeof mockHospitals[number]) => ({
+  ...hospital,
+  name: {
+    zh: hospital.name,
+    en: hospital.nameEn,
+  },
+  city: {
+    zh: hospital.city,
+    en: hospital.cityEn,
+  },
+  level: {
+    zh: hospital.level,
+    en: hospital.levelEn,
+  },
+  address: {
+    zh: hospital.address,
+    en: hospital.addressEn,
+  },
+});
+
+const toLocalizedDepartment = (department: typeof mockDepartments[number]) => ({
+  ...department,
+  name: {
+    zh: department.name,
+    en: department.nameEn,
+  },
+});
+
 vi.mock("./modules/doctors/repo", () => {
   const filterByCandidateDoctorIds = (
     results: typeof mockRecommendationCandidates,
@@ -155,10 +183,6 @@ vi.mock("./modules/doctors/repo", () => {
         department: mockDepartments[0],
       };
     }),
-    getAllHospitals: vi.fn(async () => mockHospitals),
-    getDepartmentsByHospital: vi.fn(async (hospitalId: number) =>
-      mockDepartments.filter(item => item.hospitalId === hospitalId)
-    ),
     getDoctorsByDepartment: vi.fn(async () => []),
     searchDoctorsByEmbedding: vi.fn(async (
       _embedding: number[],
@@ -186,6 +210,16 @@ vi.mock("./modules/doctors/repo", () => {
   };
 });
 
+vi.mock("./modules/hospitals/actions", () => ({
+  getAllHospitals: vi.fn(async () => mockHospitals.map(toLocalizedHospital)),
+  getDepartmentsByHospital: vi.fn(
+    async (input: { hospitalId: number }) =>
+      mockDepartments
+        .filter(item => item.hospitalId === input.hospitalId)
+        .map(toLocalizedDepartment)
+  ),
+}));
+
 vi.mock("./_core/llm", () => ({
   createEmbedding: vi.fn(async () => [0.1, 0.2, 0.3]),
   invokeLLM: vi.fn(),
@@ -193,6 +227,9 @@ vi.mock("./_core/llm", () => ({
 
 import { appRouter } from "./routers";
 import * as doctorsRepo from "./modules/doctors/repo";
+import * as doctorSchemas from "./modules/doctors/schemas";
+import * as hospitalActions from "./modules/hospitals/actions";
+import * as hospitalSchemas from "./modules/hospitals/schemas";
 
 function createTestContext(): TrpcContext {
   return {
@@ -440,7 +477,7 @@ describe("hospitals router", () => {
     const ctx = createTestContext();
     const caller = appRouter.createCaller(ctx);
 
-    const result = await caller.hospitals.getAll();
+    const result = await caller.hospitals.getAll({ lang: "zh" });
 
     expect(result).toBeDefined();
     expect(Array.isArray(result)).toBe(true);
@@ -460,12 +497,12 @@ describe("hospitals router", () => {
     const caller = appRouter.createCaller(ctx);
 
     // First get a hospital
-    const hospitals = await caller.hospitals.getAll();
+    const hospitals = await caller.hospitals.getAll({ lang: "zh" });
     
     if (hospitals.length > 0) {
       const hospitalId = hospitals[0].id;
       
-      const result = await caller.hospitals.getDepartments({ hospitalId });
+      const result = await caller.hospitals.getDepartments({ hospitalId, lang: "zh" });
 
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
@@ -481,5 +518,83 @@ describe("hospitals router", () => {
         });
       }
     }
+  });
+
+  it("defaults omitted or invalid browse locale inputs to zh for this slice", () => {
+    expect(hospitalSchemas.getHospitalsInputSchema.parse(undefined)).toEqual({
+      lang: "zh",
+    });
+    expect(
+      hospitalSchemas.getHospitalsInputSchema.parse({ lang: "fr" })
+    ).toEqual({
+      lang: "zh",
+    });
+    expect(
+      hospitalSchemas.getHospitalDepartmentsInputSchema.parse({ hospitalId: 10 })
+    ).toEqual({
+      hospitalId: 10,
+      lang: "zh",
+    });
+    expect(
+      doctorSchemas.getDoctorsByDepartmentInputSchema.parse({
+        departmentId: 100,
+        limit: 5,
+        lang: "fr",
+      })
+    ).toEqual({
+      departmentId: 100,
+      limit: 5,
+      lang: "zh",
+    });
+  });
+
+  it("passes explicit browse locale through the hospital router actions", async () => {
+    const ctx = createTestContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await caller.hospitals.getAll({ lang: "en" });
+    expect(vi.mocked(hospitalActions.getAllHospitals)).toHaveBeenLastCalledWith({
+      lang: "en",
+    });
+
+    await caller.hospitals.getDepartments({ hospitalId: 10, lang: "en" });
+    expect(
+      vi.mocked(hospitalActions.getDepartmentsByHospital)
+    ).toHaveBeenLastCalledWith({
+      hospitalId: 10,
+      lang: "en",
+    });
+  });
+});
+
+describe("hospital browsing doctor list locale", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("passes the explicit locale into doctors.getByDepartment", async () => {
+    vi.mocked(doctorsRepo.getDoctorsByDepartment).mockResolvedValue([
+      {
+        doctor: mockDoctors[0],
+        hospital: mockHospitals[0],
+        department: mockDepartments[0],
+      },
+    ]);
+
+    const ctx = createTestContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.doctors.getByDepartment({
+      departmentId: 100,
+      limit: 5,
+      lang: "en",
+    });
+
+    expect(doctorsRepo.getDoctorsByDepartment).toHaveBeenLastCalledWith(
+      100,
+      5,
+      "en"
+    );
+    expect(result[0]?.doctor.name.en).toBe("Dr. Zhang");
   });
 });

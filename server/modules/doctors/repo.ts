@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, like, notLike, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, notLike, or, sql } from "drizzle-orm";
 import {
   departments,
   doctorEmbeddings,
@@ -380,7 +380,8 @@ export async function getDepartmentsByHospital(hospitalId: number) {
 
 export async function getDoctorsByDepartment(
   departmentId: number,
-  limit: number = 50
+  limit: number = 50,
+  lang: SearchLanguage = "zh"
 ) {
   const db = await getDb();
   if (!db) {
@@ -397,7 +398,15 @@ export async function getDoctorsByDepartment(
     .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
     .innerJoin(departments, eq(doctors.departmentId, departments.id))
     .where(eq(doctors.departmentId, departmentId))
-    .orderBy(desc(doctors.recommendationScore))
+    .orderBy(
+      desc(doctors.recommendationScore),
+      asc(
+        lang === "en"
+          ? sql`coalesce(${doctors.nameEn}, ${doctors.name})`
+          : sql`coalesce(${doctors.name}, ${doctors.nameEn})`
+      ),
+      asc(doctors.id)
+    )
     .limit(limit);
 
   return results;

@@ -1,9 +1,8 @@
 import { Hospital, Stethoscope, Star, ThumbsUp, Globe, ExternalLink, User } from "lucide-react";
 import {
-  MISSING_TRANSLATION,
-  MISSING_TRANSLATION_ZH,
-  getLocalizedTextWithZhFallback,
-} from "@/lib/i18n";
+  getHospitalBrowseText,
+  isHospitalBrowsePlaceholder,
+} from "@/features/hospitals/presentation";
 import type { LocalizedText } from "@shared/types";
 
 type Lang = "zh" | "en";
@@ -58,12 +57,6 @@ const cleanupText = (value?: string | null): string => {
   if (trimmed === "(页面未显示)") {
     return "";
   }
-  if (trimmed === "翻译处理中" || trimmed === MISSING_TRANSLATION_ZH) {
-    return "";
-  }
-  if (trimmed === "Translation in progress" || trimmed === MISSING_TRANSLATION) {
-    return "";
-  }
   return trimmed;
 };
 
@@ -75,49 +68,49 @@ export function DoctorDetailContent({
 }: Props) {
   const { doctor, hospital, department } = data;
 
-  const doctorName = getLocalizedTextWithZhFallback({
+  const doctorName = getHospitalBrowseText({
     lang: resolved,
     value: doctor.name,
   });
-  const doctorTitle = getLocalizedTextWithZhFallback({
+  const doctorTitle = getHospitalBrowseText({
     lang: resolved,
     value: doctor.title,
   });
-  const doctorSpecialty = getLocalizedTextWithZhFallback({
+  const doctorSpecialty = getHospitalBrowseText({
     lang: resolved,
     value: doctor.specialty,
   });
-  const doctorExpertise = getLocalizedTextWithZhFallback({
+  const doctorExpertise = getHospitalBrowseText({
     lang: resolved,
     value: doctor.expertise,
   });
 
-  const hospitalName = getLocalizedTextWithZhFallback({
+  const hospitalName = getHospitalBrowseText({
     lang: resolved,
     value: hospital.name,
   });
-  const departmentName = getLocalizedTextWithZhFallback({
+  const departmentName = getHospitalBrowseText({
     lang: resolved,
     value: department.name,
   });
-  const hospitalCity = getLocalizedTextWithZhFallback({
+  const hospitalCity = getHospitalBrowseText({
     lang: resolved,
     value: hospital.city,
   });
-  const hospitalLevel = getLocalizedTextWithZhFallback({
+  const hospitalLevel = getHospitalBrowseText({
     lang: resolved,
     value: hospital.level,
   });
-  const hospitalAddress = getLocalizedTextWithZhFallback({
+  const hospitalAddress = getHospitalBrowseText({
     lang: resolved,
     value: hospital.address,
   });
 
-  const satisfaction = getLocalizedTextWithZhFallback({
+  const satisfaction = getHospitalBrowseText({
     lang: resolved,
     value: doctor.satisfactionRate,
   });
-  const attitude = getLocalizedTextWithZhFallback({
+  const attitude = getHospitalBrowseText({
     lang: resolved,
     value: doctor.attitudeScore,
   });
@@ -140,7 +133,15 @@ export function DoctorDetailContent({
   );
 
   const avatarInitial = doctorDisplayName ? doctorDisplayName.charAt(0).toUpperCase() : "";
-  const expertiseItems = [doctorSpecialtyClean, doctorExpertiseClean].filter(Boolean);
+  const expertiseItems = Array.from(
+    new Set([doctorSpecialtyClean, doctorExpertiseClean].filter(Boolean))
+  );
+  const hasConcreteExpertise = expertiseItems.some(
+    item => !isHospitalBrowsePlaceholder(item)
+  );
+  const visibleExpertiseItems = hasConcreteExpertise
+    ? expertiseItems.filter(item => !isHospitalBrowsePlaceholder(item))
+    : expertiseItems;
 
   const isValidRating = (value: string): boolean => {
     const parsed = Number.parseFloat(value);
@@ -221,8 +222,8 @@ export function DoctorDetailContent({
           {t("doctor.expertise")}
         </h2>
         <div className="space-y-2 text-slate-700">
-          {expertiseItems.length > 0 ? (
-            expertiseItems.map(item => <p key={item}>{item}</p>)
+          {visibleExpertiseItems.length > 0 ? (
+            visibleExpertiseItems.map(item => <p key={item}>{item}</p>)
           ) : (
             <p className="text-sm text-slate-400 italic">{t("common.no_details", "暂无详细介绍")}</p>
           )}
