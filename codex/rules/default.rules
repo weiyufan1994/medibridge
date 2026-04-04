@@ -1,0 +1,23 @@
+prefix_rule(
+    pattern = ["git", "push"],
+    decision = "prompt",
+    justification = "Pushing changes requires explicit human review first.",
+)
+
+prefix_rule(
+    pattern = ["rm", "-rf"],
+    decision = "forbidden",
+    justification = "Recursive deletes are blocked. Use targeted edits instead.",
+)
+
+prefix_rule(
+    pattern = ["pnpm", ["db:migrate", "db:migrate:safe", "db:push", "db:repair:migration-history", "db:sync-journal"]],
+    decision = "prompt",
+    justification = "Schema-affecting or migration-repair commands require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["pnpm", ["retention:cleanup", "admin:set-role", "tokens:backfill-legacy", "vectorize:doctors"]],
+    decision = "prompt",
+    justification = "Data-mutating or privileged commands require explicit approval.",
+)
