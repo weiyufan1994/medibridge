@@ -68,10 +68,29 @@ export const TRIAGE_COPY = {
     },
     triage_card: {
       summary: "Triage Summary",
-      recommended_doctors: "Recommended Doctors",
-      edit_title: "Edit Triage Summary",
-      edit_desc:
-        "Please review and modify the AI-generated summary before booking.",
+      possibility: "Likely Direction",
+      recommended_department: "Suggested Department",
+      recommended_hospitals: "Reference Hospitals",
+      not_diagnosis:
+        "This triage result is routing guidance only. It does not confirm a diagnosis.",
+      browse_hospital: "Open in hospital browser",
+      platform_match: "In platform database",
+      no_hospitals:
+        "No reference hospitals are available yet. Please browse the hospital list directly.",
+      possibility_fallback:
+        "The current details suggest a broad specialty direction for in-person evaluation.",
+      department_fallback: "Relevant department",
+    },
+    summary_form: {
+      title: "AI-Organized Symptom Summary",
+      description:
+        "I organized your description into a structured summary. Please review and adjust anything that feels inaccurate before the next step.",
+      age_gender: "Age / Gender",
+      main_symptom_and_location: "Main Symptom & Location",
+      duration_and_onset: "Duration & Onset",
+      trauma_or_surgery: "Trauma & Surgery History",
+      medical_history: "Key Underlying Conditions",
+      other_symptoms: "Other Symptoms",
     },
     interruption: {
       eyebrow: "Urgent Safety Notice",
@@ -84,7 +103,7 @@ export const TRIAGE_COPY = {
         "If emergency services are not needed, go to the nearest emergency department or urgent care now.",
         "Bring your symptom timeline, medications, allergies, and any recent test results if available.",
       ],
-      primary_cta: "Find a doctor",
+      primary_cta: "Browse hospitals",
       secondary_cta: "Back to home",
       footer:
         "This safety stop is intended to reduce delay when urgent symptoms may be present.",
@@ -94,7 +113,8 @@ export const TRIAGE_COPY = {
       today: "Today",
       previous_7_days: "Previous 7 Days",
       older: "Older",
-      load_failed: "Failed to load session history. Please refresh and try again.",
+      load_failed:
+        "Failed to load session history. Please refresh and try again.",
       empty: "No previous sessions.",
       no_messages_in_session: "No messages in this session.",
       read_only_placeholder: "This is a past session (read-only)...",
@@ -103,10 +123,11 @@ export const TRIAGE_COPY = {
       typing: "AI is typing...",
       reviewing: "AI is reviewing your triage details...",
       thinking: "AI is thinking...",
-      quota_login_required: "Guest trial quota reached. Please sign in to continue triage.",
+      quota_login_required:
+        "Guest trial quota reached. Please sign in to continue triage.",
       message_limit_reached:
-        "This consultation has reached the message limit. Please book a doctor to continue care.",
-      message_limit_action: "Book a doctor now",
+        "This consultation has reached the message limit. Please review the suggested department and hospitals now.",
+      message_limit_action: "Browse hospitals",
     },
     patientLabel: "Patient",
     triage: {
@@ -119,26 +140,54 @@ export const TRIAGE_COPY = {
       confirm_book: "Confirm & Book",
       years_experience: (years: number) => `${years} years experience`,
     },
+    fast_intake: {
+      title: "Quick Form (Optional)",
+      description:
+        "If chatting is inconvenient, you can switch to a short form. The default path is still AI-guided triage in 2-3 turns.",
+      age: "Age",
+      gender: "Gender",
+      gender_placeholder: "Select gender",
+      gender_male: "Male",
+      gender_female: "Female",
+      gender_other: "Other",
+      gender_unknown: "Prefer not to say",
+      main_symptom: "Main Symptom & Location",
+      main_symptom_placeholder:
+        "e.g. right lower abdominal pain / chest tightness / skin wound on the leg",
+      duration_onset: "Duration & Onset",
+      duration_onset_placeholder:
+        "e.g. sudden since this morning / worsening for 3 days / recurring for 2 months",
+      trauma_surgery: "Trauma & Surgery History",
+      trauma_surgery_placeholder:
+        "e.g. none / fell yesterday / had surgery recently",
+      chronic_conditions: "Key Underlying Conditions",
+      chronic_conditions_placeholder:
+        "e.g. none / diabetes / hypertension / heart disease / cancer",
+      submit: "Submit Quick Form",
+      skip: "Keep Chatting",
+      required: "Enter at least one key detail before submitting the form.",
+    },
     title: "AI Triage Consultation",
     subtitle:
-      "The triage nurse collects key details first, then generates a summary and doctor recommendations.",
-    placeholder: "Describe your symptoms, duration, and medical history...",
+      "Describe your problem in your own words. AI will guide the conversation and recommend a department plus reference hospitals within 2-3 turns.",
+    placeholder: "Describe your symptoms here...",
     typing: "AI is reviewing your triage details...",
     requestError:
       "Triage service is temporarily unavailable. Please try again shortly.",
     fallbackReply:
       "Sorry, the triage service is busy right now. Please try again in a moment.",
-    completed: "Triage is complete. Summary and recommendations are ready.",
+    completed:
+      "Triage is complete. Your department and hospital recommendations are ready.",
     summaryTitle: "Triage Summary",
     summaryDesc: "A structured summary to carry into booking/session creation.",
     summaryEmpty: "Summary will appear after triage is complete.",
-    doctorTitle: "Recommended Doctors",
-    doctorDesc: "Top 3-5 doctors matched by extracted keywords",
-    searching: "Matching doctors...",
+    doctorTitle: "Reference Hospitals",
+    doctorDesc: "Top 5 hospitals ranked for the suggested department",
+    searching: "Preparing routing result...",
     doctorQueryError:
-      "Doctor recommendations failed to load. Please retry or refresh this session.",
+      "Hospital recommendations failed to load. Please retry or refresh this session.",
     noDoctor:
-      "No doctors matched yet. Try adding more specific symptom details.",
+      "No hospital recommendation is available yet. Try adding more specific symptom details.",
     noBio: "No profile details available yet.",
     viewProfile: "View Profile",
     chooseBook: "Choose & Book",
@@ -146,7 +195,7 @@ export const TRIAGE_COPY = {
     startNew: "Start New Session",
     disclaimerTitle: "Medical Disclaimer",
     disclaimerDesc:
-      "AI suggestions are for triage and doctor matching only. They are not a diagnosis.",
+      "AI suggestions are for triage and hospital routing only. They are not a diagnosis.",
     disclaimerLine1:
       "Do not share highly sensitive identity details (ID/passport numbers) in chat.",
     disclaimerLine2:
@@ -154,7 +203,7 @@ export const TRIAGE_COPY = {
     cancel: "Cancel",
     understand: "I Understand",
     rating: "Rating",
-    doctorFallback: "Recommended Doctor",
+    doctorFallback: "Reference Hospital",
     bookingTitle: "Book Appointment",
     bookingDesc:
       "Provide email and preferred time to receive a secure magic link.",
@@ -182,9 +231,10 @@ export const TRIAGE_COPY = {
     bookingVerifyingIdentity: "Verifying identity...",
     bookingIdentityVerified: "Email verified.",
     bookingIdentityVerifyFailed: "Email verification failed. Please try again.",
-    bookingDeviceIdMissing: "Cannot read device id. Please refresh and try again.",
+    bookingDeviceIdMissing:
+      "Cannot read device id. Please refresh and try again.",
     initialAssistantMessage:
-      "Hi, I am your triage nurse. Please share your main symptoms and how long they have lasted.",
+      "If you are comfortable, please start with your age and gender. Then we can go through 4 quick questions so I can guide you faster: 1. What is the main symptom, and where is it located? 2. How long has it been happening, and did it start suddenly or gradually? 3. Is it related to any recent injury or surgery? 4. Do you have any important underlying conditions, such as diabetes, high blood pressure, heart disease, immune disorders, or cancer? If something does not apply, write \"none\".",
     reasonFallback: "Recommended based on triage details",
     bookingSummaryFallback: "Symptom details shared in AI chat.",
     bookingSymptomsFallback: "Shared in triage chat",
@@ -204,9 +254,27 @@ export const TRIAGE_COPY = {
     },
     triage_card: {
       summary: "问诊摘要",
-      recommended_doctors: "推荐医生",
-      edit_title: "编辑问诊摘要",
-      edit_desc: "请在预约前检查并修改 AI 生成的摘要。",
+      possibility: "可能方向",
+      recommended_department: "建议就诊专科",
+      recommended_hospitals: "参考医院",
+      not_diagnosis: "这份结果只用于分诊和就医路径建议，不构成明确诊断。",
+      browse_hospital: "查看站内医院库",
+      platform_match: "已匹配站内医院",
+      no_hospitals: "暂未生成参考医院，请直接浏览医院库。",
+      possibility_fallback:
+        "当前信息更像某一类专科方向，建议线下面诊进一步评估。",
+      department_fallback: "相关专科",
+    },
+    summary_form: {
+      title: "AI 整理出的病情总结",
+      description:
+        "这是我根据对话整理出的结构化病情总结。请检查并修改不准确的地方，再带到下一步就诊。",
+      age_gender: "年龄 / 性别",
+      main_symptom_and_location: "核心症状与部位",
+      duration_and_onset: "发病时间与急缓",
+      trauma_or_surgery: "外伤与手术史",
+      medical_history: "关键基础疾病",
+      other_symptoms: "其他症状",
     },
     interruption: {
       eyebrow: "紧急提醒",
@@ -219,9 +287,10 @@ export const TRIAGE_COPY = {
         "如暂不需要呼叫急救，也请尽快前往最近的急诊或紧急门诊，由线下医生立即评估。",
         "如条件允许，请携带目前用药、过敏史、既往病史以及近期检查结果一同就诊。",
       ],
-      primary_cta: "去预约医生",
+      primary_cta: "去看医院库",
       secondary_cta: "返回首页",
-      footer: "此安全中断用于减少潜在急症的等待时间，不建议继续依赖当前聊天获得处置意见。",
+      footer:
+        "此安全中断用于减少潜在急症的等待时间，不建议继续依赖当前聊天获得处置意见。",
     },
     sidebar: {
       new_session: "新会话",
@@ -238,12 +307,14 @@ export const TRIAGE_COPY = {
       reviewing: "AI 正在整理分诊信息...",
       thinking: "AI 正在思考...",
       quota_login_required: "游客试用额度已尽，请登录后继续问诊。",
-      message_limit_reached: "本次会诊已达到消息上限，请尽快预约医生继续诊疗。",
-      message_limit_action: "立即预约医生",
+      message_limit_reached:
+        "本次会诊已达到消息上限，请尽快查看建议专科和参考医院。",
+      message_limit_action: "查看医院库",
     },
     patientLabel: "患者",
     triage: {
-      disclaimer: "AI 可能会产生错误信息。在做出医疗决定前，请务必咨询专业医生。",
+      disclaimer:
+        "AI 可能会产生错误信息。在做出医疗决定前，请务必咨询专业医生。",
     },
     doctor_detail: {
       about: "医生信息",
@@ -251,35 +322,61 @@ export const TRIAGE_COPY = {
       confirm_book: "确认选择并预约",
       years_experience: (years: number) => `从业 ${years} 年`,
     },
+    fast_intake: {
+      title: "快捷表单（可选）",
+      description:
+        "如果不方便聊天，可以改用简表；默认仍然是 AI 在 2-3 轮内主动引导分诊。",
+      age: "年龄",
+      gender: "性别",
+      gender_placeholder: "请选择性别",
+      gender_male: "男",
+      gender_female: "女",
+      gender_other: "其他",
+      gender_unknown: "不便说明",
+      main_symptom: "核心症状与部位",
+      main_symptom_placeholder: "例如：右下腹痛 / 胸闷 / 腿部皮肤破损",
+      duration_onset: "发病时间与急缓",
+      duration_onset_placeholder:
+        "例如：今天早上突然出现 / 3 天来逐渐加重 / 2 个月反复发作",
+      trauma_surgery: "外伤与手术史",
+      trauma_surgery_placeholder: "例如：无 / 昨天摔伤 / 近期做过手术",
+      chronic_conditions: "关键基础疾病",
+      chronic_conditions_placeholder:
+        "例如：无 / 糖尿病 / 高血压 / 心脏病 / 肿瘤",
+      submit: "提交快捷表单",
+      skip: "继续聊天",
+      required: "请至少填写一项关键信息后再提交表单。",
+    },
     title: "AI 预诊分诊",
-    subtitle: "分诊护士先收集关键信息，再生成摘要和医生推荐。",
-    placeholder: "请输入症状、持续时间、既往史等信息...",
+    subtitle:
+      "请先用自己的话描述不适，AI 会在前 2-3 轮内主动引导并完成专科和医院推荐。",
+    placeholder: "请在这里描述您的症状...",
     typing: "AI 正在整理分诊信息...",
     requestError: "分诊服务暂时不可用，请稍后重试。",
     fallbackReply: "抱歉，当前分诊服务繁忙。请稍后再试。",
-    completed: "分诊已完成，摘要和推荐结果已生成。",
+    completed: "分诊已完成，建议专科和参考医院已生成。",
     summaryTitle: "病情摘要",
     summaryDesc: "可直接用于下一步预约/建会话的结构化摘要。",
     summaryEmpty: "尚未完成分诊，摘要会在完成后显示。",
-    doctorTitle: "推荐医生",
-    doctorDesc: "基于关键词匹配前 3-5 位医生",
-    searching: "正在匹配医生...",
-    doctorQueryError: "医生推荐加载失败，请重试或刷新当前会话。",
-    noDoctor: "未检索到匹配医生，请补充更具体症状。",
+    doctorTitle: "参考医院",
+    doctorDesc: "根据建议专科给出前 5 家参考医院",
+    searching: "正在整理推荐结果...",
+    doctorQueryError: "医院推荐加载失败，请重试或刷新当前会话。",
+    noDoctor: "暂未生成参考医院，请补充更具体症状。",
     noBio: "暂无医生简介",
     viewProfile: "查看详情",
     chooseBook: "选择并预约",
     whatsapp: "WhatsApp 预约",
     startNew: "开始新会话",
     disclaimerTitle: "医疗免责声明",
-    disclaimerDesc: "AI 建议仅用于分诊与医生匹配，不构成医疗诊断。",
+    disclaimerDesc: "AI 建议仅用于分诊与医院/专科路径推荐，不构成医疗诊断。",
     disclaimerLine1: "请勿在对话中发送高敏感身份信息（证件号/护照号等）。",
     disclaimerLine2:
       "如出现胸痛、呼吸困难、中风征象、大出血等急症，请立即联系当地急救服务。",
     cancel: "取消",
     understand: "我已知悉",
     rating: "评分",
-    doctorFallback: "推荐医生",
+    doctorFallback: "参考医院",
     bookingTitle: "创建预约",
     bookingDesc: "填写邮箱与预约时间，系统将发送安全魔法链接。",
     bookingEmail: "邮箱",
@@ -308,7 +405,7 @@ export const TRIAGE_COPY = {
     bookingIdentityVerifyFailed: "邮箱验证失败，请重试。",
     bookingDeviceIdMissing: "无法获取设备标识，请刷新页面后重试。",
     initialAssistantMessage:
-      "您好，我是分诊护士。请先描述当前最主要的不适症状，以及大概持续了多久。",
+      "如果方便，请先告诉我年龄和性别。然后我们按 4 个问题来，这样我能更快帮您判断专科和医院：1. 现在最主要的不适是什么，具体在哪个部位？2. 这个症状出现多久了，是突然发生还是逐渐加重/反复发作？3. 这次不适和外伤或近期手术有没有关系？4. 有没有需要特别注意的基础疾病，比如糖尿病、高血压或心脏病、免疫系统疾病或肿瘤？没有可直接写“无”。",
     reasonFallback: "基于分诊信息推荐",
     bookingSummaryFallback: "已在 AI 对话中提供症状描述",
     bookingSymptomsFallback: "已在分诊中描述",

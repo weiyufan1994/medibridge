@@ -17,6 +17,7 @@ vi.mock("./modules/triageSafety", () => ({
   scanMessage: vi.fn(),
   recordRiskEvents: vi.fn(),
   setSessionFlag: vi.fn(),
+  clearSessionFlagsByType: vi.fn(),
 }));
 
 vi.mock("./modules/triageKnowledge", () => ({
@@ -42,7 +43,9 @@ describe("ai.sendMessageAction stream b", () => {
       status: "active",
       summary: null,
     } as never);
-    vi.mocked(aiRepo.countAiChatMessagesBySessionId).mockResolvedValue(0 as never);
+    vi.mocked(aiRepo.countAiChatMessagesBySessionId).mockResolvedValue(
+      0 as never
+    );
     vi.mocked(aiRepo.getAiChatMessagesBySessionId).mockResolvedValue([
       {
         id: 91,
@@ -88,6 +91,16 @@ describe("ai.sendMessageAction stream b", () => {
     expect(vi.mocked(triageKnowledge.runRetrieval)).not.toHaveBeenCalled();
     expect(vi.mocked(processTriageChat)).not.toHaveBeenCalled();
     expect(vi.mocked(triageSafety.recordRiskEvents)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(triageSafety.clearSessionFlagsByType)).toHaveBeenCalledWith(
+      10,
+      "triage_result_v1"
+    );
+    expect(vi.mocked(triageSafety.setSessionFlag)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: 10,
+        flagType: "triage_result_v1",
+      })
+    );
     expect(vi.mocked(aiRepo.updateAiChatSessionStatus)).toHaveBeenCalledWith(
       10,
       "completed"
@@ -145,6 +158,77 @@ describe("ai.sendMessageAction stream b", () => {
             title: expect.stringContaining("皮疹分诊基础卡"),
           }),
         ]),
+      }),
+      undefined
+    );
+  });
+
+  it("passes structured intake through to the triage service", async () => {
+    vi.mocked(triageSafety.scanMessage).mockReturnValue({
+      matchedRiskCodes: [],
+      highestSeverity: null,
+      shouldInterrupt: false,
+      recommendedAction: null,
+      displayMessage: null,
+      triggerSource: "rule",
+      rawExcerpt: "右下腹痛",
+    });
+    vi.mocked(triageKnowledge.runRetrieval).mockResolvedValue(undefined);
+    vi.mocked(processTriageChat).mockResolvedValue({
+      isComplete: true,
+      reply: "已完成极速分诊。",
+      summary: "核心症状与部位：右下腹痛；发病时间与急缓：3天逐渐加重",
+      keywords: ["右下腹痛", "消化内科", "腹痛"],
+      extraction: {
+        symptoms: "右下腹痛",
+        duration: "3天逐渐加重",
+        age: 31,
+        gender: "女",
+        medicalHistory: "无",
+        traumaOrSurgery: "无",
+        otherSymptoms: "",
+        urgency: "medium",
+      },
+    });
+
+    await sendMessageAction(
+      {
+        sessionId: 10,
+        content: "已提交极速分诊表",
+        lang: "zh",
+        intake: {
+          age: 31,
+          gender: "female",
+          mainSymptomAndLocation: "右下腹痛",
+          durationAndOnset: "3天逐渐加重",
+          traumaOrSurgery: "无",
+          chronicConditions: "无",
+        },
+      },
+      { id: 7 } as never
+    );
+
+    expect(vi.mocked(processTriageChat)).toHaveBeenCalledWith(
+      [{ role: "user", content: "test" }],
+      "zh",
+      undefined,
+      {
+        age: 31,
+        gender: "female",
+        mainSymptomAndLocation: "右下腹痛",
+        durationAndOnset: "3天逐渐加重",
+        traumaOrSurgery: "无",
+        chronicConditions: "无",
+      }
+    );
+    expect(vi.mocked(triageSafety.clearSessionFlagsByType)).toHaveBeenCalledWith(
+      10,
+      "triage_result_v1"
+    );
+    expect(vi.mocked(triageSafety.setSessionFlag)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: 10,
+        flagType: "triage_result_v1",
       })
     );
   });

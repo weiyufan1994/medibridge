@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
+import { aliasedTable, and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import {
   aiChatMessages,
   aiChatSessions,
@@ -99,6 +99,8 @@ export async function listFirstUserMessagesBySessionIds(sessionIds: number[]) {
     return new Map<number, string>();
   }
 
+  const firstUserMessage = aliasedTable(aiChatMessages, "first_user_message");
+
   const rows = await db
     .select({
       sessionId: aiChatMessages.sessionId,
@@ -110,10 +112,10 @@ export async function listFirstUserMessagesBySessionIds(sessionIds: number[]) {
         inArray(aiChatMessages.sessionId, normalizedIds),
         eq(aiChatMessages.role, "user"),
         sql`${aiChatMessages.id} = (
-          select min(msg.id)
-          from ${aiChatMessages} as msg
-          where msg.sessionId = ${aiChatMessages.sessionId}
-            and msg.role = 'user'
+          select min(${firstUserMessage.id})
+          from ${firstUserMessage}
+          where ${eq(firstUserMessage.sessionId, aiChatMessages.sessionId)}
+            and ${eq(firstUserMessage.role, "user")}
         )`
       )
     );
@@ -298,4 +300,28 @@ export async function listLatestKnowledgeFlagsForAdmin(limit: number) {
     .where(eq(triageSessionFlags.flagType, "knowledge_trace"))
     .orderBy(desc(triageSessionFlags.createdAt), desc(triageSessionFlags.id))
     .limit(limit);
+}
+
+export async function getLatestSessionFlagByType(
+  sessionId: number,
+  flagType: string
+) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const rows = await db
+    .select()
+    .from(triageSessionFlags)
+    .where(
+      and(
+        eq(triageSessionFlags.sessionId, sessionId),
+        eq(triageSessionFlags.flagType, flagType)
+      )
+    )
+    .orderBy(desc(triageSessionFlags.createdAt), desc(triageSessionFlags.id))
+    .limit(1);
+
+  return rows[0] ?? null;
 }

@@ -6,6 +6,7 @@ vi.mock("./modules/ai/repo", () => ({
   listFirstUserMessagesBySessionIds: vi.fn(),
   getAiChatSessionById: vi.fn(),
   getAiChatMessagesBySessionId: vi.fn(),
+  getLatestSessionFlagByType: vi.fn(),
 }));
 
 import * as aiRepo from "./modules/ai/repo";
@@ -39,6 +40,7 @@ function createTestContext(): TrpcContext {
 describe("consultation.getHistory", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(aiRepo.getLatestSessionFlagByType).mockResolvedValue(null as never);
   });
 
   it("returns session history with first user message titles", async () => {
@@ -95,5 +97,93 @@ describe("consultation.getHistory", () => {
         status: "completed",
       }),
     ]);
+  });
+
+  it("returns persisted triage results for historical sessions", async () => {
+    vi.mocked(aiRepo.getAiChatSessionById).mockResolvedValue({
+      id: 11,
+      userId: 7,
+      status: "completed",
+      summary:
+        "年龄/性别：36岁 / 男\n核心症状与部位：胸闷\n发病时间与急缓：2天，突然出现",
+      summaryGeneratedAt: new Date("2026-03-18T02:05:00.000Z"),
+      createdAt: new Date("2026-03-18T02:00:00.000Z"),
+      updatedAt: new Date("2026-03-18T02:05:00.000Z"),
+    } as never);
+    vi.mocked(aiRepo.getAiChatMessagesBySessionId).mockResolvedValue([
+      {
+        id: 100,
+        sessionId: 11,
+        role: "user",
+        content: "我今年36岁，男，我觉得胸闷",
+        createdAt: new Date("2026-03-18T02:01:00.000Z"),
+      },
+      {
+        id: 101,
+        sessionId: 11,
+        role: "assistant",
+        content: "已根据您提供的关键信息完成极速分诊。",
+        createdAt: new Date("2026-03-18T02:02:00.000Z"),
+      },
+    ] as never);
+    vi.mocked(aiRepo.getLatestSessionFlagByType).mockResolvedValue({
+      id: 1,
+      sessionId: 11,
+      flagType: "triage_result_v1",
+      flagValue: JSON.stringify({
+        isComplete: true,
+        reply: "已根据您提供的关键信息完成极速分诊。",
+        summary:
+          "年龄/性别：36岁 / 男\n核心症状与部位：胸闷\n发病时间与急缓：2天，突然出现",
+        routing: {
+          possibilitySummary: "症状更偏向心血管方向，建议先看心内科。",
+          recommendedDepartment: {
+            zh: "心内科",
+            en: "Cardiology",
+            matchedSpecialtyKey: "cardiology",
+          },
+          hospitals: [],
+        },
+        extraction: {
+          symptoms: "胸闷",
+          duration: "2天，突然出现",
+          age: 36,
+          urgency: "medium",
+        },
+      }),
+      createdAt: new Date("2026-03-18T02:02:00.000Z"),
+    } as never);
+
+    const caller = consultationRouter.createCaller(createTestContext());
+    const result = await caller.getMessagesBySessionId({ sessionId: 11 });
+
+    expect(result).toEqual({
+      messages: [
+        expect.objectContaining({
+          id: 100,
+          sessionId: 11,
+          role: "user",
+          content: "我今年36岁，男，我觉得胸闷",
+        }),
+        expect.objectContaining({
+          id: 101,
+          sessionId: 11,
+          role: "ai",
+          content: "已根据您提供的关键信息完成极速分诊。",
+        }),
+      ],
+      summary:
+        "年龄/性别：36岁 / 男\n核心症状与部位：胸闷\n发病时间与急缓：2天，突然出现",
+      triageResult: expect.objectContaining({
+        isComplete: true,
+        reply: "已根据您提供的关键信息完成极速分诊。",
+        routing: expect.objectContaining({
+          recommendedDepartment: expect.objectContaining({
+            zh: "心内科",
+            en: "Cardiology",
+          }),
+        }),
+      }),
+    });
   });
 });

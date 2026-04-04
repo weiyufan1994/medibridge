@@ -1,10 +1,19 @@
 import { TRPCError } from "@trpc/server";
 import type { LocalizedText } from "@shared/types";
+import {
+  serializeHistoricalTriageResult,
+  TRIAGE_RESULT_FLAG_TYPE,
+} from "./historyResult";
 import { processTriageChat } from "./service";
 import * as aiRepo from "./repo";
 import type { TrpcContext } from "../../_core/context";
 import * as authRepo from "../auth/repo";
-import { setSessionFlag, recordRiskEvents, scanMessage } from "../triageSafety";
+import {
+  clearSessionFlagsByType,
+  setSessionFlag,
+  recordRiskEvents,
+  scanMessage,
+} from "../triageSafety";
 import { runRetrieval } from "../triageKnowledge";
 import type {
   CreateSessionInput,
@@ -15,15 +24,18 @@ import type {
 
 const SESSION_MESSAGE_LIMIT = 20;
 const SESSION_LIMIT_REPLY =
-  "本次基础问诊已达最大深度。由于病情可能较为复杂，AI 无法给出更多建议，请立即预约下方专业医生进行人工精确诊断。";
+  "本次基础问诊已达最大深度。由于病情可能较为复杂，AI 无法继续细分，请尽快查看建议专科和参考医院并线下就诊。";
 
 const detectTriageLanguage = (
   messages: Array<{ role: string; content: string }>
 ): "en" | "zh" => {
   const lastUserMessage = [...messages]
     .reverse()
-    .find(message => message.role === "user" && message.content.trim().length > 0);
-  const sample = lastUserMessage?.content ?? messages[messages.length - 1]?.content ?? "";
+    .find(
+      message => message.role === "user" && message.content.trim().length > 0
+    );
+  const sample =
+    lastUserMessage?.content ?? messages[messages.length - 1]?.content ?? "";
   return /[\u4e00-\u9fff]/.test(sample) ? "zh" : "en";
 };
 
@@ -39,10 +51,8 @@ function requireUser(user: TrpcContext["user"], message: string): AuthUser {
   return user;
 }
 
-const resolveLocalizedReply = (
-  message: LocalizedText,
-  lang: "en" | "zh"
-) => message[lang];
+const resolveLocalizedReply = (message: LocalizedText, lang: "en" | "zh") =>
+  message[lang];
 
 export async function getUsageSummaryAction(user: AuthUser) {
   const todayStart = new Date();
@@ -93,11 +103,16 @@ export async function getUsageSummaryAction(user: AuthUser) {
   } as const;
 }
 
-export async function listMySessionsAction(user: AuthUser, input: ListMySessionsInput) {
+export async function listMySessionsAction(
+  user: AuthUser,
+  input: ListMySessionsInput
+) {
   return aiRepo.listAiChatSessionsByUser(user.id, input.limit);
 }
 
-async function resolveSessionOwner(ctx: Pick<TrpcContext, "user" | "deviceId">) {
+async function resolveSessionOwner(
+  ctx: Pick<TrpcContext, "user" | "deviceId">
+) {
   if (ctx.user) {
     return ctx.user;
   }
@@ -109,7 +124,9 @@ async function resolveSessionOwner(ctx: Pick<TrpcContext, "user" | "deviceId">) 
     });
   }
 
-  const guestUser = await authRepo.findOrCreateGuestUserByDeviceId(ctx.deviceId);
+  const guestUser = await authRepo.findOrCreateGuestUserByDeviceId(
+    ctx.deviceId
+  );
   if (!guestUser) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
@@ -199,7 +216,10 @@ export async function createSessionAction(
   return { sessionId };
 }
 
-export async function sendMessageAction(input: SendMessageInput, user: TrpcContext["user"]) {
+export async function sendMessageAction(
+  input: SendMessageInput,
+  user: TrpcContext["user"]
+) {
   const authUser = requireUser(user, "Please login to continue triage.");
 
   const session = await aiRepo.getAiChatSessionById(input.sessionId);
@@ -255,7 +275,10 @@ export async function sendMessageAction(input: SendMessageInput, user: TrpcConte
     });
 
     if (riskScan.shouldInterrupt && riskScan.displayMessage) {
-      const localizedReply = resolveLocalizedReply(riskScan.displayMessage, resolvedLang);
+      const localizedReply = resolveLocalizedReply(
+        riskScan.displayMessage,
+        resolvedLang
+      );
       const assistantMessageId = await aiRepo.createAiChatMessage({
         sessionId: session.id,
         role: "assistant",
@@ -275,6 +298,18 @@ export async function sendMessageAction(input: SendMessageInput, user: TrpcConte
           assistantMessageId,
         }),
       });
+      await clearSessionFlagsByType(session.id, TRIAGE_RESULT_FLAG_TYPE);
+      await setSessionFlag({
+        sessionId: session.id,
+        flagType: TRIAGE_RESULT_FLAG_TYPE,
+        flagValue: serializeHistoricalTriageResult({
+          isComplete: true,
+          reply: localizedReply,
+          interruptionMessage: riskScan.displayMessage,
+          interrupted: true,
+          riskCodes: riskScan.matchedRiskCodes,
+        }),
+      });
       await aiRepo.updateAiChatSessionStatus(session.id, "completed");
       return {
         isComplete: true,
@@ -290,9 +325,7 @@ export async function sendMessageAction(input: SendMessageInput, user: TrpcConte
     console.error("[TriageSafety] scanMessage failed:", error);
   }
 
-  let knowledgeContext:
-    | Awaited<ReturnType<typeof runRetrieval>>
-    | undefined;
+  let knowledgeContext: Awaited<ReturnType<typeof runRetrieval>> | undefined;
   try {
     knowledgeContext =
       (await runRetrieval({
@@ -313,10 +346,12 @@ export async function sendMessageAction(input: SendMessageInput, user: TrpcConte
   const triageResult = await processTriageChat(
     triageMessages,
     resolvedLang,
-    knowledgeContext ?? undefined
+    knowledgeContext ?? undefined,
+    input.intake ?? undefined
   );
   const safeReply =
-    typeof triageResult.reply === "string" && triageResult.reply.trim().length > 0
+    typeof triageResult.reply === "string" &&
+    triageResult.reply.trim().length > 0
       ? triageResult.reply.trim()
       : SESSION_LIMIT_REPLY;
 
@@ -327,6 +362,15 @@ export async function sendMessageAction(input: SendMessageInput, user: TrpcConte
   });
 
   if (triageResult.isComplete) {
+    await clearSessionFlagsByType(session.id, TRIAGE_RESULT_FLAG_TYPE);
+    await setSessionFlag({
+      sessionId: session.id,
+      flagType: TRIAGE_RESULT_FLAG_TYPE,
+      flagValue: serializeHistoricalTriageResult({
+        ...triageResult,
+        reply: safeReply,
+      }),
+    });
     await aiRepo.updateAiChatSessionStatus(session.id, "completed");
     if (triageResult.summary && triageResult.summary.trim().length > 0) {
       await aiRepo.setAiChatSessionSummaryIfEmpty(
@@ -339,7 +383,9 @@ export async function sendMessageAction(input: SendMessageInput, user: TrpcConte
   return {
     ...triageResult,
     reply: safeReply,
-    sessionStatus: triageResult.isComplete ? ("completed" as const) : ("active" as const),
+    sessionStatus: triageResult.isComplete
+      ? ("completed" as const)
+      : ("active" as const),
     hitMessageLimit: false as const,
   };
 }
@@ -355,8 +401,8 @@ export async function chatTriageAction(input: ChatTriageInput) {
       isComplete: false,
       reply:
         resolvedLang === "zh"
-          ? "我正在整理你的信息。请补充主要症状持续了多久、是否有既往病史或正在用药。"
-          : "I am organizing your triage details. Please share symptom duration, medical history, and current medications.",
+          ? "如果方便，请先告诉我年龄和性别。然后我继续按 4 个问题帮你确认：1. 最主要的不适是什么，在哪个部位？2. 这个症状多久了，是突然发生还是慢慢加重？3. 是否和外伤或近期手术有关？4. 有没有需要特别注意的基础疾病？没有可直接写“无”。"
+          : "If you are comfortable, please start with your age and gender. Then I will continue with 4 quick questions: 1. What is the main symptom, and where is it located? 2. How long has it been happening, and did it start suddenly or gradually? 3. Is it related to any recent injury or surgery? 4. Do you have any important underlying conditions? If not, write \"none\".",
     };
   }
 }

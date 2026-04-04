@@ -16,6 +16,7 @@ export type TriageExtractionPrefill = {
   medicalHistory?: string | null;
   medications?: string | null;
   allergies?: string | null;
+  traumaOrSurgery?: string | null;
   otherSymptoms?: string | null;
 };
 
@@ -38,12 +39,21 @@ const SUMMARY_ALIAS_MAP: Record<string, keyof AppointmentIntake> = {
   "chief complaint": "chiefComplaint",
   complaint: "chiefComplaint",
   "main complaint": "chiefComplaint",
+  "main symptom & location": "chiefComplaint",
+  "main symptom and location": "chiefComplaint",
+  "core symptom and location": "chiefComplaint",
   主诉: "chiefComplaint",
+  核心症状与部位: "chiefComplaint",
   duration: "duration",
+  "duration & onset": "duration",
+  "duration and onset": "duration",
   持续时间: "duration",
+  发病时间与急缓: "duration",
   "medical history": "medicalHistory",
   history: "medicalHistory",
   既往史: "medicalHistory",
+  "key underlying conditions": "medicalHistory",
+  关键基础疾病: "medicalHistory",
   "medication history": "medications",
   medications: "medications",
   meds: "medications",
@@ -53,6 +63,9 @@ const SUMMARY_ALIAS_MAP: Record<string, keyof AppointmentIntake> = {
   过敏史: "allergies",
   age: "ageGroup",
   "age group": "ageGroup",
+  "age/gender": "ageGroup",
+  "age / gender": "ageGroup",
+  "年龄/性别": "ageGroup",
   gender: "ageGroup",
   sex: "ageGroup",
   性别: "ageGroup",
@@ -82,7 +95,8 @@ function parseSummaryToIntake(summary: string): Partial<AppointmentIntake> {
       continue;
     }
 
-    const key = SUMMARY_ALIAS_MAP[label.toLowerCase()] ?? SUMMARY_ALIAS_MAP[label];
+    const key =
+      SUMMARY_ALIAS_MAP[label.toLowerCase()] ?? SUMMARY_ALIAS_MAP[label];
     if (!key || result[key]) {
       continue;
     }
@@ -105,12 +119,14 @@ export function buildIntakeDefaultsFromTriage(
   const symptoms = input.extraction?.symptoms?.trim() ?? "";
   const duration = input.extraction?.duration?.trim() ?? "";
   const age =
-    typeof input.extraction?.age === "number" && Number.isFinite(input.extraction.age)
+    typeof input.extraction?.age === "number" &&
+    Number.isFinite(input.extraction.age)
       ? String(input.extraction.age)
       : "";
   const gender = input.extraction?.gender?.trim() ?? "";
   const ageAndGender = [age, gender].filter(Boolean).join(" / ");
-  const extractionMedicalHistory = input.extraction?.medicalHistory?.trim() ?? "";
+  const extractionMedicalHistory =
+    input.extraction?.medicalHistory?.trim() ?? "";
   const extractionMedications = input.extraction?.medications?.trim() ?? "";
   const extractionAllergies = input.extraction?.allergies?.trim() ?? "";
   const extractionOtherSymptoms = input.extraction?.otherSymptoms?.trim() ?? "";

@@ -1,5 +1,11 @@
 import { z } from "zod";
 import { aiConsultationSessionSchema } from "../../drizzle/schema";
+import {
+  historicalTriageResultSchema,
+  parseStoredHistoricalTriageResult,
+  rebuildHistoricalTriageResultFromSummary,
+  TRIAGE_RESULT_FLAG_TYPE,
+} from "../modules/ai/historyResult";
 import * as aiRepo from "../modules/ai/repo";
 import { publicProcedure, router } from "../_core/trpc";
 
@@ -9,15 +15,18 @@ const getHistoryOutputSchema = z.array(aiConsultationSessionSchema);
 const getMessagesBySessionIdInputSchema = z.object({
   sessionId: z.number().int().positive(),
 });
-const getMessagesBySessionIdOutputSchema = z.array(
-  z.object({
-    id: z.number().int().positive(),
-    sessionId: z.number().int().positive(),
-    role: z.enum(["user", "ai"]),
-    content: z.string(),
-    createdAt: z.date(),
-  })
-);
+const consultationMessageSchema = z.object({
+  id: z.number().int().positive(),
+  sessionId: z.number().int().positive(),
+  role: z.enum(["user", "ai"]),
+  content: z.string(),
+  createdAt: z.date(),
+});
+const getMessagesBySessionIdOutputSchema = z.object({
+  messages: z.array(consultationMessageSchema),
+  summary: z.string().nullable(),
+  triageResult: historicalTriageResultSchema.nullable(),
+});
 
 function normalizeSessionTitleCandidate(value: string | null | undefined) {
   const trimmed = value?.trim();
@@ -88,21 +97,44 @@ export const consultationRouter = router({
     .output(getMessagesBySessionIdOutputSchema)
     .query(async ({ ctx, input }) => {
       if (!ctx.userId) {
-        return [];
+        return {
+          messages: [],
+          summary: null,
+          triageResult: null,
+        };
       }
 
       const session = await aiRepo.getAiChatSessionById(input.sessionId);
       if (!session || session.userId !== ctx.userId) {
-        return [];
+        return {
+          messages: [],
+          summary: null,
+          triageResult: null,
+        };
       }
 
       const messages = await aiRepo.getAiChatMessagesBySessionId(input.sessionId);
-      return messages.map(message => ({
-        id: message.id,
-        sessionId: message.sessionId,
-        role: message.role === "assistant" ? ("ai" as const) : ("user" as const),
-        content: message.content,
-        createdAt: message.createdAt,
-      }));
+      const storedResultFlag = await aiRepo.getLatestSessionFlagByType(
+        input.sessionId,
+        TRIAGE_RESULT_FLAG_TYPE
+      );
+      const storedTriageResult = parseStoredHistoricalTriageResult(
+        storedResultFlag?.flagValue
+      );
+      const triageResult =
+        storedTriageResult ??
+        (await rebuildHistoricalTriageResultFromSummary(session.summary));
+
+      return {
+        messages: messages.map(message => ({
+          id: message.id,
+          sessionId: message.sessionId,
+          role: message.role === "assistant" ? ("ai" as const) : ("user" as const),
+          content: message.content,
+          createdAt: message.createdAt,
+        })),
+        summary: session.summary ?? null,
+        triageResult,
+      };
     }),
 });

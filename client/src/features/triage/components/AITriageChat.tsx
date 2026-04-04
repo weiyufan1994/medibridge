@@ -2,35 +2,33 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   AlertTriangle,
-  Eye,
+  Building2,
   FileText,
   Loader2,
   MessageSquare,
+  MapPinned,
   PanelLeft,
   PanelLeftOpen,
   Plus,
   Send,
-  User,
-  Users,
+  Stethoscope,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getLocalizedTextWithZhFallback } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { DisclaimerDialog, DisclaimerNotice } from "@/components/disclaimer/DisclaimerDialog";
-import { useTriageChat } from "@/features/triage/hooks/useTriageChat";
+  DisclaimerDialog,
+  DisclaimerNotice,
+} from "@/components/disclaimer/DisclaimerDialog";
+import {
+  useTriageChat,
+  type TriageResult as ChatTriageResult,
+} from "@/features/triage/hooks/useTriageChat";
 import {
   getLocalizedInterruptionDetail,
   getTriageCopy,
@@ -42,18 +40,15 @@ import {
   resolveAnimatedAssistantSignature,
   type TriageDisplayMessage,
 } from "@/features/triage/components/aiTriageMessagePresentation";
-import { AppointmentModal } from "@/features/appointment/components/AppointmentModal";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
-import type { LocalizedText } from "@shared/types";
-
-type AITriageChatProps = {
-  onSelectDoctor?: (payload: {
-    doctorId: number;
-    summary: string;
-    keywords: string[];
-  }) => void;
-};
+import {
+  buildLightTriageResultFormDefaults,
+  buildLightTriageResultSummary,
+  EMPTY_LIGHT_TRIAGE_RESULT_FORM,
+  type LightTriageResultForm,
+  type TriageRoutingHospital,
+} from "@shared/triageRouting";
 
 type HistoryItem = {
   id: number;
@@ -72,7 +67,9 @@ const buildCurrentSessionSidebarTitle = (input: {
     return summaryTitle.slice(0, 255);
   }
 
-  const firstUserMessage = input.messages.find(message => message.role === "user")?.content?.trim();
+  const firstUserMessage = input.messages
+    .find(message => message.role === "user")
+    ?.content?.trim();
   if (firstUserMessage) {
     return firstUserMessage.replace(/\s+/g, " ").slice(0, 255);
   }
@@ -80,25 +77,8 @@ const buildCurrentSessionSidebarTitle = (input: {
   return input.fallbackTitle;
 };
 
-type RecommendedDoctor = {
-  doctor: {
-    id: number;
-    name: LocalizedText;
-    title: LocalizedText;
-    specialty: LocalizedText;
-    description: string | null;
-    imageUrl: string | null;
-    experience: string | null;
-  };
-  department: {
-    name: LocalizedText;
-  };
-  title: LocalizedText;
-  specialty: LocalizedText;
-  biography: LocalizedText;
-  reason: LocalizedText;
-  yearsOfExperience: number | null;
-};
+const hasLightResultFormContent = (draft: LightTriageResultForm) =>
+  Object.values(draft).some(value => value.trim().length > 0);
 
 const TypewriterMessage = memo(
   function TypewriterMessage(props: {
@@ -183,150 +163,272 @@ const TypewriterMessage = memo(
     prev.active === next.active
 );
 
-function TriageResultCard(props: {
+function buildHospitalBrowserHref(hospital: TriageRoutingHospital) {
+  const params = new URLSearchParams();
+  if (hospital.matchedHospitalId !== null) {
+    params.set("hospitalId", String(hospital.matchedHospitalId));
+  }
+  if (hospital.matchedDepartmentId !== null) {
+    params.set("departmentId", String(hospital.matchedDepartmentId));
+  }
+
+  const query = params.toString();
+  return query ? `/hospitals?${query}` : "/hospitals";
+}
+
+function HospitalRoutingCard(props: {
   summary: string;
-  onEdit: () => void;
-  doctors: RecommendedDoctor[];
-  isLoadingDoctors: boolean;
-  doctorError: string | null;
-  resolved: "en" | "zh";
-  onSelectDoctor: (doctorId: number) => void;
+  possibilitySummary: string;
+  recommendedDepartment: string;
+  hospitals: TriageRoutingHospital[];
   labels: {
     summary: string;
-    recommendedDoctors: string;
-    edit: string;
-    selectBook: string;
-    viewProfile: string;
-    doctorQueryError: string;
-    noDoctors: string;
-    doctorPlaceholder: string;
-    specialtyUnavailable: string;
+    possibility: string;
+    department: string;
+    recommendedHospitals: string;
+    notDiagnosis: string;
+    browseHospital: string;
+    platformMatch: string;
+    noHospitals: string;
   };
-  onViewProfile: (doctor: RecommendedDoctor) => void;
 }) {
   return (
     <div className="w-full rounded-2xl border border-teal-200 bg-white p-5 shadow-md">
-      <div className="flex items-start justify-between gap-3">
-        <h4 className="flex items-center gap-2 text-base font-semibold text-slate-900">
-          <FileText className="h-4 w-4" />
-          {props.labels.summary}
-        </h4>
-        <button
-          type="button"
-          onClick={props.onEdit}
-          className="rounded-md px-2.5 py-1.5 text-sm text-teal-600 hover:bg-teal-50"
-        >
-          {props.labels.edit}
-        </button>
-      </div>
-      <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{props.summary}</p>
+      <div className="space-y-5">
+        <div>
+          <h4 className="flex items-center gap-2 text-base font-semibold text-slate-900">
+            <FileText className="h-4 w-4" />
+            {props.labels.summary}
+          </h4>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+            {props.summary}
+          </p>
+        </div>
 
-      <hr className="my-4 border-slate-100" />
-
-      <div>
-        <h4 className="mb-3 flex items-center gap-2 text-base font-semibold text-slate-900">
-          <Users className="h-4 w-4" />
-          {props.labels.recommendedDoctors}
-        </h4>
-
-        {props.isLoadingDoctors ? (
-          <div className="space-y-2">
-            <Skeleton className="h-16 w-full rounded-xl" />
-            <Skeleton className="h-16 w-full rounded-xl" />
-            <Skeleton className="h-16 w-full rounded-xl" />
-          </div>
-        ) : props.doctorError ? (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-            <p className="text-sm font-medium text-amber-900">
-              {props.labels.doctorQueryError}
+        <div className="grid gap-3 md:grid-cols-[1.3fr_0.9fr]">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+            <p className="flex items-center gap-2 text-sm font-medium text-slate-900">
+              <Stethoscope className="h-4 w-4 text-teal-600" />
+              {props.labels.possibility}
             </p>
-            <p className="mt-1 text-xs leading-relaxed text-amber-700">
-              {props.doctorError}
+            <p className="mt-2 text-sm leading-relaxed text-slate-700">
+              {props.possibilitySummary}
+            </p>
+            <p className="mt-3 text-xs leading-relaxed text-slate-500">
+              {props.labels.notDiagnosis}
             </p>
           </div>
-        ) : props.doctors.length === 0 ? (
-          <p className="text-sm text-slate-500">{props.labels.noDoctors}</p>
-        ) : (
-          <div className="space-y-2">
-            {props.doctors.slice(0, 3).map(item => {
-              const doctorName = getLocalizedTextWithZhFallback({
-                lang: props.resolved,
-                value: item.doctor.name,
-                placeholder: props.labels.doctorPlaceholder,
-              });
-              const departmentName = getLocalizedTextWithZhFallback({
-                lang: props.resolved,
-                value: item.department.name,
-              });
-              const titleText = getLocalizedTextWithZhFallback({
-                lang: props.resolved,
-                value: item.title,
-                placeholder: props.labels.doctorPlaceholder,
-              });
-              const specialtyText = getLocalizedTextWithZhFallback({
-                lang: props.resolved,
-                value: item.specialty,
-                placeholder: props.labels.specialtyUnavailable,
-              });
 
-              return (
+          <div className="rounded-2xl border border-slate-200 bg-teal-50/70 p-4">
+            <p className="text-sm font-medium text-slate-900">
+              {props.labels.department}
+            </p>
+            <Badge className="mt-3 rounded-full border-0 bg-teal-600 px-3 py-1 text-white">
+              {props.recommendedDepartment}
+            </Badge>
+          </div>
+        </div>
+
+        <div>
+          <h4 className="mb-3 flex items-center gap-2 text-base font-semibold text-slate-900">
+            <Building2 className="h-4 w-4" />
+            {props.labels.recommendedHospitals}
+          </h4>
+
+          {props.hospitals.length === 0 ? (
+            <p className="text-sm text-slate-500">{props.labels.noHospitals}</p>
+          ) : (
+            <div className="space-y-3">
+              {props.hospitals.map((hospital, index) => (
                 <div
-                  key={item.doctor.id}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2.5"
+                  key={`${hospital.hospitalName}-${index}`}
+                  className="rounded-2xl border border-slate-200 bg-white p-4"
                 >
-                  <div className="flex items-start gap-3">
-                    <button
-                      type="button"
-                      onClick={() => props.onViewProfile(item)}
-                      className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
-                    >
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={item.doctor.imageUrl ?? undefined} alt={doctorName} />
-                        <AvatarFallback>{doctorName.slice(0, 1)}</AvatarFallback>
-                      </Avatar>
-                    </button>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-slate-900">{doctorName}</p>
-                      <p className="mt-1 inline-flex w-fit rounded bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-600">
-                        {titleText}
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {index + 1}. {hospital.hospitalName}
                       </p>
-                      <Badge className="mt-1 ml-1 rounded-full border-0 bg-emerald-50 text-emerald-700">
-                        {departmentName}
-                      </Badge>
-                      <p className="mt-2 line-clamp-2 text-xs text-slate-600">{specialtyText}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {hospital.specialtyRank !== null ? (
+                          <Badge className="rounded-full border-0 bg-emerald-50 text-emerald-700">
+                            #{hospital.specialtyRank}
+                          </Badge>
+                        ) : null}
+                        {hospital.generalGrade ? (
+                          <Badge className="rounded-full border-0 bg-sky-50 text-sky-700">
+                            {hospital.generalGrade}
+                          </Badge>
+                        ) : null}
+                        {hospital.stemRank !== null ? (
+                          <Badge className="rounded-full border-0 bg-amber-50 text-amber-700">
+                            STEM #{hospital.stemRank}
+                          </Badge>
+                        ) : null}
+                        {hospital.matchedHospitalId !== null ? (
+                          <Badge className="rounded-full border-0 bg-violet-50 text-violet-700">
+                            {props.labels.platformMatch}
+                          </Badge>
+                        ) : null}
+                      </div>
                     </div>
+
+                    {hospital.matchedHospitalId !== null ? (
+                      <Button
+                        asChild
+                        size="sm"
+                        variant="outline"
+                        className="border-slate-200 text-slate-700"
+                      >
+                        <Link href={buildHospitalBrowserHref(hospital)}>
+                          <MapPinned className="h-4 w-4" />
+                          {props.labels.browseHospital}
+                        </Link>
+                      </Button>
+                    ) : null}
                   </div>
 
-                  <div className="mt-3 flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-slate-200 text-slate-700"
-                      onClick={() => props.onViewProfile(item)}
-                    >
-                      <Eye className="h-4 w-4" />
-                      {props.labels.viewProfile}
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="bg-teal-600 hover:bg-teal-700"
-                      onClick={() => props.onSelectDoctor(item.doctor.id)}
-                    >
-                      {props.labels.selectBook}
-                    </Button>
-                  </div>
+                  <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                    {hospital.reason}
+                  </p>
+                  {hospital.city ? (
+                    <p className="mt-2 text-xs text-slate-500">
+                      {hospital.city}
+                    </p>
+                  ) : null}
                 </div>
-              );
-            })}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
+function LightSummaryFormCard(props: {
+  draft: LightTriageResultForm;
+  onChange: <K extends keyof LightTriageResultForm>(
+    key: K,
+    value: LightTriageResultForm[K]
+  ) => void;
+  readOnly?: boolean;
+  labels: {
+    title: string;
+    description: string;
+    ageGender: string;
+    mainSymptomAndLocation: string;
+    durationAndOnset: string;
+    traumaOrSurgery: string;
+    medicalHistory: string;
+    otherSymptoms: string;
+  };
+}) {
+  return (
+    <div className="w-full rounded-2xl border border-slate-200 bg-white p-5 shadow-md">
+      <div className="mb-4">
+        <h4 className="text-base font-semibold text-slate-900">
+          {props.labels.title}
+        </h4>
+        <p className="mt-1 text-sm text-slate-500">
+          {props.labels.description}
+        </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <Label htmlFor="triage-summary-age-gender">
+            {props.labels.ageGender}
+          </Label>
+          <Input
+            id="triage-summary-age-gender"
+            value={props.draft.ageGender}
+            onChange={event => props.onChange("ageGender", event.target.value)}
+            disabled={props.readOnly}
+            className="mt-2"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="triage-summary-duration">
+            {props.labels.durationAndOnset}
+          </Label>
+          <Input
+            id="triage-summary-duration"
+            value={props.draft.durationAndOnset}
+            onChange={event =>
+              props.onChange("durationAndOnset", event.target.value)
+            }
+            disabled={props.readOnly}
+            className="mt-2"
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <Label htmlFor="triage-summary-symptom">
+            {props.labels.mainSymptomAndLocation}
+          </Label>
+          <Textarea
+            id="triage-summary-symptom"
+            value={props.draft.mainSymptomAndLocation}
+            onChange={event =>
+              props.onChange("mainSymptomAndLocation", event.target.value)
+            }
+            disabled={props.readOnly}
+            className="mt-2 min-h-[88px]"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="triage-summary-trauma">
+            {props.labels.traumaOrSurgery}
+          </Label>
+          <Input
+            id="triage-summary-trauma"
+            value={props.draft.traumaOrSurgery}
+            onChange={event =>
+              props.onChange("traumaOrSurgery", event.target.value)
+            }
+            disabled={props.readOnly}
+            className="mt-2"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="triage-summary-history">
+            {props.labels.medicalHistory}
+          </Label>
+          <Input
+            id="triage-summary-history"
+            value={props.draft.medicalHistory}
+            onChange={event =>
+              props.onChange("medicalHistory", event.target.value)
+            }
+            disabled={props.readOnly}
+            className="mt-2"
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <Label htmlFor="triage-summary-other">
+            {props.labels.otherSymptoms}
+          </Label>
+          <Textarea
+            id="triage-summary-other"
+            value={props.draft.otherSymptoms}
+            onChange={event =>
+              props.onChange("otherSymptoms", event.target.value)
+            }
+            disabled={props.readOnly}
+            className="mt-2 min-h-[88px]"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function AITriageChat() {
   const [, setLocation] = useLocation();
   const { resolved, reportInput } = useLanguage();
   const t = getTriageCopy(resolved);
@@ -342,50 +444,50 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
     quotaMessage,
     messageLimitReached,
     reportGenerationLocked,
-    bookingOpen,
-    bookingDoctorId,
     listEndRef,
     createSessionMutation,
     sendMessageMutation,
-    recommendQuery,
     applyEditedSummary,
     setInput,
-    setBookingOpen,
     setDisclaimerOpen,
     setQuotaDialogOpen,
     resetSession,
     handleSend,
     handleAcceptDisclaimer,
     handleInputKeyDown,
-    openBookingDialog,
   } = useTriageChat({ resolved, reportInput });
 
   const [leftOpen, setLeftOpen] = useState(true);
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
-  const [isEditSummaryOpen, setIsEditSummaryOpen] = useState(false);
-  const [profileDoctor, setProfileDoctor] = useState<RecommendedDoctor | null>(null);
-  const [summaryDraft, setSummaryDraft] = useState("");
-  const [animatedAssistantSignature, setAnimatedAssistantSignature] = useState<string | null>(
+  const [resultFormDraft, setResultFormDraft] = useState<LightTriageResultForm>(
+    EMPTY_LIGHT_TRIAGE_RESULT_FORM
+  );
+  const [animatedAssistantSignature, setAnimatedAssistantSignature] = useState<
+    string | null
+  >(null);
+  const messageStreamRef = useRef<HTMLDivElement>(null);
+  const previousRenderedMessagesRef = useRef<TriageDisplayMessage[] | null>(
     null
   );
-  const messageStreamRef = useRef<HTMLDivElement>(null);
-  const previousRenderedMessagesRef = useRef<TriageDisplayMessage[] | null>(null);
 
   const historyQuery = trpc.consultation.getHistory.useQuery(undefined, {
     staleTime: 5 * 60 * 1000,
   });
-  const historyMessagesQuery = trpc.consultation.getMessagesBySessionId.useQuery(
-    { sessionId: activeSessionId ?? 0 },
-    {
-      enabled: !!activeSessionId,
-      staleTime: 5 * 60 * 1000,
-    }
-  );
+  const historyMessagesQuery =
+    trpc.consultation.getMessagesBySessionId.useQuery(
+      { sessionId: activeSessionId ?? 0 },
+      {
+        enabled: !!activeSessionId,
+        staleTime: 5 * 60 * 1000,
+      }
+    );
 
-  const isChatPending = createSessionMutation.isPending || sendMessageMutation.isPending;
-  const isRecommendationPending =
-    triageResult?.isComplete === true && recommendQuery.isFetching;
+  const isChatPending =
+    createSessionMutation.isPending || sendMessageMutation.isPending;
   const patientName = user?.name || user?.email || t.common.unnamed_patient;
+  const historyTriageResult: ChatTriageResult | null =
+    historyMessagesQuery.data?.triageResult ?? null;
+  const historySummary = historyMessagesQuery.data?.summary ?? null;
 
   const historyItems = useMemo<HistoryItem[]>(() => {
     const todayStart = new Date();
@@ -437,34 +539,53 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
     toast.error(quotaMessage || t.status.quota_login_required);
     openLoginModal();
     setQuotaDialogOpen(false);
-  }, [openLoginModal, quotaDialogOpen, quotaMessage, setQuotaDialogOpen, t.status.quota_login_required]);
+  }, [
+    openLoginModal,
+    quotaDialogOpen,
+    quotaMessage,
+    setQuotaDialogOpen,
+    t.status.quota_login_required,
+  ]);
 
   useEffect(() => {
-    setSummaryDraft(triageResult?.summary || "");
-  }, [triageResult?.summary]);
+    if (!triageResult?.isComplete) {
+      return;
+    }
+
+    setResultFormDraft(
+      buildLightTriageResultFormDefaults({
+        summary: triageResult.summary,
+        extraction: triageResult.extraction,
+      })
+    );
+  }, [triageResult?.isComplete, triageSessionId]);
 
   const selectedHistorySession =
     activeSessionId === null
       ? null
-      : historyItems.find(item => item.id === activeSessionId) ?? null;
+      : (historyItems.find(item => item.id === activeSessionId) ?? null);
   const isHistoryReadOnly = activeSessionId !== null;
+  const displayedTriageResult = isHistoryReadOnly
+    ? historyTriageResult
+    : triageResult;
   const isReadOnlyMode =
     isHistoryReadOnly ||
     selectedHistorySession?.status === "completed" ||
     triageResult?.isComplete === true ||
     reportGenerationLocked ||
     messageLimitReached;
-  const isInputDisabled = isReadOnlyMode || isRecommendationPending;
+  const isInputDisabled = isReadOnlyMode;
 
   const displayMessages: TriageDisplayMessage[] = isHistoryReadOnly
-    ? (historyMessagesQuery.data ?? []).map(message => ({
-        role: message.role === "ai" ? ("assistant" as const) : ("user" as const),
+    ? (historyMessagesQuery.data?.messages ?? []).map(message => ({
+        role:
+          message.role === "ai" ? ("assistant" as const) : ("user" as const),
         content: message.content,
       }))
     : messages;
 
   const renderedMessages = useMemo(() => {
-    if (isHistoryReadOnly || !triageResult?.isComplete || displayMessages.length === 0) {
+    if (!displayedTriageResult?.isComplete || displayMessages.length === 0) {
       return displayMessages;
     }
 
@@ -472,64 +593,64 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
     return displayMessages.filter(
       (message, index) => !(index === lastIndex && message.role === "assistant")
     );
-  }, [displayMessages, isHistoryReadOnly, triageResult?.isComplete]);
+  }, [displayMessages, displayedTriageResult?.isComplete]);
 
   const inputPlaceholder = isHistoryReadOnly
     ? t.sidebar.read_only_placeholder
     : reportGenerationLocked
       ? t.status.reviewing
-    : isRecommendationPending
-      ? t.searching
-    : isChatPending
-      ? t.status.thinking
-      : t.placeholder;
+      : isChatPending
+        ? t.status.thinking
+        : t.placeholder;
 
   const activityLabel = reportGenerationLocked
     ? t.status.reviewing
-    : isRecommendationPending
-      ? t.searching
-      : isChatPending
-        ? t.status.thinking
-        : null;
+    : isChatPending
+      ? t.status.thinking
+      : null;
 
+  const historyResultFormDraft = useMemo(
+    () =>
+      buildLightTriageResultFormDefaults({
+        summary: historyTriageResult?.summary ?? historySummary,
+        extraction: historyTriageResult?.extraction,
+      }),
+    [historySummary, historyTriageResult?.extraction, historyTriageResult?.summary]
+  );
+  const displayedResultFormDraft = isHistoryReadOnly
+    ? historyResultFormDraft
+    : resultFormDraft;
   const effectiveSummary =
-    summaryDraft.trim().length > 0
-      ? summaryDraft.trim()
-      : triageResult?.summary?.trim() || t.common.no_summary_available;
+    displayedTriageResult?.isComplete === true
+      ? hasLightResultFormContent(displayedResultFormDraft)
+        ? buildLightTriageResultSummary(displayedResultFormDraft, resolved)
+        : displayedTriageResult.summary?.trim() ||
+          historySummary?.trim() ||
+          t.common.no_summary_available
+      : displayedTriageResult?.summary?.trim() ||
+        historySummary?.trim() ||
+        t.common.no_summary_available;
   const localizedInterruptionDetail =
-    triageResult?.interrupted && triageResult.reply
+    displayedTriageResult?.interrupted && displayedTriageResult.reply
       ? getLocalizedInterruptionDetail({
           lang: resolved,
-          message: triageResult.interruptionMessage,
-          riskCodes: triageResult.riskCodes,
-          fallback: triageResult.reply,
+          message: displayedTriageResult.interruptionMessage,
+          riskCodes: displayedTriageResult.riskCodes,
+          fallback: displayedTriageResult.reply,
         })
       : null;
 
-  const recommendedDoctors = (recommendQuery.data ?? []) as RecommendedDoctor[];
-  const doctorRecommendationError = recommendQuery.isError
-    ? recommendQuery.error.message
-    : null;
-  const profileDoctorName = getLocalizedTextWithZhFallback({
-    lang: resolved,
-    value: profileDoctor?.doctor.name,
-    placeholder: t.doctorFallback,
-  });
-  const profileDoctorTitle = getLocalizedTextWithZhFallback({
-    lang: resolved,
-    value: profileDoctor?.title,
-    placeholder: t.common.doctor_placeholder,
-  });
-  const profileDoctorSpecialty = getLocalizedTextWithZhFallback({
-    lang: resolved,
-    value: profileDoctor?.specialty,
-    placeholder: t.common.specialty_unavailable,
-  });
-  const profileDoctorBiography = getLocalizedTextWithZhFallback({
-    lang: resolved,
-    value: profileDoctor?.biography,
-    placeholder: t.noBio,
-  });
+  useEffect(() => {
+    const isFreshSession =
+      !isHistoryReadOnly &&
+      messages.length === 1 &&
+      !triageResult &&
+      !triageSessionId;
+
+    if (isFreshSession) {
+      setResultFormDraft(EMPTY_LIGHT_TRIAGE_RESULT_FORM);
+    }
+  }, [isHistoryReadOnly, messages.length, triageResult, triageSessionId]);
 
   const todayItems = historyItems.filter(item => item.group === "today");
   const previousItems = historyItems.filter(item => item.group === "previous7");
@@ -549,11 +670,11 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
 
     return {
       id: numericSessionId,
-        title: buildCurrentSessionSidebarTitle({
-          messages,
-          triageResult,
-          fallbackTitle: t.sidebar.new_session,
-        }),
+      title: buildCurrentSessionSidebarTitle({
+        messages,
+        triageResult,
+        fallbackTitle: t.sidebar.new_session,
+      }),
       status: triageResult?.isComplete ? "completed" : "active",
       group: "today",
     };
@@ -563,7 +684,10 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
       return todayItems;
     }
 
-    return [currentSessionListItem, ...todayItems.filter(item => item.id !== currentSessionListItem.id)];
+    return [
+      currentSessionListItem,
+      ...todayItems.filter(item => item.id !== currentSessionListItem.id),
+    ];
   }, [currentSessionListItem, todayItems]);
 
   const scrollToBottom = useCallback(() => {
@@ -582,7 +706,11 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
       setAnimatedAssistantSignature(nextSignature);
     } else {
       const latestRole = renderedMessages[renderedMessages.length - 1]?.role;
-      if (isHistoryReadOnly || renderedMessages.length === 0 || latestRole === "user") {
+      if (
+        isHistoryReadOnly ||
+        renderedMessages.length === 0 ||
+        latestRole === "user"
+      ) {
         setAnimatedAssistantSignature(null);
       }
     }
@@ -592,23 +720,43 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
 
   useEffect(() => {
     scrollToBottom();
-  }, [renderedMessages.length, historyMessagesQuery.data?.length, triageResult?.isComplete]);
+  }, [
+    renderedMessages.length,
+    historyMessagesQuery.data?.messages.length,
+    displayedTriageResult?.isComplete,
+  ]);
 
-  const handleSaveSummary = () => {
-    const normalizedSummary = summaryDraft.trim();
-    if (normalizedSummary.length > 0) {
-      applyEditedSummary(normalizedSummary);
-      void recommendQuery.refetch();
-    }
-    setIsEditSummaryOpen(false);
+  const updateResultFormDraft = <K extends keyof LightTriageResultForm>(
+    key: K,
+    value: LightTriageResultForm[K]
+  ) => {
+    setResultFormDraft(current => ({
+      ...current,
+      [key]: value,
+    }));
   };
+
+  useEffect(() => {
+    if (
+      !triageResult?.isComplete ||
+      !hasLightResultFormContent(resultFormDraft)
+    ) {
+      return;
+    }
+
+    applyEditedSummary(
+      buildLightTriageResultSummary(resultFormDraft, resolved)
+    );
+  }, [applyEditedSummary, resolved, resultFormDraft, triageResult?.isComplete]);
 
   return (
     <>
       <div className="relative flex h-full w-full overflow-hidden bg-slate-50">
         <aside
           className={`h-full flex-shrink-0 overflow-hidden bg-slate-50 transition-[width] duration-300 ease-in-out ${
-            leftOpen ? "w-[260px] border-r border-slate-200/60" : "w-0 border-none"
+            leftOpen
+              ? "w-[260px] border-r border-slate-200/60"
+              : "w-0 border-none"
           }`}
         >
           <div className="flex h-full w-[260px] flex-col whitespace-nowrap p-4">
@@ -732,7 +880,9 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
 
               {!historyQuery.isLoading && historyItems.length === 0 && (
                 <div className="flex h-full items-center justify-center px-2 py-8">
-                  <p className="text-center text-sm text-slate-500">{t.sidebar.empty}</p>
+                  <p className="text-center text-sm text-slate-500">
+                    {t.sidebar.empty}
+                  </p>
                 </div>
               )}
             </div>
@@ -768,7 +918,9 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                   </>
                 ) : renderedMessages.length === 0 ? (
                   <p className="text-sm text-slate-500">
-                    {isHistoryReadOnly ? t.sidebar.no_messages_in_session : t.initialAssistantMessage}
+                    {isHistoryReadOnly
+                      ? t.sidebar.no_messages_in_session
+                      : t.initialAssistantMessage}
                   </p>
                 ) : (
                   renderedMessages.map((message, index) => (
@@ -801,10 +953,10 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                   ))
                 )}
 
-                {!isHistoryReadOnly && triageResult?.isComplete && (
+                {displayedTriageResult?.isComplete && (
                   <div className={getTriageResultContainerClass()}>
                     <div className="w-full max-w-[85%]">
-                      {triageResult.interrupted ? (
+                      {displayedTriageResult.interrupted ? (
                         <div className="overflow-hidden rounded-[28px] border border-rose-200/80 bg-[linear-gradient(145deg,rgba(255,241,242,0.98),rgba(255,255,255,0.96))] shadow-[0_18px_40px_-24px_rgba(225,29,72,0.55)]">
                           <div className="border-b border-rose-200/70 bg-white/55 px-5 py-4 backdrop-blur">
                             <div className="flex items-start gap-3">
@@ -868,34 +1020,51 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                           </div>
                         </div>
                       ) : (
-                        <TriageResultCard
-                          summary={effectiveSummary}
-                          onEdit={() => setIsEditSummaryOpen(true)}
-                          doctors={recommendedDoctors}
-                          isLoadingDoctors={recommendQuery.isFetching}
-                          doctorError={doctorRecommendationError}
-                          resolved={resolved}
-                          labels={{
-                            summary: t.triage_card.summary,
-                            recommendedDoctors: t.triage_card.recommended_doctors,
-                            edit: t.common.edit,
-                            selectBook: t.common.select_book,
-                            viewProfile: t.common.view_profile,
-                            doctorQueryError: t.doctorQueryError,
-                            noDoctors: t.noDoctor,
-                            doctorPlaceholder: t.common.doctor_placeholder,
-                            specialtyUnavailable: t.common.specialty_unavailable,
-                          }}
-                          onViewProfile={doctor => setProfileDoctor(doctor)}
-                          onSelectDoctor={doctorId => {
-                            onSelectDoctor?.({
-                              doctorId,
-                              summary: effectiveSummary,
-                              keywords: triageResult?.keywords ?? [],
-                            });
-                            openBookingDialog(doctorId);
-                          }}
-                        />
+                        <div className="space-y-4">
+                          <HospitalRoutingCard
+                            summary={effectiveSummary}
+                            possibilitySummary={
+                              displayedTriageResult.routing?.possibilitySummary ??
+                              t.triage_card.possibility_fallback
+                            }
+                            recommendedDepartment={
+                              resolved === "zh"
+                                ? (displayedTriageResult.routing?.recommendedDepartment
+                                    .zh ?? t.triage_card.department_fallback)
+                                : (displayedTriageResult.routing?.recommendedDepartment
+                                    .en ?? t.triage_card.department_fallback)
+                            }
+                            hospitals={displayedTriageResult.routing?.hospitals ?? []}
+                            labels={{
+                              summary: t.triage_card.summary,
+                              possibility: t.triage_card.possibility,
+                              department: t.triage_card.recommended_department,
+                              recommendedHospitals:
+                                t.triage_card.recommended_hospitals,
+                              notDiagnosis: t.triage_card.not_diagnosis,
+                              browseHospital: t.triage_card.browse_hospital,
+                              platformMatch: t.triage_card.platform_match,
+                              noHospitals: t.triage_card.no_hospitals,
+                            }}
+                          />
+                          <LightSummaryFormCard
+                            draft={displayedResultFormDraft}
+                            onChange={updateResultFormDraft}
+                            readOnly={isHistoryReadOnly}
+                            labels={{
+                              title: t.summary_form.title,
+                              description: t.summary_form.description,
+                              ageGender: t.summary_form.age_gender,
+                              mainSymptomAndLocation:
+                                t.summary_form.main_symptom_and_location,
+                              durationAndOnset:
+                                t.summary_form.duration_and_onset,
+                              traumaOrSurgery: t.summary_form.trauma_or_surgery,
+                              medicalHistory: t.summary_form.medical_history,
+                              otherSymptoms: t.summary_form.other_symptoms,
+                            }}
+                          />
+                        </div>
                       )}
                     </div>
                   </div>
@@ -948,7 +1117,10 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
                   <Send className="h-4 w-4" />
                 </button>
               </div>
-              <DisclaimerNotice text={t.triage.disclaimer} className="mx-4 mt-3" />
+              <DisclaimerNotice
+                text={t.triage.disclaimer}
+                className="mx-4 mt-3"
+              />
             </div>
 
             {messageLimitReached && (
@@ -980,115 +1152,6 @@ export default function AITriageChat({ onSelectDoctor }: AITriageChatProps) {
         <p>{t.disclaimerLine1}</p>
         <p>{t.disclaimerLine2}</p>
       </DisclaimerDialog>
-
-      <Dialog open={isEditSummaryOpen} onOpenChange={setIsEditSummaryOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t.triage_card.edit_title}</DialogTitle>
-            <DialogDescription>{t.triage_card.edit_desc}</DialogDescription>
-          </DialogHeader>
-          <Textarea
-            value={summaryDraft}
-            onChange={event => setSummaryDraft(event.target.value)}
-            className="min-h-[220px] resize-none focus-visible:ring-2 focus-visible:ring-teal-500"
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditSummaryOpen(false)}>
-              {t.common.cancel}
-            </Button>
-            <Button
-              className="bg-teal-600 hover:bg-teal-700"
-              onClick={handleSaveSummary}
-            >
-              {t.common.save}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={Boolean(profileDoctor)} onOpenChange={open => !open && setProfileDoctor(null)}>
-        <DialogContent>
-          {profileDoctor ? (
-            <>
-              <DialogHeader>
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-14 w-14">
-                    <AvatarImage
-                      src={profileDoctor.doctor.imageUrl ?? undefined}
-                      alt={profileDoctorName}
-                    />
-                    <AvatarFallback>
-                      {profileDoctorName.slice(0, 1)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <DialogTitle>
-                      {profileDoctorName}
-                    </DialogTitle>
-                    <p className="mt-1 inline-flex rounded bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-600">
-                      {profileDoctorTitle}
-                    </p>
-                  </div>
-                </div>
-              </DialogHeader>
-
-              <div className="space-y-4">
-                <div>
-                  <h4 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <User className="h-4 w-4" />
-                    {t.doctor_detail.about}
-                  </h4>
-                  <p className="text-sm text-slate-600">
-                    {profileDoctorSpecialty}
-                    {typeof profileDoctor.yearsOfExperience === "number"
-                      ? ` · ${t.doctor_detail.years_experience(
-                          profileDoctor.yearsOfExperience
-                        )}`
-                      : ""}
-                  </p>
-                </div>
-                <div>
-                  <h4 className="mb-1 text-sm font-semibold text-slate-900">
-                    {t.doctor_detail.biography}
-                  </h4>
-                  <p className="max-h-52 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-                    {profileDoctorBiography}
-                  </p>
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button
-                  className="bg-teal-600 hover:bg-teal-700"
-                  onClick={() => {
-                    onSelectDoctor?.({
-                      doctorId: profileDoctor.doctor.id,
-                      summary: effectiveSummary,
-                      keywords: triageResult?.keywords ?? [],
-                    });
-                    openBookingDialog(profileDoctor.doctor.id);
-                    setProfileDoctor(null);
-                  }}
-                >
-                  {t.doctor_detail.confirm_book}
-                </Button>
-              </DialogFooter>
-            </>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-
-      <AppointmentModal
-        open={bookingOpen}
-        onOpenChange={setBookingOpen}
-        doctorId={bookingDoctorId}
-        sessionId={triageSessionId || "triage-session"}
-        resolved={resolved}
-        triagePrefill={{
-          summary: effectiveSummary,
-          extraction: triageResult?.extraction,
-        }}
-      />
     </>
   );
 }

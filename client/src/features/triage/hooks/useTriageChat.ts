@@ -1,15 +1,12 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { getTriageCopy } from "@/features/triage/copy";
 import { shouldLockInputForReportGeneration } from "@/features/triage/hooks/triageReportState";
 import { TRPCClientError } from "@trpc/client";
 import type { LocalizedText } from "@shared/types";
+import type { TriageIntake } from "@shared/triageIntake";
+import type { TriageRouting } from "@shared/triageRouting";
 
 export type ChatRole = "user" | "assistant";
 
@@ -26,14 +23,23 @@ export type TriageResult = {
   interruptionMessage?: LocalizedText;
   summary?: string;
   keywords?: string[];
+  routing?: TriageRouting;
   extraction?: {
     symptoms: string;
     duration: string;
     age: number | null;
     gender?: string | null;
+    medicalHistory?: string | null;
+    traumaOrSurgery?: string | null;
+    otherSymptoms?: string | null;
     urgency: "low" | "medium" | "high";
   };
 };
+
+type PendingSubmission = {
+  content: string;
+  intake?: TriageIntake;
+} | null;
 
 type UseTriageChatParams = {
   resolved: "en" | "zh";
@@ -43,11 +49,29 @@ type UseTriageChatParams = {
 const DISCLAIMER_KEY = "medibridge_disclaimer_accepted_v1";
 const TRIAGE_SESSION_KEY = "medibridge_triage_chat_v2";
 const SESSION_LIMIT_REPLY =
-  "本次基础问诊已达最大深度。由于病情可能较为复杂，AI 无法给出更多建议，请立即预约下方专业医生进行人工精确诊断。";
+  "本次基础问诊已达最大深度。由于病情可能较为复杂，AI 无法继续细分，请尽快查看推荐专科和医院并线下就诊。";
 
 const getInitialAssistantMessage = (lang: "en" | "zh"): ChatMessage => {
   const t = getTriageCopy(lang);
   return { role: "assistant", content: t.initialAssistantMessage };
+};
+
+const shouldRefreshInitialAssistantMessage = (messages: ChatMessage[]) =>
+  messages.length === 1 && messages[0]?.role === "assistant";
+
+const getLocalizedDraftMessages = (
+  messages: ChatMessage[] | undefined,
+  lang: "en" | "zh"
+) => {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return [getInitialAssistantMessage(lang)];
+  }
+
+  if (shouldRefreshInitialAssistantMessage(messages)) {
+    return [getInitialAssistantMessage(lang)];
+  }
+
+  return messages;
 };
 
 const detectTriageLanguage = (text: string): "en" | "zh" =>
@@ -58,10 +82,90 @@ const isSessionAccessDeniedError = (error: TRPCClientError<any>) =>
   typeof error.message === "string" &&
   error.message.includes("not allowed to access this triage session");
 
-export function useTriageChat({
-  resolved,
-  reportInput,
-}: UseTriageChatParams) {
+const normalizeRouting = (value: unknown): TriageRouting | undefined => {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const input = value as Record<string, unknown>;
+  const recommendedDepartment = input.recommendedDepartment;
+  if (
+    typeof input.possibilitySummary !== "string" ||
+    !recommendedDepartment ||
+    typeof recommendedDepartment !== "object"
+  ) {
+    return undefined;
+  }
+
+  const department = recommendedDepartment as Record<string, unknown>;
+  if (typeof department.zh !== "string" || typeof department.en !== "string") {
+    return undefined;
+  }
+
+  const hospitals = Array.isArray(input.hospitals)
+    ? input.hospitals
+        .map(item => {
+          if (!item || typeof item !== "object") {
+            return null;
+          }
+
+          const hospital = item as Record<string, unknown>;
+          if (
+            typeof hospital.hospitalName !== "string" ||
+            typeof hospital.reason !== "string"
+          ) {
+            return null;
+          }
+
+          return {
+            hospitalName: hospital.hospitalName,
+            city: typeof hospital.city === "string" ? hospital.city : null,
+            specialtyRank:
+              typeof hospital.specialtyRank === "number"
+                ? hospital.specialtyRank
+                : null,
+            specialtyScore:
+              typeof hospital.specialtyScore === "number"
+                ? hospital.specialtyScore
+                : null,
+            generalGrade:
+              typeof hospital.generalGrade === "string"
+                ? hospital.generalGrade
+                : null,
+            stemRank:
+              typeof hospital.stemRank === "number" ? hospital.stemRank : null,
+            matchedHospitalId:
+              typeof hospital.matchedHospitalId === "number"
+                ? hospital.matchedHospitalId
+                : null,
+            matchedDepartmentId:
+              typeof hospital.matchedDepartmentId === "number"
+                ? hospital.matchedDepartmentId
+                : null,
+            reason: hospital.reason,
+          };
+        })
+        .filter(
+          (hospital): hospital is TriageRouting["hospitals"][number] =>
+            hospital !== null
+        )
+    : [];
+
+  return {
+    possibilitySummary: input.possibilitySummary,
+    recommendedDepartment: {
+      zh: department.zh,
+      en: department.en,
+      matchedSpecialtyKey:
+        typeof department.matchedSpecialtyKey === "string"
+          ? department.matchedSpecialtyKey
+          : null,
+    },
+    hospitals,
+  };
+};
+
+export function useTriageChat({ resolved, reportInput }: UseTriageChatParams) {
   const utils = trpc.useUtils();
   const [messages, setMessages] = useState<ChatMessage[]>([
     getInitialAssistantMessage(resolved),
@@ -75,9 +179,8 @@ export function useTriageChat({
     if (typeof window === "undefined") return true;
     return localStorage.getItem(DISCLAIMER_KEY) === "1";
   });
-  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
-  const [bookingOpen, setBookingOpen] = useState(false);
-  const [bookingDoctorId, setBookingDoctorId] = useState<number | null>(null);
+  const [pendingSubmission, setPendingSubmission] =
+    useState<PendingSubmission>(null);
   const [quotaDialogOpen, setQuotaDialogOpen] = useState(false);
   const [quotaMessage, setQuotaMessage] = useState<string | null>(null);
   const [messageLimitReached, setMessageLimitReached] = useState(false);
@@ -87,32 +190,18 @@ export function useTriageChat({
 
   const createSessionMutation = trpc.ai.createSession.useMutation();
   const sendMessageMutation = trpc.ai.sendMessage.useMutation();
-  const recommendationKeywords = triageResult?.isComplete
-    ? (triageResult.keywords ?? [])
-    : [];
-  const recommendationSummary =
-    triageResult?.isComplete === true ? triageResult.summary : undefined;
-
-  const recommendQuery = trpc.doctors.recommend.useQuery(
-    {
-      keywords: recommendationKeywords,
-      summary: recommendationSummary,
-      triageSessionId: triageSessionId || undefined,
-      limit: 5,
-    },
-    {
-      enabled:
-        triageResult?.isComplete === true && recommendationKeywords.length > 0,
-      retry: 1,
-      staleTime: 0,
-      refetchOnMount: "always",
-    }
-  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const raw = sessionStorage.getItem(TRIAGE_SESSION_KEY);
-    if (!raw) return;
+    if (!raw) {
+      setMessages(prev =>
+        shouldRefreshInitialAssistantMessage(prev)
+          ? [getInitialAssistantMessage(resolved)]
+          : prev
+      );
+      return;
+    }
 
     try {
       const parsed = JSON.parse(raw) as {
@@ -121,9 +210,11 @@ export function useTriageChat({
         input?: string;
         triageSessionId?: string;
       };
-      if (Array.isArray(parsed.messages) && parsed.messages.length > 0) {
-        setMessages(parsed.messages);
-      }
+      const restoredMessages = getLocalizedDraftMessages(
+        parsed.messages,
+        resolved
+      );
+      setMessages(restoredMessages);
       if (typeof parsed.input === "string") {
         setInput(parsed.input);
       }
@@ -137,10 +228,6 @@ export function useTriageChat({
         setTriageResult(parsed.triageResult);
       }
 
-      const restoredMessages =
-        Array.isArray(parsed.messages) && parsed.messages.length > 0
-          ? parsed.messages
-          : [getInitialAssistantMessage(resolved)];
       const restoredTriageResult =
         parsed.triageResult && typeof parsed.triageResult === "object"
           ? parsed.triageResult
@@ -183,7 +270,7 @@ export function useTriageChat({
     setTriageResult(null);
     setTriageSessionId("");
     setRequestError(null);
-    setPendingMessage(null);
+    setPendingSubmission(null);
     setMessageLimitReached(false);
     setReportGenerationLocked(false);
     setQuotaDialogOpen(false);
@@ -199,11 +286,18 @@ export function useTriageChat({
       utils.consultation.getHistory.invalidate(),
       utils.auth.me.invalidate(),
     ]).catch(error => {
-      console.error("[AITriageChat] failed to refresh session creation state:", error);
+      console.error(
+        "[AITriageChat] failed to refresh session creation state:",
+        error
+      );
     });
   };
 
-  const sendMessage = async (content: string) => {
+  const sendMessage = async (payload: {
+    content: string;
+    intake?: TriageIntake;
+  }) => {
+    const content = payload.content.trim();
     if (
       !content ||
       sendMessageMutation.isPending ||
@@ -275,9 +369,13 @@ export function useTriageChat({
           sessionId: numericSessionId,
           content,
           lang: resolved,
+          intake: payload.intake,
         });
       } catch (error) {
-        if (error instanceof TRPCClientError && isSessionAccessDeniedError(error)) {
+        if (
+          error instanceof TRPCClientError &&
+          isSessionAccessDeniedError(error)
+        ) {
           const recreated = await createSessionMutation.mutateAsync({
             consentAccepted: disclaimerAccepted,
             consentVersion: "stream_b_v1",
@@ -290,6 +388,7 @@ export function useTriageChat({
             sessionId: Number(refreshedSessionId),
             content,
             lang: resolved,
+            intake: payload.intake,
           });
         } else {
           throw error;
@@ -306,8 +405,12 @@ export function useTriageChat({
           duration: string;
           age: number | null;
           gender?: string | null;
+          medicalHistory?: string | null;
+          traumaOrSurgery?: string | null;
+          otherSymptoms?: string | null;
           urgency: "low" | "medium" | "high";
         };
+        routing?: TriageRouting;
         hitMessageLimit?: boolean;
         interrupted?: boolean;
         riskCodes?: string[];
@@ -322,7 +425,10 @@ export function useTriageChat({
       const hitLimit =
         normalizedResult.hitMessageLimit === true ||
         safeReply.includes(SESSION_LIMIT_REPLY);
-      const nextMessagesWithReply: ChatMessage[] = [...nextMessages, { role: "assistant", content: safeReply }];
+      const nextMessagesWithReply: ChatMessage[] = [
+        ...nextMessages,
+        { role: "assistant", content: safeReply },
+      ];
       const shouldLockForReportGeneration = shouldLockInputForReportGeneration({
         triageResult: { isComplete: Boolean(normalizedResult.isComplete) },
         messages: nextMessagesWithReply,
@@ -357,6 +463,7 @@ export function useTriageChat({
               item => typeof item === "string" && item.trim().length > 0
             )
           : undefined,
+        routing: normalizeRouting(normalizedResult.routing),
         extraction:
           normalizedResult.extraction &&
           typeof normalizedResult.extraction === "object" &&
@@ -376,6 +483,24 @@ export function useTriageChat({
                   typeof normalizedResult.extraction.gender === "string" &&
                   normalizedResult.extraction.gender.trim().length > 0
                     ? normalizedResult.extraction.gender.trim()
+                    : null,
+                medicalHistory:
+                  typeof normalizedResult.extraction.medicalHistory ===
+                    "string" &&
+                  normalizedResult.extraction.medicalHistory.trim().length > 0
+                    ? normalizedResult.extraction.medicalHistory.trim()
+                    : null,
+                traumaOrSurgery:
+                  typeof normalizedResult.extraction.traumaOrSurgery ===
+                    "string" &&
+                  normalizedResult.extraction.traumaOrSurgery.trim().length > 0
+                    ? normalizedResult.extraction.traumaOrSurgery.trim()
+                    : null,
+                otherSymptoms:
+                  typeof normalizedResult.extraction.otherSymptoms ===
+                    "string" &&
+                  normalizedResult.extraction.otherSymptoms.trim().length > 0
+                    ? normalizedResult.extraction.otherSymptoms.trim()
                     : null,
                 urgency: normalizedResult.extraction.urgency,
               }
@@ -398,7 +523,8 @@ export function useTriageChat({
   };
 
   const handleSend = async () => {
-    const isLoading = createSessionMutation.isPending || sendMessageMutation.isPending;
+    const isLoading =
+      createSessionMutation.isPending || sendMessageMutation.isPending;
     const content = input.trim();
     if (isLoading || sendLockRef.current || !content) return;
 
@@ -406,12 +532,12 @@ export function useTriageChat({
 
     try {
       if (!disclaimerAccepted) {
-        setPendingMessage(content);
+        setPendingSubmission({ content });
         setDisclaimerOpen(true);
         return;
       }
 
-      await sendMessage(content);
+      await sendMessage({ content });
     } finally {
       sendLockRef.current = false;
     }
@@ -424,24 +550,20 @@ export function useTriageChat({
       localStorage.setItem(DISCLAIMER_KEY, "1");
     }
 
-    if (!pendingMessage) return;
-    const content = pendingMessage;
-    setPendingMessage(null);
-    await sendMessage(content);
+    if (!pendingSubmission) return;
+    const nextSubmission = pendingSubmission;
+    setPendingSubmission(null);
+    await sendMessage(nextSubmission);
   };
 
   const handleInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      const isLoading = createSessionMutation.isPending || sendMessageMutation.isPending;
+      const isLoading =
+        createSessionMutation.isPending || sendMessageMutation.isPending;
       if (isLoading || sendLockRef.current) return;
       void handleSend();
     }
-  };
-
-  const openBookingDialog = (doctorId: number) => {
-    setBookingDoctorId(doctorId);
-    setBookingOpen(true);
   };
 
   const applyEditedSummary = (summary: string) => {
@@ -478,14 +600,10 @@ export function useTriageChat({
     quotaMessage,
     messageLimitReached,
     reportGenerationLocked,
-    bookingOpen,
-    bookingDoctorId,
     listEndRef,
     createSessionMutation,
     sendMessageMutation,
-    recommendQuery,
     setInput,
-    setBookingOpen,
     setDisclaimerOpen,
     setQuotaDialogOpen,
     applyEditedSummary,
@@ -493,6 +611,5 @@ export function useTriageChat({
     handleSend,
     handleAcceptDisclaimer,
     handleInputKeyDown,
-    openBookingDialog,
   };
 }

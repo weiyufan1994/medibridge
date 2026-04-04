@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getLocalizedTextWithZhFallback, getSearchableText } from "@/lib/i18n";
@@ -7,42 +7,87 @@ export type HospitalsViewMode = "hospitals" | "departments" | "doctors";
 
 export function useHospitals() {
   const [viewMode, setViewMode] = useState<HospitalsViewMode>("hospitals");
-  const [selectedHospitalId, setSelectedHospitalId] = useState<number | null>(null);
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState<number | null>(null);
+  const [selectedHospitalId, setSelectedHospitalId] = useState<number | null>(
+    null
+  );
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<
+    number | null
+  >(null);
   const [searchQuery, setSearchQuery] = useState("");
   const { resolved, reportInput } = useLanguage();
 
-  const { data: hospitals, isLoading: hospitalsLoading } = trpc.hospitals.getAll.useQuery();
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
 
-  const { data: departments, isLoading: departmentsLoading } = trpc.hospitals.getDepartments.useQuery(
-    { hospitalId: selectedHospitalId! },
-    { enabled: selectedHospitalId !== null }
+    const params = new URLSearchParams(window.location.search);
+    const hospitalId = Number(params.get("hospitalId") ?? NaN);
+    const departmentId = Number(params.get("departmentId") ?? NaN);
+
+    if (!Number.isInteger(hospitalId) || hospitalId <= 0) {
+      return;
+    }
+
+    setSelectedHospitalId(hospitalId);
+
+    if (Number.isInteger(departmentId) && departmentId > 0) {
+      setSelectedDepartmentId(departmentId);
+      setViewMode("doctors");
+      return;
+    }
+
+    setViewMode("departments");
+  }, []);
+
+  const { data: hospitals, isLoading: hospitalsLoading } =
+    trpc.hospitals.getAll.useQuery();
+
+  const { data: departments, isLoading: departmentsLoading } =
+    trpc.hospitals.getDepartments.useQuery(
+      { hospitalId: selectedHospitalId! },
+      { enabled: selectedHospitalId !== null }
+    );
+
+  const { data: doctors, isLoading: doctorsLoading } =
+    trpc.doctors.getByDepartment.useQuery(
+      { departmentId: selectedDepartmentId!, limit: 50 },
+      { enabled: selectedDepartmentId !== null }
+    );
+
+  const selectedHospital = hospitals?.find(h => h.id === selectedHospitalId);
+  const selectedDepartment = departments?.find(
+    d => d.id === selectedDepartmentId
   );
-
-  const { data: doctors, isLoading: doctorsLoading } = trpc.doctors.getByDepartment.useQuery(
-    { departmentId: selectedDepartmentId!, limit: 50 },
-    { enabled: selectedDepartmentId !== null }
-  );
-
-  const selectedHospital = hospitals?.find((h) => h.id === selectedHospitalId);
-  const selectedDepartment = departments?.find((d) => d.id === selectedDepartmentId);
 
   const selectedHospitalName = selectedHospital
-    ? getLocalizedTextWithZhFallback({ lang: resolved, value: selectedHospital.name })
+    ? getLocalizedTextWithZhFallback({
+        lang: resolved,
+        value: selectedHospital.name,
+      })
     : "";
 
   const selectedHospitalLevel = selectedHospital
-    ? getLocalizedTextWithZhFallback({ lang: resolved, value: selectedHospital.level })
+    ? getLocalizedTextWithZhFallback({
+        lang: resolved,
+        value: selectedHospital.level,
+      })
     : "";
   const selectedHospitalImageUrl = selectedHospital?.imageUrl ?? null;
 
   const selectedDepartmentName = selectedDepartment
-    ? getLocalizedTextWithZhFallback({ lang: resolved, value: selectedDepartment.name })
+    ? getLocalizedTextWithZhFallback({
+        lang: resolved,
+        value: selectedDepartment.name,
+      })
     : "";
 
   const filteredDoctors = useMemo(() => {
-    return doctors?.filter((d) => {
-      const name = getLocalizedTextWithZhFallback({ lang: resolved, value: d.doctor.name });
+    return doctors?.filter(d => {
+      const name = getLocalizedTextWithZhFallback({
+        lang: resolved,
+        value: d.doctor.name,
+      });
       const expertise = getLocalizedTextWithZhFallback({
         lang: resolved,
         value: d.doctor.expertise,
