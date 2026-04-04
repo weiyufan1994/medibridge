@@ -113,6 +113,167 @@ export type Department = typeof departments.$inferSelect;
 export type InsertDepartment = typeof departments.$inferInsert;
 
 /**
+ * External hospital reference catalog used for triage routing.
+ */
+export const hospitalReferenceHospitals = pgTable(
+  "hospital_reference_hospitals",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(),
+    nameEn: varchar("nameEn", { length: 255 }),
+    normalizedName: varchar("normalizedName", { length: 255 }).notNull(),
+    city: varchar("city", { length: 100 }),
+    cityEn: varchar("cityEn", { length: 100 }),
+    localHospitalId: integer("localHospitalId").references(() => hospitals.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt")
+      .defaultNow()
+      .$onUpdateFn(() => new Date())
+      .notNull(),
+  },
+  table => ({
+    normalizedNameUk: uniqueIndex("hospitalRefHospitalsNormalizedUk").on(
+      table.normalizedName
+    ),
+    localHospitalIdx: index("hospitalRefHospitalsLocalHospitalIdx").on(
+      table.localHospitalId
+    ),
+  })
+);
+
+export type HospitalReferenceHospital =
+  typeof hospitalReferenceHospitals.$inferSelect;
+export type InsertHospitalReferenceHospital =
+  typeof hospitalReferenceHospitals.$inferInsert;
+
+export const hospitalReferenceSpecialties = pgTable(
+  "hospital_reference_specialties",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(),
+    nameEn: varchar("nameEn", { length: 255 }),
+    normalizedName: varchar("normalizedName", { length: 255 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt")
+      .defaultNow()
+      .$onUpdateFn(() => new Date())
+      .notNull(),
+  },
+  table => ({
+    normalizedNameUk: uniqueIndex("hospitalRefSpecialtiesNormalizedUk").on(
+      table.normalizedName
+    ),
+  })
+);
+
+export type HospitalReferenceSpecialty =
+  typeof hospitalReferenceSpecialties.$inferSelect;
+export type InsertHospitalReferenceSpecialty =
+  typeof hospitalReferenceSpecialties.$inferInsert;
+
+export const hospitalReferenceSpecialtyRankings = pgTable(
+  "hospital_reference_specialty_rankings",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    hospitalReferenceId: integer("hospitalReferenceId")
+      .notNull()
+      .references(() => hospitalReferenceHospitals.id, { onDelete: "cascade" }),
+    specialtyReferenceId: integer("specialtyReferenceId")
+      .notNull()
+      .references(() => hospitalReferenceSpecialties.id, {
+        onDelete: "cascade",
+      }),
+    sourceYear: integer("sourceYear").notNull(),
+    specialtyRank: integer("specialtyRank"),
+    specialtyScore: real("specialtyScore"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt")
+      .defaultNow()
+      .$onUpdateFn(() => new Date())
+      .notNull(),
+  },
+  table => ({
+    hospitalYearIdx: index("hospitalRefSpecRankHospitalYearIdx").on(
+      table.hospitalReferenceId,
+      table.sourceYear
+    ),
+    specialtyYearIdx: index("hospitalRefSpecRankSpecialtyYearIdx").on(
+      table.specialtyReferenceId,
+      table.sourceYear
+    ),
+    hospitalYearSpecialtyUk: uniqueIndex(
+      "hospitalRefSpecRankHospitalYearSpecialtyUk"
+    ).on(table.hospitalReferenceId, table.sourceYear, table.specialtyReferenceId),
+  })
+);
+
+export type HospitalReferenceSpecialtyRanking =
+  typeof hospitalReferenceSpecialtyRankings.$inferSelect;
+export type InsertHospitalReferenceSpecialtyRanking =
+  typeof hospitalReferenceSpecialtyRankings.$inferInsert;
+
+export const hospitalReferenceGeneralRankings = pgTable(
+  "hospital_reference_general_rankings",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    hospitalReferenceId: integer("hospitalReferenceId")
+      .notNull()
+      .references(() => hospitalReferenceHospitals.id, { onDelete: "cascade" }),
+    sourceYear: integer("sourceYear").notNull(),
+    rankOrder: integer("rankOrder"),
+    grade: varchar("grade", { length: 50 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt")
+      .defaultNow()
+      .$onUpdateFn(() => new Date())
+      .notNull(),
+  },
+  table => ({
+    yearIdx: index("hospitalRefGeneralRankYearIdx").on(table.sourceYear),
+    hospitalYearUk: uniqueIndex("hospitalRefGeneralRankHospitalYearUk").on(
+      table.hospitalReferenceId,
+      table.sourceYear
+    ),
+  })
+);
+
+export type HospitalReferenceGeneralRanking =
+  typeof hospitalReferenceGeneralRankings.$inferSelect;
+export type InsertHospitalReferenceGeneralRanking =
+  typeof hospitalReferenceGeneralRankings.$inferInsert;
+
+export const hospitalReferenceStemRankings = pgTable(
+  "hospital_reference_stem_rankings",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    hospitalReferenceId: integer("hospitalReferenceId")
+      .notNull()
+      .references(() => hospitalReferenceHospitals.id, { onDelete: "cascade" }),
+    sourceYear: integer("sourceYear").notNull(),
+    stemRank: integer("stemRank"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt")
+      .defaultNow()
+      .$onUpdateFn(() => new Date())
+      .notNull(),
+  },
+  table => ({
+    yearIdx: index("hospitalRefStemRankYearIdx").on(table.sourceYear),
+    hospitalYearUk: uniqueIndex("hospitalRefStemRankHospitalYearUk").on(
+      table.hospitalReferenceId,
+      table.sourceYear
+    ),
+  })
+);
+
+export type HospitalReferenceStemRanking =
+  typeof hospitalReferenceStemRankings.$inferSelect;
+export type InsertHospitalReferenceStemRanking =
+  typeof hospitalReferenceStemRankings.$inferInsert;
+
+/**
  * Doctors table - stores doctor information
  */
 export const doctors = pgTable(
