@@ -125,6 +125,8 @@ Require explicit human approval before running:
 - UI copy and DB-backed multilingual content must be treated separately.
 - Preserve placeholders, tags, markdown, and structured tokens exactly.
 - Do not add new silent cross-language fallback behavior.
+- Temporary placeholder copy such as "Translation in progress" must live in client feature presentation or copy resources.
+- Server domain logic should return structured status or metadata instead of UI-facing placeholder strings whenever possible.
 - If code and bilingual-design docs disagree, surface the mismatch explicitly before changing behavior.
 - Keep bilingual logic reviewable and localized to the relevant layer.
 - Medical wording, dates, units, dosage, and named entities must keep semantic meaning through normalization or translation changes.
@@ -168,3 +170,4 @@ Before considering the task done, flag:
 - migration or data-script risk without rollout notes
 - dependency additions without approval
 - missing tests for changed behavior
+- UI-facing placeholder strings introduced in server/domain logic
