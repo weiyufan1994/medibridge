@@ -370,6 +370,47 @@ const buildMatchedReason = (
     : `您的症状与${departmentName}方向更匹配，建议优先由该方向医生先评估。`;
 };
 
+const normalizePromptText = (
+  value: string | null | undefined,
+  maxLength?: number
+) => {
+  const normalized =
+    typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  if (typeof maxLength === "number") {
+    return normalized.slice(0, maxLength);
+  }
+
+  return normalized;
+};
+
+const buildEnglishRankingCandidate = (
+  result: Awaited<ReturnType<typeof doctorsRepo.searchDoctors>>[number],
+  index: number
+) => {
+  const englishDisplayFields = {
+    doctorName: normalizePromptText(result.doctor.nameEn),
+    hospitalName: normalizePromptText(result.hospital.nameEn),
+    departmentName: normalizePromptText(result.department.nameEn),
+    title: normalizePromptText(result.doctor.titleEn),
+    expertise: normalizePromptText(result.doctor.expertiseEn, 200),
+  };
+
+  return {
+    index: index + 1,
+    doctorId: result.doctor.id,
+    specialty: normalizePromptText(result.doctor.specialtyEn),
+    recommendationScore: result.doctor.recommendationScore ?? null,
+    ...englishDisplayFields,
+    missingEnglishFields: Object.entries(englishDisplayFields)
+      .filter(([, value]) => value === null)
+      .map(([key]) => key),
+  };
+};
 
 export async function sendMessageAction(input: SendMessageInput) {
       const sessionId = input.sessionId || nanoid();
@@ -379,7 +420,6 @@ export async function sendMessageAction(input: SendMessageInput) {
       const resolvedLang =
         input.lang === "auto" ? detectLanguage(input.message) : input.lang;
       const isEnglish = resolvedLang === "en";
-      const placeholder = "Translation in progress";
 
       const systemPrompt = isEnglish
         ? `You are MediBridge's medical consultation assistant, helping North American patients find suitable doctors in Shanghai, China. Your tasks:
@@ -660,33 +700,32 @@ readyForRecommendation should be true if you have basic symptom information (eve
 
         // Rank doctors using LLM
         if (relevantSearchResults.length > 0) {
-          const doctorDescriptions = relevantSearchResults.map((r, idx) => ({
-            id: r.doctor.id,
-            index: idx,
-            text: `${idx + 1}. ${
-              isEnglish ? r.doctor.nameEn || placeholder : r.doctor.name
-            } - ${isEnglish ? r.hospital.nameEn || placeholder : r.hospital.name} ${
-              isEnglish ? r.department.nameEn || placeholder : r.department.name
-            }
+          const doctorRankingInput = isEnglish
+            ? JSON.stringify(
+                relevantSearchResults.map((result, index) =>
+                  buildEnglishRankingCandidate(result, index)
+                ),
+                null,
+                2
+              )
+            : relevantSearchResults
+                .map((r, idx) => ({
+                  id: r.doctor.id,
+                  index: idx,
+                  text: `${idx + 1}. ${r.doctor.name} - ${r.hospital.name} ${r.department.name}
 Title: ${
-              isEnglish
-                ? r.doctor.titleEn || placeholder
-                : r.doctor.title || (isEnglish ? placeholder : "未知")
-            }
+                    r.doctor.title || "未知"
+                  }
 Expertise: ${
-              isEnglish
-                ? r.doctor.expertiseEn?.substring(0, 200) || placeholder
-                : r.doctor.expertise?.substring(0, 200) || "暂无信息"
-            }
+                    r.doctor.expertise?.substring(0, 200) || "暂无信息"
+                  }
 Recommendation Score: ${r.doctor.recommendationScore || "N/A"}`,
-          }));
+                }))
+                .map(item => item.text)
+                .join("\n\n");
 
-          const rankingResponse = await invokeLLM({
-            messages: [
-              {
-                role: "system",
-                content: isEnglish
-                  ? `Based on patient needs, select the 3-5 most suitable doctors from candidates, ranked by relevance.
+          const rankingPrompt = isEnglish
+            ? `Based on patient needs, select the 3-5 most suitable doctors from candidates, ranked by relevance.
 Return JSON format:
 {
   "selectedDoctors": [
@@ -696,8 +735,10 @@ Return JSON format:
     }
   ]
 }
+Candidate doctors are provided as JSON. English display fields may be null, and missingEnglishFields lists which translations are unavailable.
+Treat missing English fields as metadata only. Do not invent replacement text or restate placeholder copy.
 Respond only in English.`
-                  : `根据患者需求，从候选医生中选出 3-5 位最合适的，按相关度排序。
+            : `根据患者需求，从候选医生中选出 3-5 位最合适的，按相关度排序。
 返回 JSON：
 {
   "selectedDoctors": [
@@ -707,15 +748,29 @@ Respond only in English.`
     }
   ]
 }
-仅用中文返回。`,
-              },
-              {
-                role: "user",
-                content: `Patient needs: ${extraction.symptoms}
+仅用中文返回。`;
+
+          const rankingUserContent = isEnglish
+            ? `Patient needs: ${extraction.symptoms}
+Keywords: ${extraction.keywords.join(", ")}
+
+Candidate doctors JSON:
+${doctorRankingInput}`
+            : `Patient needs: ${extraction.symptoms}
 Keywords: ${extraction.keywords.join(", ")}
 
 Candidate doctors:
-${doctorDescriptions.map(d => d.text).join("\n\n")}`,
+${doctorRankingInput}`;
+
+          const rankingResponse = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: rankingPrompt,
+              },
+              {
+                role: "user",
+                content: rankingUserContent,
               },
             ],
             response_format: {
