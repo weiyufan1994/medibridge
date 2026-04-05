@@ -6,6 +6,7 @@ import {
   doctors,
   hospitals,
 } from "../../../drizzle/schema";
+import { DEFAULT_HOSPITAL_BROWSE_LANG } from "../../../shared/hospitalBrowse";
 import { getDb } from "../../db";
 
 type SearchLanguage = "en" | "zh";
@@ -300,7 +301,10 @@ export async function listRecommendationCandidates() {
     .orderBy(desc(doctors.recommendationScore));
 }
 
-export async function getDoctorById(doctorId: number) {
+export async function getDoctorById(
+  doctorId: number,
+  _lang: SearchLanguage = DEFAULT_HOSPITAL_BROWSE_LANG
+) {
   const db = await getDb();
   if (!db) {
     throw new Error("Database not available");

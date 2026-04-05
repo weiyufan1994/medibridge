@@ -535,6 +535,16 @@ describe("hospitals router", () => {
       hospitalId: 10,
       lang: "zh",
     });
+    expect(doctorSchemas.getDoctorByIdInputSchema.parse({ id: 1 })).toEqual({
+      id: 1,
+      lang: "zh",
+    });
+    expect(
+      doctorSchemas.getDoctorByIdInputSchema.parse({ id: 1, lang: "fr" })
+    ).toEqual({
+      id: 1,
+      lang: "zh",
+    });
     expect(
       doctorSchemas.getDoctorsByDepartmentInputSchema.parse({
         departmentId: 100,
@@ -570,6 +580,21 @@ describe("hospitals router", () => {
 describe("hospital browsing doctor list locale", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("passes the explicit locale into doctors.getById", async () => {
+    const ctx = createTestContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await caller.doctors.getById({
+      id: mockDoctors[0].id,
+      lang: "en",
+    });
+
+    expect(doctorsRepo.getDoctorById).toHaveBeenLastCalledWith(
+      mockDoctors[0].id,
+      "en"
+    );
   });
 
   it("passes the explicit locale into doctors.getByDepartment", async () => {

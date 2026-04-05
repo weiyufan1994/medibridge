@@ -1,8 +1,14 @@
 import { z } from "zod";
-import { hospitalBrowseLangSchema } from "../../../shared/hospitalBrowse";
+import {
+  DEFAULT_HOSPITAL_BROWSE_LANG,
+  hospitalBrowseLangSchema,
+} from "../../../shared/hospitalBrowse";
 
 export const getDoctorByIdInputSchema = z.object({
   id: z.number(),
+  lang: hospitalBrowseLangSchema
+    .optional()
+    .transform(lang => lang ?? DEFAULT_HOSPITAL_BROWSE_LANG),
 });
 
 export const searchDoctorsInputSchema = z.object({

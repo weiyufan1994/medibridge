@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildDoctorDetailInput,
   buildDepartmentDoctorsInput,
   buildHospitalDepartmentsInput,
   buildHospitalsListInput,
@@ -14,6 +15,10 @@ describe("hospitals presentation", () => {
       hospitalId: 10,
       lang: "zh",
     });
+    expect(buildDoctorDetailInput(42, "en")).toEqual({
+      id: 42,
+      lang: "en",
+    });
     expect(buildDepartmentDoctorsInput(100, "en")).toEqual({
       departmentId: 100,
       limit: 50,
@@ -21,18 +26,25 @@ describe("hospitals presentation", () => {
     });
   });
 
-  it("uses a strict english selector instead of leaking chinese fallback text", () => {
+  it("uses a strict english selector instead of leaking chinese fallback text on doctor detail surfaces", () => {
     expect(
       getHospitalBrowseText({
         lang: "en",
-        value: { zh: "示例医院", en: "" },
+        value: { zh: "张医生", en: "" },
       })
     ).toBe("Translation in progress");
 
     expect(
       getHospitalBrowseText({
         lang: "en",
-        value: { zh: "骨科", en: "骨科" },
+        value: { zh: "主任医师", en: "主任医师" },
+      })
+    ).toBe("Translation in progress");
+
+    expect(
+      getHospitalBrowseText({
+        lang: "en",
+        value: { zh: "上海市徐汇区示例路 1 号", en: "" },
       })
     ).toBe("Translation in progress");
   });

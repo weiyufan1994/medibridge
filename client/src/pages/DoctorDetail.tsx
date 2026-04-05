@@ -61,7 +61,7 @@ export default function DoctorDetail() {
     setLocation("/hospitals");
   };
 
-  const { data, isLoading, error } = useDoctorDetail(doctorId);
+  const { data, isLoading, error } = useDoctorDetail(doctorId, resolved);
 
   if (isLoading) {
     return (

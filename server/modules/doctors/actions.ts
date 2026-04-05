@@ -480,7 +480,7 @@ function toPublicRecommendation(
 }
 
 export async function getDoctorById(input: GetDoctorByIdInput) {
-  const result = await doctorsRepo.getDoctorById(input.id);
+  const result = await doctorsRepo.getDoctorById(input.id, input.lang);
   if (!result) {
     return null;
   }
