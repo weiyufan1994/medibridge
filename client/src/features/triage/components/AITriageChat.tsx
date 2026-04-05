@@ -31,6 +31,7 @@ import {
 } from "@/features/triage/hooks/useTriageChat";
 import {
   getLocalizedInterruptionDetail,
+  getLocalizedTriageText,
   getTriageCopy,
 } from "@/features/triage/copy";
 import {
@@ -1028,11 +1029,13 @@ export default function AITriageChat() {
                               t.triage_card.possibility_fallback
                             }
                             recommendedDepartment={
-                              resolved === "zh"
-                                ? (displayedTriageResult.routing?.recommendedDepartment
-                                    .zh ?? t.triage_card.department_fallback)
-                                : (displayedTriageResult.routing?.recommendedDepartment
-                                    .en ?? t.triage_card.department_fallback)
+                              getLocalizedTriageText({
+                                lang: resolved,
+                                text:
+                                  displayedTriageResult.routing
+                                    ?.recommendedDepartment,
+                                fallback: t.triage_card.department_fallback,
+                              })
                             }
                             hospitals={displayedTriageResult.routing?.hospitals ?? []}
                             labels={{

@@ -415,6 +415,18 @@ export const TRIAGE_COPY = {
 
 export const getTriageCopy = (lang: TriageLang) => TRIAGE_COPY[lang];
 
+export const getLocalizedTriageText = (input: {
+  lang: TriageLang;
+  text?: LocalizedText | null;
+  fallback: string;
+}) => {
+  if (!input.text) {
+    return input.fallback;
+  }
+
+  return input.text[input.lang] || input.fallback;
+};
+
 export const getLocalizedInterruptionDetail = (input: {
   lang: TriageLang;
   message?: LocalizedText | null;

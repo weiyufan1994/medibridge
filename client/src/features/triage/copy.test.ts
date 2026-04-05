@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { getTriageCopy } from "@/features/triage/copy";
+import {
+  getLocalizedTriageText,
+  getTriageCopy,
+} from "@/features/triage/copy";
 
 describe("triage copy", () => {
   it("uses AI-guided first-turn wording in Chinese instead of form-first wording", () => {
@@ -24,5 +27,26 @@ describe("triage copy", () => {
     expect(copy.initialAssistantMessage).toContain("4 quick questions");
     expect(copy.initialAssistantMessage).toContain("underlying conditions");
     expect(copy.placeholder).toBe("Describe your symptoms here...");
+  });
+
+  it("resolves localized triage text with an explicit fallback", () => {
+    expect(
+      getLocalizedTriageText({
+        lang: "zh",
+        text: {
+          zh: "呼吸内科",
+          en: "Respiratory Medicine",
+        },
+        fallback: "相关专科",
+      })
+    ).toBe("呼吸内科");
+
+    expect(
+      getLocalizedTriageText({
+        lang: "en",
+        text: undefined,
+        fallback: "Relevant department",
+      })
+    ).toBe("Relevant department");
   });
 });
