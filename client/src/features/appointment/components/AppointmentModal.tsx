@@ -25,8 +25,9 @@ import {
   type AppointmentType,
 } from "@/features/appointment/hooks/useAppointmentForm";
 import { getAppointmentCopy } from "@/features/appointment/copy";
+import { getAppointmentSurfaceText } from "@/features/appointment/presentation";
 import { buildSlotGroups } from "@/features/appointment/utils/slotDates";
-import { getLocalizedText, getLocalizedTextWithZhFallback } from "@/lib/i18n";
+import { getLocalizedText } from "@/lib/i18n";
 import type { TriagePrefillInput } from "@shared/appointmentIntake";
 import { trpc } from "@/lib/trpc";
 
@@ -215,10 +216,10 @@ export function AppointmentModal({
                   <AvatarImage src={selectedDoctor?.imageUrl ?? undefined} />
                   <AvatarFallback className="bg-teal-600 text-white">
                     {(
-                      getLocalizedTextWithZhFallback({
+                      getAppointmentSurfaceText({
                         lang: resolved,
                         value: selectedDoctor?.name,
-                        placeholder: t.doctorFallback.replace("{{id}}", String(doctorId ?? "")),
+                        fallback: t.doctorFallback.replace("{{id}}", String(doctorId ?? "")),
                       }) ?? t.doctorFallback.replace("{{id}}", String(doctorId ?? ""))
                     )
                       .slice(0, 1)
@@ -228,19 +229,19 @@ export function AppointmentModal({
                 <div className="min-w-0">
                   <p className="truncate font-semibold text-slate-900">
                     {selectedDoctor
-                      ? getLocalizedTextWithZhFallback({
+                      ? getAppointmentSurfaceText({
                           lang: resolved,
                           value: selectedDoctor.name,
-                          placeholder: t.doctorFallback.replace("{{id}}", String(doctorId ?? "")),
+                          fallback: t.doctorFallback.replace("{{id}}", String(doctorId ?? "")),
                         })
                       : t.doctorFallback.replace("{{id}}", String(doctorId ?? ""))}
                   </p>
                   <p className="truncate text-sm text-slate-500">
                     {selectedDoctor
-                      ? getLocalizedTextWithZhFallback({
+                      ? getAppointmentSurfaceText({
                           lang: resolved,
                           value: selectedDoctor.title,
-                          placeholder: t.bookingTypeOnline,
+                          fallback: t.bookingTypeOnline,
                         })
                       : t.bookingTypeOnline}
                   </p>

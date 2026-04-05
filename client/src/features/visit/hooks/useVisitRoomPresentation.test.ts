@@ -82,6 +82,40 @@ describe("buildVisitRoomPresentation", () => {
     expect(result.hasTriageData).toBe(false);
   });
 
+  it("uses explicit english fallbacks instead of leaking chinese doctor fields", () => {
+    const t = getVisitCopy("en");
+    const result = buildVisitRoomPresentation({
+      resolved: "en",
+      t,
+      now: new Date("2026-03-01T08:00:00.000Z"),
+      appointment: {
+        role: "patient",
+        status: "active",
+        triageSummary: null,
+        intake: null,
+      },
+      doctorData: {
+        doctor: {
+          name: { zh: "张医生", en: "" },
+          title: { zh: "主任医师", en: "主任医师" },
+        },
+        department: {
+          name: { zh: "呼吸科", en: "" },
+        },
+      },
+      role: "patient",
+      currentStatus: "active",
+      timerStatus: "normal",
+      canSendMessage: true,
+      isSending: false,
+      pollingFatalError: null,
+    });
+
+    expect(result.doctorName).toBe(t.assignedDoctorFallback);
+    expect(result.departmentName).toBe(t.departmentFallback);
+    expect(result.doctorTitleDisplay).toBe(t.doctorRoleFallback);
+  });
+
   it("treats completed as read-only status", () => {
     const t = getVisitCopy("en");
     const result = buildVisitRoomPresentation({

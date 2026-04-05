@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { format } from "date-fns";
 import { enUS, zhCN } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
-import { getLocalizedTextWithZhFallback } from "@/lib/i18n";
+import { getLocalizedText } from "@/lib/i18n";
 import { getVisitCopy } from "@/features/visit/copy";
 import type { ConsultationTimerStatus } from "@/features/visit/types";
 import type { LocalizedText } from "@shared/types";
@@ -82,7 +82,7 @@ export function buildVisitRoomPresentation(input: VisitRoomPresentationInput) {
   const isDoctorView = viewerRole === "doctor";
 
   const doctorName = input.doctorData
-    ? getLocalizedTextWithZhFallback({
+    ? getLocalizedText({
         lang: input.resolved,
         value: input.doctorData.doctor.name,
         placeholder: input.t.assignedDoctorFallback,
@@ -90,7 +90,7 @@ export function buildVisitRoomPresentation(input: VisitRoomPresentationInput) {
     : input.t.assignedDoctorFallback;
 
   const departmentName = input.doctorData
-    ? getLocalizedTextWithZhFallback({
+    ? getLocalizedText({
         lang: input.resolved,
         value: input.doctorData.department.name,
         placeholder: input.t.departmentFallback,
@@ -99,7 +99,7 @@ export function buildVisitRoomPresentation(input: VisitRoomPresentationInput) {
 
   const doctorRoleFallback = input.t.doctorRoleFallback;
   const doctorTitle = input.doctorData
-    ? getLocalizedTextWithZhFallback({
+    ? getLocalizedText({
         lang: input.resolved,
         value: input.doctorData.doctor.title,
         placeholder: doctorRoleFallback,

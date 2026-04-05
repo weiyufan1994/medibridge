@@ -3,9 +3,10 @@ import { ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { formatAppointmentTimes } from "@/lib/appointmentTime";
-import { getDisplayLocale, getLocalizedTextWithZhFallback } from "@/lib/i18n";
+import { getDisplayLocale } from "@/lib/i18n";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getDashboardAppointmentCopy } from "@/features/dashboard/copy";
+import { getAppointmentSurfaceText } from "@/features/appointment/presentation";
 import { PatientSummaryModal } from "@/features/visit/components/PatientSummaryModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -213,10 +214,10 @@ function AppointmentCard(props: {
     }
   );
 
-  const doctorName = getLocalizedTextWithZhFallback({
+  const doctorName = getAppointmentSurfaceText({
     lang: props.resolved,
     value: doctorQuery.data?.doctor?.name,
-    placeholder: props.t.doctorFallback.replace("{{id}}", String(props.item.doctorId)),
+    fallback: props.t.doctorFallback.replace("{{id}}", String(props.item.doctorId)),
   });
   const doctorImage = doctorQuery.data?.doctor?.imageUrl;
   const locale = getDisplayLocale(props.resolved);
@@ -554,10 +555,10 @@ export function MyAppointments() {
     "{{id}}",
     summaryDoctorId ? String(summaryDoctorId) : "-"
   );
-  const summaryDoctorName = getLocalizedTextWithZhFallback({
+  const summaryDoctorName = getAppointmentSurfaceText({
     lang: resolved,
     value: summaryDoctorQuery.data?.doctor?.name,
-    placeholder: summaryDoctorFallback,
+    fallback: summaryDoctorFallback,
   });
 
   return (
