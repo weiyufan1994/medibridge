@@ -84,4 +84,42 @@ describe("access query triage localization", () => {
       medications: "nifedipine",
     });
   });
+
+  it("filters unsafe english fallback for summary and intake when translation is unavailable", async () => {
+    vi.mocked(invokeLLM).mockResolvedValue({
+      id: "mock",
+      created: Date.now(),
+      model: "mock-model",
+      choices: [
+        {
+          index: 0,
+          finish_reason: "stop",
+          message: {
+            role: "assistant",
+            content: "",
+          },
+        },
+      ],
+    } as never);
+
+    const localized = await localizeTriageContent({
+      summary: "67岁男性；间歇性头痛2个月；高血压病史",
+      intake: {
+        chiefComplaint: "间歇性头痛",
+        duration: "2 months",
+        medicalHistory: "高血压",
+      },
+      targetLang: "en",
+      englishFallbackMode: "empty",
+    });
+
+    expect(localized).toEqual({
+      summary: null,
+      intake: {
+        chiefComplaint: "",
+        duration: "2 months",
+        medicalHistory: "",
+      },
+    });
+  });
 });

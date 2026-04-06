@@ -5,6 +5,7 @@ type TriageLocalizationCacheValue = {
   summary: string | null;
   intake: TriageIntakeRecord | null;
 };
+type EnglishFallbackMode = "source" | "empty";
 type MedicalSummaryLocalizationInput = {
   chiefComplaint: string;
   historyOfPresentIllness: string;
@@ -89,6 +90,34 @@ function shouldTranslateIntake(
       typeof value === "string" &&
       needsTranslationForTargetLanguage(value, targetLang)
   );
+}
+
+function resolveLocalizedSummary(input: {
+  current: string | null;
+  localized: string | null;
+  targetLang: "en" | "zh";
+  englishFallbackMode: EnglishFallbackMode;
+}) {
+  if (!input.current) {
+    return null;
+  }
+
+  if (!needsTranslationForTargetLanguage(input.current, input.targetLang)) {
+    return input.current;
+  }
+
+  if (
+    input.localized &&
+    !needsTranslationForTargetLanguage(input.localized, input.targetLang)
+  ) {
+    return input.localized;
+  }
+
+  if (input.targetLang === "en" && input.englishFallbackMode === "empty") {
+    return null;
+  }
+
+  return input.current;
 }
 
 function setTranslationCache<T>(cache: Map<string, T>, key: string, value: T) {
@@ -205,19 +234,48 @@ function parseTranslatedIntake(input: unknown): TriageIntakeRecord | null {
 
 function mergeLocalizedIntake<TIntake extends TriageIntakeRecord | null>(
   current: TIntake,
-  localized: TriageIntakeRecord | null
+  localized: TriageIntakeRecord | null,
+  input: {
+    targetLang: "en" | "zh";
+    englishFallbackMode: EnglishFallbackMode;
+  }
 ): TIntake {
   if (!current) {
     return current;
   }
 
   const merged: TriageIntakeRecord = { ...current };
+  for (const [key, value] of Object.entries(current)) {
+    if (typeof value !== "string") {
+      continue;
+    }
+
+    if (!needsTranslationForTargetLanguage(value, input.targetLang)) {
+      merged[key] = value;
+      continue;
+    }
+
+    const localizedValue = localized?.[key] ?? "";
+    if (
+      localizedValue.length > 0 &&
+      !needsTranslationForTargetLanguage(localizedValue, input.targetLang)
+    ) {
+      merged[key] = localizedValue;
+      continue;
+    }
+
+    merged[key] =
+      input.targetLang === "en" && input.englishFallbackMode === "empty"
+        ? ""
+        : value;
+  }
+
   if (!localized) {
     return merged as TIntake;
   }
 
   for (const [key, value] of Object.entries(localized)) {
-    if (typeof value === "string") {
+    if (typeof value === "string" && !(key in merged)) {
       merged[key] = value;
     }
   }
@@ -230,9 +288,11 @@ export async function localizeTriageContent<
   summary: string | null | undefined;
   intake: TIntake;
   targetLang: "en" | "zh";
+  englishFallbackMode?: EnglishFallbackMode;
 }): Promise<{ summary: string | null; intake: TIntake }> {
   const normalizedSummary = normalizeSummary(input.summary);
   const normalizedIntake = normalizeIntake(input.intake);
+  const englishFallbackMode = input.englishFallbackMode ?? "source";
 
   const shouldTranslateSummary = normalizedSummary
     ? needsTranslationForTargetLanguage(normalizedSummary, input.targetLang)
@@ -255,8 +315,16 @@ export async function localizeTriageContent<
   const cached = triageContentTranslationCache.get(cacheKey);
   if (cached) {
     return {
-      summary: cached.summary,
-      intake: mergeLocalizedIntake(normalizedIntake, cached.intake),
+      summary: resolveLocalizedSummary({
+        current: normalizedSummary,
+        localized: cached.summary,
+        targetLang: input.targetLang,
+        englishFallbackMode,
+      }),
+      intake: mergeLocalizedIntake(normalizedIntake, cached.intake, {
+        targetLang: input.targetLang,
+        englishFallbackMode,
+      }),
     };
   }
 
@@ -285,8 +353,16 @@ export async function localizeTriageContent<
     const translatedRaw = readAssistantText(response.choices?.[0]?.message?.content).trim();
     if (!translatedRaw) {
       return {
-        summary: normalizedSummary,
-        intake: normalizedIntake,
+        summary: resolveLocalizedSummary({
+          current: normalizedSummary,
+          localized: null,
+          targetLang: input.targetLang,
+          englishFallbackMode,
+        }),
+        intake: mergeLocalizedIntake(normalizedIntake, null, {
+          targetLang: input.targetLang,
+          englishFallbackMode,
+        }),
       };
     }
 
@@ -297,9 +373,12 @@ export async function localizeTriageContent<
     const localizedSummary =
       typeof parsed.summary === "string" && parsed.summary.trim().length > 0
         ? parsed.summary.trim()
-        : normalizedSummary;
+        : null;
     const localizedIntake = parseTranslatedIntake(parsed.intake);
-    const mergedIntake = mergeLocalizedIntake(normalizedIntake, localizedIntake);
+    const mergedIntake = mergeLocalizedIntake(normalizedIntake, localizedIntake, {
+      targetLang: input.targetLang,
+      englishFallbackMode,
+    });
 
     setTranslationCache(triageContentTranslationCache, cacheKey, {
       summary: localizedSummary,
@@ -307,14 +386,27 @@ export async function localizeTriageContent<
     });
 
     return {
-      summary: localizedSummary,
+      summary: resolveLocalizedSummary({
+        current: normalizedSummary,
+        localized: localizedSummary,
+        targetLang: input.targetLang,
+        englishFallbackMode,
+      }),
       intake: mergedIntake,
     };
   } catch (error) {
     console.warn("[appointments] triage content localization failed:", error);
     return {
-      summary: normalizedSummary,
-      intake: normalizedIntake,
+      summary: resolveLocalizedSummary({
+        current: normalizedSummary,
+        localized: null,
+        targetLang: input.targetLang,
+        englishFallbackMode,
+      }),
+      intake: mergeLocalizedIntake(normalizedIntake, null, {
+        targetLang: input.targetLang,
+        englishFallbackMode,
+      }),
     };
   }
 }

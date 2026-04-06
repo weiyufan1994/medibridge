@@ -38,6 +38,8 @@ export async function getAppointmentAccessByToken<
     summary: triageSession?.summary ?? null,
     intake: parsedIntake,
     targetLang: input.lang,
+    englishFallbackMode:
+      role === "patient" && input.lang === "en" ? "empty" : "source",
   });
   const medicalSummarySections =
     canReadMedicalSummary && medicalSummary

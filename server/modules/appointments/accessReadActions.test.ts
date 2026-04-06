@@ -168,4 +168,71 @@ describe("appointment access medical summary localization", () => {
     });
     expect(JSON.stringify(result.medicalSummary)).not.toMatch(/[\u4e00-\u9fff]/);
   });
+
+  it("filters unsafe triage summary and intake fields for english patient reads when localization is unavailable", async () => {
+    vi.mocked(validateAppointmentToken).mockResolvedValue({
+      role: "patient",
+      appointment: {
+        ...buildValidatedAppointment(),
+        notes: JSON.stringify({
+          chiefComplaint: "咳嗽",
+          duration: "3 days",
+          medicalHistory: "高血压",
+        }),
+      },
+    } as never);
+    vi.mocked(aiRepo.getAiChatSessionById).mockResolvedValue({
+      summary: "咳嗽 3 天，伴发热。",
+    } as never);
+    vi.mocked(appointmentsRepo.getMedicalSummaryByAppointmentId).mockResolvedValue(
+      null as never
+    );
+    vi.mocked(invokeLLM).mockResolvedValue({
+      id: "mock",
+      created: Date.now(),
+      model: "mock-model",
+      choices: [
+        {
+          index: 0,
+          finish_reason: "stop",
+          message: {
+            role: "assistant",
+            content: "",
+          },
+        },
+      ],
+    } as never);
+
+    const result = await getAppointmentAccessByToken({
+      appointmentId: 1,
+      token: "patient-token",
+      lang: "en",
+      parseIntake: value => {
+        const parsed = value as Record<string, unknown> | null;
+        return {
+          success: true as const,
+          data: {
+            chiefComplaint:
+              typeof parsed?.chiefComplaint === "string"
+                ? parsed.chiefComplaint
+                : undefined,
+            duration:
+              typeof parsed?.duration === "string" ? parsed.duration : undefined,
+            medicalHistory:
+              typeof parsed?.medicalHistory === "string"
+                ? parsed.medicalHistory
+                : undefined,
+          },
+        };
+      },
+    });
+
+    expect(result.triageSummary).toBeNull();
+    expect(result.intake).toEqual({
+      chiefComplaint: "",
+      duration: "3 days",
+      medicalHistory: "",
+    });
+    expect(JSON.stringify(result.intake)).not.toMatch(/[\u4e00-\u9fff]/);
+  });
 });
