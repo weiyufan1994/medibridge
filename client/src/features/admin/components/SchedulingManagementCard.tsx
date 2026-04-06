@@ -14,8 +14,9 @@ import {
   getWeekdayLabel,
   getWeekdayOptions,
 } from "@/features/admin/copy";
-import { getDisplayLocale, getLocalizedTextWithZhFallback } from "@/lib/i18n";
+import { getDisplayLocale, getLocalizedText } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
+import type { LocalizedText } from "@shared/types";
 
 type TranslateFn = (zh: string, en: string) => string;
 
@@ -51,6 +52,29 @@ function formatStatus(status: string, tr: TranslateFn) {
     default:
       return status;
   }
+}
+
+type SchedulingDoctorLabelInput = {
+  lang: "zh" | "en";
+  doctorId: number;
+  doctor?: {
+    id: number;
+    name?: LocalizedText | null;
+  } | null;
+  tr: TranslateFn;
+};
+
+export function getSchedulingDoctorLabel(input: SchedulingDoctorLabelInput) {
+  const fallback = input.tr(`医生 #${input.doctorId}`, `Doctor #${input.doctorId}`);
+  if (!input.doctor) {
+    return fallback;
+  }
+
+  return `${getLocalizedText({
+    lang: input.lang,
+    value: input.doctor.name,
+    placeholder: fallback,
+  })} (#${input.doctor.id})`;
 }
 
 export function SchedulingManagementCard({ tr, lang, isReadOnly = false }: Props) {
@@ -191,15 +215,12 @@ export function SchedulingManagementCard({ tr, lang, isReadOnly = false }: Props
     if (!hasDoctorId) {
       return tr("请输入医生 ID。", "Enter a doctor ID.");
     }
-    const doctor = doctorQuery.data?.doctor;
-    if (!doctor) {
-      return tr(`医生 #${doctorId}`, `Doctor #${doctorId}`);
-    }
-    return `${getLocalizedTextWithZhFallback({
+    return getSchedulingDoctorLabel({
       lang,
-      value: doctor.name,
-      placeholder: tr(`医生 #${doctorId}`, `Doctor #${doctorId}`),
-    })} (#${doctor.id})`;
+      doctorId,
+      doctor: doctorQuery.data?.doctor,
+      tr,
+    });
   }, [doctorId, doctorQuery.data?.doctor, hasDoctorId, lang, tr]);
 
   return (
