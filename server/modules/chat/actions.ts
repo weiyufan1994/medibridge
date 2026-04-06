@@ -236,6 +236,11 @@ type GroundedDoctorRecommendation = {
   departmentName: string;
 };
 
+const buildDefaultRecommendationReason = (isEnglish: boolean) =>
+  isEnglish
+    ? "Recommended based on your symptoms and medical needs."
+    : "根据您的症状与就诊需求推荐。";
+
 const buildGroundedRecommendationMessageTemplate = (
   isEnglish: boolean,
   recommendations: GroundedDoctorRecommendation[]
@@ -350,24 +355,32 @@ const buildMatchedReason = (
   isEnglish: boolean,
   result: Awaited<ReturnType<typeof doctorsRepo.searchDoctors>>[number]
 ) => {
-  const departmentName = isEnglish
-    ? result.department.nameEn || result.department.name
-    : result.department.name;
-  const rawExpertise = isEnglish
-    ? result.doctor.expertiseEn || result.doctor.expertise || ""
-    : result.doctor.expertise || result.doctor.expertiseEn || "";
+  if (isEnglish) {
+    const departmentName = normalizePromptText(result.department.nameEn);
+    const expertise = normalizePromptText(result.doctor.expertiseEn) ?? "";
+    const expertiseSnippet = expertise.slice(0, 60);
+
+    if (departmentName && expertiseSnippet.length > 0) {
+      return `Your symptoms are closer to ${departmentName}. This doctor's expertise includes: ${expertiseSnippet}${expertise.length > 60 ? "..." : ""}`;
+    }
+
+    if (departmentName) {
+      return `Your symptoms are aligned with ${departmentName}, so this doctor is a better fit for first consultation.`;
+    }
+
+    return buildDefaultRecommendationReason(true);
+  }
+
+  const departmentName = result.department.name;
+  const rawExpertise = result.doctor.expertise || result.doctor.expertiseEn || "";
   const expertise = rawExpertise.replace(/\s+/g, " ").trim();
   const expertiseSnippet = expertise.length > 0 ? expertise.slice(0, 60) : "";
 
   if (expertiseSnippet.length > 0) {
-    return isEnglish
-      ? `Your symptoms are closer to ${departmentName}. This doctor's expertise includes: ${expertiseSnippet}${expertise.length > 60 ? "..." : ""}`
-      : `您的症状更接近${departmentName}就诊方向，该医生擅长：${expertiseSnippet}${expertise.length > 60 ? "..." : ""}`;
+    return `您的症状更接近${departmentName}就诊方向，该医生擅长：${expertiseSnippet}${expertise.length > 60 ? "..." : ""}`;
   }
 
-  return isEnglish
-    ? `Your symptoms are aligned with ${departmentName}, so this doctor is a better fit for first consultation.`
-    : `您的症状与${departmentName}方向更匹配，建议优先由该方向医生先评估。`;
+  return `您的症状与${departmentName}方向更匹配，建议优先由该方向医生先评估。`;
 };
 
 const normalizePromptText = (
@@ -409,6 +422,24 @@ const buildEnglishRankingCandidate = (
     missingEnglishFields: Object.entries(englishDisplayFields)
       .filter(([, value]) => value === null)
       .map(([key]) => key),
+  };
+};
+
+const getEnglishGroundedDisplayFields = (
+  result: Awaited<ReturnType<typeof doctorsRepo.searchDoctors>>[number]
+) => {
+  const doctorName = normalizePromptText(result.doctor.nameEn);
+  const hospitalName = normalizePromptText(result.hospital.nameEn);
+  const departmentName = normalizePromptText(result.department.nameEn);
+
+  if (!doctorName || !hospitalName || !departmentName) {
+    return null;
+  }
+
+  return {
+    doctorName,
+    hospitalName,
+    departmentName,
   };
 };
 
@@ -820,9 +851,7 @@ ${doctorRankingInput}`;
               reason:
                 typeof item.reason === "string" && item.reason.trim().length > 0
                   ? item.reason.trim()
-                  : isEnglish
-                    ? "Recommended based on your symptoms and medical needs."
-                    : "根据您的症状与就诊需求推荐。",
+                  : buildDefaultRecommendationReason(isEnglish),
             }))
             .filter(
               item =>
@@ -867,18 +896,24 @@ ${doctorRankingInput}`;
             .map(item => {
               const matched = searchResultById.get(item.doctorId);
               if (!matched) return null;
+
+              if (isEnglish) {
+                const englishDisplayFields = getEnglishGroundedDisplayFields(matched);
+                if (!englishDisplayFields) return null;
+
+                return {
+                  doctorId: matched.doctor.id,
+                  reason: item.reason,
+                  ...englishDisplayFields,
+                } satisfies GroundedDoctorRecommendation;
+              }
+
               return {
                 doctorId: matched.doctor.id,
                 reason: item.reason,
-                doctorName: isEnglish
-                  ? matched.doctor.nameEn || matched.doctor.name
-                  : matched.doctor.name,
-                hospitalName: isEnglish
-                  ? matched.hospital.nameEn || matched.hospital.name
-                  : matched.hospital.name,
-                departmentName: isEnglish
-                  ? matched.department.nameEn || matched.department.name
-                  : matched.department.name,
+                doctorName: matched.doctor.name,
+                hospitalName: matched.hospital.name,
+                departmentName: matched.department.name,
               } satisfies GroundedDoctorRecommendation;
             })
             .filter((item): item is GroundedDoctorRecommendation => item !== null);
@@ -889,6 +924,8 @@ ${doctorRankingInput}`;
               extraction.symptoms,
               groundedRecommendations
             );
+          } else if (isEnglish) {
+            assistantMessage = buildNoMatchFollowupMessage(true);
           }
         }
 
