@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getLocalizedTextWithZhFallback } from "@/lib/i18n";
+import { getLocalizedText } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
+import type { LocalizedText } from "@shared/types";
 
 type TranslateFn = (zh: string, en: string) => string;
 
@@ -20,6 +21,29 @@ function formatDateTime(value: Date | string | null) {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
   return date.toLocaleString();
+}
+
+type DoctorAccountLabelInput = {
+  lang: "zh" | "en";
+  doctorId: number;
+  doctor?: {
+    id: number;
+    name?: LocalizedText | null;
+  } | null;
+  tr: TranslateFn;
+};
+
+export function getDoctorAccountDoctorLabel(input: DoctorAccountLabelInput) {
+  const fallback = input.tr(`医生 #${input.doctorId}`, `Doctor #${input.doctorId}`);
+  if (!input.doctor) {
+    return fallback;
+  }
+
+  return `${getLocalizedText({
+    lang: input.lang,
+    value: input.doctor.name,
+    placeholder: fallback,
+  })} (#${input.doctor.id})`;
 }
 
 export function DoctorAccountManagementCard({ tr, lang }: Props) {
@@ -87,15 +111,15 @@ export function DoctorAccountManagementCard({ tr, lang }: Props) {
     revokeMutation.isPending;
 
   const doctorLabel = useMemo(() => {
-    const doctor = doctorQuery.data?.doctor;
-    if (!doctor) {
+    if (!doctorQuery.data?.doctor) {
       return hasDoctorId ? tr(`医生 #${doctorId}`, `Doctor #${doctorId}`) : tr("请输入医生 ID", "Enter a doctor ID");
     }
-    return `${getLocalizedTextWithZhFallback({
+    return getDoctorAccountDoctorLabel({
       lang,
-      value: doctor.name,
-      placeholder: doctor.name.zh || tr(`医生 #${doctorId}`, `Doctor #${doctorId}`),
-    })} (#${doctor.id})`;
+      doctorId,
+      doctor: doctorQuery.data.doctor,
+      tr,
+    });
   }, [doctorId, doctorQuery.data?.doctor, hasDoctorId, lang, tr]);
 
   const latestInvite = statusQuery.data?.latestInvite;
