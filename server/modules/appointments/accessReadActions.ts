@@ -3,7 +3,11 @@ import * as aiRepo from "../ai/repo";
 import * as appointmentsRepo from "./repo";
 import { buildAppointmentAccessLink } from "./linkService";
 import { validateAppointmentToken } from "./accessValidation";
-import { localizeTriageContent, parseIntakeFromNotes } from "./accessQueryActions";
+import {
+  localizeMedicalSummaryContent,
+  localizeTriageContent,
+  parseIntakeFromNotes,
+} from "./accessQueryActions";
 import { resolveConsultationTimerState } from "./consultationTimer";
 import { toPublicAppointment } from "./serializers";
 import { appointmentIntakeSchema } from "./schemas";
@@ -35,6 +39,23 @@ export async function getAppointmentAccessByToken<
     intake: parsedIntake,
     targetLang: input.lang,
   });
+  const medicalSummarySections =
+    canReadMedicalSummary && medicalSummary
+      ? {
+          chiefComplaint: medicalSummary.chiefComplaint,
+          historyOfPresentIllness: medicalSummary.historyOfPresentIllness,
+          pastMedicalHistory: medicalSummary.pastMedicalHistory,
+          assessmentDiagnosis: medicalSummary.assessmentDiagnosis,
+          planRecommendations: medicalSummary.planRecommendations,
+        }
+      : null;
+  const localizedMedicalSummarySections =
+    medicalSummarySections && role === "patient" && input.lang === "en"
+      ? await localizeMedicalSummaryContent({
+          summary: medicalSummarySections,
+          targetLang: "en",
+        })
+      : medicalSummarySections;
   const timer = resolveConsultationTimerState(appointment.notes);
 
   return {
@@ -49,13 +70,11 @@ export async function getAppointmentAccessByToken<
     },
     triageSummary: localizedTriage.summary,
     intake: localizedTriage.intake,
-    medicalSummary: canReadMedicalSummary && medicalSummary
+    medicalSummary: canReadMedicalSummary &&
+      medicalSummary &&
+      localizedMedicalSummarySections
       ? {
-          chiefComplaint: medicalSummary.chiefComplaint,
-          historyOfPresentIllness: medicalSummary.historyOfPresentIllness,
-          pastMedicalHistory: medicalSummary.pastMedicalHistory,
-          assessmentDiagnosis: medicalSummary.assessmentDiagnosis,
-          planRecommendations: medicalSummary.planRecommendations,
+          ...localizedMedicalSummarySections,
           source: medicalSummary.source,
           signedBy: medicalSummary.signedBy ?? null,
           createdAt: medicalSummary.createdAt,
