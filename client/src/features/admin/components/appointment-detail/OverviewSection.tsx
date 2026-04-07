@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { formatDate, formatMoneyFromMinorUnit } from "@/features/admin/utils/adminFormatting";
 import type { AdminSuggestion } from "@/features/admin/risk";
 import type { AppointmentDetailData } from "@/features/admin/types";
-import { getLocalizedTextWithZhFallback } from "@/lib/i18n";
+import { getLocalizedText } from "@/lib/i18n";
 
 type TranslateFn = (zh: string, en: string) => string;
 
@@ -20,6 +20,49 @@ type OverviewSectionProps = {
   canNotifyFollowup: boolean;
   canReplayWebhook: boolean;
 };
+
+const TRIAGE_SUMMARY_FALLBACK = "-";
+const CJK_TEXT_PATTERN = /[\u4e00-\u9fff]/;
+
+export function getOverviewDoctorPresentation(input: {
+  lang: "zh" | "en";
+  doctor: AppointmentDetailData["doctor"];
+  tr: TranslateFn;
+}) {
+  const unknownDoctor = input.tr("未知", "Unknown");
+  const unknownDepartment = input.tr("未知科室", "Unknown department");
+  return {
+    doctorName: input.doctor
+      ? getLocalizedText({
+          lang: input.lang,
+          value: input.doctor.name,
+          placeholder: unknownDoctor,
+        })
+      : unknownDoctor,
+    departmentName: input.doctor
+      ? getLocalizedText({
+          lang: input.lang,
+          value: input.doctor.departmentName,
+          placeholder: unknownDepartment,
+        })
+      : unknownDepartment,
+  };
+}
+
+export function getOverviewTriageSummaryDisplay(input: {
+  lang: "zh" | "en";
+  summary: string | null | undefined;
+}) {
+  const summary = input.summary;
+  if (!summary) {
+    return TRIAGE_SUMMARY_FALLBACK;
+  }
+
+  return {
+    zh: summary,
+    en: CJK_TEXT_PATTERN.test(summary) ? TRIAGE_SUMMARY_FALLBACK : summary,
+  }[input.lang];
+}
 
 export function OverviewSection({
   tr,
@@ -55,20 +98,15 @@ export function OverviewSection({
   };
 
   const canExecuteSuggestion = (action: AdminSuggestion["action"]) => !suggestionDisabledReason(action);
-  const doctorName = detailData.doctor
-    ? getLocalizedTextWithZhFallback({
-        lang,
-        value: detailData.doctor.name,
-        placeholder: tr("未知", "Unknown"),
-      })
-    : tr("未知", "Unknown");
-  const departmentName = detailData.doctor
-    ? getLocalizedTextWithZhFallback({
-        lang,
-        value: detailData.doctor.departmentName,
-        placeholder: tr("未知科室", "Unknown department"),
-      })
-    : tr("未知科室", "Unknown department");
+  const { doctorName, departmentName } = getOverviewDoctorPresentation({
+    lang,
+    doctor: detailData.doctor,
+    tr,
+  });
+  const triageSummary = getOverviewTriageSummaryDisplay({
+    lang,
+    summary: detailData?.triageSession?.summary,
+  });
   return (
     <>
       <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
@@ -167,7 +205,7 @@ export function OverviewSection({
             : tr("未知", "Unknown")}
         </p>
         <p className="text-sm text-muted-foreground">
-          {tr("分诊总结：", "Triage summary: ")} {detailData?.triageSession?.summary || "-"}
+          {tr("分诊总结：", "Triage summary: ")} {triageSummary}
         </p>
       </div>
 
