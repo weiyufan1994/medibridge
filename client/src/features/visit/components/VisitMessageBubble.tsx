@@ -71,7 +71,9 @@ export function VisitMessageBubble({
             <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
               {lines.secondary}
             </p>
-            <p className="mt-1 text-[11px] text-slate-400">{translationBadgeText}</p>
+            {lines.secondaryKind === "translation" ? (
+              <p className="mt-1 text-[11px] text-slate-400">{translationBadgeText}</p>
+            ) : null}
           </div>
         ) : null}
         {showTimestamp ? (

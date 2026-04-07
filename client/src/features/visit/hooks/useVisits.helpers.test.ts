@@ -140,10 +140,12 @@ describe("useVisits helpers", () => {
     expect(getVisitMessageDisplayLines(message, "zh")).toEqual({
       primary: "I have a fever",
       secondary: "我发烧了",
+      secondaryKind: "translation",
     });
     expect(getVisitMessageDisplayLines(message, "en")).toEqual({
       primary: "I have a fever",
       secondary: null,
+      secondaryKind: null,
     });
   });
 
@@ -159,10 +161,11 @@ describe("useVisits helpers", () => {
     expect(getVisitMessageDisplayLines(message, "zh")).toEqual({
       primary: "Hello",
       secondary: null,
+      secondaryKind: null,
     });
   });
 
-  it("getVisitMessageDisplayLines supports auto source/target legacy messages", () => {
+  it("getVisitMessageDisplayLines uses translated english as the primary line for legacy chinese-source messages in english mode", () => {
     const message = {
       ...makeMessage(1, "patient", new Date("2026-01-01T10:00:00.000Z")),
       sourceLanguage: "auto",
@@ -172,12 +175,30 @@ describe("useVisits helpers", () => {
     };
 
     expect(getVisitMessageDisplayLines(message, "en")).toEqual({
-      primary: "我发烧了",
-      secondary: "I have a fever",
+      primary: "I have a fever",
+      secondary: "我发烧了",
+      secondaryKind: "source",
     });
     expect(getVisitMessageDisplayLines(message, "zh")).toEqual({
       primary: "我发烧了",
       secondary: null,
+      secondaryKind: null,
+    });
+  });
+
+  it("getVisitMessageDisplayLines falls back to a placeholder primary when english translation is unavailable", () => {
+    const message = {
+      ...makeMessage(1, "patient", new Date("2026-01-01T10:00:00.000Z")),
+      sourceLanguage: "zh",
+      targetLanguage: "en",
+      originalContent: "我发烧了",
+      translatedContent: "我发烧了",
+    };
+
+    expect(getVisitMessageDisplayLines(message, "en")).toEqual({
+      primary: "Translation in progress",
+      secondary: "我发烧了",
+      secondaryKind: "source",
     });
   });
 

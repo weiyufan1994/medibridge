@@ -1,5 +1,6 @@
 import type { VisitMessageItem, VisitParticipantRole } from "@/features/visit/types";
 import type { ResolvedLanguage } from "@/contexts/LanguageContext";
+import { MISSING_TRANSLATION } from "@/lib/i18n";
 
 export type JoinedPayload = {
   appointmentId: number;
@@ -44,6 +45,7 @@ export type VisitSocketErrorPayload = {
 export type VisitMessageDisplayLines = {
   primary: string;
   secondary: string | null;
+  secondaryKind: "translation" | "source" | null;
 };
 
 export type RoomMessagesPage = {
@@ -55,6 +57,7 @@ export type RoomMessagesPage = {
 };
 
 export const RECONNECT_DELAYS_MS = [1000, 2500, 5000, 10000] as const;
+const CJK_TEXT_PATTERN = /[\u4e00-\u9fff]/;
 
 export function getClientMsgId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -115,6 +118,15 @@ export function normalizeRealtimeMessage(
   };
 }
 
+function normalizeMessageLine(value: string | null | undefined) {
+  const normalized = value?.trim() ?? "";
+  return normalized.length > 0 ? normalized : null;
+}
+
+function isEnglishSafeMessageLine(value: string | null) {
+  return Boolean(value && !CJK_TEXT_PATTERN.test(value));
+}
+
 function normalizeLanguage(language: string) {
   const normalized = (language || "auto").trim().toLowerCase();
   if (
@@ -151,28 +163,55 @@ export function getVisitMessageDisplayLines(
   message: VisitMessageItem,
   resolved: ResolvedLanguage
 ): VisitMessageDisplayLines {
-  const primary = message.originalContent || message.content || "";
-  const translated = message.translatedContent || message.originalContent || "";
+  const original =
+    normalizeMessageLine(message.originalContent) ??
+    normalizeMessageLine(message.content) ??
+    "";
+  const translated =
+    normalizeMessageLine(message.translatedContent) ??
+    normalizeMessageLine(message.content) ??
+    original;
   const targetLanguage = inferTargetLanguage(message);
+  const displayLinesByLanguage = {
+    en: () => {
+      const primary =
+        (isEnglishSafeMessageLine(translated) ? translated : null) ??
+        (isEnglishSafeMessageLine(original) ? original : null) ??
+        MISSING_TRANSLATION;
+      const secondary =
+        original !== primary && CJK_TEXT_PATTERN.test(original) ? original : null;
 
-  const hasMeaningfulTranslation =
-    translated.trim() &&
-    translated.trim() !== primary.trim();
+      return {
+        primary,
+        secondary,
+        secondaryKind: secondary ? "source" : null,
+      } satisfies VisitMessageDisplayLines;
+    },
+    zh: () => {
+      const hasMeaningfulTranslation =
+        translated.trim() &&
+        translated.trim() !== original.trim();
 
-  if (
-    !hasMeaningfulTranslation ||
-    targetLanguage !== resolved
-  ) {
-    return {
-      primary,
-      secondary: null,
-    };
-  }
+      if (
+        !hasMeaningfulTranslation ||
+        targetLanguage !== resolved
+      ) {
+        return {
+          primary: original,
+          secondary: null,
+          secondaryKind: null,
+        } satisfies VisitMessageDisplayLines;
+      }
 
-  return {
-    primary,
-    secondary: translated,
-  };
+      return {
+        primary: original,
+        secondary: translated,
+        secondaryKind: "translation",
+      } satisfies VisitMessageDisplayLines;
+    },
+  } satisfies Record<ResolvedLanguage, () => VisitMessageDisplayLines>;
+
+  return displayLinesByLanguage[resolved]();
 }
 
 export function flattenHistoryPages(pages: RoomMessagesPage[]): VisitMessageItem[] {
