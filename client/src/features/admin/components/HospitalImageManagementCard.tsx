@@ -3,7 +3,7 @@ import { Loader2, Trash2, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { getLocalizedTextWithZhFallback } from "@/lib/i18n";
+import { MISSING_TRANSLATION, getLocalizedText } from "@/lib/i18n";
 import type { AdminHospital } from "@/features/admin/types";
 import type { HospitalImageClearState, HospitalImageUploadState } from "@/features/admin/types";
 
@@ -19,6 +19,47 @@ type Props = {
   uploadState: HospitalImageUploadState;
   clearState: HospitalImageClearState;
 };
+
+const HOSPITAL_IMAGE_ALT_EN = "Hospital cover image";
+const TITLE_PLACEHOLDER_BY_LANG = {
+  en: MISSING_TRANSLATION,
+  zh: MISSING_TRANSLATION,
+} as const;
+const CITY_PLACEHOLDER_BY_LANG = {
+  en: "",
+  zh: "",
+} as const;
+
+type HospitalImageCardPresentation = {
+  title: string;
+  city: string;
+  imageAlt: string;
+};
+
+export function getHospitalImageCardPresentation(input: {
+  lang: "zh" | "en";
+  hospital: Pick<AdminHospital, "name" | "city">;
+}): HospitalImageCardPresentation {
+  const title = getLocalizedText({
+    lang: input.lang,
+    value: input.hospital.name,
+    placeholder: TITLE_PLACEHOLDER_BY_LANG[input.lang],
+  });
+  const city = getLocalizedText({
+    lang: input.lang,
+    value: input.hospital.city,
+    placeholder: CITY_PLACEHOLDER_BY_LANG[input.lang],
+  });
+
+  return {
+    title,
+    city,
+    imageAlt: {
+      en: title === MISSING_TRANSLATION ? HOSPITAL_IMAGE_ALT_EN : title,
+      zh: title,
+    }[input.lang],
+  };
+}
 
 export function HospitalImageManagementCard({
   tr,
@@ -76,15 +117,11 @@ export function HospitalImageManagementCard({
         ) : (
       <div className="space-y-3">
             {hospitals.map(hospital => {
-              const hospitalName = getLocalizedTextWithZhFallback({
+              const presentation = getHospitalImageCardPresentation({
                 lang,
-                value: hospital.name,
+                hospital,
               });
               const imageUrl = hospital.imageUrl?.trim();
-              const hospitalCity = getLocalizedTextWithZhFallback({
-                lang,
-                value: hospital.city,
-              });
 
               return (
                 <div
@@ -95,7 +132,7 @@ export function HospitalImageManagementCard({
                     {imageUrl ? (
                       <img
                         src={imageUrl}
-                        alt={hospitalName}
+                        alt={presentation.imageAlt}
                         className="h-full w-full object-cover"
                       />
                     ) : (
@@ -103,8 +140,8 @@ export function HospitalImageManagementCard({
                     )}
                   </div>
                   <div className="flex-1 flex flex-col gap-2">
-                    <p className="font-semibold text-slate-900">{hospitalName}</p>
-                    {hospitalCity ? <p className="text-sm text-slate-500">{hospitalCity}</p> : null}
+                    <p className="font-semibold text-slate-900">{presentation.title}</p>
+                    {presentation.city ? <p className="text-sm text-slate-500">{presentation.city}</p> : null}
                     <div className="flex flex-wrap gap-2">
                       <input
                         ref={el => {
