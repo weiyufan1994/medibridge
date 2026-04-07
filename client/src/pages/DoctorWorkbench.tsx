@@ -22,9 +22,9 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import {
   getDisplayLocale,
   getLocalizedText,
-  getLocalizedTextWithZhFallback,
 } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
+import type { LocalizedText } from "@shared/types";
 import { toast } from "sonner";
 
 type WorkbenchItem = {
@@ -101,6 +101,20 @@ function normalizeErrorMessage(error: unknown, fallback: string) {
     return error.message;
   }
   return fallback;
+}
+
+type DoctorWorkbenchHeadingInput = {
+  lang: "zh" | "en";
+  doctorName?: LocalizedText | null;
+  tr: (zh: string, en: string) => string;
+};
+
+export function getDoctorWorkbenchHeading(input: DoctorWorkbenchHeadingInput) {
+  return getLocalizedText({
+    lang: input.lang,
+    value: input.doctorName,
+    placeholder: input.tr("医生工作台", "Doctor Workbench"),
+  });
 }
 
 export default function DoctorWorkbenchPage() {
@@ -190,13 +204,10 @@ export default function DoctorWorkbenchPage() {
 
   const doctorName = useMemo(() => {
     const doctor = doctorQuery.data?.doctor;
-    if (!doctor) {
-      return tr("医生工作台", "Doctor Workbench");
-    }
-    return getLocalizedTextWithZhFallback({
+    return getDoctorWorkbenchHeading({
       lang,
-      value: doctor.name,
-      placeholder: tr("医生工作台", "Doctor Workbench"),
+      doctorName: doctor?.name,
+      tr,
     });
   }, [doctorQuery.data?.doctor, lang, tr]);
 
