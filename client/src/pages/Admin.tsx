@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { Loader2, Search, ShieldCheck, Workflow, Wrench } from "lucide-react";
+import {
+  ClipboardList,
+  Loader2,
+  Search,
+  ShieldCheck,
+  Workflow,
+  Wrench,
+} from "lucide-react";
 import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,12 +27,14 @@ import { ExportCenterCard } from "@/features/admin/components/ExportCenterCard";
 import { SchedulingManagementCard } from "@/features/admin/components/SchedulingManagementCard";
 import { DoctorAccountManagementCard } from "@/features/admin/components/DoctorAccountManagementCard";
 import { UserRoleManagementCard } from "@/features/admin/components/UserRoleManagementCard";
+import { ReferralAdminPanel } from "@/features/admin/components/ReferralAdminPanel";
+import { ReferralCatalogCard } from "@/features/admin/components/ReferralCatalogCard";
 
 export default function AdminPage() {
   const { user, loading } = useAuth();
   const { resolved } = useLanguage();
   const [activeTab, setActiveTab] = useState<
-    "overview" | "appointments" | "users" | "operations"
+    "overview" | "appointments" | "referrals" | "users" | "operations"
   >("overview");
   const lang = resolved as "zh" | "en";
   const locale = getDisplayLocale(lang);
@@ -239,6 +248,13 @@ export default function AdminPage() {
                 <Workflow className="h-4 w-4" />
                 {tr("预约工作台", "Appointments")}
               </TabsTrigger>
+              <TabsTrigger
+                value="referrals"
+                className="h-10 rounded-xl px-4 data-[state=active]:bg-white data-[state=active]:text-teal-700"
+              >
+                <ClipboardList className="h-4 w-4" />
+                {tr("转诊工作台", "Referrals")}
+              </TabsTrigger>
               {isAdmin ? (
                 <TabsTrigger
                   value="users"
@@ -418,6 +434,14 @@ export default function AdminPage() {
               visitSummaryQuery={visitSummaryQuery}
               issuedLinks={issuedLinks}
             />
+          </TabsContent>
+
+          <TabsContent value="referrals" className="space-y-6">
+            <ReferralAdminPanel
+              currentUserId={user?.id ?? null}
+              currentUserRole={role ?? null}
+            />
+            {isAdmin ? <ReferralCatalogCard /> : null}
           </TabsContent>
 
           {isAdmin ? (

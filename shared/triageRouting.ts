@@ -4,6 +4,9 @@ export type TriageRoutingDepartment = {
   matchedSpecialtyKey: string | null;
 };
 
+export type TriageRoutingConfidence = "standard" | "reduced";
+export type TriageRoutingCriticalField = "age" | "gender";
+
 export type TriageRoutingHospital = {
   hospitalName: string;
   city: string | null;
@@ -20,6 +23,8 @@ export type TriageRouting = {
   possibilitySummary: string;
   recommendedDepartment: TriageRoutingDepartment;
   hospitals: TriageRoutingHospital[];
+  confidence: TriageRoutingConfidence;
+  missingCriticalFields: TriageRoutingCriticalField[];
 };
 
 export type LightTriageResultForm = {

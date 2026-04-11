@@ -11,6 +11,7 @@ import { hospitalsRouter } from "./hospitals";
 import { consultationRouter } from "./consultation";
 import { schedulingRouter } from "./scheduling";
 import { doctorAccountsRouter } from "./doctorAccounts";
+import { referralsRouter } from "./referrals";
 
 export const appRouter = router({
   system: systemRouter,
@@ -25,6 +26,7 @@ export const appRouter = router({
   doctorAccounts: doctorAccountsRouter,
   payments: paymentsRouter,
   visit: visitRouter,
+  referrals: referralsRouter,
 });
 
 export type AppRouter = typeof appRouter;

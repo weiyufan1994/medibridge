@@ -16,7 +16,7 @@ import {
   loadHospitalReferenceSeedData,
   normalizeHospitalReferenceText,
 } from "./hospitalReferenceData";
-import { pickRecommendedDepartment } from "./triageLogic";
+import { resolveRecommendedDepartment } from "./triageLogic";
 import type { TriageKnowledgeContext, TriageLang } from "./service";
 
 type HospitalReferenceRecord = {
@@ -310,10 +310,29 @@ async function getReferenceData() {
 function buildPossibilitySummary(input: {
   data: TriageCollectedData;
   department: TriageDepartmentHint;
+  confidence: TriageRouting["confidence"];
+  missingCriticalFields: TriageRouting["missingCriticalFields"];
   lang: TriageLang;
 }) {
   const symptom = input.data.mainSymptomAndLocation.trim();
   const duration = input.data.durationAndOnset.trim();
+  const missingFieldLabels = input.missingCriticalFields.map(field =>
+    input.lang === "zh"
+      ? field === "gender"
+        ? "性别"
+        : "年龄"
+      : field === "gender"
+        ? "gender"
+        : "age"
+  );
+
+  if (input.confidence === "reduced" && missingFieldLabels.length > 0) {
+    if (input.lang === "zh") {
+      return `当前关键信息不足（${missingFieldLabels.join("、")}未提供），以下为更保守的初步分诊建议。目前先按 ${input.department.zh} 方向进一步评估，建议补充相关信息以提高准确性。这是分诊建议，不是明确诊断。`;
+    }
+
+    return `Critical information is still missing (${missingFieldLabels.join(", ")} not provided), so the following is a safer preliminary routing suggestion. For now, please start with ${input.department.en} and add those details to improve accuracy. This is routing guidance, not a confirmed diagnosis.`;
+  }
 
   if (input.lang === "zh") {
     const details = [symptom, duration].filter(Boolean).join("，");
@@ -598,31 +617,36 @@ export async function buildHospitalRouting(input: {
   lang: TriageLang;
   knowledgeContext?: TriageKnowledgeContext;
 }): Promise<TriageRouting> {
-  const department = pickRecommendedDepartment({
+  const recommendation = resolveRecommendedDepartment({
     data: input.data,
     knowledgeContext: input.knowledgeContext,
   });
-  const specialtyName = FUDAN_SPECIALTY_BY_KEY[department.key] ?? null;
+  const specialtyName =
+    FUDAN_SPECIALTY_BY_KEY[recommendation.department.key] ?? null;
   const hospitals = await enhanceWithLocalRecords({
     hospitals: await buildSpecialtyHospitalList({
       specialtyName,
       lang: input.lang,
     }),
-    departmentKey: department.key,
+    departmentKey: recommendation.department.key,
     lang: input.lang,
   });
 
   return {
     possibilitySummary: buildPossibilitySummary({
       data: input.data,
-      department,
+      department: recommendation.department,
+      confidence: recommendation.confidence,
+      missingCriticalFields: recommendation.missingCriticalFields,
       lang: input.lang,
     }),
     recommendedDepartment: {
-      zh: department.zh,
-      en: department.en,
+      zh: recommendation.department.zh,
+      en: recommendation.department.en,
       matchedSpecialtyKey: specialtyName,
     },
     hospitals,
+    confidence: recommendation.confidence,
+    missingCriticalFields: recommendation.missingCriticalFields,
   };
 }

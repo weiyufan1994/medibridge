@@ -21,6 +21,7 @@ import { MyAppointments } from "@/components/MyAppointments";
 import { getDashboardCopy } from "@/features/dashboard/copy";
 import { getDisplayLocale } from "@/lib/i18n";
 import PricingModal from "@/features/dashboard/components/PricingModal";
+import { MyReferralOrders } from "@/features/referrals/components/MyReferralOrders";
 import { useLocation } from "wouter";
 
 function formatDateTime(value: Date | string | null, locale?: string) {
@@ -278,7 +279,12 @@ export default function DashboardPage() {
         </Card>
       ) : null}
 
-      {activeSection === "appointments" ? <MyAppointments /> : null}
+      {activeSection === "appointments" ? (
+        <div className="space-y-6">
+          <MyReferralOrders />
+          <MyAppointments />
+        </div>
+      ) : null}
     </DashboardLayout>
   );
 }

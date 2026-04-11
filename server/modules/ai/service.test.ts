@@ -36,6 +36,8 @@ describe("processTriageChat", () => {
           reason: "2022 复旦 消化科 声誉榜第 2 名；全国综合等级 A++++",
         },
       ],
+      confidence: "standard",
+      missingCriticalFields: [],
     });
   });
 
@@ -178,5 +180,121 @@ describe("processTriageChat", () => {
     expect(result.isComplete).toBe(true);
     expect(result.reply).toContain("建议就诊专科");
     expect(result.reply).not.toContain("推荐医生");
+  });
+
+  it("asks for gender before honoring a sex-specific knowledge tag when possible", async () => {
+    vi.mocked(invokeLLM).mockResolvedValue({
+      id: "mock",
+      created: Date.now(),
+      model: "mock-model",
+      choices: [
+        {
+          index: 0,
+          finish_reason: "stop",
+          message: {
+            role: "assistant",
+            content: JSON.stringify({
+              mainSymptomAndLocation: "腹部不适伴腹泻",
+              durationAndOnset: "2天",
+              traumaOrSurgery: "无",
+              chronicConditions: "无",
+              otherSymptoms: "脱水、乏力",
+              age: 34,
+              gender: "unknown",
+              urgency: "medium",
+            }),
+          },
+        },
+      ],
+    } as never);
+
+    const result = await processTriageChat(
+      [{ role: "user", content: "腹部不适、腹泻两天，有点脱水" }],
+      "zh",
+      {
+        snippets: [
+          {
+            title: "测试片段",
+            content: "用于验证 specialty tag 不会绕过安全过滤",
+            riskCodes: [],
+            specialtyTags: ["gynecology"],
+          },
+        ],
+      }
+    );
+
+    expect(result.isComplete).toBe(false);
+    expect(result.reply).toContain("请补充一下性别");
+  });
+
+  it("falls back to a safer preliminary recommendation after repeated turns when gender is still missing", async () => {
+    vi.mocked(invokeLLM).mockResolvedValue({
+      id: "mock",
+      created: Date.now(),
+      model: "mock-model",
+      choices: [
+        {
+          index: 0,
+          finish_reason: "stop",
+          message: {
+            role: "assistant",
+            content: JSON.stringify({
+              mainSymptomAndLocation: "腹部不适伴腹泻",
+              durationAndOnset: "2天",
+              traumaOrSurgery: "无",
+              chronicConditions: "无",
+              otherSymptoms: "脱水、乏力",
+              age: 34,
+              gender: "unknown",
+              urgency: "medium",
+            }),
+          },
+        },
+      ],
+    } as never);
+    vi.mocked(buildHospitalRouting).mockResolvedValue({
+      possibilitySummary:
+        "当前关键信息不足（性别未提供），以下为更保守的初步分诊建议。",
+      recommendedDepartment: {
+        zh: "消化内科",
+        en: "gastroenterology",
+        matchedSpecialtyKey: "消化科",
+      },
+      hospitals: [],
+      confidence: "reduced",
+      missingCriticalFields: ["gender"],
+    });
+
+    const result = await processTriageChat(
+      [
+        { role: "user", content: "腹部不适、腹泻两天，有点脱水" },
+        { role: "assistant", content: "请补充一下性别。" },
+        { role: "user", content: "暂时不方便提供，还是腹泻和乏力。" },
+        { role: "assistant", content: "请补充一下性别。" },
+        { role: "user", content: "仍然不方便提供，主要还是腹泻和脱水。" },
+      ],
+      "zh",
+      {
+        snippets: [
+          {
+            title: "测试片段",
+            content: "用于验证 specialty tag 不会绕过安全过滤",
+            riskCodes: [],
+            specialtyTags: ["gynecology"],
+          },
+        ],
+      }
+    );
+
+    expect(result.isComplete).toBe(true);
+    expect(result.reply).toContain("关键信息仍不足");
+    expect(result.reply).toContain("偏保守");
+    expect(result.routing).toMatchObject({
+      confidence: "reduced",
+      missingCriticalFields: ["gender"],
+      recommendedDepartment: {
+        zh: "消化内科",
+      },
+    });
   });
 });

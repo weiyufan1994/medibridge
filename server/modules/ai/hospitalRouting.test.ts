@@ -54,6 +54,8 @@ describe("hospitalRouting", () => {
       zh: "心内科",
       matchedSpecialtyKey: "心血管病",
     });
+    expect(result.confidence).toBe("standard");
+    expect(result.missingCriticalFields).toEqual([]);
     expect(result.hospitals[0]).toMatchObject({
       hospitalName: "中国医学科学院阜外医院",
       specialtyRank: 1,
@@ -84,6 +86,8 @@ describe("hospitalRouting", () => {
       zh: "全科",
       matchedSpecialtyKey: "全科医学",
     });
+    expect(result.confidence).toBe("standard");
+    expect(result.missingCriticalFields).toEqual([]);
     expect(result.hospitals[0]?.hospitalName).toBe("复旦大学附属中山医院");
     expect(result.possibilitySummary).toContain("不是明确诊断");
   });
@@ -107,11 +111,48 @@ describe("hospitalRouting", () => {
       en: "cardiology",
       matchedSpecialtyKey: "心血管病",
     });
+    expect(result.confidence).toBe("standard");
+    expect(result.missingCriticalFields).toEqual([]);
     expect(result.hospitals[0]).toMatchObject({
       hospitalName: "Fuwai Hospital, Chinese Academy of Medical Sciences",
       city: "Beijing",
       matchedHospitalId: 1,
     });
     expect(result.hospitals[0]?.reason).toContain("Ranked #1");
+  });
+
+  it("avoids gynecology when gender is missing and falls back to a safer digestive route", async () => {
+    const result = await buildHospitalRouting({
+      lang: "zh",
+      knowledgeContext: {
+        snippets: [
+          {
+            title: "测试片段",
+            content: "用于验证 specialty tag 不会绕过安全约束",
+            riskCodes: [],
+            specialtyTags: ["gynecology"],
+          },
+        ],
+      },
+      data: {
+        mainSymptomAndLocation: "腹部不适伴腹泻",
+        durationAndOnset: "2天",
+        traumaOrSurgery: "无",
+        chronicConditions: "无",
+        otherSymptoms: "脱水、乏力",
+        age: 34,
+        gender: "unknown",
+        urgency: "medium",
+      },
+    });
+
+    expect(result.recommendedDepartment).toMatchObject({
+      zh: "消化内科",
+      matchedSpecialtyKey: "消化科",
+    });
+    expect(result.recommendedDepartment.zh).not.toBe("妇科");
+    expect(result.confidence).toBe("reduced");
+    expect(result.missingCriticalFields).toEqual(["gender"]);
+    expect(result.possibilitySummary).toContain("关键信息不足");
   });
 });

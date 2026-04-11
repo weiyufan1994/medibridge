@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildFollowupReply,
   pickRecommendedDepartment,
+  resolveRecommendedDepartment,
   buildTriageSummary,
   listMissingTriageFields,
   mergeTriageData,
@@ -129,6 +130,68 @@ describe("triageLogic", () => {
     expect(pickRecommendedDepartment({ data: merged })).toMatchObject({
       key: "pediatrics",
       zh: "儿科",
+    });
+  });
+
+  it("requires demographic eligibility before returning a sex-specific specialty", () => {
+    const merged = mergeTriageData({
+      intake: {
+        age: 29,
+        gender: "male",
+        mainSymptomAndLocation: "月经紊乱伴下腹坠痛",
+        durationAndOnset: "2个月反复发作",
+        traumaOrSurgery: "无",
+        chronicConditions: "无",
+      },
+    });
+
+    expect(resolveRecommendedDepartment({ data: merged })).toMatchObject({
+      department: {
+        key: "general_medicine",
+        zh: "全科",
+      },
+      confidence: "standard",
+      missingCriticalFields: [],
+    });
+  });
+
+  it("falls back to a safer digestive route when gender is missing and a gynecology tag is unsafe", () => {
+    const merged = mergeTriageData({
+      intake: {
+        age: 34,
+        gender: "unknown",
+        mainSymptomAndLocation: "腹部不适伴腹泻",
+        durationAndOnset: "2天",
+        traumaOrSurgery: "无",
+        chronicConditions: "无",
+      },
+      extracted: {
+        otherSymptoms: "脱水、乏力",
+        urgency: "medium",
+      },
+    });
+
+    expect(
+      resolveRecommendedDepartment({
+        data: merged,
+        knowledgeContext: {
+          snippets: [
+            {
+              title: "妇科症状",
+              content: "仅用于测试的片段",
+              riskCodes: [],
+              specialtyTags: ["gynecology"],
+            },
+          ],
+        },
+      })
+    ).toMatchObject({
+      department: {
+        key: "digestive",
+        zh: "消化内科",
+      },
+      confidence: "reduced",
+      missingCriticalFields: ["gender"],
     });
   });
 });

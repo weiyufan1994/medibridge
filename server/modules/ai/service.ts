@@ -18,7 +18,7 @@ import {
   coerceMissingFieldsForCompletion,
   listMissingTriageFields,
   mergeTriageData,
-  pickRecommendedDepartment,
+  resolveRecommendedDepartment,
   type TriageExtractionDraft,
 } from "./triageLogic";
 import { buildHospitalRouting } from "./hospitalRouting";
@@ -363,11 +363,23 @@ export async function processTriageChat(
     intake,
     extracted: extractedDraft,
   });
-  const missingFields = listMissingTriageFields(merged);
+  const recommendation = resolveRecommendedDepartment({
+    data: merged,
+    knowledgeContext,
+  });
+  const missingFields = Array.from(
+    new Set([
+      ...listMissingTriageFields(merged),
+      ...recommendation.missingCriticalFields,
+    ])
+  );
   const userTurns = sanitizedHistory.filter(
     message => message.role === "user"
   ).length;
-  const shouldAskFollowup = missingFields.length > 0 && userTurns < 2;
+  const shouldAskFollowup =
+    missingFields.length > 0 &&
+    (userTurns < 2 ||
+      (recommendation.missingCriticalFields.length > 0 && userTurns < 3));
 
   if (shouldAskFollowup) {
     return {
@@ -387,7 +399,7 @@ export async function processTriageChat(
     lang,
     knowledgeContext,
   });
-  const department = pickRecommendedDepartment({
+  const completedRecommendation = resolveRecommendedDepartment({
     data: completedData,
     knowledgeContext,
   });
@@ -399,7 +411,7 @@ export async function processTriageChat(
 
   return {
     isComplete: true,
-    reply: buildCompletionReply(lang, department),
+    reply: buildCompletionReply(lang, completedRecommendation),
     summary,
     keywords,
     routing,

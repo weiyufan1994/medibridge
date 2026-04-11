@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   AlertTriangle,
+  ArrowRight,
   Building2,
   FileText,
   Loader2,
@@ -50,6 +51,7 @@ import {
   type LightTriageResultForm,
   type TriageRoutingHospital,
 } from "@shared/triageRouting";
+import { buildReferralConfirmationHref } from "@/features/referrals/presentation";
 
 type HistoryItem = {
   id: number;
@@ -164,24 +166,55 @@ const TypewriterMessage = memo(
     prev.active === next.active
 );
 
-function buildHospitalBrowserHref(hospital: TriageRoutingHospital) {
-  const params = new URLSearchParams();
-  if (hospital.matchedHospitalId !== null) {
-    params.set("hospitalId", String(hospital.matchedHospitalId));
-  }
-  if (hospital.matchedDepartmentId !== null) {
-    params.set("departmentId", String(hospital.matchedDepartmentId));
+function buildReferralConfirmationLink(input: {
+  triageSessionId: number;
+  hospital: TriageRoutingHospital;
+  rankedHospitalIndex: number;
+}) {
+  if (input.triageSessionId <= 0) {
+    return "/hospitals";
   }
 
-  const query = params.toString();
-  return query ? `/hospitals?${query}` : "/hospitals";
+  return buildReferralConfirmationHref({
+    triageSessionId: input.triageSessionId,
+    rankedHospitalIndex: input.rankedHospitalIndex,
+    hospitalId: input.hospital.matchedHospitalId ?? undefined,
+  });
+}
+
+function buildPrimaryReferralEntryHref(input: {
+  triageSessionId: number;
+  hospitals: TriageRoutingHospital[];
+}) {
+  for (
+    let rankedHospitalIndex = 0;
+    rankedHospitalIndex < input.hospitals.length;
+    rankedHospitalIndex += 1
+  ) {
+    const hospital = input.hospitals[rankedHospitalIndex];
+    const href = buildReferralConfirmationLink({
+      triageSessionId: input.triageSessionId,
+      hospital,
+      rankedHospitalIndex,
+    });
+    if (href) {
+      return href;
+    }
+  }
+
+  return "/hospitals";
 }
 
 function HospitalRoutingCard(props: {
+  triageSessionId: number;
   summary: string;
   possibilitySummary: string;
   recommendedDepartment: string;
   hospitals: TriageRoutingHospital[];
+  safetyNotice?: {
+    title: string;
+    description: string;
+  } | null;
   labels: {
     summary: string;
     possibility: string;
@@ -189,7 +222,10 @@ function HospitalRoutingCard(props: {
     recommendedHospitals: string;
     notDiagnosis: string;
     browseHospital: string;
+    nextStepTitle: string;
+    nextStepDescription: string;
     platformMatch: string;
+    manualCoordination: string;
     noHospitals: string;
   };
 }) {
@@ -230,75 +266,112 @@ function HospitalRoutingCard(props: {
           </div>
         </div>
 
+        {props.safetyNotice ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4">
+            <p className="text-sm font-semibold text-amber-900">
+              {props.safetyNotice.title}
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-amber-800">
+              {props.safetyNotice.description}
+            </p>
+          </div>
+        ) : null}
+
         <div>
           <h4 className="mb-3 flex items-center gap-2 text-base font-semibold text-slate-900">
             <Building2 className="h-4 w-4" />
             {props.labels.recommendedHospitals}
           </h4>
+          <div className="rounded-2xl border border-teal-100 bg-teal-50/80 p-4">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl bg-white/90 p-2 text-teal-600 shadow-sm">
+                <MapPinned className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-teal-900">
+                  {props.labels.nextStepTitle}
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-teal-800">
+                  {props.labels.nextStepDescription}
+                </p>
+              </div>
+            </div>
+          </div>
 
           {props.hospitals.length === 0 ? (
-            <p className="text-sm text-slate-500">{props.labels.noHospitals}</p>
+            <p className="mt-4 text-sm text-slate-500">
+              {props.labels.noHospitals}
+            </p>
           ) : (
-            <div className="space-y-3">
-              {props.hospitals.map((hospital, index) => (
-                <div
-                  key={`${hospital.hospitalName}-${index}`}
-                  className="rounded-2xl border border-slate-200 bg-white p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">
-                        {index + 1}. {hospital.hospitalName}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {hospital.specialtyRank !== null ? (
-                          <Badge className="rounded-full border-0 bg-emerald-50 text-emerald-700">
-                            #{hospital.specialtyRank}
-                          </Badge>
-                        ) : null}
-                        {hospital.generalGrade ? (
-                          <Badge className="rounded-full border-0 bg-sky-50 text-sky-700">
-                            {hospital.generalGrade}
-                          </Badge>
-                        ) : null}
-                        {hospital.stemRank !== null ? (
-                          <Badge className="rounded-full border-0 bg-amber-50 text-amber-700">
-                            STEM #{hospital.stemRank}
-                          </Badge>
-                        ) : null}
-                        {hospital.matchedHospitalId !== null ? (
-                          <Badge className="rounded-full border-0 bg-violet-50 text-violet-700">
-                            {props.labels.platformMatch}
-                          </Badge>
-                        ) : null}
+            <div className="mt-4 space-y-3">
+              {props.hospitals.map((hospital, index) => {
+                const referralHref = buildReferralConfirmationLink({
+                  triageSessionId: props.triageSessionId,
+                  hospital,
+                  rankedHospitalIndex: index,
+                });
+                const content = (
+                  <>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {index + 1}. {hospital.hospitalName}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {hospital.specialtyRank !== null ? (
+                            <Badge className="rounded-full border-0 bg-emerald-50 text-emerald-700">
+                              #{hospital.specialtyRank}
+                            </Badge>
+                          ) : null}
+                          {hospital.generalGrade ? (
+                            <Badge className="rounded-full border-0 bg-sky-50 text-sky-700">
+                              {hospital.generalGrade}
+                            </Badge>
+                          ) : null}
+                          {hospital.stemRank !== null ? (
+                            <Badge className="rounded-full border-0 bg-amber-50 text-amber-700">
+                              STEM #{hospital.stemRank}
+                            </Badge>
+                          ) : null}
+                          {hospital.matchedHospitalId ? (
+                            <Badge className="rounded-full border-0 bg-violet-50 text-violet-700">
+                              {props.labels.platformMatch}
+                            </Badge>
+                          ) : (
+                            <Badge className="rounded-full border-0 bg-teal-50 text-teal-700">
+                              {props.labels.manualCoordination}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {hospital.matchedHospitalId !== null ? (
-                      <Button
-                        asChild
-                        size="sm"
-                        variant="outline"
-                        className="border-slate-200 text-slate-700"
-                      >
-                        <Link href={buildHospitalBrowserHref(hospital)}>
-                          <MapPinned className="h-4 w-4" />
-                          {props.labels.browseHospital}
-                        </Link>
-                      </Button>
-                    ) : null}
-                  </div>
-
-                  <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                    {hospital.reason}
-                  </p>
-                  {hospital.city ? (
-                    <p className="mt-2 text-xs text-slate-500">
-                      {hospital.city}
+                    <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                      {hospital.reason}
                     </p>
-                  ) : null}
-                </div>
-              ))}
+                    {hospital.city ? (
+                      <p className="mt-2 text-xs text-slate-500">
+                        {hospital.city}
+                      </p>
+                    ) : null}
+
+                    <div className="mt-4 flex items-center justify-between rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-medium text-teal-700">
+                      <span>{props.labels.browseHospital}</span>
+                      <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                    </div>
+                  </>
+                );
+
+                return (
+                  <Link
+                    key={`${hospital.hospitalName}-${index}`}
+                    href={referralHref}
+                    className="group block cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-teal-400 hover:bg-teal-50/40 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                  >
+                    {content}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
@@ -569,6 +642,14 @@ export default function AITriageChat() {
   const displayedTriageResult = isHistoryReadOnly
     ? historyTriageResult
     : triageResult;
+  const displayedTriageSessionId = isHistoryReadOnly
+    ? activeSessionId ?? 0
+    : (() => {
+        const parsedSessionId = Number(triageSessionId);
+        return Number.isInteger(parsedSessionId) && parsedSessionId > 0
+          ? parsedSessionId
+          : 0;
+      })();
   const isReadOnlyMode =
     isHistoryReadOnly ||
     selectedHistorySession?.status === "completed" ||
@@ -640,6 +721,24 @@ export default function AITriageChat() {
           fallback: displayedTriageResult.reply,
         })
       : null;
+  const primaryReferralEntryHref = buildPrimaryReferralEntryHref({
+    triageSessionId: displayedTriageSessionId,
+    hospitals: displayedTriageResult?.routing?.hospitals ?? [],
+  });
+  const routingSafetyNotice =
+    displayedTriageResult?.routing?.confidence === "reduced"
+      ? {
+          title: t.triage_card.reduced_confidence_title,
+          description: t.triage_card.reduced_confidence_description(
+            displayedTriageResult.routing.missingCriticalFields.map(
+              field => t.triage_card.critical_field_labels[field]
+            )
+          ),
+        }
+      : null;
+  const showReferralNextStepGuidance =
+    displayedTriageResult?.isComplete === true &&
+    displayedTriageResult.interrupted !== true;
 
   useEffect(() => {
     const isFreshSession =
@@ -1023,6 +1122,7 @@ export default function AITriageChat() {
                       ) : (
                         <div className="space-y-4">
                           <HospitalRoutingCard
+                            triageSessionId={displayedTriageSessionId}
                             summary={effectiveSummary}
                             possibilitySummary={
                               displayedTriageResult.routing?.possibilitySummary ??
@@ -1038,6 +1138,7 @@ export default function AITriageChat() {
                               })
                             }
                             hospitals={displayedTriageResult.routing?.hospitals ?? []}
+                            safetyNotice={routingSafetyNotice}
                             labels={{
                               summary: t.triage_card.summary,
                               possibility: t.triage_card.possibility,
@@ -1046,7 +1147,12 @@ export default function AITriageChat() {
                                 t.triage_card.recommended_hospitals,
                               notDiagnosis: t.triage_card.not_diagnosis,
                               browseHospital: t.triage_card.browse_hospital,
+                              nextStepTitle: t.triage_card.next_step_title,
+                              nextStepDescription:
+                                t.triage_card.next_step_description,
                               platformMatch: t.triage_card.platform_match,
+                              manualCoordination:
+                                t.triage_card.manual_coordination,
                               noHospitals: t.triage_card.no_hospitals,
                             }}
                           />
@@ -1092,11 +1198,23 @@ export default function AITriageChat() {
             )}
 
             <div className="mx-auto mb-6 w-full max-w-3xl">
+              {showReferralNextStepGuidance ? (
+                <div className="mb-3 rounded-2xl border border-slate-200 bg-white/90 px-4 py-3">
+                  <p className="text-sm font-medium text-slate-900">
+                    {t.triage.post_complete_input_title}
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                    {t.triage.post_complete_input_description}
+                  </p>
+                </div>
+              ) : null}
               <div
-                className={`relative flex items-end overflow-hidden rounded-3xl border shadow-md ${
-                  isReadOnlyMode
-                    ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-80"
-                    : "border-slate-200 bg-white focus-within:border-teal-500"
+                className={`relative flex items-end overflow-hidden rounded-3xl border transition-colors ${
+                  showReferralNextStepGuidance
+                    ? "cursor-not-allowed border-slate-200 bg-slate-50/90 shadow-sm"
+                    : isReadOnlyMode
+                      ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-80 shadow-sm"
+                      : "border-slate-200 bg-white shadow-md focus-within:border-teal-500"
                 }`}
               >
                 <Textarea
@@ -1105,7 +1223,11 @@ export default function AITriageChat() {
                   onKeyDown={handleInputKeyDown}
                   placeholder={inputPlaceholder}
                   disabled={isInputDisabled}
-                  className="max-h-32 min-h-[64px] w-full resize-none border-0 bg-transparent py-4 pl-5 pr-16 text-slate-800 outline-none focus-visible:ring-0"
+                  className={`w-full resize-none border-0 bg-transparent py-4 pl-5 pr-16 outline-none focus-visible:ring-0 ${
+                    showReferralNextStepGuidance
+                      ? "max-h-24 min-h-[56px] text-slate-500"
+                      : "max-h-32 min-h-[64px] text-slate-800"
+                  }`}
                 />
                 <button
                   type="button"
@@ -1131,7 +1253,7 @@ export default function AITriageChat() {
                 <p className="mb-2 text-sm font-medium text-amber-900">
                   {t.status.message_limit_reached}
                 </p>
-                <Link href="/hospitals">
+                <Link href={primaryReferralEntryHref}>
                   <Button className="bg-teal-600 hover:bg-teal-700">
                     {t.status.message_limit_action}
                   </Button>

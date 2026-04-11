@@ -162,6 +162,14 @@ const normalizeRouting = (value: unknown): TriageRouting | undefined => {
           : null,
     },
     hospitals,
+    confidence:
+      input.confidence === "reduced" ? "reduced" : "standard",
+    missingCriticalFields: Array.isArray(input.missingCriticalFields)
+      ? input.missingCriticalFields.filter(
+          (field): field is TriageRouting["missingCriticalFields"][number] =>
+            field === "age" || field === "gender"
+        )
+      : [],
   };
 };
 

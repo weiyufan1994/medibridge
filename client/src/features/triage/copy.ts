@@ -71,10 +71,22 @@ export const TRIAGE_COPY = {
       possibility: "Likely Direction",
       recommended_department: "Suggested Department",
       recommended_hospitals: "Reference Hospitals",
+      next_step_title:
+        "AI has completed an initial triage. Please choose a hospital to continue referral assistance.",
+      next_step_description:
+        "If the information looks correct, click a hospital below to continue. If you need to add more details, start a new triage session.",
       not_diagnosis:
         "This triage result is routing guidance only. It does not confirm a diagnosis.",
-      browse_hospital: "Open in hospital browser",
+      browse_hospital: "Review service and place order",
+      reduced_confidence_title: "Key information is still missing",
+      reduced_confidence_description: (fields: string[]) =>
+        `This is a preliminary routing suggestion. Please add ${fields.join(", ")} and any related symptoms to improve accuracy.`,
+      critical_field_labels: {
+        age: "age",
+        gender: "gender",
+      },
       platform_match: "In platform database",
+      manual_coordination: "Manual coordination available",
       no_hospitals:
         "No reference hospitals are available yet. Please browse the hospital list directly.",
       possibility_fallback:
@@ -127,12 +139,15 @@ export const TRIAGE_COPY = {
         "Guest trial quota reached. Please sign in to continue triage.",
       message_limit_reached:
         "This consultation has reached the message limit. Please review the suggested department and hospitals now.",
-      message_limit_action: "Browse hospitals",
+      message_limit_action: "Continue with hospital selection",
     },
     patientLabel: "Patient",
     triage: {
       disclaimer:
         "AI can make mistakes. Always consult a professional doctor before making medical decisions.",
+      post_complete_input_title: "Hospital selection is the main next step",
+      post_complete_input_description:
+        "The triage result is ready. Please prioritize clicking a hospital above to continue; if you need to add more symptoms, start a new triage session.",
     },
     doctor_detail: {
       about: "About Doctor",
@@ -257,9 +272,20 @@ export const TRIAGE_COPY = {
       possibility: "可能方向",
       recommended_department: "建议就诊专科",
       recommended_hospitals: "参考医院",
+      next_step_title: "AI 已完成初步分诊，请选择一家医院继续就诊协助",
+      next_step_description:
+        "若信息无误，请点击下方医院进入下一步；如需补充信息，请开启新一轮问诊。",
       not_diagnosis: "这份结果只用于分诊和就医路径建议，不构成明确诊断。",
-      browse_hospital: "查看站内医院库",
+      browse_hospital: "查看服务说明并下单",
+      reduced_confidence_title: "当前关键信息不足",
+      reduced_confidence_description: (fields: string[]) =>
+        `以下为初步分诊建议，建议补充${fields.join("、")}及相关伴随症状以提高准确性。`,
+      critical_field_labels: {
+        age: "年龄",
+        gender: "性别",
+      },
       platform_match: "已匹配站内医院",
+      manual_coordination: "支持人工协调",
       no_hospitals: "暂未生成参考医院，请直接浏览医院库。",
       possibility_fallback:
         "当前信息更像某一类专科方向，建议线下面诊进一步评估。",
@@ -309,12 +335,15 @@ export const TRIAGE_COPY = {
       quota_login_required: "游客试用额度已尽，请登录后继续问诊。",
       message_limit_reached:
         "本次会诊已达到消息上限，请尽快查看建议专科和参考医院。",
-      message_limit_action: "查看医院库",
+      message_limit_action: "选择医院继续",
     },
     patientLabel: "患者",
     triage: {
       disclaimer:
         "AI 可能会产生错误信息。在做出医疗决定前，请务必咨询专业医生。",
+      post_complete_input_title: "当前主要操作是选择医院继续",
+      post_complete_input_description:
+        "分诊结果已经生成，建议优先点击上方医院进入下一步；如需补充症状，请开启新一轮问诊。",
     },
     doctor_detail: {
       about: "医生信息",

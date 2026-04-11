@@ -11,6 +11,16 @@ import {
 } from "drizzle-orm/pg-core";
 import { vector } from "drizzle-orm/pg-core/columns/vector_extension/vector";
 import { z } from "zod";
+import {
+  REFERRAL_ACTOR_TYPE_VALUES,
+  REFERRAL_ORDER_STATUS_VALUES,
+  REFERRAL_PAYMENT_STATUS_VALUES,
+  REFERRAL_REFUND_REASON_CODE_VALUES,
+  REFERRAL_SERVICE_AGREEMENT_VERSION,
+  REFERRAL_SERVICE_AMOUNT,
+  REFERRAL_SERVICE_CURRENCY,
+  REFUND_REQUEST_STATUS_VALUES,
+} from "../shared/referrals";
 
 /**
  * Core user table backing auth flow.
@@ -61,6 +71,7 @@ export const hospitals = pgTable("hospitals", {
   translatedAt: timestamp("translatedAt"),
   lastTranslationError: text("lastTranslationError"),
   translationProvider: varchar("translationProvider", { length: 100 }),
+  isActive: integer("isActive").notNull().default(1),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
   }, table => ({
@@ -85,7 +96,7 @@ export const departments = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     nameEn: varchar("nameEn", { length: 255 }),
     description: text("description"),
-  descriptionEn: text("descriptionEn"),
+    descriptionEn: text("descriptionEn"),
   url: varchar("url", { length: 1024 }),
   sourceHash: varchar("sourceHash", { length: 64 }),
   translationStatus: text("translationStatus", { enum: [
@@ -96,6 +107,7 @@ export const departments = pgTable(
     translatedAt: timestamp("translatedAt"),
     lastTranslationError: text("lastTranslationError"),
     translationProvider: varchar("translationProvider", { length: 100 }),
+    isActive: integer("isActive").notNull().default(1),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
   },
@@ -111,6 +123,37 @@ export const departments = pgTable(
 
 export type Department = typeof departments.$inferSelect;
 export type InsertDepartment = typeof departments.$inferInsert;
+
+export const referralContacts = pgTable(
+  "referral_contacts",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    hospitalId: integer("hospitalId")
+      .notNull()
+      .references(() => hospitals.id, { onDelete: "restrict" }),
+    departmentId: integer("departmentId")
+      .notNull()
+      .references(() => departments.id, { onDelete: "restrict" }),
+    name: varchar("name", { length: 255 }).notNull(),
+    roleType: varchar("roleType", { length: 120 }).notNull(),
+    languages: jsonb("languages").$type<string[]>().notNull().default([]),
+    specialtyTags: jsonb("specialtyTags").$type<string[]>().notNull().default([]),
+    avgResponseTimeMinutes: integer("avgResponseTimeMinutes"),
+    successRate: integer("successRate"),
+    isActive: integer("isActive").notNull().default(1),
+    internalNotes: text("internalNotes"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  },
+  table => ({
+    hospitalIdx: index("referralContactsHospitalIdx").on(table.hospitalId),
+    departmentIdx: index("referralContactsDepartmentIdx").on(table.departmentId),
+    activeIdx: index("referralContactsActiveIdx").on(table.isActive),
+  })
+);
+
+export type ReferralContact = typeof referralContacts.$inferSelect;
+export type InsertReferralContact = typeof referralContacts.$inferInsert;
 
 /**
  * External hospital reference catalog used for triage routing.
@@ -813,6 +856,170 @@ export const consultationMessages = pgTable(
 
 export type ConsultationMessage = typeof consultationMessages.$inferSelect;
 export type InsertConsultationMessage = typeof consultationMessages.$inferInsert;
+
+export const referralOrders = pgTable(
+  "referral_orders",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    patientUserId: integer("patientUserId")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    triageSessionId: integer("triageSessionId")
+      .notNull()
+      .references(() => aiChatSessions.id, { onDelete: "restrict" }),
+    hospitalId: integer("hospitalId").references(() => hospitals.id, {
+      onDelete: "restrict",
+    }),
+    departmentId: integer("departmentId").references(() => departments.id, {
+      onDelete: "restrict",
+    }),
+    contactId: integer("contactId").references(() => referralContacts.id, {
+      onDelete: "restrict",
+    }),
+    status: text("status", { enum: REFERRAL_ORDER_STATUS_VALUES })
+      .notNull()
+      .default("pending_payment"),
+    paymentStatus: text("paymentStatus", { enum: REFERRAL_PAYMENT_STATUS_VALUES })
+      .notNull()
+      .default("unpaid"),
+    totalAmount: integer("totalAmount").notNull().default(REFERRAL_SERVICE_AMOUNT),
+    currency: varchar("currency", { length: 8 })
+      .notNull()
+      .default(REFERRAL_SERVICE_CURRENCY),
+    recommendedHospitalName: varchar("recommendedHospitalName", { length: 255 }),
+    recommendedDepartmentName: varchar("recommendedDepartmentName", {
+      length: 255,
+    }),
+    recommendedDepartmentNameEn: varchar("recommendedDepartmentNameEn", {
+      length: 255,
+    }),
+    recommendationReason: text("recommendationReason"),
+    manualFulfillmentRequired: integer("manualFulfillmentRequired")
+      .notNull()
+      .default(0),
+    assignedAgentId: integer("assignedAgentId").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    caseSummarySnapshot: text("caseSummarySnapshot"),
+    consultationTime: timestamp("consultationTime"),
+    refundReason: text("refundReason"),
+    agreementAcceptedAt: timestamp("agreementAcceptedAt").notNull(),
+    agreementVersion: varchar("agreementVersion", { length: 32 })
+      .notNull()
+      .default(REFERRAL_SERVICE_AGREEMENT_VERSION),
+    agreementLang: varchar("agreementLang", { length: 8 }).notNull().default("zh"),
+    paymentProvider: text("paymentProvider", { enum: ["stripe", "paypal"] })
+      .notNull()
+      .default("stripe"),
+    paymentProviderSessionId: varchar("paymentProviderSessionId", { length: 255 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
+    paidAt: timestamp("paidAt"),
+    completedAt: timestamp("completedAt"),
+    refundedAt: timestamp("refundedAt"),
+  },
+  table => ({
+    patientIdx: index("referralOrdersPatientIdx").on(table.patientUserId),
+    triageSessionIdx: index("referralOrdersTriageSessionIdx").on(table.triageSessionId),
+    hospitalIdx: index("referralOrdersHospitalIdx").on(table.hospitalId),
+    contactIdx: index("referralOrdersContactIdx").on(table.contactId),
+    statusIdx: index("referralOrdersStatusIdx").on(table.status, table.updatedAt),
+    assignedAgentIdx: index("referralOrdersAssignedAgentIdx").on(table.assignedAgentId),
+    paymentSessionUk: uniqueIndex("referralOrdersPaymentSessionUk").on(
+      table.paymentProviderSessionId
+    ),
+  })
+);
+
+export type ReferralOrder = typeof referralOrders.$inferSelect;
+export type InsertReferralOrder = typeof referralOrders.$inferInsert;
+
+export const referralOrderStatusEvents = pgTable(
+  "referral_order_status_events",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    orderId: integer("orderId")
+      .notNull()
+      .references(() => referralOrders.id, { onDelete: "cascade" }),
+    fromStatus: varchar("fromStatus", { length: 64 }),
+    toStatus: varchar("toStatus", { length: 64 }).notNull(),
+    actorType: text("actorType", { enum: REFERRAL_ACTOR_TYPE_VALUES }).notNull(),
+    actorId: integer("actorId").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reason: text("reason"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    orderIdx: index("referralOrderStatusEventsOrderIdx").on(table.orderId),
+    createdAtIdx: index("referralOrderStatusEventsCreatedAtIdx").on(table.createdAt),
+  })
+);
+
+export type ReferralOrderStatusEvent =
+  typeof referralOrderStatusEvents.$inferSelect;
+export type InsertReferralOrderStatusEvent =
+  typeof referralOrderStatusEvents.$inferInsert;
+
+export const referralOrderOperations = pgTable(
+  "referral_order_operations",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    orderId: integer("orderId")
+      .notNull()
+      .references(() => referralOrders.id, { onDelete: "cascade" }),
+    operatorType: text("operatorType", { enum: REFERRAL_ACTOR_TYPE_VALUES })
+      .notNull(),
+    operatorId: integer("operatorId").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actionType: varchar("actionType", { length: 64 }).notNull(),
+    actionPayload: jsonb("actionPayload"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    orderIdx: index("referralOrderOperationsOrderIdx").on(table.orderId),
+    createdAtIdx: index("referralOrderOperationsCreatedAtIdx").on(table.createdAt),
+  })
+);
+
+export type ReferralOrderOperation =
+  typeof referralOrderOperations.$inferSelect;
+export type InsertReferralOrderOperation =
+  typeof referralOrderOperations.$inferInsert;
+
+export const refundRequests = pgTable(
+  "refund_requests",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    orderId: integer("orderId")
+      .notNull()
+      .references(() => referralOrders.id, { onDelete: "cascade" }),
+    reasonCode: text("reasonCode", { enum: REFERRAL_REFUND_REASON_CODE_VALUES })
+      .notNull(),
+    reasonDetail: text("reasonDetail"),
+    status: text("status", { enum: REFUND_REQUEST_STATUS_VALUES })
+      .notNull()
+      .default("pending_review"),
+    requestedBy: integer("requestedBy").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reviewedBy: integer("reviewedBy").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    approvedAt: timestamp("approvedAt"),
+    refundedAt: timestamp("refundedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  },
+  table => ({
+    orderIdx: index("refundRequestsOrderIdx").on(table.orderId),
+    statusIdx: index("refundRequestsStatusIdx").on(table.status, table.updatedAt),
+  })
+);
+
+export type RefundRequest = typeof refundRequests.$inferSelect;
+export type InsertRefundRequest = typeof refundRequests.$inferInsert;
 
 /**
  * Appointments table - reserved for future online booking feature

@@ -9,6 +9,7 @@ import * as chatRouterApi from "./modules/chat/routerApi";
 import * as aiRouterApi from "./modules/ai/routerApi";
 import * as doctorRouterApi from "./modules/doctors/routerApi";
 import * as hospitalRouterApi from "./modules/hospitals/routerApi";
+import * as referralRouterApi from "./modules/referrals/routerApi";
 
 function readRouterFile(fileName: string): string {
   return fs.readFileSync(path.resolve(process.cwd(), "server", "routers", fileName), "utf8");
@@ -62,6 +63,10 @@ describe("router boundary pattern", () => {
     expect(Object.keys(hospitalRouterApi).sort()).toEqual([
       "hospitalActions",
       "hospitalSchemas",
+    ]);
+    expect(Object.keys(referralRouterApi).sort()).toEqual([
+      "referralActions",
+      "referralSchemas",
     ]);
   });
 
@@ -141,6 +146,14 @@ describe("router boundary pattern", () => {
     );
   });
 
+  it("referrals router uses module routerApi boundary", () => {
+    const source = readRouterFile("referrals.ts");
+    expect(source).toContain("from \"../modules/referrals/routerApi\"");
+    expect(source).not.toMatch(
+      /from\s+["']\.\.\/modules\/referrals\/(?!routerApi\b)[^"']+["']/
+    );
+  });
+
   it("router index composes doctors and hospitals through router entrypoints", () => {
     const source = fs.readFileSync(
       path.resolve(process.cwd(), "server", "routers", "index.ts"),
@@ -149,10 +162,12 @@ describe("router boundary pattern", () => {
 
     expect(source).toContain("import { doctorsRouter } from \"./doctors\";");
     expect(source).toContain("import { hospitalsRouter } from \"./hospitals\";");
+    expect(source).toContain("import { referralsRouter } from \"./referrals\";");
     expect(source).toContain("doctors: doctorsRouter");
     expect(source).toContain("hospitals: hospitalsRouter");
+    expect(source).toContain("referrals: referralsRouter");
     expect(source).not.toMatch(
-      /from\s+["']\.\.\/modules\/(doctors|hospitals)\//
+      /from\s+["']\.\.\/modules\/(doctors|hospitals|referrals)\//
     );
   });
 
@@ -170,11 +185,13 @@ describe("router boundary pattern", () => {
       chat: getRouterLineCount("chat.ts"),
       doctors: getRouterLineCount("doctors.ts"),
       hospitals: getRouterLineCount("hospitals.ts"),
+      referrals: getRouterLineCount("referrals.ts"),
     };
 
     expect(lines.appointments).toBeLessThanOrEqual(220);
     expect(lines.chat).toBeLessThanOrEqual(80);
     expect(lines.doctors).toBeLessThanOrEqual(60);
     expect(lines.hospitals).toBeLessThanOrEqual(30);
+    expect(lines.referrals).toBeLessThanOrEqual(260);
   });
 });

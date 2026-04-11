@@ -38,6 +38,11 @@ const triageRoutingSchema = z.object({
     matchedSpecialtyKey: z.string().nullable(),
   }),
   hospitals: z.array(triageRoutingHospitalSchema),
+  confidence: z.enum(["standard", "reduced"]).optional().default("standard"),
+  missingCriticalFields: z
+    .array(z.enum(["age", "gender"]))
+    .optional()
+    .default([]),
 });
 
 export const historicalTriageResultSchema = z.object({

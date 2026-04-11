@@ -26,6 +26,18 @@ const AppointmentAccessPage = lazy(() => import("./pages/AppointmentAccess"));
 const VisitRoomPage = lazy(() => import("./pages/VisitRoom"));
 const PaymentSuccessPage = lazy(() => import("./pages/PaymentSuccess"));
 const PaymentCancelPage = lazy(() => import("./pages/PaymentCancel"));
+const ReferralSelectPage = lazy(() => import("./pages/ReferralSelect"));
+const ReferralConfirmPage = lazy(() => import("./pages/ReferralConfirm"));
+const ReferralPaymentPage = lazy(() => import("./pages/ReferralPayment"));
+const ReferralPaymentSuccessPage = lazy(
+  () => import("./pages/ReferralPaymentSuccess")
+);
+const ReferralPaymentCancelPage = lazy(
+  () => import("./pages/ReferralPaymentCancel")
+);
+const ReferralOrderDetailPage = lazy(
+  () => import("./pages/ReferralOrderDetail")
+);
 const MockCheckoutPage = lazy(() => import("./pages/MockCheckout"));
 const DevComponentShowcasePage = import.meta.env.DEV
   ? lazy(() => import("./sandbox/ComponentShowcase"))
@@ -109,6 +121,21 @@ function Router() {
         <Route path={"/appointment/:id"} component={AppointmentAccessPage} />
         <Route path={"/payment/success"} component={PaymentSuccessPage} />
         <Route path={"/payment/cancel"} component={PaymentCancelPage} />
+        <Route path={"/referrals/select"} component={ReferralSelectPage} />
+        <Route path={"/referrals/confirm"} component={ReferralConfirmPage} />
+        <Route path={"/referrals/pay"} component={ReferralPaymentPage} />
+        <Route
+          path={"/referrals/payment/success"}
+          component={ReferralPaymentSuccessPage}
+        />
+        <Route
+          path={"/referrals/payment/cancel"}
+          component={ReferralPaymentCancelPage}
+        />
+        <Route
+          path={"/referrals/orders/:id"}
+          component={ReferralOrderDetailPage}
+        />
         <Route path={"/mock-checkout/:bookingId"} component={MockCheckoutPage} />
         <Route path={"/visit/:id"} component={VisitRoomPage} />
         <Route path={"/doctor/claim"} component={DoctorClaimInvitePage} />

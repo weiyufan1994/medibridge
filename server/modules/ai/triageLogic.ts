@@ -6,6 +6,10 @@ import {
   getLocalizedTriageGenderLabel,
   normalizeTriageIntake,
 } from "../../../shared/triageIntake";
+import type {
+  TriageRoutingConfidence,
+  TriageRoutingCriticalField,
+} from "../../../shared/triageRouting";
 import type { TriageKnowledgeContext, TriageLang } from "./service";
 
 export type TriageExtractionDraft = {
@@ -34,6 +38,12 @@ export type TriageDepartmentHint = {
   key: string;
   zh: string;
   en: string;
+};
+
+export type TriageDepartmentRecommendation = {
+  department: TriageDepartmentHint;
+  confidence: TriageRoutingConfidence;
+  missingCriticalFields: TriageRoutingCriticalField[];
 };
 
 export type MissingTriageField =
@@ -279,6 +289,18 @@ const KNOWLEDGE_TAG_LABELS: Record<string, TriageDepartmentHint> = {
     en: "general medicine",
   },
 } as const;
+
+const GENERAL_MEDICINE_HINT: TriageDepartmentHint = {
+  key: "general_medicine",
+  zh: "全科",
+  en: "general medicine",
+};
+
+const PEDIATRICS_HINT: TriageDepartmentHint = {
+  key: "pediatrics",
+  zh: "儿科",
+  en: "pediatrics",
+};
 
 const LOCALIZED_MISSING_VALUE = {
   zh: "未提供",
@@ -573,52 +595,174 @@ const createKeywordPool = (data: TriageCollectedData) => {
   return Array.from(new Set(values));
 };
 
-export function pickRecommendedDepartment(input: {
-  data: TriageCollectedData;
-  knowledgeContext?: TriageKnowledgeContext;
-}): TriageDepartmentHint {
-  const { data, knowledgeContext } = input;
-  const knowledgeTag = knowledgeContext?.snippets
-    .flatMap(snippet => snippet.specialtyTags)
-    .find(tag => tag in KNOWLEDGE_TAG_LABELS);
+const uniqueDepartmentHints = (hints: TriageDepartmentHint[]) => {
+  const seen = new Set<string>();
+  const next: TriageDepartmentHint[] = [];
 
-  if (knowledgeTag) {
-    return KNOWLEDGE_TAG_LABELS[knowledgeTag];
+  for (const hint of hints) {
+    if (seen.has(hint.key)) {
+      continue;
+    }
+
+    seen.add(hint.key);
+    next.push(hint);
   }
 
-  if (data.age !== null && data.age <= 14) {
-    return {
-      key: "pediatrics",
-      zh: "儿科",
-      en: "pediatrics",
-    };
-  }
+  return next;
+};
 
-  const haystack = [
+function buildTriageHaystack(data: TriageCollectedData) {
+  return [
     data.mainSymptomAndLocation,
     data.durationAndOnset,
     data.traumaOrSurgery,
     data.chronicConditions,
     data.otherSymptoms,
   ].join(" ");
+}
 
-  const matched = SPECIALTY_HINTS.find(item =>
-    item.patterns.some(pattern => pattern.test(haystack))
+function listKnowledgeDepartmentHints(
+  knowledgeContext?: TriageKnowledgeContext
+) {
+  const tags = knowledgeContext?.snippets.flatMap(snippet => snippet.specialtyTags) ?? [];
+
+  return uniqueDepartmentHints(
+    tags
+      .map(tag => KNOWLEDGE_TAG_LABELS[tag])
+      .filter((hint): hint is TriageDepartmentHint => Boolean(hint))
   );
+}
 
-  if (matched) {
+function listPatternDepartmentHints(data: TriageCollectedData) {
+  const haystack = buildTriageHaystack(data);
+
+  return SPECIALTY_HINTS.filter(item =>
+    item.patterns.some(pattern => pattern.test(haystack))
+  ).map(item => ({
+    key: item.key,
+    zh: item.zh,
+    en: item.en,
+  }));
+}
+
+function assessDepartmentEligibility(input: {
+  department: TriageDepartmentHint;
+  data: TriageCollectedData;
+}) {
+  if (input.department.key === "gynecology" || input.department.key === "obstetrics") {
+    if (input.data.gender === "female") {
+      return {
+        isEligible: true,
+        missingCriticalFields: [] as TriageRoutingCriticalField[],
+      };
+    }
+
+    if (input.data.gender === "unknown") {
+      return {
+        isEligible: false,
+        missingCriticalFields: ["gender"] as TriageRoutingCriticalField[],
+      };
+    }
+
     return {
-      key: matched.key,
-      zh: matched.zh,
-      en: matched.en,
+      isEligible: false,
+      missingCriticalFields: [] as TriageRoutingCriticalField[],
+    };
+  }
+
+  if (input.department.key === "andrology") {
+    if (input.data.gender === "male") {
+      return {
+        isEligible: true,
+        missingCriticalFields: [] as TriageRoutingCriticalField[],
+      };
+    }
+
+    if (input.data.gender === "unknown") {
+      return {
+        isEligible: false,
+        missingCriticalFields: ["gender"] as TriageRoutingCriticalField[],
+      };
+    }
+
+    return {
+      isEligible: false,
+      missingCriticalFields: [] as TriageRoutingCriticalField[],
+    };
+  }
+
+  if (input.department.key === "pediatrics") {
+    if (typeof input.data.age === "number" && input.data.age <= 14) {
+      return {
+        isEligible: true,
+        missingCriticalFields: [] as TriageRoutingCriticalField[],
+      };
+    }
+
+    if (input.data.age === null) {
+      return {
+        isEligible: false,
+        missingCriticalFields: ["age"] as TriageRoutingCriticalField[],
+      };
+    }
+
+    return {
+      isEligible: false,
+      missingCriticalFields: [] as TriageRoutingCriticalField[],
     };
   }
 
   return {
-    key: "general_medicine",
-    zh: "全科",
-    en: "general medicine",
+    isEligible: true,
+    missingCriticalFields: [] as TriageRoutingCriticalField[],
   };
+}
+
+export function resolveRecommendedDepartment(input: {
+  data: TriageCollectedData;
+  knowledgeContext?: TriageKnowledgeContext;
+}): TriageDepartmentRecommendation {
+  const candidates = uniqueDepartmentHints([
+    ...(input.data.age !== null && input.data.age <= 14 ? [PEDIATRICS_HINT] : []),
+    ...listKnowledgeDepartmentHints(input.knowledgeContext),
+    ...listPatternDepartmentHints(input.data),
+    GENERAL_MEDICINE_HINT,
+  ]);
+
+  const missingCriticalFields = new Set<TriageRoutingCriticalField>();
+
+  for (const department of candidates) {
+    const eligibility = assessDepartmentEligibility({
+      department,
+      data: input.data,
+    });
+
+    if (eligibility.isEligible) {
+      return {
+        department,
+        confidence:
+          missingCriticalFields.size > 0 ? "reduced" : "standard",
+        missingCriticalFields: Array.from(missingCriticalFields),
+      };
+    }
+
+    for (const field of eligibility.missingCriticalFields) {
+      missingCriticalFields.add(field);
+    }
+  }
+
+  return {
+    department: GENERAL_MEDICINE_HINT,
+    confidence: missingCriticalFields.size > 0 ? "reduced" : "standard",
+    missingCriticalFields: Array.from(missingCriticalFields),
+  };
+}
+
+export function pickRecommendedDepartment(input: {
+  data: TriageCollectedData;
+  knowledgeContext?: TriageKnowledgeContext;
+}): TriageDepartmentHint {
+  return resolveRecommendedDepartment(input).department;
 }
 
 function pickSpecialtyHint(
@@ -626,7 +770,10 @@ function pickSpecialtyHint(
   lang: TriageLang,
   knowledgeContext?: TriageKnowledgeContext
 ) {
-  const department = pickRecommendedDepartment({ data, knowledgeContext });
+  const department = resolveRecommendedDepartment({
+    data,
+    knowledgeContext,
+  }).department;
   return department[lang];
 }
 
@@ -682,15 +829,37 @@ export function buildRecommendationKeywords(input: {
 
 export function buildCompletionReply(
   lang: TriageLang,
-  department?: TriageDepartmentHint
+  recommendation?: TriageDepartmentRecommendation
 ) {
-  const departmentLabel = department
+  const departmentLabel = recommendation?.department
     ? lang === "zh"
-      ? department.zh
-      : department.en
+      ? recommendation.department.zh
+      : recommendation.department.en
     : lang === "zh"
       ? "相关专科"
       : "the relevant department";
+
+  const missingFieldLabels =
+    recommendation?.missingCriticalFields.map(field =>
+      lang === "zh"
+        ? field === "gender"
+          ? "性别"
+          : "年龄"
+        : field === "gender"
+          ? "gender"
+          : "age"
+    ) ?? [];
+
+  if (
+    recommendation?.confidence === "reduced" &&
+    missingFieldLabels.length > 0
+  ) {
+    if (lang === "zh") {
+      return `当前关键信息仍不足（${missingFieldLabels.join("、")}未提供），下面先展示偏保守的建议就诊方向（${departmentLabel}）和参考医院。建议补充相关信息以提高准确性。这是分诊建议，不是明确诊断。`;
+    }
+
+    return `Some critical information is still missing (${missingFieldLabels.join(", ")} not provided), so I will show a safer preliminary routing suggestion (${departmentLabel}) and reference hospitals for now. Please add those details to improve accuracy. This is routing guidance, not a confirmed diagnosis.`;
+  }
 
   if (lang === "zh") {
     return `已根据您提供的关键信息完成极速分诊。下面将展示建议就诊专科（${departmentLabel}）和参考医院。这是分诊建议，不是明确诊断。`;
