@@ -28,6 +28,11 @@ export const REFERRAL_PAYMENT_STATUS_VALUES = [
 export type ReferralPaymentStatus =
   (typeof REFERRAL_PAYMENT_STATUS_VALUES)[number];
 
+export type ReferralPaymentAction =
+  | "payNow"
+  | "continuePayment"
+  | "retryPayment";
+
 export const REFERRAL_ACTOR_TYPE_VALUES = [
   "system",
   "patient",
@@ -63,3 +68,26 @@ export const REFERRAL_REFUND_REASON_CODE_VALUES = [
 
 export type ReferralRefundReasonCode =
   (typeof REFERRAL_REFUND_REASON_CODE_VALUES)[number];
+
+export function getReferralPaymentActionForOrder(input: {
+  status: ReferralOrderStatus;
+  paymentStatus: ReferralPaymentStatus;
+}): ReferralPaymentAction | null {
+  if (input.status !== "pending_payment") {
+    return null;
+  }
+
+  if (input.paymentStatus === "unpaid") {
+    return "payNow";
+  }
+
+  if (input.paymentStatus === "pending") {
+    return "continuePayment";
+  }
+
+  if (input.paymentStatus === "failed") {
+    return "retryPayment";
+  }
+
+  return null;
+}

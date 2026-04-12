@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import type { Request } from "express";
 import { z } from "zod";
@@ -18,6 +19,7 @@ import {
   REFERRAL_SERVICE_AGREEMENT_VERSION,
   REFERRAL_SERVICE_AMOUNT,
   REFERRAL_SERVICE_CURRENCY,
+  getReferralPaymentActionForOrder,
   type ReferralActorType,
   type ReferralOrderStatus,
   type ReferralPaymentStatus,
@@ -52,6 +54,7 @@ import type {
   initiateRefundInputSchema,
   listMineOrdersInputSchema,
   listOrdersInputSchema,
+  publishPatientProgressUpdateInputSchema,
   recordBookingResultInputSchema,
   recordContactAttemptInputSchema,
   referralOrderDetailOutputSchema,
@@ -73,6 +76,9 @@ type AssignOrderInput = z.infer<typeof assignOrderInputSchema>;
 type AssignOrderContactInput = z.infer<typeof assignOrderContactInputSchema>;
 type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusInputSchema>;
 type AddInternalNoteInput = z.infer<typeof addInternalNoteInputSchema>;
+type PublishPatientProgressUpdateInput = z.infer<
+  typeof publishPatientProgressUpdateInputSchema
+>;
 type RecordContactAttemptInput = z.infer<typeof recordContactAttemptInputSchema>;
 type RecordBookingResultInput = z.infer<typeof recordBookingResultInputSchema>;
 type SetConsultationTimeInput = z.infer<typeof setConsultationTimeInputSchema>;
@@ -98,6 +104,8 @@ type NullableLocalDepartment =
   | Awaited<ReturnType<typeof referralRepo.getDepartmentById>>
   | null;
 
+const REFERRAL_MOCK_CHECKOUT_ENABLED_VALUE = "1";
+
 function requireUser(user: User | null): CurrentUser {
   if (!user) {
     throw new TRPCError({
@@ -111,6 +119,18 @@ function requireUser(user: User | null): CurrentUser {
 
 function resolveActorTypeFromUser(user: User): ReferralActorType {
   return user.role === "ops" ? "ops" : "admin";
+}
+
+function isReferralMockCheckoutEnabled() {
+  return (
+    process.env.NODE_ENV !== "production" &&
+    process.env.VITE_REFERRAL_MOCK_CHECKOUT?.trim() ===
+      REFERRAL_MOCK_CHECKOUT_ENABLED_VALUE
+  );
+}
+
+function buildMockReferralPaymentSessionId() {
+  return `cs_referral_mock_${crypto.randomBytes(12).toString("hex")}`;
 }
 
 async function getOwnedTriageRecommendation(input: {
@@ -400,6 +420,37 @@ async function recordPatientNotification(input: {
     actionPayload: {
       detail: input.detail,
     },
+  });
+}
+
+function throwReferralPaymentCreationError(input: {
+  status: ReferralOrderStatus;
+  paymentStatus: ReferralPaymentStatus;
+}) {
+  if (input.paymentStatus === "paid") {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "This referral order has already been paid.",
+    });
+  }
+
+  if (input.paymentStatus === "refunded" || input.paymentStatus === "cancelled") {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "This referral order can no longer be paid.",
+    });
+  }
+
+  if (input.status !== "pending_payment") {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "This referral order is no longer waiting for payment.",
+    });
+  }
+
+  throw new TRPCError({
+    code: "PRECONDITION_FAILED",
+    message: "This referral order is not payable right now.",
   });
 }
 
@@ -744,22 +795,31 @@ export async function createPaymentSessionAction(input: {
     orderId: input.createInput.orderId,
     userId: currentUser.id,
   });
-
-  if (order.paymentStatus === "paid") {
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message: "Referral order is already paid",
+  const paymentAction = getReferralPaymentActionForOrder({
+    status: order.status as ReferralOrderStatus,
+    paymentStatus: order.paymentStatus as ReferralPaymentStatus,
+  });
+  if (!paymentAction) {
+    throwReferralPaymentCreationError({
+      status: order.status as ReferralOrderStatus,
+      paymentStatus: order.paymentStatus as ReferralPaymentStatus,
     });
   }
 
   const publicBaseUrl = getPublicBaseUrl(input.req);
-  const checkout = await createPaymentCheckoutSession({
-    appointmentId: order.id,
-    amount: order.totalAmount,
-    currency: order.currency,
-    successUrl: `${publicBaseUrl}/referrals/payment/success?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
-    cancelUrl: `${publicBaseUrl}/referrals/payment/cancel?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
-  });
+  const checkout = isReferralMockCheckoutEnabled()
+    ? {
+        provider: "stripe" as const,
+        id: buildMockReferralPaymentSessionId(),
+        url: `${publicBaseUrl}/referrals/mock-checkout/${order.id}`,
+      }
+    : await createPaymentCheckoutSession({
+        appointmentId: order.id,
+        amount: order.totalAmount,
+        currency: order.currency,
+        successUrl: `${publicBaseUrl}/referrals/payment/success?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${publicBaseUrl}/referrals/payment/cancel?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
+      });
 
   const marked = await referralRepo.markOrderPendingPayment({
     orderId: order.id,
@@ -767,9 +827,63 @@ export async function createPaymentSessionAction(input: {
     paymentProvider: checkout.provider,
   });
   if (!marked.ok) {
+    if (marked.reason === "conflict") {
+      const refreshedOrder = await referralRepo.getReferralOrderById(order.id);
+      if (
+        refreshedOrder &&
+        getReferralPaymentActionForOrder({
+          status: refreshedOrder.status as ReferralOrderStatus,
+          paymentStatus: refreshedOrder.paymentStatus as ReferralPaymentStatus,
+        })
+      ) {
+        const retried = await referralRepo.markOrderPendingPayment({
+          orderId: order.id,
+          paymentSessionId: checkout.id,
+          paymentProvider: checkout.provider,
+        });
+        if (retried.ok) {
+          await referralRepo.insertOperation({
+            orderId: order.id,
+            operatorType: "patient",
+            operatorId: currentUser.id,
+            actionType: "payment_session_created",
+            actionPayload: {
+              paymentSessionId: checkout.id,
+            },
+          });
+
+          return {
+            orderId: order.id,
+            status: "pending_payment" as const,
+            paymentStatus: "pending" as const,
+            checkoutSessionUrl: checkout.url,
+            paymentSessionId:
+              process.env.NODE_ENV === "development" ? checkout.id : undefined,
+          };
+        }
+      }
+    }
+
+    const latestOrder =
+      marked.current?.id === order.id
+        ? await referralRepo.getReferralOrderById(order.id)
+        : null;
+    if (latestOrder) {
+      const latestPaymentAction = getReferralPaymentActionForOrder({
+        status: latestOrder.status as ReferralOrderStatus,
+        paymentStatus: latestOrder.paymentStatus as ReferralPaymentStatus,
+      });
+      if (!latestPaymentAction) {
+        throwReferralPaymentCreationError({
+          status: latestOrder.status as ReferralOrderStatus,
+          paymentStatus: latestOrder.paymentStatus as ReferralPaymentStatus,
+        });
+      }
+    }
+
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
-      message: REFERRAL_INVALID_TRANSITION_ERROR,
+      message: "Unable to start payment right now. Please refresh and try again.",
     });
   }
 
@@ -1315,6 +1429,30 @@ export async function addInternalNoteAction(
     actionPayload: {
       note: input.note,
     },
+  });
+
+  return getAdminOrderDetailAction(currentUser, input.orderId);
+}
+
+export async function publishPatientProgressUpdateAction(
+  user: User | null,
+  input: PublishPatientProgressUpdateInput
+) {
+  const currentUser = requireUser(user);
+  await referralRepo.insertOperation({
+    orderId: input.orderId,
+    operatorType: resolveActorTypeFromUser(currentUser),
+    operatorId: currentUser.id,
+    actionType: "patient_notification",
+    actionPayload: {
+      detail: input.detail,
+    },
+  });
+
+  await notifyPatientReferralUpdate({
+    orderId: input.orderId,
+    event: "patient_progress_update",
+    detail: input.detail,
   });
 
   return getAdminOrderDetailAction(currentUser, input.orderId);

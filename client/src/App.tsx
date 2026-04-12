@@ -38,6 +38,9 @@ const ReferralPaymentCancelPage = lazy(
 const ReferralOrderDetailPage = lazy(
   () => import("./pages/ReferralOrderDetail")
 );
+const ReferralMockCheckoutPage = lazy(
+  () => import("./pages/ReferralMockCheckout")
+);
 const MockCheckoutPage = lazy(() => import("./pages/MockCheckout"));
 const DevComponentShowcasePage = import.meta.env.DEV
   ? lazy(() => import("./sandbox/ComponentShowcase"))
@@ -135,6 +138,10 @@ function Router() {
         <Route
           path={"/referrals/orders/:id"}
           component={ReferralOrderDetailPage}
+        />
+        <Route
+          path={"/referrals/mock-checkout/:orderId"}
+          component={ReferralMockCheckoutPage}
         />
         <Route path={"/mock-checkout/:bookingId"} component={MockCheckoutPage} />
         <Route path={"/visit/:id"} component={VisitRoomPage} />

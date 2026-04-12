@@ -74,6 +74,7 @@ export function ReferralAdminPanel({
   );
   const [statusReason, setStatusReason] = useState("");
   const [internalNote, setInternalNote] = useState("");
+  const [patientProgressUpdate, setPatientProgressUpdate] = useState("");
   const [contactOutcome, setContactOutcome] = useState<
     "connected" | "no_response" | "failed"
   >("connected");
@@ -211,6 +212,15 @@ export function ReferralAdminPanel({
     },
     onError: handleMutationError,
   });
+  const publishPatientProgressMutation =
+    trpc.referrals.publishPatientProgressUpdate.useMutation({
+      onSuccess: async () => {
+        toast.success(copy.admin.actionSuccess);
+        setPatientProgressUpdate("");
+        await refreshReferralAdminData();
+      },
+      onError: handleMutationError,
+    });
   const contactAttemptMutation = trpc.referrals.recordContactAttempt.useMutation({
     onSuccess: async () => {
       toast.success(copy.admin.actionSuccess);
@@ -728,7 +738,7 @@ export function ReferralAdminPanel({
                   </div>
                 </div>
 
-                <div className="grid gap-4 xl:grid-cols-2">
+                <div className="grid gap-4 xl:grid-cols-3">
                   <div className="space-y-3 rounded-2xl border border-slate-200 p-4">
                     <p className="text-sm font-semibold text-slate-900">
                       {copy.admin.addNote}
@@ -754,6 +764,37 @@ export function ReferralAdminPanel({
                       }}
                     >
                       {copy.admin.addNote}
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3 rounded-2xl border border-slate-200 p-4">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {copy.admin.patientProgressTitle}
+                    </p>
+                    <Textarea
+                      value={patientProgressUpdate}
+                      onChange={event => setPatientProgressUpdate(event.target.value)}
+                      placeholder={copy.admin.patientProgressPlaceholder}
+                      className="min-h-[108px]"
+                    />
+                    <Button
+                      variant="outline"
+                      className="rounded-xl border-slate-200"
+                      disabled={
+                        publishPatientProgressMutation.isPending ||
+                        patientProgressUpdate.trim().length < 1
+                      }
+                      onClick={() => {
+                        if (!orderState) {
+                          return;
+                        }
+                        void publishPatientProgressMutation.mutateAsync({
+                          orderId: orderState.id,
+                          detail: patientProgressUpdate.trim(),
+                        });
+                      }}
+                    >
+                      {copy.admin.publishPatientProgress}
                     </Button>
                   </div>
 

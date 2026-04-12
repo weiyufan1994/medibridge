@@ -10,6 +10,9 @@ import { getReferralCopy, type ReferralLang } from "@/features/referrals/copy";
 import {
   buildReferralOrderHref,
   formatReferralMoney,
+  getReferralCheckoutRedirectHref,
+  getReferralPaymentAction,
+  getReferralUserErrorMessage,
   getReferralStatusLabel,
 } from "@/features/referrals/presentation";
 
@@ -28,11 +31,16 @@ export function ReferralPaymentScreen({
   const createPaymentSessionMutation = trpc.referrals.createPaymentSession.useMutation({
     onSuccess: result => {
       if (typeof window !== "undefined") {
-        window.location.href = result.checkoutSessionUrl;
+        window.location.href = getReferralCheckoutRedirectHref({
+          orderId: result.orderId,
+          checkoutSessionUrl: result.checkoutSessionUrl,
+        });
       }
     },
     onError: error => {
-      toast.error(error.message || copy.payment.paymentFailed);
+      toast.error(
+        getReferralUserErrorMessage(error, copy.payment.paymentFailed)
+      );
     },
   });
 
@@ -56,13 +64,19 @@ export function ReferralPaymentScreen({
   }
 
   const detail = orderQuery.data;
-  const isPaid = detail.order.paymentStatus === "paid";
   const hospitalName =
     getLocalizedText({ lang, value: detail.hospital.name }).trim() ||
     copy.common.notAvailable;
   const departmentName =
     getLocalizedText({ lang, value: detail.department.name }).trim() ||
     copy.common.notAvailable;
+  const paymentAction = getReferralPaymentAction({
+    status: detail.order.status,
+    paymentStatus: detail.order.paymentStatus,
+  });
+  const paymentActionLabel = paymentAction
+    ? copy.payment[paymentAction]
+    : null;
 
   return (
     <div className="space-y-6">
@@ -131,6 +145,12 @@ export function ReferralPaymentScreen({
 
           <p className="text-sm leading-6 text-slate-600">{copy.payment.payHelp}</p>
 
+          {paymentAction ? (
+            <div className="rounded-2xl border border-teal-200 bg-teal-50 p-4 text-sm leading-6 text-teal-950">
+              {copy.orderDetail.pendingPaymentNotice}
+            </div>
+          ) : null}
+
           {detail.order.manualFulfillmentRequired ? (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
               {copy.confirmation.manualHandlingNotice}
@@ -138,19 +158,19 @@ export function ReferralPaymentScreen({
           ) : null}
 
           <div className="flex flex-wrap gap-3">
-            <Button
-              className="rounded-xl bg-teal-600 text-white hover:bg-teal-700"
-              disabled={createPaymentSessionMutation.isPending || isPaid}
-              onClick={() => {
-                void createPaymentSessionMutation.mutateAsync({ orderId });
-              }}
-            >
-              {createPaymentSessionMutation.isPending
-                ? copy.payment.paymentWaiting
-                : isPaid
-                  ? copy.payment.alreadyPaid
-                  : copy.payment.payNow}
-            </Button>
+            {paymentAction && paymentActionLabel ? (
+              <Button
+                className="rounded-xl bg-teal-600 text-white hover:bg-teal-700"
+                disabled={createPaymentSessionMutation.isPending}
+                onClick={() => {
+                  void createPaymentSessionMutation.mutateAsync({ orderId });
+                }}
+              >
+                {createPaymentSessionMutation.isPending
+                  ? copy.payment.paymentWaiting
+                  : paymentActionLabel}
+              </Button>
+            ) : null}
             <Button
               variant="outline"
               className="rounded-xl border-slate-200"

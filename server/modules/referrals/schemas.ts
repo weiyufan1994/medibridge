@@ -333,6 +333,11 @@ export const addInternalNoteInputSchema = z.object({
   note: z.string().trim().min(1).max(4000),
 });
 
+export const publishPatientProgressUpdateInputSchema = z.object({
+  orderId: z.number().int().positive(),
+  detail: z.string().trim().min(1).max(4000),
+});
+
 export const recordContactAttemptInputSchema = z.object({
   orderId: z.number().int().positive(),
   outcome: z.enum(["connected", "no_response", "failed"]),

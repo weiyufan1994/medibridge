@@ -122,6 +122,13 @@ export const referralsRouter = router({
       referralActions.addInternalNoteAction(ctx.user, input)
     ),
 
+  publishPatientProgressUpdate: adminOrOpsProcedure
+    .input(referralSchemas.publishPatientProgressUpdateInputSchema)
+    .output(referralSchemas.adminReferralOrderDetailOutputSchema)
+    .mutation(({ ctx, input }) =>
+      referralActions.publishPatientProgressUpdateAction(ctx.user, input)
+    ),
+
   recordContactAttempt: adminOrOpsProcedure
     .input(referralSchemas.recordContactAttemptInputSchema)
     .output(referralSchemas.adminReferralOrderDetailOutputSchema)

@@ -6,6 +6,7 @@ const referralCopyByLang = {
       backToTriage: "Back to Triage",
       backToSelection: "Back to Contact Selection",
       backToConfirmation: "Back to Confirmation",
+      backToOrders: "Back to My Orders",
       backToDashboard: "Back to Dashboard",
       backToOrder: "Back to Order",
     },
@@ -117,12 +118,25 @@ const referralCopyByLang = {
       retryPayment: "Retry payment",
       continuePayment: "Continue payment",
       paymentReturnedError: "Unable to confirm the payment result right now.",
+      mockTitle: "Demo payment screen",
+      mockDescription:
+        "Referral mock checkout is enabled for local demos. Use the actions below to simulate the payment result.",
+      mockOrderLabel: "Referral order",
+      mockSuccess: "Simulate payment success",
+      mockCancel: "Simulate payment cancel",
+      mockDisabled:
+        "Referral mock checkout is unavailable. Turn on VITE_REFERRAL_MOCK_CHECKOUT=1 in development to use this page.",
     },
     orderDetail: {
       title: "Referral Order",
       latestUpdate: "Latest update",
+      latestUpdateTime: "Updated",
       latestUpdateFallback:
         "Your referral request is in progress. We will keep this page updated.",
+      pendingPaymentNotice:
+        "Please complete payment first. We will start manual coordination after payment is confirmed.",
+      consultationConfirmedNotice:
+        "Your consultation time has been confirmed. Please attend at the scheduled time shown below. We will notify you if it changes.",
       consultationTime: "Consultation time",
       refundStatus: "Refund status",
       timeline: "Status timeline",
@@ -132,12 +146,21 @@ const referralCopyByLang = {
       triageSummary: "Case summary snapshot",
       recommendationReason: "Recommendation reason",
       manualFulfillmentNotice:
-        "This order is using manual outreach. Our team will coordinate with the hospital or doctor after payment.",
+        "This order is being handled through manual coordination. Our team is continuing to reach out to the hospital or doctor and advance the next steps.",
       selectedHospital: "Hospital",
       selectedContact: "Internal handling",
       agreementVersion: "Agreement version",
       orderId: "Order ID",
       loadFailed: "Failed to load referral order details.",
+      systemProgress: {
+        paymentReceived:
+          "Payment received. Your referral request is now waiting for internal assignment.",
+        consultationTimeConfirmed: "Consultation time confirmed.",
+        refundReviewInProgress:
+          "A refund review is in progress for your referral order.",
+        refundReviewInitiated: "Refund review initiated.",
+        refundCompleted: "Refund completed.",
+      },
     },
     dashboard: {
       title: "Referral Orders",
@@ -186,6 +209,10 @@ const referralCopyByLang = {
       reason: "Reason",
       note: "Note",
       addNote: "Add note",
+      patientProgressTitle: "Patient-visible progress update",
+      patientProgressPlaceholder:
+        "Share a progress update that will appear on the patient's referral order page.",
+      publishPatientProgress: "Publish progress update",
       contactAttemptTitle: "Contact attempt",
       bookingResultTitle: "Booking progress",
       consultationTimeTitle: "Consultation time",
@@ -256,6 +283,7 @@ const referralCopyByLang = {
       backToTriage: "返回问诊结果",
       backToSelection: "返回联系人选择",
       backToConfirmation: "返回确认页",
+      backToOrders: "返回我的订单",
       backToDashboard: "返回个人中心",
       backToOrder: "返回订单",
     },
@@ -361,11 +389,24 @@ const referralCopyByLang = {
       retryPayment: "重新支付",
       continuePayment: "继续支付",
       paymentReturnedError: "暂时无法确认支付结果。",
+      mockTitle: "演示支付页",
+      mockDescription:
+        "当前已启用转诊演示支付模式。你可以使用下面的操作来模拟支付结果。",
+      mockOrderLabel: "转诊订单",
+      mockSuccess: "模拟支付成功",
+      mockCancel: "模拟取消支付",
+      mockDisabled:
+        "当前未启用转诊演示支付模式。请在开发环境下开启 VITE_REFERRAL_MOCK_CHECKOUT=1 后再使用此页面。",
     },
     orderDetail: {
       title: "转诊订单",
       latestUpdate: "最新进展",
+      latestUpdateTime: "更新时间",
       latestUpdateFallback: "转诊请求正在处理中，我们会持续更新此页面。",
+      pendingPaymentNotice:
+        "请先完成支付，我们将在支付后开始人工协调预约流程。",
+      consultationConfirmedNotice:
+        "问诊时间已确认，请按下方显示时间准时参加；如时间有变动，我们会及时通知你。",
       consultationTime: "问诊时间",
       refundStatus: "退款状态",
       timeline: "状态时间线",
@@ -375,12 +416,19 @@ const referralCopyByLang = {
       triageSummary: "病例摘要快照",
       recommendationReason: "推荐原因",
       manualFulfillmentNotice:
-        "该订单当前走人工协调路径，支付后平台会继续联系医院或医生。",
+        "该订单当前由平台人工协调推进，团队正在继续联系医院或医生安排后续流程。",
       selectedHospital: "医院",
       selectedContact: "内部处理",
       agreementVersion: "协议版本",
       orderId: "订单号",
       loadFailed: "加载转诊订单详情失败。",
+      systemProgress: {
+        paymentReceived: "已收到支付，订单正在等待平台内部接单处理。",
+        consultationTimeConfirmed: "问诊时间已确认。",
+        refundReviewInProgress: "当前正在处理你的退款审核，请留意后续通知。",
+        refundReviewInitiated: "已发起退款审核。",
+        refundCompleted: "退款已完成。",
+      },
     },
     dashboard: {
       title: "转诊订单",
@@ -428,6 +476,9 @@ const referralCopyByLang = {
       reason: "原因",
       note: "备注",
       addNote: "添加备注",
+      patientProgressTitle: "患者可见进展更新",
+      patientProgressPlaceholder: "填写会展示在患者转诊订单页上的进展说明。",
+      publishPatientProgress: "发布进展更新",
       contactAttemptTitle: "联系结果",
       bookingResultTitle: "挂号进展",
       consultationTimeTitle: "问诊时间",

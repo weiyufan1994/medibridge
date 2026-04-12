@@ -15,6 +15,7 @@ vi.mock("./modules/referrals/repo", () => ({
   insertOperation: vi.fn(),
   getReferralOrderById: vi.fn(),
   isOrderOwnedByUser: vi.fn(),
+  markOrderPendingPayment: vi.fn(),
   updateReferralOrderById: vi.fn(),
   tryTransitionOrderById: vi.fn(),
   getLatestRefundRequestByOrderId: vi.fn(),
@@ -52,16 +53,21 @@ import {
   parseStoredHistoricalTriageResult,
   rebuildHistoricalTriageResultFromSummary,
 } from "./modules/ai/historyResult";
-import { resolvePaymentAdapter } from "./modules/payments/providerManager";
+import {
+  createPaymentCheckoutSession,
+  resolvePaymentAdapter,
+} from "./modules/payments/providerManager";
 import * as referralRepo from "./modules/referrals/repo";
 import {
   assignOrderContactAction,
   confirmReturnedPaymentSessionAction,
   createOrderDraftAction,
+  createPaymentSessionAction,
   getAdminOrderDetailAction,
   getOrderDetailAction,
   getSelectionContextAction,
   listOrdersForAdminAction,
+  publishPatientProgressUpdateAction,
   reviewRefundAction,
 } from "./modules/referrals/actions";
 import {
@@ -326,6 +332,236 @@ describe("referral actions", () => {
       orderId: 101,
       status: "paid_pending_assignment",
       paymentStatus: "paid",
+    });
+  });
+
+  it("creates a payment session for an existing pending referral order", async () => {
+    const patientUser = { id: 501, role: "free" } as never;
+
+    vi.mocked(referralRepo.getReferralOrderById).mockResolvedValue(
+      createOrderRow({
+        id: 107,
+        status: "pending_payment",
+        paymentStatus: "pending",
+        paymentProviderSessionId: "cs_old",
+      }) as never
+    );
+    vi.mocked(createPaymentCheckoutSession).mockResolvedValue({
+      provider: "stripe",
+      id: "cs_referral_2",
+      url: "https://checkout.example/referral/2",
+    } as never);
+    vi.mocked(referralRepo.markOrderPendingPayment).mockResolvedValue({
+      ok: true,
+      current: {
+        id: 107,
+        status: "pending_payment",
+        paymentStatus: "pending",
+      },
+    } as never);
+
+    const result = await createPaymentSessionAction({
+      user: patientUser,
+      createInput: { orderId: 107 },
+      req: {
+        protocol: "https",
+        headers: {},
+        get: (name: string) => (name === "host" ? "app.medibridge.test" : undefined),
+      } as never,
+    });
+
+    expect(createPaymentCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appointmentId: 107,
+        amount: 19900,
+        currency: "usd",
+      })
+    );
+    expect(referralRepo.markOrderPendingPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 107,
+        paymentSessionId: "cs_referral_2",
+      })
+    );
+    expect(referralRepo.insertOperation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 107,
+        actionType: "payment_session_created",
+      })
+    );
+    expect(result).toMatchObject({
+      orderId: 107,
+      status: "pending_payment",
+      paymentStatus: "pending",
+      checkoutSessionUrl: "https://checkout.example/referral/2",
+    });
+  });
+
+  it("creates a local mock payment session in development when referral mock checkout is enabled", async () => {
+    const patientUser = { id: 501, role: "free" } as never;
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalMockFlag = process.env.VITE_REFERRAL_MOCK_CHECKOUT;
+
+    process.env.NODE_ENV = "development";
+    process.env.VITE_REFERRAL_MOCK_CHECKOUT = "1";
+
+    vi.mocked(referralRepo.getReferralOrderById).mockResolvedValue(
+      createOrderRow({
+        id: 111,
+        status: "pending_payment",
+        paymentStatus: "unpaid",
+        paymentProviderSessionId: null,
+      }) as never
+    );
+    vi.mocked(referralRepo.markOrderPendingPayment).mockResolvedValue({
+      ok: true,
+      current: {
+        id: 111,
+        status: "pending_payment",
+        paymentStatus: "pending",
+      },
+    } as never);
+
+    try {
+      const result = await createPaymentSessionAction({
+        user: patientUser,
+        createInput: { orderId: 111 },
+        req: {
+          protocol: "https",
+          headers: {},
+          get: (name: string) =>
+            name === "host" ? "app.medibridge.test" : undefined,
+        } as never,
+      });
+
+      expect(createPaymentCheckoutSession).not.toHaveBeenCalled();
+      expect(referralRepo.markOrderPendingPayment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderId: 111,
+          paymentProvider: "stripe",
+          paymentSessionId: expect.stringMatching(/^cs_referral_mock_/),
+        })
+      );
+      expect(result).toMatchObject({
+        orderId: 111,
+        status: "pending_payment",
+        paymentStatus: "pending",
+        checkoutSessionUrl:
+          "https://app.medibridge.test/referrals/mock-checkout/111",
+      });
+      expect(result.paymentSessionId).toMatch(/^cs_referral_mock_/);
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+      if (typeof originalMockFlag === "string") {
+        process.env.VITE_REFERRAL_MOCK_CHECKOUT = originalMockFlag;
+      } else {
+        delete process.env.VITE_REFERRAL_MOCK_CHECKOUT;
+      }
+    }
+  });
+
+  it("allows snapshot/manual-fulfillment orders to create payment sessions when still pending payment", async () => {
+    const patientUser = { id: 501, role: "free" } as never;
+
+    vi.mocked(referralRepo.getReferralOrderById).mockResolvedValue(
+      createOrderRow({
+        id: 109,
+        hospitalId: null,
+        departmentId: null,
+        contactId: null,
+        manualFulfillmentRequired: 1,
+        status: "pending_payment",
+        paymentStatus: "unpaid",
+      }) as never
+    );
+    vi.mocked(createPaymentCheckoutSession).mockResolvedValue({
+      provider: "stripe",
+      id: "cs_referral_3",
+      url: "https://checkout.example/referral/3",
+    } as never);
+    vi.mocked(referralRepo.markOrderPendingPayment).mockResolvedValue({
+      ok: true,
+      current: {
+        id: 109,
+        status: "pending_payment",
+        paymentStatus: "unpaid",
+      },
+    } as never);
+
+    const result = await createPaymentSessionAction({
+      user: patientUser,
+      createInput: { orderId: 109 },
+      req: {
+        protocol: "https",
+        headers: {},
+        get: (name: string) => (name === "host" ? "app.medibridge.test" : undefined),
+      } as never,
+    });
+
+    expect(createPaymentCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appointmentId: 109,
+      })
+    );
+    expect(result).toMatchObject({
+      orderId: 109,
+      status: "pending_payment",
+      paymentStatus: "pending",
+      checkoutSessionUrl: "https://checkout.example/referral/3",
+    });
+  });
+
+  it("blocks payment session creation for orders that are no longer payable", async () => {
+    const patientUser = { id: 501, role: "free" } as never;
+
+    vi.mocked(referralRepo.getReferralOrderById).mockResolvedValue(
+      createOrderRow({
+        id: 108,
+        status: "refunded",
+        paymentStatus: "refunded",
+      }) as never
+    );
+
+    await expect(
+      createPaymentSessionAction({
+        user: patientUser,
+        createInput: { orderId: 108 },
+        req: {
+          protocol: "https",
+          headers: {},
+          get: () => "app.medibridge.test",
+        } as never,
+      })
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+    });
+    expect(createPaymentCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it("returns a clear message when a referral order is no longer waiting for payment", async () => {
+    const patientUser = { id: 501, role: "free" } as never;
+
+    vi.mocked(referralRepo.getReferralOrderById).mockResolvedValue(
+      createOrderRow({
+        id: 110,
+        status: "paid_pending_assignment",
+        paymentStatus: "paid",
+      }) as never
+    );
+
+    await expect(
+      createPaymentSessionAction({
+        user: patientUser,
+        createInput: { orderId: 110 },
+        req: {
+          protocol: "https",
+          headers: {},
+          get: () => "app.medibridge.test",
+        } as never,
+      })
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: "This referral order has already been paid.",
     });
   });
 
@@ -607,6 +843,142 @@ describe("referral actions", () => {
         id: null,
         isLocalCatalogMatch: false,
       },
+    });
+  });
+
+  it("keeps internal notes hidden from the patient-facing order detail", async () => {
+    const patientUser = { id: 501, role: "free" } as never;
+
+    vi.mocked(referralRepo.getReferralOrderById).mockResolvedValue(
+      createOrderRow({
+        id: 112,
+        status: "assigned",
+        paymentStatus: "paid",
+      }) as never
+    );
+    vi.mocked(referralRepo.getReferralOrderBundleById).mockResolvedValue(
+      createBundle({
+        order: {
+          id: 112,
+          status: "assigned",
+          paymentStatus: "paid",
+        },
+      }) as never
+    );
+    vi.mocked(referralRepo.listOperationsByOrderId).mockResolvedValue(
+      [
+        {
+          id: 2,
+          orderId: 112,
+          operatorType: "admin",
+          operatorId: 900,
+          actionType: "internal_note",
+          actionPayload: { note: "只给内部看的备注" },
+          createdAt: new Date("2026-04-12T09:00:00.000Z"),
+        },
+        {
+          id: 1,
+          orderId: 112,
+          operatorType: "admin",
+          operatorId: 900,
+          actionType: "patient_notification",
+          actionPayload: { detail: "我们正在联系医院协助安排预约" },
+          createdAt: new Date("2026-04-12T08:00:00.000Z"),
+        },
+      ] as never
+    );
+
+    const detail = await getOrderDetailAction(patientUser, 112);
+
+    expect(detail.operations).toHaveLength(1);
+    expect(detail.operations[0]).toMatchObject({
+      actionType: "patient_notification",
+      actionPayload: { detail: "我们正在联系医院协助安排预约" },
+    });
+  });
+
+  it("publishes a patient-visible progress update and exposes it on the patient order detail", async () => {
+    const adminUser = { id: 900, role: "admin" } as never;
+    const patientUser = { id: 501, role: "free" } as never;
+    const progressCreatedAt = new Date("2026-04-12T10:15:00.000Z");
+
+    vi.mocked(referralRepo.getReferralOrderById).mockResolvedValue(
+      createOrderRow({
+        id: 113,
+        status: "contacting",
+        paymentStatus: "paid",
+      }) as never
+    );
+    vi.mocked(referralRepo.getReferralOrderBundleById).mockResolvedValue(
+      createBundle({
+        order: {
+          id: 113,
+          status: "contacting",
+          paymentStatus: "paid",
+        },
+      }) as never
+    );
+    vi.mocked(referralRepo.listOperationsByOrderId)
+      .mockResolvedValueOnce(
+        [
+          {
+            id: 9,
+            orderId: 113,
+            operatorType: "admin",
+            operatorId: 900,
+            actionType: "patient_notification",
+            actionPayload: { detail: "已与院方沟通，正在协调时间" },
+            createdAt: progressCreatedAt,
+          },
+        ] as never
+      )
+      .mockResolvedValueOnce(
+        [
+          {
+            id: 9,
+            orderId: 113,
+            operatorType: "admin",
+            operatorId: 900,
+            actionType: "patient_notification",
+            actionPayload: { detail: "已与院方沟通，正在协调时间" },
+            createdAt: progressCreatedAt,
+          },
+          {
+            id: 8,
+            orderId: 113,
+            operatorType: "system",
+            operatorId: null,
+            actionType: "payment_success",
+            actionPayload: { paymentSessionId: "cs_referral_113" },
+            createdAt: new Date("2026-04-12T09:00:00.000Z"),
+          },
+        ] as never
+      );
+
+    await publishPatientProgressUpdateAction(adminUser, {
+      orderId: 113,
+      detail: "已与院方沟通，正在协调时间",
+    });
+    const detail = await getOrderDetailAction(patientUser, 113);
+
+    expect(referralRepo.insertOperation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 113,
+        actionType: "patient_notification",
+        actionPayload: {
+          detail: "已与院方沟通，正在协调时间",
+        },
+      })
+    );
+    expect(notifyPatientReferralUpdate).toHaveBeenCalledWith({
+      orderId: 113,
+      event: "patient_progress_update",
+      detail: "已与院方沟通，正在协调时间",
+    });
+    expect(detail.operations[0]).toMatchObject({
+      actionType: "patient_notification",
+      actionPayload: { detail: "已与院方沟通，正在协调时间" },
+      createdAt: progressCreatedAt,
     });
   });
 

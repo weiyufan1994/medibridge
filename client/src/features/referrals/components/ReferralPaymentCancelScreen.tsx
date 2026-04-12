@@ -3,7 +3,11 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getReferralCopy, type ReferralLang } from "@/features/referrals/copy";
-import { buildReferralOrderHref } from "@/features/referrals/presentation";
+import {
+  getReferralCheckoutRedirectHref,
+  buildReferralOrderHref,
+  getReferralUserErrorMessage,
+} from "@/features/referrals/presentation";
 import { trpc } from "@/lib/trpc";
 
 type ReferralPaymentCancelScreenProps = {
@@ -20,11 +24,16 @@ export function ReferralPaymentCancelScreen({
   const retryPaymentMutation = trpc.referrals.createPaymentSession.useMutation({
     onSuccess: result => {
       if (typeof window !== "undefined") {
-        window.location.href = result.checkoutSessionUrl;
+        window.location.href = getReferralCheckoutRedirectHref({
+          orderId: result.orderId,
+          checkoutSessionUrl: result.checkoutSessionUrl,
+        });
       }
     },
     onError: error => {
-      toast.error(error.message || copy.payment.paymentFailed);
+      toast.error(
+        getReferralUserErrorMessage(error, copy.payment.paymentFailed)
+      );
     },
   });
 
