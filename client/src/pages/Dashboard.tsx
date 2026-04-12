@@ -19,6 +19,10 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { MyAppointments } from "@/components/MyAppointments";
 import { getDashboardCopy } from "@/features/dashboard/copy";
+import {
+  parseDashboardSectionFromSearch,
+  type DashboardSection,
+} from "@/features/dashboard/presentation";
 import { getDisplayLocale } from "@/lib/i18n";
 import PricingModal from "@/features/dashboard/components/PricingModal";
 import { MyReferralOrders } from "@/features/referrals/components/MyReferralOrders";
@@ -75,8 +79,10 @@ export default function DashboardPage() {
       ? t.unlimited
       : String(usageQuery.data.remainingToday);
   const displayName = user?.email || user?.name || t.fallbackUserName;
-  const [activeSection, setActiveSection] = useState<"account" | "consultations" | "appointments">(
-    "account"
+  const [activeSection, setActiveSection] = useState<DashboardSection>(() =>
+    parseDashboardSectionFromSearch(
+      typeof window === "undefined" ? "" : window.location.search
+    )
   );
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const navItems = [
@@ -115,7 +121,7 @@ export default function DashboardPage() {
     <DashboardLayout
       items={[...navItems]}
       activeKey={activeSection}
-      onChange={key => setActiveSection(key as "account" | "consultations" | "appointments")}
+      onChange={key => setActiveSection(key as DashboardSection)}
     >
       {activeSection === "account" ? (
         <section className="rounded-xl border border-slate-200/80 bg-white p-6 shadow-sm">
