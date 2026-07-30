@@ -1,6 +1,12 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Building2, LayoutDashboard, LogOut, Shield, Stethoscope } from "lucide-react";
+import {
+  Building2,
+  LayoutDashboard,
+  LogOut,
+  Shield,
+  Stethoscope,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -53,20 +59,21 @@ export default function TopHeader(props: TopHeaderProps) {
   };
 
   return (
-    <header className="w-full px-6 h-16 flex items-center justify-between border-b border-slate-200 bg-white flex-shrink-0">
-    <Link
-      href="/"
-      aria-label="MediBridge home"
-      className="flex items-center gap-3"
-    >
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-600 text-white">
+    <header className="h-16 w-full flex-shrink-0 border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:px-6">
+      <div className="mx-auto flex h-full w-full max-w-[1680px] items-center justify-between">
+        <Link
+          href="/"
+          aria-label={t.brandHomeLabel}
+          className="flex items-center gap-3"
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
             <Stethoscope className="h-5 w-5" />
           </div>
           <div className="flex flex-col items-start">
-            <span className="block text-xl font-bold leading-none text-slate-900">
+            <span className="block text-xl font-bold leading-none text-foreground">
               MediBridge
             </span>
-            <span className="mt-0.5 block text-xs leading-tight font-normal text-slate-500">
+            <span className="mt-0.5 block text-xs leading-tight font-normal text-muted-foreground">
               {subtitleText}
             </span>
           </div>
@@ -80,7 +87,7 @@ export default function TopHeader(props: TopHeaderProps) {
               type="button"
               title={t.browseHospitals}
               aria-label={t.browseHospitals}
-              className="h-10 w-10 inline-flex items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-teal-50 hover:text-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600/30"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
               onClick={() => setLocation("/triage")}
             >
               <Building2 className="h-5 w-5" aria-hidden="true" />
@@ -92,7 +99,7 @@ export default function TopHeader(props: TopHeaderProps) {
               type="button"
               variant="outline"
               size="sm"
-              className="rounded-xl border-slate-300 text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-teal-600/30 focus-visible:ring-offset-0"
+              className="rounded-xl border-border text-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:ring-offset-0"
               onClick={openLoginModal}
             >
               {t.login}
@@ -101,25 +108,34 @@ export default function TopHeader(props: TopHeaderProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="rounded-full p-1.5 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600/30"
-                  aria-label="Open account menu"
+                  className="rounded-full p-1.5 transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                  aria-label={t.accountMenuLabel}
                 >
-                  <Avatar className="h-9 w-9 border border-slate-200">
+                  <Avatar className="h-9 w-9 border border-border">
                     <AvatarImage />
-                    <AvatarFallback className="bg-teal-50 text-xs font-semibold text-teal-700">
+                    <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
                       {getInitials(user?.name, user?.email)}
                     </AvatarFallback>
                   </Avatar>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52 rounded-xl border-slate-100 p-1.5 shadow-md">
-                <DropdownMenuItem className="rounded-lg" onClick={() => setLocation("/dashboard")}>
-                  <LayoutDashboard className="h-4 w-4 text-slate-500" />
+              <DropdownMenuContent
+                align="end"
+                className="w-52 rounded-xl border-border p-1.5 shadow-md"
+              >
+                <DropdownMenuItem
+                  className="rounded-lg"
+                  onClick={() => setLocation("/dashboard")}
+                >
+                  <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
                   {t.dashboard}
                 </DropdownMenuItem>
-                {(role === "admin" || role === "ops") ? (
-                  <DropdownMenuItem className="rounded-lg" onClick={() => setLocation("/admin")}>
-                    <Shield className="h-4 w-4 text-slate-500" />
+                {role === "admin" || role === "ops" ? (
+                  <DropdownMenuItem
+                    className="rounded-lg"
+                    onClick={() => setLocation("/admin")}
+                  >
+                    <Shield className="h-4 w-4 text-muted-foreground" />
                     {t.admin}
                   </DropdownMenuItem>
                 ) : null}
@@ -137,6 +153,7 @@ export default function TopHeader(props: TopHeaderProps) {
 
           <LanguageSwitcher />
         </div>
+      </div>
     </header>
   );
 }

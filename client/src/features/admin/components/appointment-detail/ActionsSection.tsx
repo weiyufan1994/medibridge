@@ -10,11 +10,17 @@ import type {
   UpdateStatusMutation,
   VisitSummaryQuery,
 } from "@/features/admin/types";
+import { useAdminActionConfirmation } from "@/features/admin/adminActionConfirmationContext";
+import {
+  getAdminConfirmationCopy,
+  type AdminLang,
+} from "@/features/admin/copy";
 
 type TranslateFn = (zh: string, en: string) => string;
 
 type ActionsSectionProps = {
   tr: TranslateFn;
+  lang: AdminLang;
   selectedAppointmentId: number;
   hideQuickActions?: boolean;
   beforeReinitiatePayment: () => boolean;
@@ -51,6 +57,7 @@ type ActionsSectionProps = {
 
 export function ActionsSection({
   tr,
+  lang,
   selectedAppointmentId,
   hideQuickActions = false,
   beforeReinitiatePayment,
@@ -84,6 +91,7 @@ export function ActionsSection({
   visitSummaryQuery,
   issuedLinks,
 }: ActionsSectionProps) {
+  const { requestConfirmation } = useAdminActionConfirmation();
   const reinitiateDisabledReason = !canReinitiatePayment
     ? tr("仅管理员可重新发起支付。", "Only admin can re-initiate payment.")
     : "";
@@ -113,12 +121,24 @@ export function ActionsSection({
           <Button
             type="button"
             variant="outline"
-            onClick={() =>
-              beforeReinitiatePayment() &&
-              resendPaymentMutation.mutate({
-                appointmentId: selectedAppointmentId,
-              })
-            }
+            onClick={() => {
+              if (!beforeReinitiatePayment()) return;
+              const confirmation = getAdminConfirmationCopy(
+                lang,
+                "reinitiatePayment"
+              );
+              requestConfirmation({
+                title: confirmation.title,
+                description: confirmation.description,
+                confirmLabel: confirmation.continueLabel,
+                cancelLabel: confirmation.cancelLabel,
+                tone: "danger",
+                onConfirm: () =>
+                  resendPaymentMutation.mutateAsync({
+                    appointmentId: selectedAppointmentId,
+                  }),
+              });
+            }}
             disabled={!canReinitiatePayment || resendPaymentMutation.isPending}
             title={reinitiateDisabledReason || undefined}
           >
@@ -131,12 +151,23 @@ export function ActionsSection({
           <Button
             type="button"
             variant="outline"
-            onClick={() =>
-              beforeResendAccessLink() &&
-              resendAccessLinkMutation.mutate({
-                appointmentId: selectedAppointmentId,
-              })
-            }
+            onClick={() => {
+              if (!beforeResendAccessLink()) return;
+              const confirmation = getAdminConfirmationCopy(
+                lang,
+                "resendAccessLink"
+              );
+              requestConfirmation({
+                title: confirmation.title,
+                description: confirmation.description,
+                confirmLabel: confirmation.continueLabel,
+                cancelLabel: confirmation.cancelLabel,
+                onConfirm: () =>
+                  resendAccessLinkMutation.mutateAsync({
+                    appointmentId: selectedAppointmentId,
+                  }),
+              });
+            }}
             disabled={
               !canResendAccessLink || resendAccessLinkMutation.isPending
             }
@@ -149,12 +180,24 @@ export function ActionsSection({
         ) : null}
         <Button
           type="button"
-          onClick={() =>
-            beforeIssueLinks() &&
-            issueLinksMutation.mutate({
-              appointmentId: selectedAppointmentId,
-            })
-          }
+          onClick={() => {
+            if (!beforeIssueLinks()) return;
+            const confirmation = getAdminConfirmationCopy(
+              lang,
+              "issueAccessLinks"
+            );
+            requestConfirmation({
+              title: confirmation.title,
+              description: confirmation.description,
+              confirmLabel: confirmation.continueLabel,
+              cancelLabel: confirmation.cancelLabel,
+              tone: "danger",
+              onConfirm: () =>
+                issueLinksMutation.mutateAsync({
+                  appointmentId: selectedAppointmentId,
+                }),
+            });
+          }}
           disabled={!canIssueAccessLinks || issueLinksMutation.isPending}
           title={issueLinksDisabledReason || undefined}
         >
@@ -319,16 +362,16 @@ export function ActionsSection({
           </p>
         ) : visitSummaryQuery.data ? (
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            <div className="rounded bg-slate-50 p-2">
-              <p className="mb-1 text-xs font-medium text-slate-700">
+            <div className="rounded bg-admin-surface-muted p-2">
+              <p className="mb-1 text-xs font-medium text-foreground">
                 {tr("中文", "Chinese")}
               </p>
               <pre className="overflow-auto whitespace-pre-wrap text-xs">
                 {visitSummaryQuery.data.summary.zh}
               </pre>
             </div>
-            <div className="rounded bg-slate-50 p-2">
-              <p className="mb-1 text-xs font-medium text-slate-700">
+            <div className="rounded bg-admin-surface-muted p-2">
+              <p className="mb-1 text-xs font-medium text-foreground">
                 {tr("English", "English")}
               </p>
               <pre className="overflow-auto whitespace-pre-wrap text-xs">
@@ -344,7 +387,7 @@ export function ActionsSection({
       </div>
 
       {issuedLinks ? (
-        <div className="rounded border bg-slate-50 p-3 text-xs">
+        <div className="rounded border bg-admin-surface-muted p-3 text-xs">
           <p className="font-medium">{tr("签发链接", "Issued Links")}</p>
           <p className="mt-1 break-all">
             {tr("患者：", "Patient: ")} {issuedLinks.patientLink}

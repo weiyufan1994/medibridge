@@ -21,7 +21,7 @@ export default function LanguageSwitcher() {
         size="sm"
         aria-label="Switch language / 切换语言"
         title={mode === "zh" ? "切换语言" : "Switch language"}
-        className="h-10 w-10 justify-center rounded-full border-transparent bg-transparent px-0 shadow-none hover:bg-slate-100 focus-visible:border-slate-200 focus-visible:ring-2 focus-visible:ring-slate-200/80 [&>svg:last-child]:hidden"
+        className="h-10 w-10 justify-center rounded-full border-transparent bg-transparent px-0 shadow-none hover:bg-muted focus-visible:border-border focus-visible:ring-2 focus-visible:ring-ring/30 [&>svg:last-child]:hidden"
       >
         <Globe className="h-4 w-4" />
         <span className="sr-only">

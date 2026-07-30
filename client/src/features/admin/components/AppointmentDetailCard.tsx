@@ -25,12 +25,19 @@ type AppointmentDetailCardProps = {
   locale: string;
   selectedAppointmentId: number | null;
   appointmentDetailQuery: QueryState<AppointmentDetailData>;
-  risks: Array<{ code: string; level: "critical" | "warning"; message: string }>;
+  risks: Array<{
+    code: string;
+    level: "critical" | "warning";
+    message: string;
+  }>;
   suggestions: AdminSuggestion[];
   runSuggestedAction: (suggestion: AdminSuggestion) => void;
   webhookReplayMutation: {
     isPending: boolean;
-    replayByEvent: (input: { eventId?: string; appointmentId?: number }) => void;
+    replayByEvent: (input: {
+      eventId?: string;
+      appointmentId?: number;
+    }) => void;
   };
   beforeReinitiatePayment: () => boolean;
   beforeResendAccessLink: () => boolean;
@@ -110,17 +117,20 @@ export function AppointmentDetailCard({
   issuedLinks,
 }: AppointmentDetailCardProps) {
   return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {tr("预约详情", "Appointment Detail")}
-            {selectedAppointmentId ? ` #${selectedAppointmentId}` : ""}
-          </CardTitle>
-        </CardHeader>
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          {tr("预约详情", "Appointment Detail")}
+          {selectedAppointmentId ? ` #${selectedAppointmentId}` : ""}
+        </CardTitle>
+      </CardHeader>
       <CardContent>
         {!selectedAppointmentId ? (
           <p className="text-sm text-muted-foreground">
-            {tr("点击一条预约记录查看详情与可执行动作。", "Click an appointment row to view details and admin actions.")}
+            {tr(
+              "点击一条预约记录查看详情与可执行动作。",
+              "Click an appointment row to view details and admin actions."
+            )}
           </p>
         ) : appointmentDetailQuery.isLoading ? (
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -128,7 +138,9 @@ export function AppointmentDetailCard({
             {tr("正在加载预约详情...", "Loading appointment detail...")}
           </div>
         ) : appointmentDetailQuery.error ? (
-          <p className="text-sm text-destructive">{appointmentDetailQuery.error.message}</p>
+          <p className="text-sm text-destructive">
+            {appointmentDetailQuery.error.message}
+          </p>
         ) : !appointmentDetailQuery.data ? (
           <p className="text-sm text-muted-foreground">
             {tr("预约详情暂无数据。", "No appointment detail data available.")}
@@ -161,6 +173,7 @@ export function AppointmentDetailCard({
 
             <ActionsSection
               tr={tr}
+              lang={lang}
               selectedAppointmentId={selectedAppointmentId}
               beforeReinitiatePayment={beforeReinitiatePayment}
               beforeResendAccessLink={beforeResendAccessLink}

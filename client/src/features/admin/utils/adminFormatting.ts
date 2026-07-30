@@ -1,4 +1,7 @@
-import { getAdminReasonLabel, getAdminWebhookTypeLabel } from "@/features/admin/copy";
+import {
+  getAdminReasonLabel,
+  getAdminWebhookTypeLabel,
+} from "@/features/admin/copy";
 
 export function formatDate(value: Date | string | null, locale?: string) {
   if (!value) {
@@ -47,7 +50,7 @@ export function toOperatorBadgeClass(operatorType: string) {
     return "bg-amber-100 text-amber-700";
   }
   if (operatorType === "system") {
-    return "bg-slate-100 text-slate-700";
+    return "bg-admin-surface-muted text-foreground";
   }
   if (operatorType === "patient") {
     return "bg-emerald-100 text-emerald-700";
@@ -55,10 +58,13 @@ export function toOperatorBadgeClass(operatorType: string) {
   if (operatorType === "doctor") {
     return "bg-purple-100 text-purple-700";
   }
-  return "bg-slate-100 text-slate-700";
+  return "bg-admin-surface-muted text-foreground";
 }
 
-export function toReasonLabel(reason: string | null | undefined, lang: "zh" | "en") {
+export function toReasonLabel(
+  reason: string | null | undefined,
+  lang: "zh" | "en"
+) {
   return getAdminReasonLabel(reason, lang);
 }
 
@@ -66,7 +72,9 @@ export function toWebhookTypeLabel(type: string, lang: "zh" | "en") {
   return getAdminWebhookTypeLabel(type, lang);
 }
 
-export function toWebhookOutcome(type: string): "success" | "warning" | "failure" {
+export function toWebhookOutcome(
+  type: string
+): "success" | "warning" | "failure" {
   const normalized = type.toLowerCase();
   if (
     normalized.includes("failed") ||
@@ -83,7 +91,9 @@ export function toWebhookOutcome(type: string): "success" | "warning" | "failure
   return "success";
 }
 
-export function toWebhookBadgeClass(outcome: "success" | "warning" | "failure") {
+export function toWebhookBadgeClass(
+  outcome: "success" | "warning" | "failure"
+) {
   if (outcome === "success") {
     return "bg-emerald-100 text-emerald-700";
   }
@@ -93,7 +103,11 @@ export function toWebhookBadgeClass(outcome: "success" | "warning" | "failure") 
   return "bg-rose-100 text-rose-700";
 }
 
-export function downloadBase64File(base64: string, mimeType: string, filename: string) {
+export function downloadBase64File(
+  base64: string,
+  mimeType: string,
+  filename: string
+) {
   if (typeof window === "undefined") {
     return;
   }

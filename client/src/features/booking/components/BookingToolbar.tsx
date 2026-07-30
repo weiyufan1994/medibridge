@@ -4,6 +4,7 @@ import {
   Filter,
   RefreshCw,
   SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -89,12 +90,75 @@ export function BookingToolbar({
       filters.pageSize,
     ])
   ).sort((left, right) => left - right);
-  const riskCount = riskSummary?.total ?? 0;
+  const riskCount = riskSummary
+    ? riskSummary.pendingPaymentTimeout +
+      riskSummary.webhookFailure +
+      riskSummary.tokenExpiringSoon +
+      riskSummary.tokenUsageExhausted
+    : 0;
   const canRunSelectionAction = selectedCount > 0;
+  const activeFilters = [
+    filters.emailQuery
+      ? {
+          key: "email",
+          label: copy.toolbar.email,
+          value: filters.emailQuery,
+          onRemove: () => callbacks.onEmailQueryChange(""),
+        }
+      : null,
+    filters.statusFilter
+      ? {
+          key: "status",
+          label: copy.toolbar.status,
+          value: filters.statusFilter,
+          onRemove: () => callbacks.onStatusFilterChange(""),
+        }
+      : null,
+    filters.paymentStatusFilter
+      ? {
+          key: "payment",
+          label: copy.toolbar.paymentStatus,
+          value: filters.paymentStatusFilter,
+          onRemove: () => callbacks.onPaymentStatusFilterChange(""),
+        }
+      : null,
+    filters.scheduledAtFrom
+      ? {
+          key: "scheduled-from",
+          label: copy.toolbar.scheduledFrom,
+          value: filters.scheduledAtFrom,
+          onRemove: () => callbacks.onScheduledAtFromChange(""),
+        }
+      : null,
+    filters.scheduledAtTo
+      ? {
+          key: "scheduled-to",
+          label: copy.toolbar.scheduledTo,
+          value: filters.scheduledAtTo,
+          onRemove: () => callbacks.onScheduledAtToChange(""),
+        }
+      : null,
+    filters.doctorIdInput
+      ? {
+          key: "doctor",
+          label: copy.toolbar.doctorId,
+          value: filters.doctorIdInput,
+          onRemove: () => callbacks.onDoctorIdInputChange(""),
+        }
+      : null,
+    filters.hasRiskFilter
+      ? {
+          key: "risk",
+          label: copy.toolbar.riskOnly,
+          value: copy.toolbar.riskOnly,
+          onRemove: () => callbacks.onHasRiskFilterChange(false),
+        }
+      : null,
+  ].filter((filter): filter is NonNullable<typeof filter> => filter !== null);
 
   const batchHint = useMemo(() => {
     if (!canRunSelectionAction) {
-      return copy.toolbar.noSelection;
+      return "";
     }
     if (
       !canBatchResendAccessLink ||
@@ -126,17 +190,19 @@ export function BookingToolbar({
   };
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+    <section className="rounded-xl border border-admin-border bg-admin-surface px-4 py-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <MetricChip
             label={copy.stats.total}
             value={Intl.NumberFormat().format(total)}
           />
-          <MetricChip
-            label={copy.stats.selected}
-            value={Intl.NumberFormat().format(selectedCount)}
-          />
+          {selectedCount > 0 ? (
+            <MetricChip
+              label={copy.stats.selected}
+              value={Intl.NumberFormat().format(selectedCount)}
+            />
+          ) : null}
           <MetricChip
             label={copy.stats.risk}
             value={Intl.NumberFormat().format(riskCount)}
@@ -145,7 +211,7 @@ export function BookingToolbar({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-2.5 py-1 text-xs text-muted-foreground">
+          <div className="inline-flex items-center gap-2 rounded-lg border border-admin-border px-2.5 py-1 text-xs text-muted-foreground">
             <span>{copy.toolbar.page}</span>
             <span className="font-medium text-foreground">
               {filters.page} / {Math.max(1, totalPages)}
@@ -184,6 +250,33 @@ export function BookingToolbar({
           </Button>
         </div>
       </div>
+
+      {activeFilters.length > 0 ? (
+        <div
+          className="mt-3 flex flex-wrap items-center gap-2"
+          aria-label={copy.toolbar.moreFilters}
+        >
+          {activeFilters.map(filter => (
+            <span
+              key={filter.key}
+              className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-admin-border bg-admin-surface-muted px-2 py-1 text-xs text-admin-muted-foreground"
+            >
+              <span className="font-medium text-admin-foreground">
+                {filter.label}:
+              </span>
+              <span className="max-w-44 truncate">{filter.value}</span>
+              <button
+                type="button"
+                className="rounded-sm p-0.5 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={`${copy.toolbar.reset}: ${filter.label}`}
+                onClick={filter.onRemove}
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1.2fr)_180px_190px_190px_auto]">
         <FieldShell label={copy.toolbar.email}>
@@ -237,63 +330,67 @@ export function BookingToolbar({
         </FieldShell>
 
         <div className="flex flex-wrap items-end gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="min-w-[148px]"
-              >
-                <SlidersHorizontal className="size-4" />
-                {copy.toolbar.batchActions}
-                <ChevronDown className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-72">
-              <DropdownMenuLabel>{copy.toolbar.batchActions}</DropdownMenuLabel>
-              <DropdownMenuItem
-                disabled={
-                  !canRunSelectionAction ||
-                  !canBatchResendAccessLink ||
-                  batchIsPending
-                }
-                onSelect={event => {
-                  event.preventDefault();
-                  submitBatchAction({ action: "resend_access_link" });
-                }}
-              >
-                {copy.toolbar.resendLinks}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={
-                  !canRunSelectionAction ||
-                  !canBatchReinitiatePayment ||
-                  batchIsPending
-                }
-                onSelect={event => {
-                  event.preventDefault();
-                  submitBatchAction({ action: "reinitiate_payment" });
-                }}
-              >
-                {copy.toolbar.reinitiatePayment}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                disabled={
-                  !canRunSelectionAction ||
-                  !canBatchUpdateStatus ||
-                  batchIsPending
-                }
-                onSelect={event => {
-                  event.preventDefault();
-                  setShowBatchStatusEditor(true);
-                }}
-              >
-                {copy.toolbar.bulkStatus}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {selectedCount > 0 ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-w-[148px]"
+                >
+                  <SlidersHorizontal className="size-4" />
+                  {copy.toolbar.batchActions}
+                  <ChevronDown className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuLabel>
+                  {copy.toolbar.batchActions}
+                </DropdownMenuLabel>
+                <DropdownMenuItem
+                  disabled={
+                    !canRunSelectionAction ||
+                    !canBatchResendAccessLink ||
+                    batchIsPending
+                  }
+                  onSelect={event => {
+                    event.preventDefault();
+                    submitBatchAction({ action: "resend_access_link" });
+                  }}
+                >
+                  {copy.toolbar.resendLinks}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={
+                    !canRunSelectionAction ||
+                    !canBatchReinitiatePayment ||
+                    batchIsPending
+                  }
+                  onSelect={event => {
+                    event.preventDefault();
+                    submitBatchAction({ action: "reinitiate_payment" });
+                  }}
+                >
+                  {copy.toolbar.reinitiatePayment}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={
+                    !canRunSelectionAction ||
+                    !canBatchUpdateStatus ||
+                    batchIsPending
+                  }
+                  onSelect={event => {
+                    event.preventDefault();
+                    setShowBatchStatusEditor(true);
+                  }}
+                >
+                  {copy.toolbar.bulkStatus}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
 
           <Button
             type="button"
@@ -307,15 +404,16 @@ export function BookingToolbar({
               : copy.toolbar.moreFilters}
           </Button>
 
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={callbacks.onClearSelection}
-            disabled={selectedCount === 0}
-          >
-            {copy.toolbar.clearSelection}
-          </Button>
+          {selectedCount > 0 ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={callbacks.onClearSelection}
+            >
+              {copy.toolbar.clearSelection}
+            </Button>
+          ) : null}
 
           <Button
             type="button"
@@ -332,8 +430,8 @@ export function BookingToolbar({
         <p className="mt-2 text-xs text-muted-foreground">{batchHint}</p>
       ) : null}
 
-      {showBatchStatusEditor ? (
-        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+      {showBatchStatusEditor && selectedCount > 0 ? (
+        <div className="mt-3 rounded-xl border border-admin-border bg-admin-surface-muted px-3 py-3">
           <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto_auto]">
             <FieldShell label={copy.toolbar.targetStatus}>
               <select
@@ -414,7 +512,7 @@ export function BookingToolbar({
       ) : null}
 
       {showAdvancedFilters ? (
-        <div className="mt-3 grid gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-3 grid gap-2 rounded-xl border border-admin-border bg-admin-surface-muted px-3 py-3 md:grid-cols-2 xl:grid-cols-5">
           <FieldShell label={copy.toolbar.appointmentId}>
             <div className="flex items-center gap-2">
               <Input
@@ -599,8 +697,8 @@ function MetricChip({
       className={cn(
         "inline-flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-xs",
         tone === "danger"
-          ? "border-rose-200 bg-rose-50 text-rose-700"
-          : "border-slate-200 bg-slate-50 text-slate-700"
+          ? "border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200"
+          : "border-admin-border bg-admin-surface-muted text-admin-foreground"
       )}
     >
       <span className="text-muted-foreground">{label}</span>

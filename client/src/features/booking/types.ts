@@ -119,6 +119,7 @@ export type BookingWorkspaceCallbacks = {
   onResetFilters: () => void;
   onRefresh: () => void;
   onSelectAppointment: (id: number) => void;
+  onCloseDetail: () => void;
   onToggleSelection: (id: number, checked: boolean) => void;
   onToggleAllVisible: (checked: boolean) => void;
   onClearSelection: () => void;

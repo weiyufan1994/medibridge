@@ -1,52 +1,29 @@
-import { Badge } from "@/components/ui/badge";
+import type { ReactNode } from "react";
 
 type AdminSectionHeaderProps = {
-  eyebrow: string;
   title: string;
   description: string;
-  pills: string[];
+  actions?: ReactNode;
 };
 
 export function AdminSectionHeader({
-  eyebrow,
   title,
   description,
-  pills,
+  actions,
 }: AdminSectionHeaderProps) {
   return (
-    <div className="rounded-[24px] border border-slate-200/80 bg-white/95 p-4 shadow-sm sm:p-5">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-        <div className="space-y-3">
-          <Badge
-            variant="outline"
-            className="rounded-full border-teal-200 bg-teal-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-teal-700"
-          >
-            {eyebrow}
-          </Badge>
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
-              {title}
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              {description}
-            </p>
-          </div>
-        </div>
-
-        {pills.length > 0 ? (
-          <div className="flex flex-wrap gap-2 xl:max-w-xl xl:justify-end">
-            {pills.map(pill => (
-              <Badge
-                key={pill}
-                variant="outline"
-                className="rounded-full border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700"
-              >
-                {pill}
-              </Badge>
-            ))}
-          </div>
-        ) : null}
+    <header className="flex min-h-[72px] shrink-0 flex-col justify-center gap-3 border-b border-admin-border bg-admin-surface px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+      <div className="min-w-0">
+        <h1 className="truncate text-xl font-semibold tracking-[-0.02em] text-admin-foreground">
+          {title}
+        </h1>
+        <p className="mt-1 truncate text-sm text-admin-muted-foreground">
+          {description}
+        </p>
       </div>
-    </div>
+      {actions ? (
+        <div className="flex shrink-0 items-center gap-2">{actions}</div>
+      ) : null}
+    </header>
   );
 }

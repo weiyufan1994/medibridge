@@ -36,19 +36,25 @@ export function RiskMetricsCard({
   const failureRate = total === 0 ? 0 : (pendingRiskCount / total) * 100;
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const riskDurationsMs = riskItems.flatMap(item =>
-    item.hasRisk && item.createdAt
-      ? [now.getTime() - new Date(item.createdAt).getTime()]
-      : []
-  ).filter(duration => Number.isFinite(duration) && duration > 0);
+  const riskDurationsMs = riskItems
+    .flatMap(item =>
+      item.hasRisk && item.createdAt
+        ? [now.getTime() - new Date(item.createdAt).getTime()]
+        : []
+    )
+    .filter(duration => Number.isFinite(duration) && duration > 0);
   const avgHandlingMinutes =
     riskDurationsMs.length === 0
       ? 0
-      : riskDurationsMs.reduce((acc, value) => acc + value, 0) / riskDurationsMs.length / 60_000;
+      : riskDurationsMs.reduce((acc, value) => acc + value, 0) /
+        riskDurationsMs.length /
+        60_000;
   const todayStart = today;
   const todayAppointments = riskItems.filter(item => {
     const date = new Date(item.createdAt);
-    return !Number.isNaN(date.getTime()) && date >= todayStart && date <= new Date();
+    return (
+      !Number.isNaN(date.getTime()) && date >= todayStart && date <= new Date()
+    );
   }).length;
 
   const grouped = new Map<
@@ -91,17 +97,23 @@ export function RiskMetricsCard({
             </p>
             <div className="grid gap-3 md:grid-cols-3">
               <div className="rounded border p-3">
-                <p className="text-xs text-muted-foreground">{tr("今日新增", "New today")}</p>
+                <p className="text-xs text-muted-foreground">
+                  {tr("今日新增", "New today")}
+                </p>
                 <p className="text-2xl font-semibold">{todayAppointments}</p>
               </div>
               <div className="rounded border p-3">
-                <p className="text-xs text-muted-foreground">{tr("风险占比", "Risk rate")}</p>
+                <p className="text-xs text-muted-foreground">
+                  {tr("风险占比", "Risk rate")}
+                </p>
                 <p className="text-2xl font-semibold">
                   {failureRate.toFixed(2)}%
                 </p>
               </div>
               <div className="rounded border p-3">
-                <p className="text-xs text-muted-foreground">{tr("平均处理时长(分钟)", "Avg handling time (min)")}</p>
+                <p className="text-xs text-muted-foreground">
+                  {tr("平均处理时长(分钟)", "Avg handling time (min)")}
+                </p>
                 <p className="text-2xl font-semibold">
                   {avgHandlingMinutes === 0
                     ? "-"
@@ -111,25 +123,36 @@ export function RiskMetricsCard({
             </div>
 
             <div>
-              <p className="text-sm font-medium">{tr("待处理告警列表（按风险码聚合）", "Risk alerts by code")}</p>
+              <p className="text-sm font-medium">
+                {tr("待处理告警列表（按风险码聚合）", "Risk alerts by code")}
+              </p>
               <div className="mt-2 overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b">
-                      <th className="px-2 py-1 text-left">{tr("风险码", "Risk code")}</th>
-                      <th className="px-2 py-1 text-left">{tr("数量", "Count")}</th>
-                      <th className="px-2 py-1 text-left">{tr("示例预约", "Sample appointments")}</th>
+                      <th className="px-2 py-1 text-left">
+                        {tr("风险码", "Risk code")}
+                      </th>
+                      <th className="px-2 py-1 text-left">
+                        {tr("数量", "Count")}
+                      </th>
+                      <th className="px-2 py-1 text-left">
+                        {tr("示例预约", "Sample appointments")}
+                      </th>
                     </tr>
                   </thead>
-                <tbody>
-                  {riskAlertEntries.length === 0 ? (
+                  <tbody>
+                    {riskAlertEntries.length === 0 ? (
                       <tr>
-                        <td className="px-2 py-2 text-muted-foreground" colSpan={3}>
+                        <td
+                          className="px-2 py-2 text-muted-foreground"
+                          colSpan={3}
+                        >
                           {tr("暂无风险告警。", "No risk alerts.")}
                         </td>
                       </tr>
                     ) : (
-                    riskAlertEntries.map(([code, value]) => {
+                      riskAlertEntries.map(([code, value]) => {
                         const sampleItems = value.ids.slice(0, 5);
                         return (
                           <tr key={code} className="border-b">

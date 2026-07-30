@@ -30,6 +30,7 @@ type BookingDetailPanelProps = {
   errorMessage?: string;
   detailContent?: ReactNode;
   stickyActions: BookingStickyAction[];
+  embedded?: boolean;
 };
 
 export function BookingDetailPanel({
@@ -40,13 +41,19 @@ export function BookingDetailPanel({
   errorMessage,
   detailContent,
   stickyActions,
+  embedded = false,
 }: BookingDetailPanelProps) {
   const copy = getBookingWorkspaceCopy(lang);
   const hasSelection = detailMeta.id !== null;
 
   return (
-    <section className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 px-5 py-4">
+    <section
+      className={cn(
+        "flex h-full min-h-0 flex-col bg-admin-surface",
+        !embedded && "rounded-xl border border-admin-border"
+      )}
+    >
+      <div className="border-b border-admin-border px-5 py-4 pr-12">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -56,7 +63,7 @@ export function BookingDetailPanel({
                   getBookingStatusDotClass(detailMeta.status ?? "")
                 )}
               />
-              <h2 className="truncate text-sm font-semibold text-slate-900">
+              <h2 className="truncate text-sm font-semibold text-admin-foreground">
                 {copy.detail.title}
                 {hasSelection ? ` #${detailMeta.id}` : ""}
               </h2>
@@ -70,7 +77,7 @@ export function BookingDetailPanel({
             <div className="flex flex-wrap items-center gap-2">
               <Badge
                 variant="outline"
-                className="border-slate-200 bg-slate-50 text-slate-700"
+                className="border-admin-border bg-admin-surface-muted text-admin-foreground"
               >
                 {detailMeta.status ?? "-"}
               </Badge>
@@ -144,7 +151,7 @@ export function BookingDetailPanel({
         )}
       </div>
 
-      <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-white/95 px-5 py-3 shadow-[0_-10px_28px_-22px_rgba(15,23,42,0.55)] backdrop-blur supports-[backdrop-filter]:bg-white/80">
+      <div className="sticky bottom-0 z-10 border-t border-admin-border bg-admin-surface/95 px-5 py-3 backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
             {copy.detail.footerHint}
@@ -184,12 +191,12 @@ function DetailStat({
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2">
+    <div className="rounded-lg border border-admin-border bg-admin-surface-muted px-3 py-2">
       <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
         <Icon className="size-3.5" />
         {label}
       </div>
-      <p className="mt-1 truncate text-sm font-medium text-slate-900">
+      <p className="mt-1 truncate text-sm font-medium text-admin-foreground">
         {value}
       </p>
     </div>

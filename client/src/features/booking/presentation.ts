@@ -62,7 +62,7 @@ export function getBookingStatusDotClass(status: string) {
     case "refunded":
       return "bg-rose-500";
     default:
-      return "bg-slate-400";
+      return "bg-muted-foreground";
   }
 }
 
@@ -78,11 +78,13 @@ export function getBookingPaymentPillClass(paymentStatus: string) {
     case "canceled":
       return "border-rose-200 bg-rose-50 text-rose-700";
     default:
-      return "border-slate-200 bg-slate-50 text-slate-600";
+      return "border-admin-border bg-admin-surface-muted text-muted-foreground";
   }
 }
 
-export function getBookingRiskAccent(item: Pick<BookingWorklistItem, "riskFlag" | "riskCodes">) {
+export function getBookingRiskAccent(
+  item: Pick<BookingWorklistItem, "riskFlag" | "riskCodes">
+) {
   if (!item.riskFlag) {
     return null;
   }

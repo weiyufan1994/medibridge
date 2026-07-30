@@ -54,10 +54,10 @@ export function BookingList({
   const selectedIdSet = new Set(selectedAppointmentIds);
 
   return (
-    <section className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+    <section className="flex h-full min-h-0 flex-col rounded-xl border border-admin-border bg-admin-surface">
+      <div className="flex items-center justify-between gap-3 border-b border-admin-border px-4 py-3">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-slate-900">
+          <h2 className="text-sm font-semibold text-admin-foreground">
             {copy.list.title}
           </h2>
           <p className="text-xs text-muted-foreground">
@@ -96,7 +96,7 @@ export function BookingList({
           </div>
         ) : (
           <ScrollArea className="h-full">
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-admin-border">
               {items.map(item => {
                 const isActive = activeAppointmentId === item.id;
                 const isChecked = selectedIdSet.has(item.id);
@@ -107,7 +107,9 @@ export function BookingList({
                     key={item.id}
                     className={cn(
                       "group flex items-center gap-3 px-3 py-2 text-sm leading-tight transition-colors",
-                      isActive ? "bg-blue-50" : "hover:bg-slate-50"
+                      isActive
+                        ? "bg-admin-accent"
+                        : "hover:bg-admin-surface-muted"
                     )}
                   >
                     <Checkbox
@@ -132,7 +134,7 @@ export function BookingList({
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="truncate font-medium text-slate-900">
+                          <span className="truncate font-medium text-admin-foreground">
                             {getBookingEmailSummary(item.email)}
                           </span>
                           {riskAccent ? (
@@ -154,7 +156,7 @@ export function BookingList({
                       </div>
 
                       <div className="shrink-0 text-right">
-                        <p className="text-xs font-medium text-slate-900">
+                        <p className="text-xs font-medium text-admin-foreground">
                           {formatBookingAmount(
                             item.amount,
                             item.currency,
@@ -176,8 +178,8 @@ export function BookingList({
       </div>
 
       {batchResult && batchResult.length > 0 ? (
-        <div className="border-t border-slate-200 px-4 py-3">
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-700">
+        <div className="border-t border-admin-border px-4 py-3">
+          <div className="flex items-center gap-2 text-xs font-medium text-foreground">
             <ShieldAlert className="size-3.5" />
             {copy.list.latestBatchResult}
           </div>

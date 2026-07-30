@@ -44,13 +44,27 @@ export function TriageRiskEventsCard({
               <thead>
                 <tr className="border-b">
                   <th className="px-2 py-2 text-left">ID</th>
-                  <th className="px-2 py-2 text-left">{tr("会话 ID", "Session ID")}</th>
-                  <th className="px-2 py-2 text-left">{tr("风险码", "Risk Code")}</th>
-                  <th className="px-2 py-2 text-left">{tr("级别", "Severity")}</th>
-                  <th className="px-2 py-2 text-left">{tr("建议动作", "Action")}</th>
-                  <th className="px-2 py-2 text-left">{tr("知识命中", "Knowledge Hits")}</th>
-                  <th className="px-2 py-2 text-left">{tr("触发内容", "Excerpt")}</th>
-                  <th className="px-2 py-2 text-left">{tr("时间", "Created")}</th>
+                  <th className="px-2 py-2 text-left">
+                    {tr("会话 ID", "Session ID")}
+                  </th>
+                  <th className="px-2 py-2 text-left">
+                    {tr("风险码", "Risk Code")}
+                  </th>
+                  <th className="px-2 py-2 text-left">
+                    {tr("级别", "Severity")}
+                  </th>
+                  <th className="px-2 py-2 text-left">
+                    {tr("建议动作", "Action")}
+                  </th>
+                  <th className="px-2 py-2 text-left">
+                    {tr("知识命中", "Knowledge Hits")}
+                  </th>
+                  <th className="px-2 py-2 text-left">
+                    {tr("触发内容", "Excerpt")}
+                  </th>
+                  <th className="px-2 py-2 text-left">
+                    {tr("时间", "Created")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -59,31 +73,42 @@ export function TriageRiskEventsCard({
                     <td className="px-2 py-2">{item.id}</td>
                     <td className="px-2 py-2">{item.sessionId}</td>
                     <td className="px-2 py-2">
-                      <Badge className="border-0 bg-rose-100 text-rose-800">{item.riskCode}</Badge>
+                      <Badge className="border-0 bg-rose-100 text-rose-800">
+                        {item.riskCode}
+                      </Badge>
                     </td>
                     <td className="px-2 py-2">{item.severity}</td>
                     <td className="px-2 py-2">{item.recommendedAction}</td>
                     <td className="px-2 py-2">
                       <div className="space-y-1">
-                        <p className="font-medium text-slate-700">
+                        <p className="font-medium text-foreground">
                           {item.knowledgeTrace?.mode ?? "-"}
                         </p>
-                        {item.knowledgeTrace?.documentTitles?.slice(0, 2).map(title => (
-                          <p key={title} className="max-w-[220px] truncate text-xs text-slate-500">
-                            {title}
-                          </p>
-                        ))}
+                        {item.knowledgeTrace?.documentTitles
+                          ?.slice(0, 2)
+                          .map(title => (
+                            <p
+                              key={title}
+                              className="max-w-[220px] truncate text-xs text-muted-foreground"
+                            >
+                              {title}
+                            </p>
+                          ))}
                         {(item.knowledgeTrace?.queryTerms?.length ?? 0) > 0 && (
-                          <p className="max-w-[220px] truncate text-xs text-slate-500">
+                          <p className="max-w-[220px] truncate text-xs text-muted-foreground">
                             {(item.knowledgeTrace?.queryTerms ?? []).join(", ")}
                           </p>
                         )}
                       </div>
                     </td>
-                    <td className="max-w-[340px] px-2 py-2 text-xs text-slate-600">
-                      <p className="line-clamp-3 whitespace-pre-wrap">{item.rawExcerpt || "-"}</p>
+                    <td className="max-w-[340px] px-2 py-2 text-xs text-muted-foreground">
+                      <p className="line-clamp-3 whitespace-pre-wrap">
+                        {item.rawExcerpt || "-"}
+                      </p>
                     </td>
-                    <td className="px-2 py-2">{formatDate(item.createdAt, locale)}</td>
+                    <td className="px-2 py-2">
+                      {formatDate(item.createdAt, locale)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

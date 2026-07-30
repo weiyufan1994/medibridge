@@ -24,14 +24,17 @@ export type AppointmentIdInput = {
 
 export type ReinitiatePaymentMutation = SimpleMutation & {
   mutate: (input: AppointmentIdInput) => void;
+  mutateAsync: (input: AppointmentIdInput) => Promise<unknown>;
 };
 
 export type ResendAccessLinkMutation = SimpleMutation & {
   mutate: (input: AppointmentIdInput) => void;
+  mutateAsync: (input: AppointmentIdInput) => Promise<unknown>;
 };
 
 export type IssueLinksMutation = SimpleMutation & {
   mutate: (input: AppointmentIdInput) => void;
+  mutateAsync: (input: AppointmentIdInput) => Promise<unknown>;
 };
 
 export type GenerateSummaryMutation = SimpleMutation & {
@@ -53,10 +56,15 @@ export type AdminUserRole = "free" | "pro" | "admin" | "ops";
 
 export type UpdateUserRoleMutation = SimpleMutation & {
   mutate: (input: { userId: number; role: AdminUserRole }) => void;
+  mutateAsync: (input: {
+    userId: number;
+    role: AdminUserRole;
+  }) => Promise<unknown>;
 };
 
 export type RunRetentionCleanupMutation = SimpleMutation & {
   mutate: (input: { dryRun: boolean }) => void;
+  mutateAsync: (input: { dryRun: boolean }) => Promise<unknown>;
 };
 
 export type AdminUserItem = {
@@ -275,6 +283,34 @@ export type AdminExportScope =
   | "webhook_timeline"
   | "operation_audit";
 
+export type AdminAppointmentStatus =
+  | "draft"
+  | "pending_payment"
+  | "paid"
+  | "active"
+  | "ended"
+  | "completed"
+  | "expired"
+  | "refunded"
+  | "canceled";
+
+export type AdminPaymentStatus =
+  | "unpaid"
+  | "pending"
+  | "paid"
+  | "failed"
+  | "expired"
+  | "refunded"
+  | "canceled";
+
+export type AdminAppointmentSortBy =
+  | "createdAt"
+  | "scheduledAt"
+  | "amount"
+  | "status"
+  | "paymentStatus"
+  | "id";
+
 export type UseAdminConsoleResult = {
   canReadAdmin: boolean;
   canMutateAdmin: boolean;
@@ -354,7 +390,6 @@ export type UseAdminConsoleResult = {
   appointmentsQuery: QueryState<AdminAppointmentListResult | null>;
   triageQuery: QueryState<AdminTriageSessionItem[]>;
   triageRiskEventsQuery: QueryState<AdminTriageRiskEventItem[]>;
-  metricsQuery: QueryState<AdminMetricsData>;
   appointmentDetailQuery: QueryState<AppointmentDetailData>;
   visitSummaryQuery: VisitSummaryQuery;
   retentionPoliciesQuery: QueryState<AdminRetentionPolicy[]>;
@@ -401,7 +436,7 @@ export type UseAdminConsoleResult = {
       toPaymentStatus?: string;
       reason?: string;
       idempotencyKey?: string;
-    }) => void;
+    }) => Promise<unknown> | undefined;
     lastResult: AdminBatchActionResult[] | null;
   };
   webhookReplayMutation: {

@@ -3,7 +3,10 @@ import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { formatDate, formatMoneyFromMinorUnit } from "@/features/admin/utils/adminFormatting";
+import {
+  formatDate,
+  formatMoneyFromMinorUnit,
+} from "@/features/admin/utils/adminFormatting";
 
 type TranslateFn = (zh: string, en: string) => string;
 
@@ -91,25 +94,39 @@ export function AppointmentsCard({
   const selectedCount = selectedIds.length;
   const totalPagesValue = Math.max(1, totalPages);
   const selectedText = useMemo(
-    () =>
-      `${tr("已选", "Selected")} ${selectedCount} / ${items.length}`,
+    () => `${tr("已选", "Selected")} ${selectedCount} / ${items.length}`,
     [selectedCount, items.length, tr]
   );
   const noSelection = selectedCount === 0;
   const batchResendDisabledReason = noSelection
-    ? tr("请先选择预约再执行批量重发。", "Select at least one appointment first.")
+    ? tr(
+        "请先选择预约再执行批量重发。",
+        "Select at least one appointment first."
+      )
     : !canBatchResendAccessLink
-      ? tr("仅管理员与 ops 可重发访问链接。", "Only admin/ops can resend access links.")
+      ? tr(
+          "仅管理员与 ops 可重发访问链接。",
+          "Only admin/ops can resend access links."
+        )
       : "";
   const batchPaymentDisabledReason = noSelection
-    ? tr("请先选择预约再执行批量重启。", "Select at least one appointment first.")
+    ? tr(
+        "请先选择预约再执行批量重启。",
+        "Select at least one appointment first."
+      )
     : !canBatchReinitiatePayment
       ? tr("仅管理员可执行重启支付。", "Only admin can re-initiate payment.")
       : "";
   const batchStatusDisabledReason = noSelection
-    ? tr("请先选择预约再执行批量状态更新。", "Select at least one appointment first.")
+    ? tr(
+        "请先选择预约再执行批量状态更新。",
+        "Select at least one appointment first."
+      )
     : !canBatchUpdateStatus
-      ? tr("仅管理员可执行批量状态更新。", "Only admin can do batch status updates.")
+      ? tr(
+          "仅管理员可执行批量状态更新。",
+          "Only admin can do batch status updates."
+        )
       : "";
   const batchDisabledHints = [
     batchResendDisabledReason,
@@ -120,9 +137,7 @@ export function AppointmentsCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>
-          {tr("预约列表", "Appointments")}
-        </CardTitle>
+        <CardTitle>{tr("预约列表", "Appointments")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -132,7 +147,9 @@ export function AppointmentsCard({
           <Button
             type="button"
             variant="outline"
-            disabled={batchIsPending || selectedCount === 0 || !canBatchResendAccessLink}
+            disabled={
+              batchIsPending || selectedCount === 0 || !canBatchResendAccessLink
+            }
             title={batchResendDisabledReason || undefined}
             onClick={() => onBatchAction({ action: "resend_access_link" })}
           >
@@ -141,20 +158,28 @@ export function AppointmentsCard({
           <Button
             type="button"
             variant="outline"
-            disabled={batchIsPending || selectedCount === 0 || !canBatchReinitiatePayment}
+            disabled={
+              batchIsPending ||
+              selectedCount === 0 ||
+              !canBatchReinitiatePayment
+            }
             title={batchPaymentDisabledReason || undefined}
             onClick={() => onBatchAction({ action: "reinitiate_payment" })}
           >
             {tr("批量重启支付", "Batch re-initiate payment")}
           </Button>
-          <label className="text-xs text-muted-foreground">{selectedText}</label>
+          <label className="text-xs text-muted-foreground">
+            {selectedText}
+          </label>
           <Button type="button" variant="outline" onClick={onClearSelection}>
             {tr("清空选择", "Clear selection")}
           </Button>
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <div className="w-full max-w-xs space-y-1">
-            <p className="text-xs text-muted-foreground">{tr("目标状态", "Target Status")}</p>
+            <p className="text-xs text-muted-foreground">
+              {tr("目标状态", "Target Status")}
+            </p>
             <select
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={toStatus}
@@ -172,7 +197,9 @@ export function AppointmentsCard({
             </select>
           </div>
           <div className="w-full max-w-xs space-y-1">
-            <p className="text-xs text-muted-foreground">{tr("目标支付状态", "Target Payment")}</p>
+            <p className="text-xs text-muted-foreground">
+              {tr("目标支付状态", "Target Payment")}
+            </p>
             <select
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={toPaymentStatus}
@@ -196,7 +223,9 @@ export function AppointmentsCard({
           <Button
             type="button"
             variant="outline"
-            disabled={batchIsPending || selectedCount === 0 || !canBatchUpdateStatus}
+            disabled={
+              batchIsPending || selectedCount === 0 || !canBatchUpdateStatus
+            }
             title={batchStatusDisabledReason || undefined}
             onClick={() =>
               onBatchAction({
@@ -238,34 +267,55 @@ export function AppointmentsCard({
                         checked={isAllVisibleSelected}
                         ref={el => {
                           if (el) {
-                            el.indeterminate = isAnyVisibleSelected && !isAllVisibleSelected;
+                            el.indeterminate =
+                              isAnyVisibleSelected && !isAllVisibleSelected;
                           }
                         }}
-                        onChange={event => onToggleAllVisible(event.target.checked)}
+                        onChange={event =>
+                          onToggleAllVisible(event.target.checked)
+                        }
                       />
                     </th>
                     <th className="px-2 py-2 text-left">ID</th>
-                    <th className="px-2 py-2 text-left">{tr("邮箱", "Email")}</th>
-                    <th className="px-2 py-2 text-left">{tr("状态", "Status")}</th>
-                    <th className="px-2 py-2 text-left">{tr("支付", "Payment")}</th>
-                    <th className="px-2 py-2 text-left">{tr("金额", "Amount")}</th>
-                    <th className="px-2 py-2 text-left">{tr("医生", "Doctor")}</th>
-                    <th className="px-2 py-2 text-left">{tr("分诊会话", "Triage Session")}</th>
-                    <th className="px-2 py-2 text-left">{tr("风险", "Risk")}</th>
-                    <th className="px-2 py-2 text-left">{tr("创建时间", "Created")}</th>
+                    <th className="px-2 py-2 text-left">
+                      {tr("邮箱", "Email")}
+                    </th>
+                    <th className="px-2 py-2 text-left">
+                      {tr("状态", "Status")}
+                    </th>
+                    <th className="px-2 py-2 text-left">
+                      {tr("支付", "Payment")}
+                    </th>
+                    <th className="px-2 py-2 text-left">
+                      {tr("金额", "Amount")}
+                    </th>
+                    <th className="px-2 py-2 text-left">
+                      {tr("医生", "Doctor")}
+                    </th>
+                    <th className="px-2 py-2 text-left">
+                      {tr("分诊会话", "Triage Session")}
+                    </th>
+                    <th className="px-2 py-2 text-left">
+                      {tr("风险", "Risk")}
+                    </th>
+                    <th className="px-2 py-2 text-left">
+                      {tr("创建时间", "Created")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map(item => (
                     <tr
                       key={item.id}
-                      className="border-b hover:bg-slate-50"
+                      className="border-b hover:bg-admin-surface-muted"
                     >
                       <td className="px-2 py-2">
                         <input
                           type="checkbox"
                           checked={selectedIds.includes(item.id)}
-                          onChange={event => onToggleSelect(item.id, event.target.checked)}
+                          onChange={event =>
+                            onToggleSelect(item.id, event.target.checked)
+                          }
                           onClick={event => event.stopPropagation()}
                         />
                       </td>
@@ -282,7 +332,11 @@ export function AppointmentsCard({
                       <td className="px-2 py-2">{item.status}</td>
                       <td className="px-2 py-2">{item.paymentStatus}</td>
                       <td className="px-2 py-2">
-                        {formatMoneyFromMinorUnit(item.amount, item.currency, locale)}
+                        {formatMoneyFromMinorUnit(
+                          item.amount,
+                          item.currency,
+                          locale
+                        )}
                       </td>
                       <td className="px-2 py-2">{item.doctorId}</td>
                       <td className="px-2 py-2">{item.triageSessionId}</td>
@@ -295,7 +349,9 @@ export function AppointmentsCard({
                           "-"
                         )}
                       </td>
-                      <td className="px-2 py-2">{formatDate(item.createdAt, locale)}</td>
+                      <td className="px-2 py-2">
+                        {formatDate(item.createdAt, locale)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -318,19 +374,20 @@ export function AppointmentsCard({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => onPageChange(Math.min(totalPagesValue, page + 1))}
+                  onClick={() =>
+                    onPageChange(Math.min(totalPagesValue, page + 1))
+                  }
                   disabled={page >= totalPagesValue}
                 >
                   {tr("下一页", "Next")}
                 </Button>
                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {tr("每页", "Page size")}:
-                  <span>{pageSize}</span>
+                  {tr("每页", "Page size")}:<span>{pageSize}</span>
                 </label>
               </div>
             </div>
             {batchResult && batchResult.length > 0 ? (
-              <div className="rounded border bg-slate-50 p-2 text-xs">
+              <div className="rounded border bg-admin-surface-muted p-2 text-xs">
                 <p className="mb-1 font-medium">
                   {tr("最近批量操作结果", "Latest batch operation results")}
                 </p>
@@ -346,7 +403,9 @@ export function AppointmentsCard({
             ) : null}
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">{tr("暂无预约数据。", "No appointments found.")}</p>
+          <p className="text-sm text-muted-foreground">
+            {tr("暂无预约数据。", "No appointments found.")}
+          </p>
         )}
       </CardContent>
     </Card>

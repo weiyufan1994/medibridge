@@ -1,14 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { ShieldCheck, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  getAdminRoleCapabilitySummary,
+  getAdminUserManagementCopy,
+  type AdminLang,
+} from "@/features/admin/copy";
 import type { AdminUserItem, AdminUserRole } from "@/features/admin/types";
 
-type TranslateFn = (zh: string, en: string) => string;
-
 type UserRoleManagementCardProps = {
-  tr: TranslateFn;
+  lang: AdminLang;
   locale: string;
   isLoading: boolean;
   errorMessage?: string;
@@ -38,7 +48,7 @@ function formatDateTime(value: Date | string, locale: string) {
 }
 
 export function UserRoleManagementCard({
-  tr,
+  lang,
   locale,
   isLoading,
   errorMessage,
@@ -50,7 +60,11 @@ export function UserRoleManagementCard({
   onRefresh,
   onUpdateRole,
 }: UserRoleManagementCardProps) {
-  const [draftRoles, setDraftRoles] = useState<Record<number, AdminUserRole>>({});
+  const copy = getAdminUserManagementCopy(lang);
+  const [draftRoles, setDraftRoles] = useState<Record<number, AdminUserRole>>(
+    {}
+  );
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   useEffect(() => {
     setDraftRoles(current => {
@@ -70,150 +84,236 @@ export function UserRoleManagementCard({
       })),
     [draftRoles, users]
   );
+  const selectedUser = rows.find(user => user.id === selectedUserId) ?? null;
 
   return (
-    <Card className="rounded-2xl border-slate-200/80 shadow-sm">
-      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <CardTitle className="flex items-center gap-2 text-slate-900">
-            <ShieldCheck className="h-5 w-5 text-teal-600" />
-            {tr("用户与权限", "Users & Roles")}
-          </CardTitle>
-          <p className="text-sm text-slate-500">
-            {tr(
-              "在后台直接查看正式用户并调整 free / pro / admin / ops 权限。",
-              "Review formal users and adjust free / pro / admin / ops roles directly."
-            )}
-          </p>
+    <>
+      <section className="overflow-hidden rounded-xl border border-admin-border bg-admin-surface">
+        <div className="flex flex-col gap-3 border-b border-admin-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-admin-foreground">
+              <ShieldCheck className="size-4 text-admin-accent-foreground" />
+              {copy.title}
+            </h2>
+            <p className="text-sm text-admin-muted-foreground">
+              {copy.description}
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              value={searchQuery}
+              onChange={event => onSearchQueryChange(event.target.value)}
+              placeholder={copy.searchPlaceholder}
+              aria-label={copy.searchPlaceholder}
+              className="w-full sm:w-72"
+            />
+            <Button type="button" variant="outline" onClick={onRefresh}>
+              {copy.refresh}
+            </Button>
+          </div>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Input
-            value={searchQuery}
-            onChange={event => onSearchQueryChange(event.target.value)}
-            placeholder={tr("按邮箱或姓名搜索", "Search by email or name")}
-            className="w-full sm:w-72"
-          />
-          <Button type="button" variant="outline" onClick={onRefresh}>
-            {tr("刷新", "Refresh")}
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+
         {isReadOnly ? (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            {tr(
-              "只有 admin 可以调整用户权限。ops 可查看但不可修改。",
-              "Only admin can change user roles. Ops may review but cannot edit."
-            )}
+          <div className="border-b border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+            {copy.readOnlyNotice}
           </div>
         ) : null}
 
         {errorMessage ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="border-b border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {errorMessage}
           </div>
         ) : null}
 
-        <div className="overflow-hidden rounded-2xl border border-slate-200">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50/80">
-                <tr className="text-left text-slate-500">
-                  <th className="px-4 py-3 font-medium">ID</th>
-                  <th className="px-4 py-3 font-medium">{tr("用户", "User")}</th>
-                  <th className="px-4 py-3 font-medium">{tr("登录方式", "Login method")}</th>
-                  <th className="px-4 py-3 font-medium">{tr("最近登录", "Last signed in")}</th>
-                  <th className="px-4 py-3 font-medium">{tr("当前权限", "Current role")}</th>
-                  <th className="px-4 py-3 font-medium">{tr("操作", "Action")}</th>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-admin-border text-sm">
+            <thead className="bg-admin-surface-muted">
+              <tr className="text-left text-admin-muted-foreground">
+                <th className="px-4 py-2.5 font-medium">ID</th>
+                <th className="px-4 py-2.5 font-medium">{copy.user}</th>
+                <th className="px-4 py-2.5 font-medium">{copy.loginMethod}</th>
+                <th className="px-4 py-2.5 font-medium">{copy.lastSignedIn}</th>
+                <th className="px-4 py-2.5 font-medium">{copy.currentRole}</th>
+                <th className="px-4 py-2.5 text-right font-medium">
+                  {copy.action}
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-admin-border bg-admin-surface">
+              {isLoading ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-4 py-10 text-center text-admin-muted-foreground"
+                  >
+                    {copy.loading}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
-                      {tr("正在加载用户列表...", "Loading users...")}
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-4 py-10 text-center text-admin-muted-foreground"
+                  >
+                    {copy.empty}
+                  </td>
+                </tr>
+              ) : (
+                rows.map(user => (
+                  <tr
+                    key={user.id}
+                    className="transition-colors hover:bg-admin-surface-muted/70"
+                  >
+                    <td className="px-4 py-3 font-medium text-admin-foreground">
+                      {user.id}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex min-w-[220px] items-center gap-3">
+                        <div className="rounded-full bg-admin-surface-muted p-2 text-admin-muted-foreground">
+                          <UserRound className="size-4" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-admin-foreground">
+                            {user.name?.trim() || copy.unnamed}
+                          </div>
+                          <div className="text-admin-muted-foreground">
+                            {user.email ?? "-"}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-admin-muted-foreground">
+                      {user.loginMethod ?? "-"}
+                    </td>
+                    <td className="px-4 py-3 text-admin-muted-foreground">
+                      {formatDateTime(user.lastSignedIn, locale)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex rounded-md border border-admin-border bg-admin-surface-muted px-2 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-admin-foreground">
+                        {user.role}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedUserId(user.id)}
+                      >
+                        {copy.viewDetails}
+                      </Button>
                     </td>
                   </tr>
-                ) : rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
-                      {tr("没有匹配的正式用户。", "No matching formal users found.")}
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map(user => {
-                    const changed = user.draftRole !== user.role;
-                    return (
-                      <tr key={user.id} className="align-top">
-                        <td className="px-4 py-4 font-medium text-slate-900">{user.id}</td>
-                        <td className="px-4 py-4">
-                          <div className="flex min-w-[220px] items-start gap-3">
-                            <div className="mt-0.5 rounded-full bg-slate-100 p-2 text-slate-500">
-                              <UserRound className="h-4 w-4" />
-                            </div>
-                            <div className="space-y-1">
-                              <div className="font-medium text-slate-900">
-                                {user.name?.trim() || tr("未命名用户", "Unnamed user")}
-                              </div>
-                              <div className="text-slate-500">{user.email ?? "-"}</div>
-                              <div className="text-xs text-slate-400">
-                                {tr("创建于", "Created")} {formatDateTime(user.createdAt, locale)}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-slate-600">{user.loginMethod ?? "-"}</td>
-                        <td className="px-4 py-4 text-slate-600">
-                          {formatDateTime(user.lastSignedIn, locale)}
-                        </td>
-                        <td className="px-4 py-4">
-                          <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium uppercase tracking-[0.12em] text-slate-700">
-                            {user.role}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex min-w-[180px] items-center gap-2">
-                            <select
-                              className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-                              value={user.draftRole}
-                              disabled={isReadOnly || isUpdating}
-                              onChange={event => {
-                                setDraftRoles(current => ({
-                                  ...current,
-                                  [user.id]: event.target.value as AdminUserRole,
-                                }));
-                              }}
-                            >
-                              {ROLE_OPTIONS.map(role => (
-                                <option key={role} value={role}>
-                                  {role}
-                                </option>
-                              ))}
-                            </select>
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={isReadOnly || isUpdating || !changed}
-                              onClick={() => {
-                                onUpdateRole({
-                                  userId: user.id,
-                                  role: user.draftRole,
-                                });
-                              }}
-                            >
-                              {tr("保存", "Save")}
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      </CardContent>
-    </Card>
+      </section>
+
+      <Sheet
+        open={selectedUser !== null}
+        onOpenChange={open => {
+          if (!open) {
+            setSelectedUserId(null);
+          }
+        }}
+      >
+        <SheetContent className="w-full gap-0 sm:max-w-lg">
+          <SheetHeader className="border-b border-admin-border pr-12">
+            <SheetTitle>{copy.detailTitle}</SheetTitle>
+            <SheetDescription>{copy.detailDescription}</SheetDescription>
+          </SheetHeader>
+
+          {selectedUser ? (
+            <div className="flex-1 space-y-6 overflow-y-auto p-5">
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold text-foreground">
+                  {copy.identity}
+                </h3>
+                <dl className="grid grid-cols-[7rem_1fr] gap-x-3 gap-y-2 rounded-lg border bg-muted/30 p-4 text-sm">
+                  <dt className="text-muted-foreground">ID</dt>
+                  <dd className="font-medium">{selectedUser.id}</dd>
+                  <dt className="text-muted-foreground">{copy.user}</dt>
+                  <dd className="min-w-0">
+                    <div className="font-medium">
+                      {selectedUser.name?.trim() || copy.unnamed}
+                    </div>
+                    <div className="break-all text-muted-foreground">
+                      {selectedUser.email ?? "-"}
+                    </div>
+                  </dd>
+                  <dt className="text-muted-foreground">{copy.loginMethod}</dt>
+                  <dd>{selectedUser.loginMethod ?? "-"}</dd>
+                  <dt className="text-muted-foreground">{copy.createdAt}</dt>
+                  <dd>{formatDateTime(selectedUser.createdAt, locale)}</dd>
+                  <dt className="text-muted-foreground">{copy.lastSignedIn}</dt>
+                  <dd>{formatDateTime(selectedUser.lastSignedIn, locale)}</dd>
+                </dl>
+              </section>
+
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold text-foreground">
+                  {copy.capabilitySummary}
+                </h3>
+                <p className="rounded-lg border bg-muted/30 p-4 text-sm leading-6 text-muted-foreground">
+                  {getAdminRoleCapabilitySummary(selectedUser.draftRole, lang)}
+                </p>
+              </section>
+
+              <section className="space-y-2">
+                <label
+                  htmlFor={`admin-user-role-${selectedUser.id}`}
+                  className="text-sm font-semibold text-foreground"
+                >
+                  {copy.roleAssignment}
+                </label>
+                <select
+                  id={`admin-user-role-${selectedUser.id}`}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={selectedUser.draftRole}
+                  disabled={isReadOnly || isUpdating}
+                  onChange={event => {
+                    setDraftRoles(current => ({
+                      ...current,
+                      [selectedUser.id]: event.target.value as AdminUserRole,
+                    }));
+                  }}
+                >
+                  {ROLE_OPTIONS.map(role => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </select>
+              </section>
+            </div>
+          ) : null}
+
+          <SheetFooter className="border-t border-admin-border">
+            <Button
+              type="button"
+              disabled={
+                !selectedUser ||
+                isReadOnly ||
+                isUpdating ||
+                selectedUser.draftRole === selectedUser.role
+              }
+              onClick={() => {
+                if (!selectedUser) {
+                  return;
+                }
+                onUpdateRole({
+                  userId: selectedUser.id,
+                  role: selectedUser.draftRole,
+                });
+              }}
+            >
+              {copy.saveRole}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }

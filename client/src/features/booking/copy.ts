@@ -102,6 +102,11 @@ const BOOKING_WORKSPACE_COPY = {
   },
   detail: {
     title: { zh: "预约详情", en: "Booking detail" },
+    tabs: {
+      summary: { zh: "预约摘要", en: "Summary" },
+      diagnostics: { zh: "诊断与日志", en: "Diagnostics & logs" },
+      actions: { zh: "处理操作", en: "Actions" },
+    },
     empty: {
       zh: "从左侧选择一条预约，查看详细诊断与操作。",
       en: "Select a booking on the left to inspect diagnostics and actions.",

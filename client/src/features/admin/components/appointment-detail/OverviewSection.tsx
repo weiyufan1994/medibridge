@@ -1,5 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { formatDate, formatMoneyFromMinorUnit } from "@/features/admin/utils/adminFormatting";
+import {
+  formatDate,
+  formatMoneyFromMinorUnit,
+} from "@/features/admin/utils/adminFormatting";
 import type { AdminSuggestion } from "@/features/admin/risk";
 import type { AppointmentDetailData } from "@/features/admin/types";
 import { getLocalizedText } from "@/lib/i18n";
@@ -11,7 +14,11 @@ type OverviewSectionProps = {
   lang: "zh" | "en";
   locale: string;
   detailData: AppointmentDetailData;
-  risks: Array<{ code: string; level: "critical" | "warning"; message: string }>;
+  risks: Array<{
+    code: string;
+    level: "critical" | "warning";
+    message: string;
+  }>;
   suggestions: AdminSuggestion[];
   runSuggestedAction: (suggestion: AdminSuggestion) => void;
   canReinitiatePayment: boolean;
@@ -83,21 +90,34 @@ export function OverviewSection({
       return tr("仅管理员可重启支付。", "Only admin can re-initiate payment.");
     }
     if (action === "resend_access_link" && !canResendAccessLink) {
-      return tr("仅管理员与 ops 可重发链接。", "Only admin/ops can resend access links.");
+      return tr(
+        "仅管理员与 ops 可重发链接。",
+        "Only admin/ops can resend access links."
+      );
     }
     if (action === "issue_access_links" && !canIssueAccessLinks) {
-      return tr("仅管理员与 ops 可签发链接。", "Only admin/ops can issue access links.");
+      return tr(
+        "仅管理员与 ops 可签发链接。",
+        "Only admin/ops can issue access links."
+      );
     }
     if (action === "notify_doctor_followup" && !canNotifyFollowup) {
-      return tr("仅管理员与 ops 可发送跟进提醒。", "Only admin/ops can send follow-up reminders.");
+      return tr(
+        "仅管理员与 ops 可发送跟进提醒。",
+        "Only admin/ops can send follow-up reminders."
+      );
     }
     if (action === "inspect_webhook_timeline" && !canReplayWebhook) {
-      return tr("仅管理员与 ops 可复核/重试 webhook。", "Only admin/ops can review/retry webhooks.");
+      return tr(
+        "仅管理员与 ops 可复核/重试 webhook。",
+        "Only admin/ops can review/retry webhooks."
+      );
     }
     return "";
   };
 
-  const canExecuteSuggestion = (action: AdminSuggestion["action"]) => !suggestionDisabledReason(action);
+  const canExecuteSuggestion = (action: AdminSuggestion["action"]) =>
+    !suggestionDisabledReason(action);
   const { doctorName, departmentName } = getOverviewDoctorPresentation({
     lang,
     doctor: detailData.doctor,
@@ -142,7 +162,9 @@ export function OverviewSection({
 
       {risks.length > 0 ? (
         <div className="space-y-2 rounded border border-amber-200 bg-amber-50 p-3">
-          <p className="text-sm font-medium text-amber-900">{tr("风险提示", "Risk Alerts")}</p>
+          <p className="text-sm font-medium text-amber-900">
+            {tr("风险提示", "Risk Alerts")}
+          </p>
           <div className="space-y-1">
             {risks.map(risk => (
               <p
@@ -161,16 +183,22 @@ export function OverviewSection({
       ) : null}
 
       <div className="space-y-2 rounded border border-sky-200 bg-sky-50 p-3">
-        <p className="text-sm font-medium text-sky-900">{tr("建议动作", "Recommended Actions")}</p>
+        <p className="text-sm font-medium text-sky-900">
+          {tr("建议动作", "Recommended Actions")}
+        </p>
         <div className="space-y-2">
           {suggestions.map(suggestion => (
             <div
               key={suggestion.key}
-              className="flex flex-wrap items-center justify-between gap-2 rounded border border-sky-100 bg-white p-2"
+              className="flex flex-wrap items-center justify-between gap-2 rounded border border-sky-100 bg-admin-surface p-2"
             >
               <div className="min-w-0 space-y-1">
-                <p className="text-xs font-medium text-slate-900">{suggestion.title}</p>
-                <p className="text-xs text-slate-600">{suggestion.detail}</p>
+                <p className="text-xs font-medium text-foreground">
+                  {suggestion.title}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {suggestion.detail}
+                </p>
                 {!canExecuteSuggestion(suggestion.action) ? (
                   <p className="text-xs text-rose-600">
                     {suggestionDisabledReason(suggestion.action)}
@@ -186,10 +214,15 @@ export function OverviewSection({
                     runSuggestedAction(suggestion);
                   }
                 }}
-                disabled={suggestion.action === "monitor_only" || !canExecuteSuggestion(suggestion.action)}
+                disabled={
+                  suggestion.action === "monitor_only" ||
+                  !canExecuteSuggestion(suggestion.action)
+                }
                 title={suggestionDisabledReason(suggestion.action) || undefined}
               >
-                {suggestion.action === "monitor_only" ? tr("无需操作", "No action") : tr("执行", "Run")}
+                {suggestion.action === "monitor_only"
+                  ? tr("无需操作", "No action")
+                  : tr("执行", "Run")}
               </Button>
             </div>
           ))}
@@ -197,7 +230,9 @@ export function OverviewSection({
       </div>
 
       <div className="space-y-2 rounded border p-3">
-        <p className="text-sm font-medium">{tr("医生 / 分诊信息", "Doctor / Triage")}</p>
+        <p className="text-sm font-medium">
+          {tr("医生 / 分诊信息", "Doctor / Triage")}
+        </p>
         <p className="text-sm text-muted-foreground">
           {tr("医生：", "Doctor: ")}
           {detailData?.doctor
@@ -212,11 +247,13 @@ export function OverviewSection({
       <div className="space-y-2 rounded border p-3">
         <p className="text-sm font-medium">{tr("诊前信息", "Intake")}</p>
         {detailData?.intake ? (
-          <pre className="rounded bg-slate-50 p-2 text-xs">
+          <pre className="rounded bg-admin-surface-muted p-2 text-xs">
             {JSON.stringify(detailData.intake, null, 2)}
           </pre>
         ) : (
-          <p className="text-sm text-muted-foreground">{tr("暂无诊前信息。", "No intake data.")}</p>
+          <p className="text-sm text-muted-foreground">
+            {tr("暂无诊前信息。", "No intake data.")}
+          </p>
         )}
       </div>
     </>

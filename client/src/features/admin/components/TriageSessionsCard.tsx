@@ -30,7 +30,9 @@ export function TriageSessionsCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{tr("AI 分诊会话（最新 50 条）", "AI Triage Sessions (Latest 50)")}</CardTitle>
+        <CardTitle>
+          {tr("AI 分诊会话（最新 50 条）", "AI Triage Sessions (Latest 50)")}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -46,10 +48,18 @@ export function TriageSessionsCard({
               <thead>
                 <tr className="border-b">
                   <th className="px-2 py-2 text-left">ID</th>
-                  <th className="px-2 py-2 text-left">{tr("用户 ID", "User ID")}</th>
-                  <th className="px-2 py-2 text-left">{tr("状态", "Status")}</th>
-                  <th className="px-2 py-2 text-left">{tr("创建时间", "Created")}</th>
-                  <th className="px-2 py-2 text-left">{tr("更新时间", "Updated")}</th>
+                  <th className="px-2 py-2 text-left">
+                    {tr("用户 ID", "User ID")}
+                  </th>
+                  <th className="px-2 py-2 text-left">
+                    {tr("状态", "Status")}
+                  </th>
+                  <th className="px-2 py-2 text-left">
+                    {tr("创建时间", "Created")}
+                  </th>
+                  <th className="px-2 py-2 text-left">
+                    {tr("更新时间", "Updated")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -58,8 +68,12 @@ export function TriageSessionsCard({
                     <td className="px-2 py-2">{item.id}</td>
                     <td className="px-2 py-2">{item.userId ?? "-"}</td>
                     <td className="px-2 py-2">{item.status}</td>
-                    <td className="px-2 py-2">{formatDate(item.createdAt, locale)}</td>
-                    <td className="px-2 py-2">{formatDate(item.updatedAt, locale)}</td>
+                    <td className="px-2 py-2">
+                      {formatDate(item.createdAt, locale)}
+                    </td>
+                    <td className="px-2 py-2">
+                      {formatDate(item.updatedAt, locale)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

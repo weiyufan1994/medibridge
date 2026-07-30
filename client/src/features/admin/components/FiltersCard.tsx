@@ -41,7 +41,13 @@ type FiltersCardProps = {
     | "paymentStatus"
     | "id";
   onSortByChange: (
-    value: "createdAt" | "scheduledAt" | "amount" | "status" | "paymentStatus" | "id"
+    value:
+      | "createdAt"
+      | "scheduledAt"
+      | "amount"
+      | "status"
+      | "paymentStatus"
+      | "id"
   ) => void;
   sortDirection: "asc" | "desc";
   onSortDirectionChange: (value: "asc" | "desc") => void;
@@ -103,7 +109,9 @@ export function FiltersCard({
       <CardContent className="space-y-3">
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-full max-w-sm space-y-1">
-            <p className="text-xs text-muted-foreground">{tr("按邮箱搜索", "Search by email")}</p>
+            <p className="text-xs text-muted-foreground">
+              {tr("按邮箱搜索", "Search by email")}
+            </p>
             <Input
               value={emailQuery}
               onChange={event => onEmailQueryChange(event.target.value)}
@@ -111,20 +119,30 @@ export function FiltersCard({
             />
           </div>
           <div className="w-full max-w-xs space-y-1">
-            <p className="text-xs text-muted-foreground">{tr("按 ID 打开预约", "Open appointment by ID")}</p>
+            <p className="text-xs text-muted-foreground">
+              {tr("按 ID 打开预约", "Open appointment by ID")}
+            </p>
             <div className="flex items-center gap-2">
               <Input
                 value={appointmentIdInput}
-                onChange={event => onAppointmentIdInputChange(event.target.value)}
+                onChange={event =>
+                  onAppointmentIdInputChange(event.target.value)
+                }
                 placeholder={tr("例如：123", "e.g. 123")}
               />
-              <Button type="button" variant="outline" onClick={onOpenAppointmentById}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onOpenAppointmentById}
+              >
                 {tr("打开", "Open")}
               </Button>
             </div>
           </div>
           <div className="w-full max-w-xs space-y-1">
-            <p className="text-xs text-muted-foreground">{tr("医生 ID", "Doctor ID")}</p>
+            <p className="text-xs text-muted-foreground">
+              {tr("医生 ID", "Doctor ID")}
+            </p>
             <Input
               value={doctorIdInput}
               onChange={event => onDoctorIdInputChange(event.target.value)}
@@ -132,7 +150,9 @@ export function FiltersCard({
             />
           </div>
           <div className="w-full max-w-xs space-y-1">
-            <p className="text-xs text-muted-foreground">{tr("金额区间（分）", "Amount range (minor unit)")}</p>
+            <p className="text-xs text-muted-foreground">
+              {tr("金额区间（分）", "Amount range (minor unit)")}
+            </p>
             <div className="flex items-center gap-2">
               <Input
                 value={amountMinInput}
@@ -153,7 +173,9 @@ export function FiltersCard({
 
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-full max-w-xs space-y-1">
-            <p className="text-xs text-muted-foreground">{tr("创建时间从", "Created from")}</p>
+            <p className="text-xs text-muted-foreground">
+              {tr("创建时间从", "Created from")}
+            </p>
             <Input
               value={createdAtFrom}
               onChange={event => onCreatedAtFromChange(event.target.value)}
@@ -161,7 +183,9 @@ export function FiltersCard({
             />
           </div>
           <div className="w-full max-w-xs space-y-1">
-            <p className="text-xs text-muted-foreground">{tr("创建时间到", "Created to")}</p>
+            <p className="text-xs text-muted-foreground">
+              {tr("创建时间到", "Created to")}
+            </p>
             <Input
               value={createdAtTo}
               onChange={event => onCreatedAtToChange(event.target.value)}
@@ -169,7 +193,9 @@ export function FiltersCard({
             />
           </div>
           <div className="w-full max-w-xs space-y-1">
-            <p className="text-xs text-muted-foreground">{tr("预约时间从", "Scheduled from")}</p>
+            <p className="text-xs text-muted-foreground">
+              {tr("预约时间从", "Scheduled from")}
+            </p>
             <Input
               value={scheduledAtFrom}
               onChange={event => onScheduledAtFromChange(event.target.value)}
@@ -177,7 +203,9 @@ export function FiltersCard({
             />
           </div>
           <div className="w-full max-w-xs space-y-1">
-            <p className="text-xs text-muted-foreground">{tr("预约时间到", "Scheduled to")}</p>
+            <p className="text-xs text-muted-foreground">
+              {tr("预约时间到", "Scheduled to")}
+            </p>
             <Input
               value={scheduledAtTo}
               onChange={event => onScheduledAtToChange(event.target.value)}
@@ -188,7 +216,9 @@ export function FiltersCard({
 
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-full max-w-xs space-y-1">
-            <p className="text-xs text-muted-foreground">{tr("预约状态", "Appointment status")}</p>
+            <p className="text-xs text-muted-foreground">
+              {tr("预约状态", "Appointment status")}
+            </p>
             <select
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={statusFilter}
@@ -202,11 +232,15 @@ export function FiltersCard({
             </select>
           </div>
           <div className="w-full max-w-xs space-y-1">
-            <p className="text-xs text-muted-foreground">{tr("支付状态", "Payment status")}</p>
+            <p className="text-xs text-muted-foreground">
+              {tr("支付状态", "Payment status")}
+            </p>
             <select
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={paymentStatusFilter}
-              onChange={event => onPaymentStatusFilterChange(event.target.value)}
+              onChange={event =>
+                onPaymentStatusFilterChange(event.target.value)
+              }
             >
               {paymentStatusOptions.map(value => (
                 <option key={value} value={value}>
@@ -224,7 +258,9 @@ export function FiltersCard({
             {tr("仅显示有风险", "Risk only")}
           </label>
           <div className="w-full max-w-[220px] space-y-1">
-            <p className="text-xs text-muted-foreground">{tr("排序字段", "Sort by")}</p>
+            <p className="text-xs text-muted-foreground">
+              {tr("排序字段", "Sort by")}
+            </p>
             <select
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={sortBy}
@@ -240,27 +276,39 @@ export function FiltersCard({
                 )
               }
             >
-              <option value="createdAt">{tr("创建时间", "Created time")}</option>
-              <option value="scheduledAt">{tr("预约时间", "Scheduled time")}</option>
+              <option value="createdAt">
+                {tr("创建时间", "Created time")}
+              </option>
+              <option value="scheduledAt">
+                {tr("预约时间", "Scheduled time")}
+              </option>
               <option value="amount">{tr("金额", "Amount")}</option>
               <option value="status">{tr("状态", "Status")}</option>
-              <option value="paymentStatus">{tr("支付状态", "Payment status")}</option>
+              <option value="paymentStatus">
+                {tr("支付状态", "Payment status")}
+              </option>
               <option value="id">{tr("ID", "ID")}</option>
             </select>
           </div>
           <div className="w-full max-w-[140px] space-y-1">
-            <p className="text-xs text-muted-foreground">{tr("排序方向", "Direction")}</p>
+            <p className="text-xs text-muted-foreground">
+              {tr("排序方向", "Direction")}
+            </p>
             <select
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={sortDirection}
-              onChange={event => onSortDirectionChange(event.target.value as "asc" | "desc")}
+              onChange={event =>
+                onSortDirectionChange(event.target.value as "asc" | "desc")
+              }
             >
               <option value="desc">{tr("倒序", "Desc")}</option>
               <option value="asc">{tr("正序", "Asc")}</option>
             </select>
           </div>
           <div className="w-full max-w-[140px] space-y-1">
-            <p className="text-xs text-muted-foreground">{tr("每页条数", "Page size")}</p>
+            <p className="text-xs text-muted-foreground">
+              {tr("每页条数", "Page size")}
+            </p>
             <Input
               value={String(pageSize)}
               onChange={event => {

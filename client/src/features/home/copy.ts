@@ -3,6 +3,8 @@ export type HomeLang = "en" | "zh";
 export const HOME_COPY = {
   en: {
     brandSubtitle: "AI-Powered Medical Bridge to China",
+    brandHomeLabel: "MediBridge home",
+    accountMenuLabel: "Open account menu",
     login: "Sign in / Register",
     dashboard: "My Account",
     admin: "Admin",
@@ -47,6 +49,8 @@ export const HOME_COPY = {
   },
   zh: {
     brandSubtitle: "AI 驱动的中外医疗桥梁",
+    brandHomeLabel: "返回 MediBridge 首页",
+    accountMenuLabel: "打开账户菜单",
     login: "登录/注册",
     dashboard: "个人中心",
     admin: "管理后台",

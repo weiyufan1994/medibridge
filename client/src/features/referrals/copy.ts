@@ -209,7 +209,7 @@ const referralCopyByLang = {
       orderListTitle: "Referral order list",
       orderDetailTitle: "Referral order detail",
       noOrders: "No referral orders found.",
-      urgencyMinutes: "Open for {{minutes}} min",
+      urgencyMinutes: "Open for {{duration}}",
       unassigned: "Unassigned",
       contactPending: "Contact pending assignment",
       manualFulfillmentBadge: "Manual outreach",
@@ -267,6 +267,30 @@ const referralCopyByLang = {
         "Focus the queue on the left and handle the active order on the right.",
       detailSummary:
         "Keep operational controls and deep logs separated so long cases stay manageable.",
+      nextStep: "Recommended next step",
+      moreActions: "More actions",
+      taskDescriptions: {
+        await_payment:
+          "Payment has not settled. Review the order and wait before starting fulfillment.",
+        assign:
+          "Claim the paid order or assign it to the appropriate coordinator.",
+        contact:
+          "Record the contact outcome. A connected result advances the order.",
+        booking:
+          "Record the booking result. A progressing result advances the order.",
+        coordinate_time:
+          "Start consultation-time coordination after booking progress is confirmed.",
+        schedule:
+          "Enter the confirmed provider, platform, joining link, and patient instructions.",
+        complete:
+          "Confirm the consultation is complete, or update its arrangement.",
+        refund_review:
+          "Review the refund request and record an approval or rejection.",
+        refund_processing:
+          "The refund is processing. Monitor the timeline for settlement.",
+        terminal:
+          "This order is closed. Review the result and timeline; no fulfillment action is available.",
+      },
       prevPage: "Previous",
       nextPage: "Next",
       refundReasonCodes: {
@@ -408,8 +432,7 @@ const referralCopyByLang = {
       agreementLabel: "我已理解服务范围、退款规则与免责声明，并同意继续。",
       continueToPayment: "继续支付",
       agreementRequired: "请先勾选同意后再继续。",
-      invalidContact:
-        "所选协调专员已失效或不再负责该医院，请返回后重新选择。",
+      invalidContact: "所选协调专员已失效或不再负责该医院，请返回后重新选择。",
       loadFailed: "加载转诊确认信息失败。",
     },
     payment: {
@@ -514,7 +537,7 @@ const referralCopyByLang = {
       orderListTitle: "转诊订单列表",
       orderDetailTitle: "转诊订单详情",
       noOrders: "暂无转诊订单。",
-      urgencyMinutes: "已等待 {{minutes}} 分钟",
+      urgencyMinutes: "已等待 {{duration}}",
       unassigned: "未分配",
       contactPending: "待分配联系人",
       manualFulfillmentBadge: "人工协调",
@@ -570,6 +593,20 @@ const referralCopyByLang = {
       listSummary: "左侧盯住待处理队列，右侧只展开当前订单的操作面板。",
       detailSummary:
         "把推进动作、患者信息、退款和日志拆开后，长工单也能稳定处理。",
+      nextStep: "建议下一步",
+      moreActions: "更多操作",
+      taskDescriptions: {
+        await_payment: "支付尚未结算，请先核对订单并等待支付结果。",
+        assign: "认领已支付订单，或分配给合适的协调专员。",
+        contact: "记录联系结果；成功联系后订单会自动推进。",
+        booking: "记录挂号结果；选择处理中会将订单推进到下一阶段。",
+        coordinate_time: "确认挂号已推进后，开始协调线上问诊时间。",
+        schedule: "填写确认后的服务方、平台、加入链接和患者说明。",
+        complete: "确认问诊完成，或更新现有安排。",
+        refund_review: "审核退款申请，并记录批准或驳回决定。",
+        refund_processing: "退款正在处理中，请从时间线跟踪结算结果。",
+        terminal: "订单已关闭，仅保留结果和时间线，不再提供履约操作。",
+      },
       prevPage: "上一页",
       nextPage: "下一页",
       refundReasonCodes: {
