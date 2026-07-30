@@ -11,12 +11,14 @@ import { buildReferralConfirmationHref } from "@/features/referrals/presentation
 
 type ReferralSelectionScreenProps = {
   triageSessionId: number;
-  hospitalId: number;
+  rankedHospitalIndex: number | null;
+  hospitalId: number | null;
   lang: ReferralLang;
 };
 
 export function ReferralSelectionScreen({
   triageSessionId,
+  rankedHospitalIndex,
   hospitalId,
   lang,
 }: ReferralSelectionScreenProps) {
@@ -24,7 +26,8 @@ export function ReferralSelectionScreen({
   const copy = getReferralCopy(lang);
   const selectionQuery = trpc.referrals.getSelectionContext.useQuery({
     triageSessionId,
-    hospitalId,
+    rankedHospitalIndex: rankedHospitalIndex ?? undefined,
+    hospitalId: hospitalId ?? undefined,
   });
 
   if (selectionQuery.isLoading) {
@@ -92,13 +95,7 @@ export function ReferralSelectionScreen({
         </CardContent>
       </Card>
 
-      {context.contacts.length === 0 ? (
-        <Card className="rounded-3xl border-dashed border-slate-300">
-          <CardContent className="p-6 text-sm text-muted-foreground">
-            {copy.selection.noContacts}
-          </CardContent>
-        </Card>
-      ) : (
+      {context.contacts.length > 0 ? (
         <div className="grid gap-4">
           {context.contacts.map(contact => (
             <Card key={contact.id} className="rounded-3xl border-slate-200/80">
@@ -108,7 +105,9 @@ export function ReferralSelectionScreen({
                     <p className="text-lg font-semibold text-slate-900">
                       {contact.name}
                     </p>
-                    <p className="text-sm text-slate-500">{contact.roleType}</p>
+                    <p className="text-sm text-slate-500">
+                      {copy.selection.coordinatorRole}
+                    </p>
                   </div>
 
                   <div className="flex flex-wrap gap-2 text-xs text-slate-600">
@@ -144,7 +143,9 @@ export function ReferralSelectionScreen({
                     setLocation(
                       buildReferralConfirmationHref({
                         triageSessionId,
-                        hospitalId,
+                        rankedHospitalIndex:
+                          rankedHospitalIndex ?? undefined,
+                        hospitalId: hospitalId ?? undefined,
                         contactId: contact.id,
                       })
                     )
@@ -156,7 +157,39 @@ export function ReferralSelectionScreen({
             </Card>
           ))}
         </div>
-      )}
+      ) : null}
+      {context.manualFallbackAvailable ? (
+        <Card className="rounded-3xl border-teal-200 bg-teal-50/60">
+          <CardContent className="grid gap-4 p-6 md:grid-cols-[1fr_auto] md:items-center">
+            <div>
+              <p className="text-lg font-semibold text-slate-900">
+                {copy.selection.teamName}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                {copy.selection.teamDescription}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                {copy.selection.noContacts}
+              </p>
+            </div>
+            <Button
+              className="rounded-xl bg-teal-600 text-white hover:bg-teal-700"
+              onClick={() =>
+                setLocation(
+                  buildReferralConfirmationHref({
+                    triageSessionId,
+                    rankedHospitalIndex:
+                      rankedHospitalIndex ?? undefined,
+                    hospitalId: hospitalId ?? undefined,
+                  })
+                )
+              }
+            >
+              {copy.selection.chooseTeam}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

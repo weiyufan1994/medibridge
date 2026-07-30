@@ -15,6 +15,9 @@ import {
   REFERRAL_ACTOR_TYPE_VALUES,
   REFERRAL_ORDER_STATUS_VALUES,
   REFERRAL_PAYMENT_STATUS_VALUES,
+  REFERRAL_NOTIFICATION_CHANNEL_VALUES,
+  REFERRAL_NOTIFICATION_RECIPIENT_VALUES,
+  REFERRAL_NOTIFICATION_STATUS_VALUES,
   REFERRAL_REFUND_REASON_CODE_VALUES,
   REFERRAL_SERVICE_AGREEMENT_VERSION,
   REFERRAL_SERVICE_AMOUNT,
@@ -876,6 +879,7 @@ export const referralOrders = pgTable(
     contactId: integer("contactId").references(() => referralContacts.id, {
       onDelete: "restrict",
     }),
+    clientRequestId: varchar("clientRequestId", { length: 64 }),
     status: text("status", { enum: REFERRAL_ORDER_STATUS_VALUES })
       .notNull()
       .default("pending_payment"),
@@ -901,7 +905,15 @@ export const referralOrders = pgTable(
       onDelete: "set null",
     }),
     caseSummarySnapshot: text("caseSummarySnapshot"),
+    fulfillmentDeadlineAt: timestamp("fulfillmentDeadlineAt"),
     consultationTime: timestamp("consultationTime"),
+    consultationTimeZone: varchar("consultationTimeZone", { length: 64 }),
+    consultationProviderName: varchar("consultationProviderName", {
+      length: 255,
+    }),
+    consultationPlatform: varchar("consultationPlatform", { length: 120 }),
+    consultationJoinUrl: varchar("consultationJoinUrl", { length: 1024 }),
+    consultationInstructions: text("consultationInstructions"),
     refundReason: text("refundReason"),
     agreementAcceptedAt: timestamp("agreementAcceptedAt").notNull(),
     agreementVersion: varchar("agreementVersion", { length: 32 })
@@ -912,6 +924,10 @@ export const referralOrders = pgTable(
       .notNull()
       .default("stripe"),
     paymentProviderSessionId: varchar("paymentProviderSessionId", { length: 255 }),
+    paymentProviderTransactionId: varchar("paymentProviderTransactionId", {
+      length: 255,
+    }),
+    paymentProviderRefundId: varchar("paymentProviderRefundId", { length: 255 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
     paidAt: timestamp("paidAt"),
@@ -927,6 +943,14 @@ export const referralOrders = pgTable(
     assignedAgentIdx: index("referralOrdersAssignedAgentIdx").on(table.assignedAgentId),
     paymentSessionUk: uniqueIndex("referralOrdersPaymentSessionUk").on(
       table.paymentProviderSessionId
+    ),
+    patientRequestUk: uniqueIndex("referralOrdersPatientRequestUk").on(
+      table.patientUserId,
+      table.clientRequestId
+    ),
+    fulfillmentDeadlineIdx: index("referralOrdersFulfillmentDeadlineIdx").on(
+      table.status,
+      table.fulfillmentDeadlineAt
     ),
   })
 );
@@ -1020,6 +1044,59 @@ export const refundRequests = pgTable(
 
 export type RefundRequest = typeof refundRequests.$inferSelect;
 export type InsertRefundRequest = typeof refundRequests.$inferInsert;
+
+export const referralNotificationOutbox = pgTable(
+  "referral_notification_outbox",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    orderId: integer("orderId")
+      .notNull()
+      .references(() => referralOrders.id, { onDelete: "cascade" }),
+    eventType: varchar("eventType", { length: 64 }).notNull(),
+    channel: text("channel", {
+      enum: REFERRAL_NOTIFICATION_CHANNEL_VALUES,
+    })
+      .notNull()
+      .default("email"),
+    recipientType: text("recipientType", {
+      enum: REFERRAL_NOTIFICATION_RECIPIENT_VALUES,
+    }).notNull(),
+    recipient: varchar("recipient", { length: 320 }).notNull(),
+    language: varchar("language", { length: 8 }).notNull().default("zh"),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    status: text("status", {
+      enum: REFERRAL_NOTIFICATION_STATUS_VALUES,
+    })
+      .notNull()
+      .default("pending"),
+    attemptCount: integer("attemptCount").notNull().default(0),
+    nextAttemptAt: timestamp("nextAttemptAt").defaultNow().notNull(),
+    processingStartedAt: timestamp("processingStartedAt"),
+    lastError: text("lastError"),
+    sentAt: timestamp("sentAt"),
+    dedupeKey: varchar("dedupeKey", { length: 255 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt")
+      .defaultNow()
+      .$onUpdateFn(() => new Date())
+      .notNull(),
+  },
+  table => ({
+    dedupeUk: uniqueIndex("referralNotificationOutboxDedupeUk").on(
+      table.dedupeKey
+    ),
+    pendingIdx: index("referralNotificationOutboxPendingIdx").on(
+      table.status,
+      table.nextAttemptAt
+    ),
+    orderIdx: index("referralNotificationOutboxOrderIdx").on(table.orderId),
+  })
+);
+
+export type ReferralNotificationOutbox =
+  typeof referralNotificationOutbox.$inferSelect;
+export type InsertReferralNotificationOutbox =
+  typeof referralNotificationOutbox.$inferInsert;
 
 /**
  * Appointments table - reserved for future online booking feature
@@ -1219,6 +1296,8 @@ export const stripeWebhookEvents = pgTable("stripe_webhook_events", {
   provider: text("provider", { enum: ["stripe", "paypal"] }).notNull().default("stripe"),
   stripeSessionId: varchar("stripeSessionId", { length: 255 }),
   appointmentId: integer("appointmentId"),
+  resourceType: varchar("resourceType", { length: 64 }),
+  resourceId: integer("resourceId"),
   payloadHash: varchar("payloadHash", { length: 64 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });

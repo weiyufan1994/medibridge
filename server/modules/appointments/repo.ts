@@ -1264,6 +1264,8 @@ export async function insertStripeWebhookEvent(input: {
   provider?: PaymentProvider;
   stripeSessionId?: string | null;
   appointmentId?: number | null;
+  resourceType?: string | null;
+  resourceId?: number | null;
   payloadHash?: string | null;
   dbExecutor?: DbExecutor;
 }) {
@@ -1275,6 +1277,8 @@ export async function insertStripeWebhookEvent(input: {
     provider: input.provider ?? "stripe",
     stripeSessionId: input.stripeSessionId ?? null,
     appointmentId: input.appointmentId ?? null,
+    resourceType: input.resourceType ?? null,
+    resourceId: input.resourceId ?? null,
     payloadHash: input.payloadHash ?? null,
   });
 }

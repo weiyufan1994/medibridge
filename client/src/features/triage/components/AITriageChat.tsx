@@ -51,7 +51,7 @@ import {
   type LightTriageResultForm,
   type TriageRoutingHospital,
 } from "@shared/triageRouting";
-import { buildReferralConfirmationHref } from "@/features/referrals/presentation";
+import { buildReferralSelectionHref } from "@/features/referrals/presentation";
 
 type HistoryItem = {
   id: number;
@@ -166,16 +166,16 @@ const TypewriterMessage = memo(
     prev.active === next.active
 );
 
-function buildReferralConfirmationLink(input: {
+function buildReferralSelectionLink(input: {
   triageSessionId: number;
   hospital: TriageRoutingHospital;
   rankedHospitalIndex: number;
 }) {
   if (input.triageSessionId <= 0) {
-    return "/hospitals";
+    return "/triage";
   }
 
-  return buildReferralConfirmationHref({
+  return buildReferralSelectionHref({
     triageSessionId: input.triageSessionId,
     rankedHospitalIndex: input.rankedHospitalIndex,
     hospitalId: input.hospital.matchedHospitalId ?? undefined,
@@ -192,7 +192,7 @@ function buildPrimaryReferralEntryHref(input: {
     rankedHospitalIndex += 1
   ) {
     const hospital = input.hospitals[rankedHospitalIndex];
-    const href = buildReferralConfirmationLink({
+    const href = buildReferralSelectionLink({
       triageSessionId: input.triageSessionId,
       hospital,
       rankedHospitalIndex,
@@ -202,7 +202,7 @@ function buildPrimaryReferralEntryHref(input: {
     }
   }
 
-  return "/hospitals";
+  return "/triage";
 }
 
 function HospitalRoutingCard(props: {
@@ -305,7 +305,7 @@ function HospitalRoutingCard(props: {
           ) : (
             <div className="mt-4 space-y-3">
               {props.hospitals.map((hospital, index) => {
-                const referralHref = buildReferralConfirmationLink({
+                const referralHref = buildReferralSelectionLink({
                   triageSessionId: props.triageSessionId,
                   hospital,
                   rankedHospitalIndex: index,

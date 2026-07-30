@@ -17,13 +17,38 @@ vi.mock("./modules/appointments/repo", () => ({
   revokeAppointmentTokens: vi.fn(),
 }));
 
+vi.mock("./modules/scheduling/repo", () => ({
+  releaseHeldSlotByAppointmentId: vi.fn(),
+}));
+
 vi.mock("./modules/payments/settlement", () => ({
   settleStripePaymentBySessionId: vi.fn(),
+}));
+
+vi.mock("./modules/referrals/repo", () => ({
+  getReferralOrderByPaymentSessionId: vi.fn(),
+  getReferralOrderByProviderReference: vi.fn(),
+  markOrderPaymentFailed: vi.fn(),
+  insertOperation: vi.fn(),
+}));
+
+vi.mock("./modules/referrals/paymentSettlement", () => ({
+  settleReferralPaymentTransition: vi.fn(),
+  publishReferralPaymentSettlement: vi.fn(),
+}));
+
+vi.mock("./modules/referrals/refunds", () => ({
+  finalizeReferralRefund: vi.fn(),
 }));
 
 import { parseStripeWebhookEvent, verifyStripeWebhookSignature } from "./modules/payments/stripe";
 import { getDb } from "./db";
 import * as appointmentsRepo from "./modules/appointments/repo";
+import * as referralRepo from "./modules/referrals/repo";
+import {
+  publishReferralPaymentSettlement,
+  settleReferralPaymentTransition,
+} from "./modules/referrals/paymentSettlement";
 import { clearMetricsForTests, getMetricsSnapshot } from "./_core/metrics";
 import { handleStripeWebhook } from "./stripeWebhookRoute";
 
@@ -68,6 +93,20 @@ describe("stripeWebhookRoute", () => {
       ok: true,
       reason: "updated",
     } as never);
+    vi.mocked(referralRepo.getReferralOrderByPaymentSessionId).mockResolvedValue(
+      null as never
+    );
+    vi.mocked(referralRepo.getReferralOrderByProviderReference).mockResolvedValue(
+      null as never
+    );
+    vi.mocked(referralRepo.markOrderPaymentFailed).mockResolvedValue({
+      ok: true,
+      reason: "updated",
+    } as never);
+    vi.mocked(settleReferralPaymentTransition).mockResolvedValue({
+      orderId: 701,
+      alreadySettled: false,
+    });
   });
 
   it("refund webhook marks refunded and revokes appointment tokens", async () => {
@@ -163,5 +202,104 @@ describe("stripeWebhookRoute", () => {
         }),
       ])
     );
+  });
+
+  it("settles a paid referral checkout and can reconcile it on a duplicate event", async () => {
+    vi.mocked(parseStripeWebhookEvent).mockReturnValue({
+      id: "evt_referral_paid_1",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_referral_paid_1",
+          payment_status: "paid",
+          payment_intent: "pi_referral_paid_1",
+          metadata: {
+            resourceType: "referral_order",
+            resourceId: "701",
+          },
+        },
+      },
+    } as never);
+    vi.mocked(referralRepo.getReferralOrderByPaymentSessionId).mockResolvedValue({
+      id: 701,
+    } as never);
+    vi.mocked(appointmentsRepo.insertStripeWebhookEvent).mockRejectedValue({
+      code: "ER_DUP_ENTRY",
+    } as never);
+
+    const { req, res, resPayload } = createReqRes(
+      '{"id":"evt_referral_paid_1"}'
+    );
+    await handleStripeWebhook(req, res);
+
+    expect(settleReferralPaymentTransition).toHaveBeenCalledWith({
+      paymentSessionId: "cs_referral_paid_1",
+      paymentProviderTransactionId: "pi_referral_paid_1",
+      actorType: "webhook",
+      reason: "stripe_webhook_paid",
+    });
+    expect(publishReferralPaymentSettlement).toHaveBeenCalledWith(701);
+    expect(resPayload.status).toBe(200);
+  });
+
+  it("does not settle a referral checkout until Stripe reports it paid", async () => {
+    vi.mocked(parseStripeWebhookEvent).mockReturnValue({
+      id: "evt_referral_unpaid_1",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_referral_unpaid_1",
+          payment_status: "unpaid",
+          metadata: {
+            resourceType: "referral_order",
+            resourceId: "702",
+          },
+        },
+      },
+    } as never);
+
+    const { req, res, resPayload } = createReqRes(
+      '{"id":"evt_referral_unpaid_1"}'
+    );
+    await handleStripeWebhook(req, res);
+
+    expect(settleReferralPaymentTransition).not.toHaveBeenCalled();
+    expect(resPayload.status).toBe(200);
+  });
+
+  it("marks a referral payment failed using generic resource metadata", async () => {
+    vi.mocked(parseStripeWebhookEvent).mockReturnValue({
+      id: "evt_referral_failed_1",
+      type: "payment_intent.payment_failed",
+      data: {
+        object: {
+          id: "pi_referral_failed_1",
+          metadata: {
+            resourceType: "referral_order",
+            resourceId: "703",
+          },
+        },
+      },
+    } as never);
+
+    const { req, res, resPayload } = createReqRes(
+      '{"id":"evt_referral_failed_1"}'
+    );
+    await handleStripeWebhook(req, res);
+
+    expect(referralRepo.markOrderPaymentFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 703,
+        reason: "payment_intent_failed",
+        actorType: "webhook",
+      })
+    );
+    expect(referralRepo.insertOperation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 703,
+        actionType: "payment_failed",
+      })
+    );
+    expect(resPayload.status).toBe(200);
   });
 });

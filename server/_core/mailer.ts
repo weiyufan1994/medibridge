@@ -1,4 +1,4 @@
-type MailPayload = {
+export type MailPayload = {
   to: string;
   subject: string;
   text: string;
@@ -121,6 +121,25 @@ export async function sendMagicLinkEmail(to: string, link: string): Promise<void
     },
     config
   );
+}
+
+export async function sendTransactionalEmail(
+  payload: MailPayload
+): Promise<void> {
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`[Mailer][DEV] To: ${payload.to}`);
+    console.log(`[Mailer][DEV] Subject: ${payload.subject}`);
+    return;
+  }
+
+  const config = getResendConfig();
+  if (!config) {
+    throw new Error(
+      "Email provider is not configured for production. Set RESEND_API_KEY."
+    );
+  }
+
+  await sendViaResend(payload, config);
 }
 
 export async function sendDoctorInviteEmail(

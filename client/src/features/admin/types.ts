@@ -164,6 +164,7 @@ export type AppointmentDetailData = {
 
 export type AdminAppointmentListItem = {
   id: number;
+  userId: number | null;
   email: string;
   status: string;
   paymentStatus: string;
@@ -171,6 +172,7 @@ export type AdminAppointmentListItem = {
   currency: string;
   doctorId: number;
   triageSessionId: number;
+  scheduledAt: Date | string | null;
   createdAt: Date | string;
   hasRisk: boolean;
   riskCodes: string[];
@@ -311,9 +313,21 @@ export type UseAdminConsoleResult = {
   setScheduledAtTo: (value: string) => void;
   hasRiskFilter: boolean;
   setHasRiskFilter: (value: boolean) => void;
-  sortBy: "createdAt" | "scheduledAt" | "amount" | "status" | "paymentStatus" | "id";
+  sortBy:
+    | "createdAt"
+    | "scheduledAt"
+    | "amount"
+    | "status"
+    | "paymentStatus"
+    | "id";
   setSortBy: (
-    value: "createdAt" | "scheduledAt" | "amount" | "status" | "paymentStatus" | "id"
+    value:
+      | "createdAt"
+      | "scheduledAt"
+      | "amount"
+      | "status"
+      | "paymentStatus"
+      | "id"
   ) => void;
   sortDirection: "asc" | "desc";
   setSortDirection: (value: "asc" | "desc") => void;
@@ -392,11 +406,14 @@ export type UseAdminConsoleResult = {
   };
   webhookReplayMutation: {
     isPending: boolean;
-    replayByEvent: (input: { eventId?: string; appointmentId?: number }) => void;
+    replayByEvent: (input: {
+      eventId?: string;
+      appointmentId?: number;
+    }) => void;
   };
   exportAppointmentsMutation: {
     isPending: boolean;
-  exportScope: (input: {
+    exportScope: (input: {
       scope: AdminExportScope;
       format: "csv" | "json";
       webhookAppointmentId?: number;
@@ -406,7 +423,11 @@ export type UseAdminConsoleResult = {
       auditTo?: string;
     }) => void;
   };
-  risks: Array<{ code: string; level: "critical" | "warning"; message: string }>;
+  risks: Array<{
+    code: string;
+    level: "critical" | "warning";
+    message: string;
+  }>;
   suggestions: AdminSuggestion[];
   openAppointmentById: () => void;
   applyManualStatusUpdate: () => void;

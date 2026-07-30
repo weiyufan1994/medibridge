@@ -108,7 +108,9 @@ export function ReferralPaymentScreen({
               {detail.contact?.name ?? copy.common.contactPending}
             </p>
             <p className="mt-1 text-sm text-slate-500">
-              {detail.contact?.roleType ?? copy.confirmation.fulfillmentDescription}
+              {detail.contact
+                ? copy.selection.coordinatorRole
+                : copy.selection.teamDescription}
             </p>
           </div>
         </CardContent>

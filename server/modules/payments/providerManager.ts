@@ -3,8 +3,14 @@ import { paypalAdapter } from "./providers/paypalAdapter";
 
 export type PaymentProvider = "stripe" | "paypal";
 
+export type PaymentResource = {
+  type: "appointment" | "referral_order";
+  id: number;
+};
+
 export type PaymentCheckoutInput = {
-  appointmentId: number;
+  appointmentId?: number;
+  resource?: PaymentResource;
   amount: number;
   currency: string;
   successUrl: string;
@@ -36,7 +42,24 @@ export type PaymentProviderWebhookAdapter = {
   extractSessionIdFromWebhookEvent: (event: unknown) => string | null;
   captureOrFinalize: (input: {
     providerSessionId: string;
-  }) => Promise<{ provider: PaymentProvider; providerSessionId: string }>;
+  }) => Promise<{
+    provider: PaymentProvider;
+    providerSessionId: string;
+    providerTransactionId?: string | null;
+    paymentStatus?: "paid" | "unpaid";
+  }>;
+  refund: (input: {
+    resource?: PaymentResource;
+    providerSessionId: string;
+    providerTransactionId?: string | null;
+    amount: number;
+    currency: string;
+    idempotencyKey: string;
+  }) => Promise<{
+    provider: PaymentProvider;
+    providerRefundId: string;
+    status: "pending" | "succeeded";
+  }>;
   getEventType: (event: unknown) => string;
   getResourceId?: (event: unknown) => string | null;
 };
@@ -70,6 +93,7 @@ const ADAPTERS: Record<PaymentProvider, PaymentProviderWebhookAdapter> = {
     extractSessionIdFromWebhookEvent: event =>
       stripeAdapter.extractSessionId(event as never),
     captureOrFinalize: stripeAdapter.captureOrFinalize,
+    refund: stripeAdapter.refund,
     getEventType: event => {
       if (!event || typeof event !== "object" || !("type" in event)) {
         return "";
@@ -90,6 +114,7 @@ const ADAPTERS: Record<PaymentProvider, PaymentProviderWebhookAdapter> = {
     extractSessionIdFromWebhookEvent: event =>
       paypalAdapter.extractSessionId(event as never),
     captureOrFinalize: paypalAdapter.captureOrFinalize,
+    refund: paypalAdapter.refund,
     getEventType: event => {
       if (!event || typeof event !== "object" || !("event_type" in event)) {
         return "";
@@ -112,4 +137,16 @@ export async function createPaymentCheckoutSession(
 ): Promise<PaymentCheckoutSession> {
   const adapter = resolvePaymentAdapter();
   return await Promise.resolve(adapter.createSession(input));
+}
+
+export async function refundPayment(input: {
+  provider: PaymentProvider;
+  resource?: PaymentResource;
+  providerSessionId: string;
+  providerTransactionId?: string | null;
+  amount: number;
+  currency: string;
+  idempotencyKey: string;
+}) {
+  return ADAPTERS[input.provider].refund(input);
 }

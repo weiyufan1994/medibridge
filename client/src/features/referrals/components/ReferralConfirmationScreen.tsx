@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,10 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { getLocalizedText } from "@/lib/i18n";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { getReferralCopy, type ReferralLang } from "@/features/referrals/copy";
 import {
+  buildReferralSelectionHref,
   buildReferralPaymentHref,
   formatReferralMoney,
+  getOrCreateReferralClientRequestId,
 } from "@/features/referrals/presentation";
 import {
   REFERRAL_SERVICE_AGREEMENT_VERSION,
@@ -23,6 +26,7 @@ type ReferralConfirmationScreenProps = {
   triageSessionId: number;
   rankedHospitalIndex: number | null;
   hospitalId: number | null;
+  contactId: number | null;
   lang: ReferralLang;
 };
 
@@ -30,11 +34,26 @@ export function ReferralConfirmationScreen({
   triageSessionId,
   rankedHospitalIndex,
   hospitalId,
+  contactId,
   lang,
 }: ReferralConfirmationScreenProps) {
   const copy = getReferralCopy(lang);
   const [, setLocation] = useLocation();
+  const { isAuthenticated, loading: authLoading, openLoginModal } = useAuth();
   const [agreementAccepted, setAgreementAccepted] = useState(false);
+  const [resumeAfterLogin, setResumeAfterLogin] = useState(false);
+  const [contactInvalidAfterSubmit, setContactInvalidAfterSubmit] =
+    useState(false);
+  const clientRequestId = useMemo(
+    () =>
+      getOrCreateReferralClientRequestId({
+        triageSessionId,
+        rankedHospitalIndex: rankedHospitalIndex ?? undefined,
+        hospitalId: hospitalId ?? undefined,
+        contactId: contactId ?? undefined,
+      }),
+    [contactId, hospitalId, rankedHospitalIndex, triageSessionId]
+  );
   const selectionQuery = trpc.referrals.getSelectionContext.useQuery({
     triageSessionId,
     rankedHospitalIndex: rankedHospitalIndex ?? undefined,
@@ -45,9 +64,58 @@ export function ReferralConfirmationScreen({
       setLocation(buildReferralPaymentHref(result.id));
     },
     onError: error => {
+      if (error.message.includes("FORMAL_ACCOUNT_REQUIRED")) {
+        setResumeAfterLogin(true);
+        openLoginModal();
+        return;
+      }
+      if (
+        error.message.includes("Selected contact is invalid") ||
+        error.message.includes("Selected contact is required")
+      ) {
+        setContactInvalidAfterSubmit(true);
+        return;
+      }
       toast.error(error.message);
     },
   });
+
+  const submitOrder = useCallback(() => {
+    if (createDraftMutation.isPending) {
+      return;
+    }
+    createDraftMutation.mutate({
+      triageSessionId,
+      rankedHospitalIndex: rankedHospitalIndex ?? undefined,
+      hospitalId: hospitalId ?? undefined,
+      contactId: contactId ?? undefined,
+      clientRequestId,
+      agreementAccepted: true,
+      agreementVersion: REFERRAL_SERVICE_AGREEMENT_VERSION,
+      agreementLang: lang,
+    });
+  }, [
+    clientRequestId,
+    contactId,
+    createDraftMutation,
+    hospitalId,
+    lang,
+    rankedHospitalIndex,
+    triageSessionId,
+  ]);
+
+  useEffect(() => {
+    if (!resumeAfterLogin || !isAuthenticated || !agreementAccepted) {
+      return;
+    }
+    setResumeAfterLogin(false);
+    submitOrder();
+  }, [
+    agreementAccepted,
+    isAuthenticated,
+    resumeAfterLogin,
+    submitOrder,
+  ]);
 
   if (selectionQuery.isLoading) {
     return (
@@ -75,6 +143,37 @@ export function ReferralConfirmationScreen({
   const departmentName =
     getLocalizedText({ lang, value: context.department.name }).trim() ||
     copy.common.notAvailable;
+  const selectedContact = contactId
+    ? context.contacts.find(contact => contact.id === contactId) ?? null
+    : null;
+  const invalidSelectedContact =
+    contactInvalidAfterSubmit || (contactId !== null && !selectedContact);
+
+  if (invalidSelectedContact) {
+    return (
+      <Card className="rounded-3xl border-amber-200 bg-amber-50/70">
+        <CardContent className="space-y-4 p-6">
+          <p className="text-sm leading-6 text-amber-900">
+            {copy.confirmation.invalidContact}
+          </p>
+          <Button
+            variant="outline"
+            onClick={() =>
+              setLocation(
+                buildReferralSelectionHref({
+                  triageSessionId,
+                  rankedHospitalIndex: rankedHospitalIndex ?? undefined,
+                  hospitalId: hospitalId ?? undefined,
+                })
+              )
+            }
+          >
+            {copy.navigation.backToSelection}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -103,10 +202,12 @@ export function ReferralConfirmationScreen({
               {copy.confirmation.contact}
             </p>
             <p className="mt-2 text-base font-semibold text-slate-900">
-              {copy.common.contactPending}
+              {selectedContact?.name ?? copy.selection.teamName}
             </p>
             <p className="mt-1 text-sm text-slate-500">
-              {copy.confirmation.fulfillmentDescription}
+              {selectedContact
+                ? copy.selection.coordinatorRole
+                : copy.selection.teamDescription}
             </p>
           </div>
         </CardContent>
@@ -186,20 +287,18 @@ export function ReferralConfirmationScreen({
 
           <Button
             className="w-full rounded-xl bg-teal-600 text-white hover:bg-teal-700"
-            disabled={createDraftMutation.isPending}
+            disabled={createDraftMutation.isPending || authLoading}
             onClick={() => {
               if (!agreementAccepted) {
                 toast.error(copy.confirmation.agreementRequired);
                 return;
               }
-              void createDraftMutation.mutateAsync({
-                triageSessionId,
-                rankedHospitalIndex: rankedHospitalIndex ?? undefined,
-                hospitalId: hospitalId ?? undefined,
-                agreementAccepted: true,
-                agreementVersion: REFERRAL_SERVICE_AGREEMENT_VERSION,
-                agreementLang: lang,
-              });
+              if (!isAuthenticated) {
+                setResumeAfterLogin(true);
+                openLoginModal();
+                return;
+              }
+              submitOrder();
             }}
           >
             {createDraftMutation.isPending

@@ -7,6 +7,15 @@ import {
   REFUND_REQUEST_STATUS_VALUES,
 } from "../../../shared/referrals";
 
+function isValidTimeZone(value: string) {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const localizedTextSchema = z.object({
   zh: z.string(),
   en: z.string(),
@@ -119,6 +128,7 @@ export const selectionContextOutputSchema = z.object({
   triageSummary: z.string().nullable(),
   recommendationReason: z.string().nullable(),
   manualFulfillmentRequired: z.boolean(),
+  manualFallbackAvailable: z.boolean(),
   hospital: referralDisplayHospitalSchema,
   department: referralDisplayDepartmentSchema,
   contacts: z.array(referralContactSchema),
@@ -128,6 +138,7 @@ export const createOrderDraftInputSchema = withRankedHospitalSelectionConstraint
   z.object({
     ...rankedHospitalSelectionInputFields,
     contactId: z.number().int().positive().optional(),
+    clientRequestId: z.string().uuid(),
     agreementAccepted: z.literal(true),
     agreementVersion: z.string().trim().min(1).max(32),
     agreementLang: z.enum(["zh", "en"]),
@@ -144,6 +155,7 @@ export const referralOrderSummarySchema = z.object({
   createdAt: z.date(),
   updatedAt: z.date(),
   paidAt: z.date().nullable(),
+  fulfillmentDeadlineAt: z.date().nullable(),
 });
 
 export const createOrderDraftOutputSchema = referralOrderSummarySchema;
@@ -251,6 +263,16 @@ export const referralOrderDetailOutputSchema = z.object({
   hospital: referralDisplayHospitalSchema,
   department: referralDisplayDepartmentSchema,
   contact: nullableReferralContactSchema,
+  consultationArrangement: z
+    .object({
+      scheduledAt: z.date(),
+      timeZone: z.string(),
+      providerName: z.string(),
+      platform: z.string(),
+      joinUrl: z.string().url(),
+      instructions: z.string(),
+    })
+    .nullable(),
   timeline: z.array(referralOrderTimelineEventSchema),
   operations: z.array(referralOrderOperationSchema),
   refundRequest: refundRequestSchema.nullable(),
@@ -262,6 +284,17 @@ export const adminReferralOrderDetailOutputSchema = referralOrderDetailOutputSch
     email: z.string().email().nullable(),
     role: z.string().nullable(),
   }),
+  notificationFailures: z.array(
+    z.object({
+      id: z.number().int().positive(),
+      eventType: z.string(),
+      recipientType: z.enum(["patient", "ops"]),
+      recipient: z.string(),
+      attemptCount: z.number().int().nonnegative(),
+      lastError: z.string().nullable(),
+      updatedAt: z.date(),
+    })
+  ),
 });
 
 export const listOrdersInputSchema = z.object({
@@ -350,9 +383,27 @@ export const recordBookingResultInputSchema = z.object({
   note: z.string().trim().min(1).max(4000),
 });
 
+export const beginTimeCoordinationInputSchema = z.object({
+  orderId: z.number().int().positive(),
+  note: z.string().trim().min(1).max(4000),
+});
+
 export const setConsultationTimeInputSchema = z.object({
   orderId: z.number().int().positive(),
   consultationTime: createDateSchema,
+  timeZone: z.string().trim().min(1).max(64).refine(isValidTimeZone, {
+    message: "Consultation time zone must be a valid IANA time zone",
+  }),
+  providerName: z.string().trim().min(1).max(255),
+  platform: z.string().trim().min(1).max(120),
+  joinUrl: z
+    .string()
+    .url()
+    .max(1024)
+    .refine(value => value.startsWith("https://"), {
+      message: "Consultation join URL must use HTTPS",
+    }),
+  instructions: z.string().trim().min(1).max(4000),
   note: z.string().trim().max(4000).optional(),
 });
 

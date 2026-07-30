@@ -1,7 +1,7 @@
 import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ReferralConfirmationScreen } from "@/features/referrals/components/ReferralConfirmationScreen";
+import { ReferralSelectionScreen } from "@/features/referrals/components/ReferralSelectionScreen";
 import { getReferralCopy } from "@/features/referrals/copy";
 import {
   parseNonNegativeNumberParam,
@@ -35,11 +35,11 @@ export default function ReferralSelectPage() {
     readSelectionParams();
 
   return (
-    <AppLayout title={copy.confirmation.title}>
+    <AppLayout title={copy.selection.title}>
       <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
         {triageSessionId &&
         (rankedHospitalIndex !== null || hospitalId !== null) ? (
-          <ReferralConfirmationScreen
+          <ReferralSelectionScreen
             triageSessionId={triageSessionId}
             rankedHospitalIndex={rankedHospitalIndex}
             hospitalId={hospitalId}

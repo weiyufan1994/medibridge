@@ -88,7 +88,7 @@ export const TRIAGE_COPY = {
       platform_match: "In platform database",
       manual_coordination: "Manual coordination available",
       no_hospitals:
-        "No reference hospitals are available yet. Please browse the hospital list directly.",
+        "No reference hospitals are available yet. Please start a new triage session with more details.",
       possibility_fallback:
         "The current details suggest a broad specialty direction for in-person evaluation.",
       department_fallback: "Relevant department",
@@ -286,7 +286,7 @@ export const TRIAGE_COPY = {
       },
       platform_match: "已匹配站内医院",
       manual_coordination: "支持人工协调",
-      no_hospitals: "暂未生成参考医院，请直接浏览医院库。",
+      no_hospitals: "暂未生成参考医院，请补充更多信息后重新开始分诊。",
       possibility_fallback:
         "当前信息更像某一类专科方向，建议线下面诊进一步评估。",
       department_fallback: "相关专科",

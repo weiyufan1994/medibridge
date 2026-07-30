@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./modules/referrals/repo", () => ({
   createReferralOrder: vi.fn(),
+  getReferralOrderByClientRequest: vi.fn(),
   getHospitalById: vi.fn(),
   getDepartmentById: vi.fn(),
   getContactById: vi.fn(),
@@ -22,6 +23,8 @@ vi.mock("./modules/referrals/repo", () => ({
   updateRefundRequestById: vi.fn(),
   listStatusEventsByOrderId: vi.fn(),
   listOperationsByOrderId: vi.fn(),
+  listFailedReferralNotificationsByOrderId: vi.fn(),
+  createRefundRequest: vi.fn(),
   listMineReferralOrders: vi.fn(),
   listReferralOrdersForAdmin: vi.fn(),
 }));
@@ -39,6 +42,7 @@ vi.mock("./modules/ai/historyResult", () => ({
 
 vi.mock("./modules/payments/providerManager", () => ({
   createPaymentCheckoutSession: vi.fn(),
+  refundPayment: vi.fn(),
   resolvePaymentAdapter: vi.fn(),
 }));
 
@@ -55,6 +59,7 @@ import {
 } from "./modules/ai/historyResult";
 import {
   createPaymentCheckoutSession,
+  refundPayment,
   resolvePaymentAdapter,
 } from "./modules/payments/providerManager";
 import * as referralRepo from "./modules/referrals/repo";
@@ -187,6 +192,15 @@ function createOrderRow(overrides: Record<string, unknown> = {}) {
     agreementLang: "zh",
     paymentProvider: "stripe",
     paymentProviderSessionId: null,
+    paymentProviderTransactionId: null,
+    paymentProviderRefundId: null,
+    clientRequestId: null,
+    fulfillmentDeadlineAt: null,
+    consultationTimeZone: null,
+    consultationProviderName: null,
+    consultationPlatform: null,
+    consultationJoinUrl: null,
+    consultationInstructions: null,
     createdAt: new Date("2026-04-11T08:55:00.000Z"),
     updatedAt: new Date("2026-04-11T09:00:00.000Z"),
     paidAt: null,
@@ -254,14 +268,95 @@ describe("referral actions", () => {
     vi.mocked(referralRepo.getLatestRefundRequestByOrderId).mockResolvedValue(
       null as never
     );
+    vi.mocked(referralRepo.getReferralOrderByClientRequest).mockResolvedValue(
+      null as never
+    );
     vi.mocked(referralRepo.listStatusEventsByOrderId).mockResolvedValue([] as never);
     vi.mocked(referralRepo.listOperationsByOrderId).mockResolvedValue([] as never);
+    vi.mocked(
+      referralRepo.listFailedReferralNotificationsByOrderId
+    ).mockResolvedValue([] as never);
+  });
+
+  it("requires a formal account before creating a paid referral draft", async () => {
+    await expect(
+      createOrderDraftAction(
+        { id: 501, role: "free", isGuest: 1 } as never,
+        {
+          triageSessionId: 77,
+          rankedHospitalIndex: 0,
+          clientRequestId: "33333333-3333-4333-8333-333333333333",
+          agreementAccepted: true,
+          agreementVersion: "referral_service_v2",
+          agreementLang: "zh",
+        }
+      )
+    ).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+      message: "FORMAL_ACCOUNT_REQUIRED",
+    });
+    expect(referralRepo.createReferralOrder).not.toHaveBeenCalled();
+  });
+
+  it("returns the existing order for a repeated client request id", async () => {
+    vi.mocked(referralRepo.getReferralOrderByClientRequest).mockResolvedValue(
+      createOrderRow({
+        id: 120,
+        clientRequestId: "44444444-4444-4444-8444-444444444444",
+      }) as never
+    );
+
+    const result = await createOrderDraftAction(
+      { id: 501, role: "free", isGuest: 0 } as never,
+      {
+        triageSessionId: 77,
+        rankedHospitalIndex: 0,
+        clientRequestId: "44444444-4444-4444-8444-444444444444",
+        agreementAccepted: true,
+        agreementVersion: "referral_service_v2",
+        agreementLang: "zh",
+      }
+    );
+
+    expect(result.id).toBe(120);
+    expect(referralRepo.createReferralOrder).not.toHaveBeenCalled();
+  });
+
+  it("rejects a selected coordinator that is no longer valid", async () => {
+    vi.mocked(referralRepo.getHospitalById).mockResolvedValue(
+      createHospitalRow() as never
+    );
+    vi.mocked(referralRepo.getDepartmentById).mockResolvedValue(
+      createDepartmentRow() as never
+    );
+    vi.mocked(referralRepo.getContactById).mockResolvedValue(null as never);
+
+    await expect(
+      createOrderDraftAction(
+        { id: 501, role: "free", isGuest: 0 } as never,
+        {
+          triageSessionId: 77,
+          rankedHospitalIndex: 0,
+          contactId: 31,
+          clientRequestId: "55555555-5555-4555-8555-555555555555",
+          agreementAccepted: true,
+          agreementVersion: "referral_service_v2",
+          agreementLang: "zh",
+        }
+      )
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "Selected contact is invalid",
+    });
+    expect(referralRepo.createReferralOrder).not.toHaveBeenCalled();
   });
 
   it("confirms returned payment sessions and moves orders into paid_pending_assignment", async () => {
     const captureOrFinalize = vi.fn().mockResolvedValue({
       provider: "stripe",
       providerSessionId: "cs_referral_1",
+      providerTransactionId: "pi_referral_1",
+      paymentStatus: "paid",
     });
     vi.mocked(resolvePaymentAdapter).mockReturnValue({
       captureOrFinalize,
@@ -305,7 +400,7 @@ describe("referral actions", () => {
       expect.objectContaining({
         paymentSessionId: "cs_referral_1",
         actorType: "webhook",
-        reason: "return_url_payment_confirmed",
+        reason: "return_url_payment_verified",
       })
     );
     expect(referralRepo.insertOperation).toHaveBeenCalledWith(
@@ -372,7 +467,10 @@ describe("referral actions", () => {
 
     expect(createPaymentCheckoutSession).toHaveBeenCalledWith(
       expect.objectContaining({
-        appointmentId: 107,
+        resource: {
+          type: "referral_order",
+          id: 107,
+        },
         amount: 19900,
         currency: "usd",
       })
@@ -500,7 +598,10 @@ describe("referral actions", () => {
 
     expect(createPaymentCheckoutSession).toHaveBeenCalledWith(
       expect.objectContaining({
-        appointmentId: 109,
+        resource: {
+          type: "referral_order",
+          id: 109,
+        },
       })
     );
     expect(result).toMatchObject({
@@ -592,8 +693,9 @@ describe("referral actions", () => {
     const result = await createOrderDraftAction(patientUser, {
       triageSessionId: 77,
       rankedHospitalIndex: 0,
+      clientRequestId: "11111111-1111-4111-8111-111111111111",
       agreementAccepted: true,
-      agreementVersion: "referral_service_v1",
+      agreementVersion: "referral_service_v2",
       agreementLang: "zh",
     });
 
@@ -664,8 +766,9 @@ describe("referral actions", () => {
     const result = await createOrderDraftAction(patientUser, {
       triageSessionId: 77,
       rankedHospitalIndex: 0,
+      clientRequestId: "22222222-2222-4222-8222-222222222222",
       agreementAccepted: true,
-      agreementVersion: "referral_service_v1",
+      agreementVersion: "referral_service_v2",
       agreementLang: "zh",
     });
 
@@ -1059,6 +1162,8 @@ describe("referral actions", () => {
           status: "refund_pending_review",
           paymentStatus: "paid",
           assignedAgentId: 900,
+          paymentProviderSessionId: "cs_refund_106",
+          paymentProviderTransactionId: "pi_refund_106",
         }) as never
       )
       .mockResolvedValueOnce(
@@ -1067,6 +1172,8 @@ describe("referral actions", () => {
           status: "refund_pending_review",
           paymentStatus: "paid",
           assignedAgentId: 900,
+          paymentProviderSessionId: "cs_refund_106",
+          paymentProviderTransactionId: "pi_refund_106",
         }) as never
       )
       .mockResolvedValueOnce(
@@ -1075,8 +1182,36 @@ describe("referral actions", () => {
           status: "refund_processing",
           paymentStatus: "paid",
           assignedAgentId: 900,
+          paymentProviderSessionId: "cs_refund_106",
+          paymentProviderTransactionId: "pi_refund_106",
+        }) as never
+      )
+      .mockResolvedValueOnce(
+        createOrderRow({
+          id: 106,
+          status: "refund_processing",
+          paymentStatus: "paid",
+          assignedAgentId: 900,
+          paymentProviderSessionId: "cs_refund_106",
+          paymentProviderTransactionId: "pi_refund_106",
+        }) as never
+      )
+      .mockResolvedValueOnce(
+        createOrderRow({
+          id: 106,
+          status: "refunded",
+          paymentStatus: "refunded",
+          assignedAgentId: 900,
+          paymentProviderSessionId: "cs_refund_106",
+          paymentProviderTransactionId: "pi_refund_106",
+          paymentProviderRefundId: "re_refund_106",
         }) as never
       );
+    vi.mocked(refundPayment).mockResolvedValue({
+      provider: "stripe",
+      providerRefundId: "re_refund_106",
+      status: "succeeded",
+    });
     vi.mocked(referralRepo.getLatestRefundRequestByOrderId)
       .mockResolvedValueOnce({
         id: 401,

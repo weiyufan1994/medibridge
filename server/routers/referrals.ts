@@ -143,6 +143,13 @@ export const referralsRouter = router({
       referralActions.recordBookingResultAction(ctx.user, input)
     ),
 
+  beginTimeCoordination: adminOrOpsProcedure
+    .input(referralSchemas.beginTimeCoordinationInputSchema)
+    .output(referralSchemas.adminReferralOrderDetailOutputSchema)
+    .mutation(({ ctx, input }) =>
+      referralActions.beginTimeCoordinationAction(ctx.user, input)
+    ),
+
   setConsultationTime: adminOrOpsProcedure
     .input(referralSchemas.setConsultationTimeInputSchema)
     .output(referralSchemas.adminReferralOrderDetailOutputSchema)

@@ -72,12 +72,20 @@ async function getPaypalAccessToken(): Promise<string> {
 }
 
 export async function createPaypalCheckoutSession(input: {
-  appointmentId: number;
+  appointmentId?: number;
+  resource?: {
+    type: "appointment" | "referral_order";
+    id: number;
+  };
   amount: number;
   currency: string;
   successUrl: string;
   cancelUrl: string;
 }): Promise<{ provider: "paypal"; id: string; url: string }> {
+  const resourceId = input.resource?.id ?? input.appointmentId;
+  if (!resourceId) {
+    throw new Error("Payment resource is required");
+  }
   const accessToken = await getPaypalAccessToken();
   const amount = parseAmount({
     amount: input.amount,
@@ -90,7 +98,7 @@ export async function createPaypalCheckoutSession(input: {
       intent: "CAPTURE",
       purchase_units: [
         {
-          reference_id: String(input.appointmentId),
+          reference_id: String(resourceId),
           amount,
         },
       ],
@@ -239,7 +247,12 @@ export async function verifyPaypalWebhookSignature(input: {
 
 export async function captureOrFinalizePaypalSession(input: {
   providerSessionId: string;
-}): Promise<{ provider: "paypal"; providerSessionId: string }> {
+}): Promise<{
+  provider: "paypal";
+  providerSessionId: string;
+  providerTransactionId: string;
+  paymentStatus: "paid";
+}> {
   const accessToken = await getPaypalAccessToken();
   const response = await axios.post(
     `${buildPayPalApiBase()}/v2/checkout/orders/${encodeURIComponent(input.providerSessionId)}/capture`,
@@ -261,6 +274,50 @@ export async function captureOrFinalizePaypalSession(input: {
   return {
     provider: PAYPAL_PROVIDER,
     providerSessionId: input.providerSessionId,
+    providerTransactionId: input.providerSessionId,
+    paymentStatus: "paid" as const,
+  };
+}
+
+export async function refundPaypalPayment(input: {
+  resource?: {
+    type: "appointment" | "referral_order";
+    id: number;
+  };
+  providerSessionId: string;
+  providerTransactionId?: string | null;
+  amount: number;
+  currency: string;
+  idempotencyKey: string;
+}) {
+  const captureId = input.providerTransactionId?.trim();
+  if (!captureId) {
+    throw new Error("PayPal capture id is required for refund");
+  }
+  const accessToken = await getPaypalAccessToken();
+  const response = await axios.post(
+    `${buildPayPalApiBase()}/v2/payments/captures/${encodeURIComponent(captureId)}/refund`,
+    {
+      amount: parseAmount(input),
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "PayPal-Request-Id": input.idempotencyKey,
+      },
+      timeout: 12_000,
+    }
+  );
+  const refundId = String(response.data?.id || "").trim();
+  if (!refundId) {
+    throw new Error("PayPal refund API returned no refund id");
+  }
+  const status = String(response.data?.status || "").toLowerCase();
+  return {
+    provider: PAYPAL_PROVIDER,
+    providerRefundId: refundId,
+    status: status === "completed" ? ("succeeded" as const) : ("pending" as const),
   };
 }
 
@@ -272,4 +329,5 @@ export const paypalAdapter = {
   extractSessionId: extractSessionIdFromWebhookEvent,
   extractSessionIdFromParamsFromRedirect,
   captureOrFinalize: captureOrFinalizePaypalSession,
+  refund: refundPaypalPayment,
 } as const;

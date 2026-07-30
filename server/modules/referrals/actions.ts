@@ -27,7 +27,6 @@ import {
 import * as referralRepo from "./repo";
 import {
   notifyInternalActionRequired,
-  notifyInternalPaidReferralOrder,
   notifyPatientReferralUpdate,
 } from "./notifications";
 import {
@@ -42,12 +41,21 @@ import {
   REFERRAL_INVALID_TRANSITION_ERROR,
   isReferralTerminalStatus,
 } from "./stateMachine";
+import {
+  initiateAutomaticReferralRefund,
+  processReferralRefund,
+} from "./refunds";
+import {
+  publishReferralPaymentSettlement,
+  settleReferralPaymentTransition,
+} from "./paymentSettlement";
 import type {
   createOrderDraftInputSchema,
   addInternalNoteInputSchema,
   adminReferralOrderDetailOutputSchema,
   assignOrderInputSchema,
   assignOrderContactInputSchema,
+  beginTimeCoordinationInputSchema,
   createPaymentSessionInputSchema,
   getSelectionContextInputSchema,
   getTriageRecommendationsInputSchema,
@@ -74,6 +82,9 @@ type ListMineOrdersInput = z.infer<typeof listMineOrdersInputSchema>;
 type ListOrdersInput = z.infer<typeof listOrdersInputSchema>;
 type AssignOrderInput = z.infer<typeof assignOrderInputSchema>;
 type AssignOrderContactInput = z.infer<typeof assignOrderContactInputSchema>;
+type BeginTimeCoordinationInput = z.infer<
+  typeof beginTimeCoordinationInputSchema
+>;
 type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusInputSchema>;
 type AddInternalNoteInput = z.infer<typeof addInternalNoteInputSchema>;
 type PublishPatientProgressUpdateInput = z.infer<
@@ -115,6 +126,18 @@ function requireUser(user: User | null): CurrentUser {
   }
 
   return user;
+}
+
+function requireFormalUser(user: User | null): CurrentUser {
+  const currentUser = requireUser(user);
+  if (currentUser.isGuest === 1) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "FORMAL_ACCOUNT_REQUIRED",
+    });
+  }
+
+  return currentUser;
 }
 
 function resolveActorTypeFromUser(user: User): ReferralActorType {
@@ -348,16 +371,53 @@ function buildOrderDisplayContext(input: {
 function mapBundleToOrderSummary(bundle: NonNullable<
   Awaited<ReturnType<typeof referralRepo.getReferralOrderBundleById>>
 >) {
+  return mapOrderToSummary(bundle.order);
+}
+
+function mapOrderToSummary(
+  order: Awaited<ReturnType<typeof referralRepo.getReferralOrderById>>
+) {
+  if (!order) {
+    throw new Error("Referral order is required");
+  }
+
   return {
-    id: bundle.order.id,
-    status: bundle.order.status,
-    paymentStatus: bundle.order.paymentStatus,
-    manualFulfillmentRequired: bundle.order.manualFulfillmentRequired === 1,
-    totalAmount: bundle.order.totalAmount,
-    currency: bundle.order.currency,
-    createdAt: bundle.order.createdAt,
-    updatedAt: bundle.order.updatedAt,
-    paidAt: bundle.order.paidAt ?? null,
+    id: order.id,
+    status: order.status,
+    paymentStatus: order.paymentStatus,
+    manualFulfillmentRequired: order.manualFulfillmentRequired === 1,
+    totalAmount: order.totalAmount,
+    currency: order.currency,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+    paidAt: order.paidAt ?? null,
+    fulfillmentDeadlineAt: order.fulfillmentDeadlineAt ?? null,
+  };
+}
+
+function toConsultationArrangement(
+  order: NonNullable<
+    Awaited<ReturnType<typeof referralRepo.getReferralOrderById>>
+  >
+) {
+  if (
+    !order.consultationTime ||
+    !order.consultationTimeZone ||
+    !order.consultationProviderName ||
+    !order.consultationPlatform ||
+    !order.consultationJoinUrl ||
+    !order.consultationInstructions
+  ) {
+    return null;
+  }
+
+  return {
+    scheduledAt: order.consultationTime,
+    timeZone: order.consultationTimeZone,
+    providerName: order.consultationProviderName,
+    platform: order.consultationPlatform,
+    joinUrl: order.consultationJoinUrl,
+    instructions: order.consultationInstructions,
   };
 }
 
@@ -456,77 +516,18 @@ function throwReferralPaymentCreationError(input: {
 
 async function settleReferralOrderPaymentBySessionId(input: {
   paymentSessionId: string;
+  paymentProviderTransactionId?: string | null;
   actorType: ReferralActorType;
   reason: string;
 }) {
-  const transitioned = await referralRepo.tryMarkOrderPaidByPaymentSessionId({
+  const settlement = await settleReferralPaymentTransition({
     paymentSessionId: input.paymentSessionId,
+    paymentProviderTransactionId:
+      input.paymentProviderTransactionId ?? null,
     actorType: input.actorType,
     reason: input.reason,
   });
-
-  if (!transitioned.ok) {
-    const order = await referralRepo.getReferralOrderByPaymentSessionId(
-      input.paymentSessionId
-    );
-
-    if (!order) {
-      throw new TRPCError({
-        code: "NOT_FOUND",
-        message: "Referral order not found for payment session",
-      });
-    }
-
-    if (order.paymentStatus === "paid") {
-      return order;
-    }
-
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message: REFERRAL_INVALID_TRANSITION_ERROR,
-    });
-  }
-
-  const bundle = await referralRepo.getReferralOrderBundleById(transitioned.current.id);
-  if (!bundle) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Referral order disappeared after payment settlement",
-    });
-  }
-
-  await referralRepo.insertOperation({
-    orderId: bundle.order.id,
-    operatorType: "system",
-    actionType: "payment_success",
-    actionPayload: {
-      paymentSessionId: input.paymentSessionId,
-    },
-  });
-
-  await recordPatientNotification({
-    orderId: bundle.order.id,
-    detail: "Payment received. Your referral request is now waiting for internal assignment.",
-  });
-
-  await notifyPatientReferralUpdate({
-    orderId: bundle.order.id,
-    event: "payment_success",
-    detail: "Payment received",
-  });
-  const displayContext = buildOrderDisplayContext({
-    order: bundle.order,
-    hospital: bundle.hospital,
-    department: bundle.department,
-  });
-  await notifyInternalPaidReferralOrder({
-    orderId: bundle.order.id,
-    hospitalName: displayContext.hospital.name.zh || displayContext.hospital.name.en,
-    contactName: bundle.contact?.name ?? null,
-    manualFulfillmentRequired: displayContext.manualFulfillmentRequired,
-  });
-
-  return bundle.order;
+  return publishReferralPaymentSettlement(settlement.orderId);
 }
 
 async function changeOrderStatus(input: {
@@ -609,10 +610,10 @@ export async function getSelectionContextAction(
     rankedHospital: selectedHospital,
     triageResult,
   });
-  const contacts = localHospital
+  const contacts = localHospital && localDepartment
     ? await referralRepo.listActiveContactsByHospital({
         hospitalId: localHospital.id,
-        departmentId: localDepartment?.id ?? null,
+        departmentId: localDepartment.id,
       })
     : [];
   const recommendedDepartment = triageResult?.routing?.recommendedDepartment ?? null;
@@ -624,6 +625,7 @@ export async function getSelectionContextAction(
     triageSummary: session.summary ?? null,
     recommendationReason: selectedHospital.reason,
     manualFulfillmentRequired,
+    manualFallbackAvailable: contacts.length === 0,
     hospital: toReferralDisplayHospital({
       hospital: localHospital,
       snapshotHospitalName: selectedHospital.hospitalName,
@@ -642,12 +644,20 @@ export async function createOrderDraftAction(
   user: User | null,
   input: CreateOrderDraftInput
 ) {
-  const currentUser = requireUser(user);
+  const currentUser = requireFormalUser(user);
   if (input.agreementVersion !== REFERRAL_SERVICE_AGREEMENT_VERSION) {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: "Unsupported agreement version",
     });
+  }
+
+  const existingOrder = await referralRepo.getReferralOrderByClientRequest({
+    patientUserId: currentUser.id,
+    clientRequestId: input.clientRequestId,
+  });
+  if (existingOrder) {
+    return mapOrderToSummary(existingOrder);
   }
 
   const { session, triageResult, selectedHospital } =
@@ -658,15 +668,29 @@ export async function createOrderDraftAction(
       hospitalId: input.hospitalId,
     });
   const localHospital = await resolveLocalHospitalForRankedHospital(selectedHospital);
+  const mappedDepartment = await resolveLocalDepartmentForRankedHospital({
+    localHospitalId: localHospital?.id ?? null,
+    rankedHospital: selectedHospital,
+    triageResult,
+  });
+  const department =
+    mappedDepartment &&
+    mappedDepartment.isActive === 1 &&
+    (!localHospital || mappedDepartment.hospitalId === localHospital.id)
+      ? mappedDepartment
+      : null;
   const contact =
     typeof input.contactId === "number" && input.contactId > 0
       ? await referralRepo.getContactById(input.contactId)
       : null;
   if (
-    contact &&
-    (!localHospital ||
+    typeof input.contactId === "number" &&
+    (!contact ||
+      !localHospital ||
       contact.isActive !== 1 ||
-      contact.hospitalId !== localHospital.id)
+      contact.hospitalId !== localHospital.id ||
+      !department ||
+      contact.departmentId !== department.id)
   ) {
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -674,28 +698,20 @@ export async function createOrderDraftAction(
     });
   }
 
-  const mappedDepartment =
-    contact && isPositiveInteger(contact.departmentId)
-      ? await referralRepo.getDepartmentById(contact.departmentId)
-      : await resolveLocalDepartmentForRankedHospital({
-          localHospitalId: localHospital?.id ?? null,
-          rankedHospital: selectedHospital,
-          triageResult,
-        });
-  const department =
-    mappedDepartment &&
-    mappedDepartment.isActive === 1 &&
-    (!localHospital || mappedDepartment.hospitalId === localHospital.id)
-      ? mappedDepartment
-      : null;
-  const activeContacts = localHospital
+  const activeContacts = localHospital && department
     ? contact
       ? [contact]
       : await referralRepo.listActiveContactsByHospital({
           hospitalId: localHospital.id,
-          departmentId: department?.id ?? null,
+          departmentId: department.id,
         })
     : [];
+  if (!contact && activeContacts.length > 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Selected contact is required",
+    });
+  }
   const recommendedDepartment = triageResult?.routing?.recommendedDepartment ?? null;
   const manualFulfillmentRequired =
     !localHospital || !department || activeContacts.length === 0;
@@ -704,6 +720,7 @@ export async function createOrderDraftAction(
     values: {
       patientUserId: currentUser.id,
       triageSessionId: session.id,
+      clientRequestId: input.clientRequestId,
       hospitalId: localHospital?.id ?? null,
       departmentId: department?.id ?? null,
       contactId: contact?.id ?? null,
@@ -724,6 +741,14 @@ export async function createOrderDraftAction(
   });
 
   if (!orderId) {
+    const racedOrder = await referralRepo.getReferralOrderByClientRequest({
+      patientUserId: currentUser.id,
+      clientRequestId: input.clientRequestId,
+    });
+    if (racedOrder) {
+      return mapOrderToSummary(racedOrder);
+    }
+
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
       message: "Failed to create referral order",
@@ -772,17 +797,7 @@ export async function createOrderDraftAction(
     });
   }
 
-  return {
-    id: order.id,
-    status: order.status,
-    paymentStatus: order.paymentStatus,
-    manualFulfillmentRequired: order.manualFulfillmentRequired === 1,
-    totalAmount: order.totalAmount,
-    currency: order.currency,
-    createdAt: order.createdAt,
-    updatedAt: order.updatedAt,
-    paidAt: order.paidAt ?? null,
-  };
+  return mapOrderToSummary(order);
 }
 
 export async function createPaymentSessionAction(input: {
@@ -790,7 +805,7 @@ export async function createPaymentSessionAction(input: {
   createInput: CreatePaymentSessionInput;
   req: Request;
 }) {
-  const currentUser = requireUser(input.user);
+  const currentUser = requireFormalUser(input.user);
   const order = await getOwnedOrder({
     orderId: input.createInput.orderId,
     userId: currentUser.id,
@@ -814,7 +829,10 @@ export async function createPaymentSessionAction(input: {
         url: `${publicBaseUrl}/referrals/mock-checkout/${order.id}`,
       }
     : await createPaymentCheckoutSession({
-        appointmentId: order.id,
+        resource: {
+          type: "referral_order",
+          id: order.id,
+        },
         amount: order.totalAmount,
         currency: order.currency,
         successUrl: `${publicBaseUrl}/referrals/payment/success?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
@@ -920,16 +938,27 @@ export async function confirmReturnedPaymentSessionAction(input: {
     });
   }
 
+  let paymentProviderTransactionId =
+    order.paymentProviderTransactionId ?? null;
   if (order.paymentStatus !== "paid") {
-    await resolvePaymentAdapter().captureOrFinalize({
+    const verification = await resolvePaymentAdapter().captureOrFinalize({
       providerSessionId: input.paymentSessionId,
     });
+    if (verification.paymentStatus !== "paid") {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "Payment has not been confirmed by the provider.",
+      });
+    }
+    paymentProviderTransactionId =
+      verification.providerTransactionId ?? null;
   }
 
   const settledOrder = await settleReferralOrderPaymentBySessionId({
     paymentSessionId: input.paymentSessionId,
+    paymentProviderTransactionId,
     actorType: "webhook",
-    reason: "return_url_payment_confirmed",
+    reason: "return_url_payment_verified",
   });
 
   return {
@@ -1055,6 +1084,7 @@ export async function getOrderDetailAction(
     hospital: displayContext.hospital,
     department: displayContext.department,
     contact: toPublicReferralContactOrNull(bundle.contact),
+    consultationArrangement: toConsultationArrangement(bundle.order),
     timeline: timeline.map(event => ({
       id: event.id,
       fromStatus: (event.fromStatus as ReferralOrderStatus | null) ?? null,
@@ -1152,6 +1182,8 @@ export async function getAdminOrderDetailAction(
   const timeline = await referralRepo.listStatusEventsByOrderId(orderId);
   const operations = await referralRepo.listOperationsByOrderId(orderId);
   const refundRequest = await referralRepo.getLatestRefundRequestByOrderId(orderId);
+  const notificationFailures =
+    await referralRepo.listFailedReferralNotificationsByOrderId(orderId);
   const agreementLang = bundle.order.agreementLang === "zh" ? "zh" : "en";
   const displayContext = buildOrderDisplayContext({
     order: bundle.order,
@@ -1178,10 +1210,20 @@ export async function getAdminOrderDetailAction(
       email: bundle.patient?.email?.trim().toLowerCase() ?? null,
       role: bundle.patient?.role ?? null,
     },
+    notificationFailures: notificationFailures.map(notification => ({
+      id: notification.id,
+      eventType: notification.eventType,
+      recipientType: notification.recipientType,
+      recipient: notification.recipient,
+      attemptCount: notification.attemptCount,
+      lastError: notification.lastError ?? null,
+      updatedAt: notification.updatedAt,
+    })),
     recommendationReason: displayContext.recommendationReason,
     hospital: displayContext.hospital,
     department: displayContext.department,
     contact: toPublicReferralContactOrNull(bundle.contact),
+    consultationArrangement: toConsultationArrangement(bundle.order),
     timeline: timeline.map(event => ({
       id: event.id,
       fromStatus: (event.fromStatus as ReferralOrderStatus | null) ?? null,
@@ -1367,6 +1409,22 @@ export async function updateOrderStatusAction(
       message: "Referral order not found",
     });
   }
+  if (
+    [
+      "paid_pending_assignment",
+      "time_coordination",
+      "scheduled",
+      "refund_pending_review",
+      "refund_processing",
+      "refunded",
+    ].includes(input.toStatus)
+  ) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message:
+        "This referral status requires its dedicated payment, coordination, or refund action.",
+    });
+  }
 
   const toPaymentStatus = derivePaymentStatusForManualStatusChange({
     currentPaymentStatus: order.paymentStatus as ReferralPaymentStatus,
@@ -1394,24 +1452,6 @@ export async function updateOrderStatusAction(
       reason: input.reason,
     },
   });
-
-  if (input.toStatus === "scheduled") {
-    await recordPatientNotification({
-      orderId: order.id,
-      detail: "Consultation time has been confirmed.",
-    });
-    await notifyPatientReferralUpdate({
-      orderId: order.id,
-      event: "consultation_time_confirmed",
-      detail: "Consultation time confirmed",
-    });
-  }
-  if (input.toStatus === "refund_pending_review" || input.toStatus === "refund_processing") {
-    await recordPatientNotification({
-      orderId: order.id,
-      detail: "A refund review is in progress for your referral order.",
-    });
-  }
 
   return getAdminOrderDetailAction(currentUser, order.id);
 }
@@ -1494,10 +1534,14 @@ export async function recordContactAttemptAction(
   }
 
   if (input.outcome === "failed") {
-    await initiateRefundAction(currentUser, {
+    await initiateAutomaticReferralRefund({
       orderId: order.id,
       reasonCode: "contact_failed",
       reasonDetail: input.note,
+      actor: {
+        type: resolveActorTypeFromUser(currentUser),
+        id: currentUser.id,
+      },
     });
   }
 
@@ -1543,12 +1587,56 @@ export async function recordBookingResultAction(
   }
 
   if (input.outcome === "failed") {
-    await initiateRefundAction(currentUser, {
+    await initiateAutomaticReferralRefund({
       orderId: order.id,
       reasonCode: "booking_failed",
       reasonDetail: input.note,
+      actor: {
+        type: resolveActorTypeFromUser(currentUser),
+        id: currentUser.id,
+      },
     });
   }
+
+  return getAdminOrderDetailAction(currentUser, order.id);
+}
+
+export async function beginTimeCoordinationAction(
+  user: User | null,
+  input: BeginTimeCoordinationInput
+) {
+  const currentUser = requireUser(user);
+  const order = await referralRepo.getReferralOrderById(input.orderId);
+  if (!order) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Referral order not found",
+    });
+  }
+  if (order.status !== "booking_in_progress") {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: REFERRAL_INVALID_TRANSITION_ERROR,
+    });
+  }
+
+  await changeOrderStatus({
+    orderId: order.id,
+    toStatus: "time_coordination",
+    toPaymentStatus: "paid",
+    actorType: resolveActorTypeFromUser(currentUser),
+    actorId: currentUser.id,
+    reason: "consultation_time_coordination_started",
+  });
+  await referralRepo.insertOperation({
+    orderId: order.id,
+    operatorType: resolveActorTypeFromUser(currentUser),
+    operatorId: currentUser.id,
+    actionType: "time_coordination_started",
+    actionPayload: {
+      note: input.note,
+    },
+  });
 
   return getAdminOrderDetailAction(currentUser, order.id);
 }
@@ -1567,18 +1655,23 @@ export async function setConsultationTimeAction(
   }
 
   const currentStatus = order.status as ReferralOrderStatus;
-  if (currentStatus === "booking_in_progress") {
-    await changeOrderStatus({
-      orderId: order.id,
-      toStatus: "time_coordination",
-      toPaymentStatus: "paid",
-      actorType: resolveActorTypeFromUser(currentUser),
-      actorId: currentUser.id,
-      reason: "consultation_time_coordination_started",
+  if (currentStatus !== "time_coordination" && currentStatus !== "scheduled") {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: REFERRAL_INVALID_TRANSITION_ERROR,
     });
   }
 
-  if (currentStatus !== "scheduled") {
+  const arrangementUpdate = {
+    consultationTime: input.consultationTime,
+    consultationTimeZone: input.timeZone,
+    consultationProviderName: input.providerName,
+    consultationPlatform: input.platform,
+    consultationJoinUrl: input.joinUrl,
+    consultationInstructions: input.instructions,
+  };
+
+  if (currentStatus === "time_coordination") {
     await changeOrderStatus({
       orderId: order.id,
       toStatus: "scheduled",
@@ -1586,9 +1679,7 @@ export async function setConsultationTimeAction(
       actorType: resolveActorTypeFromUser(currentUser),
       actorId: currentUser.id,
       reason: "consultation_time_confirmed",
-      update: {
-        consultationTime: input.consultationTime,
-      },
+      update: arrangementUpdate,
     });
     await referralRepo.insertOperation({
       orderId: order.id,
@@ -1597,15 +1688,18 @@ export async function setConsultationTimeAction(
       actionType: "consultation_time_confirmed",
       actionPayload: {
         consultationTime: input.consultationTime.toISOString(),
+        timeZone: input.timeZone,
+        providerName: input.providerName,
+        platform: input.platform,
+        joinUrl: input.joinUrl,
+        instructions: input.instructions,
         note: input.note ?? null,
       },
     });
   } else {
     await referralRepo.updateReferralOrderById({
       orderId: order.id,
-      update: {
-        consultationTime: input.consultationTime,
-      },
+      update: arrangementUpdate,
     });
     await referralRepo.insertOperation({
       orderId: order.id,
@@ -1614,6 +1708,11 @@ export async function setConsultationTimeAction(
       actionType: "consultation_time_updated",
       actionPayload: {
         consultationTime: input.consultationTime.toISOString(),
+        timeZone: input.timeZone,
+        providerName: input.providerName,
+        platform: input.platform,
+        joinUrl: input.joinUrl,
+        instructions: input.instructions,
         note: input.note ?? null,
       },
     });
@@ -1627,6 +1726,10 @@ export async function setConsultationTimeAction(
     orderId: order.id,
     event: "consultation_time_confirmed",
     detail: input.consultationTime.toISOString(),
+    detailByLanguage: {
+      zh: `线上面诊已安排：${input.consultationTime.toISOString()}（${input.timeZone}），平台：${input.platform}。请登录订单页查看加入链接和操作说明。`,
+      en: `Your online consultation is scheduled for ${input.consultationTime.toISOString()} (${input.timeZone}) on ${input.platform}. Sign in to the order page for the joining link and instructions.`,
+    },
   });
 
   return getAdminOrderDetailAction(currentUser, order.id);
@@ -1810,41 +1913,30 @@ export async function reviewRefundAction(
       status: "processing",
     },
   });
-  await changeOrderStatus({
-    orderId: order.id,
-    toStatus: "refunded",
-    toPaymentStatus: "refunded",
-    actorType: resolveActorTypeFromUser(currentUser),
-    actorId: currentUser.id,
-    reason: input.note?.trim() || "refund_completed",
-    update: {
-      refundedAt: new Date(),
-    },
-  });
-  await referralRepo.updateRefundRequestById({
-    refundRequestId: refundRequest.id,
-    update: {
-      status: "refunded",
-      refundedAt: new Date(),
-    },
-  });
   await referralRepo.insertOperation({
     orderId: order.id,
     operatorType: resolveActorTypeFromUser(currentUser),
     operatorId: currentUser.id,
-    actionType: "refund_completed",
+    actionType: "refund_approved",
     actionPayload: {
       note: input.note ?? null,
     },
   });
   await recordPatientNotification({
     orderId: order.id,
-    detail: "Refund completed.",
+    detail: "Your full refund is being processed.",
   });
   await notifyPatientReferralUpdate({
     orderId: order.id,
-    event: "refund_completed",
-    detail: input.note?.trim() || "refund_completed",
+    event: "refund_processing",
+    detail: "Your full refund is being processed.",
+  });
+  await processReferralRefund({
+    orderId: order.id,
+    actor: {
+      type: resolveActorTypeFromUser(currentUser),
+      id: currentUser.id,
+    },
   });
 
   return getAdminOrderDetailAction(currentUser, order.id);

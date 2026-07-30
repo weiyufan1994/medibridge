@@ -14,6 +14,7 @@ function readConfirmationParams() {
       triageSessionId: null,
       rankedHospitalIndex: null,
       hospitalId: null,
+      contactId: null,
     };
   }
 
@@ -24,6 +25,7 @@ function readConfirmationParams() {
       params.get("rankedHospitalIndex")
     ),
     hospitalId: parsePositiveNumberParam(params.get("hospitalId")),
+    contactId: parsePositiveNumberParam(params.get("contactId")),
   };
 }
 
@@ -31,7 +33,7 @@ export default function ReferralConfirmPage() {
   const { resolved } = useLanguage();
   const lang = resolved as "en" | "zh";
   const copy = getReferralCopy(lang);
-  const { triageSessionId, rankedHospitalIndex, hospitalId } =
+  const { triageSessionId, rankedHospitalIndex, hospitalId, contactId } =
     readConfirmationParams();
 
   return (
@@ -43,6 +45,7 @@ export default function ReferralConfirmPage() {
             triageSessionId={triageSessionId}
             rankedHospitalIndex={rankedHospitalIndex}
             hospitalId={hospitalId}
+            contactId={contactId}
             lang={lang}
           />
         ) : (

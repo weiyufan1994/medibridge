@@ -4,6 +4,7 @@ export const REQUIRED_TABLES = [
   "retention_cleanup_audits",
   "doctor_user_bindings",
   "doctor_account_invites",
+  "referral_notification_outbox",
 ] as const;
 
 export const REQUIRED_INDEXES = [
@@ -19,12 +20,61 @@ export const REQUIRED_INDEXES = [
   "doctorAccountInvitesTokenHashUk",
   "doctorUserBindingsDoctorActiveUk",
   "doctorUserBindingsUserActiveUk",
+  "referralNotificationOutboxDedupeUk",
+  "referralNotificationOutboxPendingIdx",
+  "referralNotificationOutboxOrderIdx",
+  "referralOrdersPatientRequestUk",
+  "referralOrdersFulfillmentDeadlineIdx",
 ] as const;
 
 export const REQUIRED_COLUMNS = [
   {
     tableName: "departments",
     columnName: "url",
+  },
+  {
+    tableName: "referral_orders",
+    columnName: "clientRequestId",
+  },
+  {
+    tableName: "referral_orders",
+    columnName: "fulfillmentDeadlineAt",
+  },
+  {
+    tableName: "referral_orders",
+    columnName: "consultationTimeZone",
+  },
+  {
+    tableName: "referral_orders",
+    columnName: "consultationProviderName",
+  },
+  {
+    tableName: "referral_orders",
+    columnName: "consultationPlatform",
+  },
+  {
+    tableName: "referral_orders",
+    columnName: "consultationJoinUrl",
+  },
+  {
+    tableName: "referral_orders",
+    columnName: "consultationInstructions",
+  },
+  {
+    tableName: "referral_orders",
+    columnName: "paymentProviderTransactionId",
+  },
+  {
+    tableName: "referral_orders",
+    columnName: "paymentProviderRefundId",
+  },
+  {
+    tableName: "stripe_webhook_events",
+    columnName: "resourceType",
+  },
+  {
+    tableName: "stripe_webhook_events",
+    columnName: "resourceId",
   },
 ] as const;
 

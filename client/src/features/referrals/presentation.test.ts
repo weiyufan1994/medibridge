@@ -1,14 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  buildReferralConfirmationHref,
   buildReferralMockCheckoutHref,
   buildReferralPaymentCancelHref,
   buildReferralPaymentSuccessHref,
+  buildReferralSelectionHref,
+  getOrCreateReferralClientRequestId,
   getLatestReferralProgressUpdate,
   getPatientVisibleReferralTimeline,
   getReferralPaymentAction,
   getReferralOrderDetailHelperNotice,
   shouldUseReferralMockCheckout,
 } from "./presentation";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("getReferralPaymentAction", () => {
   it("shows a pay CTA for unpaid pending orders", () => {
@@ -99,6 +106,59 @@ describe("referral mock checkout helpers", () => {
         paymentSessionId: "cs_referral_42",
       })
     ).toBe("/referrals/payment/cancel?orderId=42&session_id=cs_referral_42");
+  });
+});
+
+describe("referral selection and idempotency helpers", () => {
+  it("preserves ranked hospital and coordinator selections in referral links", () => {
+    expect(
+      buildReferralSelectionHref({
+        triageSessionId: 77,
+        rankedHospitalIndex: 2,
+        hospitalId: 11,
+      })
+    ).toBe(
+      "/referrals/select?triageSessionId=77&rankedHospitalIndex=2&hospitalId=11"
+    );
+    expect(
+      buildReferralConfirmationHref({
+        triageSessionId: 77,
+        rankedHospitalIndex: 2,
+        hospitalId: 11,
+        contactId: 31,
+      })
+    ).toBe(
+      "/referrals/confirm?triageSessionId=77&rankedHospitalIndex=2&hospitalId=11&contactId=31"
+    );
+  });
+
+  it("reuses the same draft request id after login or a repeated click", () => {
+    const values = new Map<string, string>();
+    vi.stubGlobal("window", {
+      sessionStorage: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => values.set(key, value),
+      },
+    });
+    vi.stubGlobal("crypto", {
+      randomUUID: vi
+        .fn()
+        .mockReturnValue("66666666-6666-4666-8666-666666666666"),
+    });
+    const selection = {
+      triageSessionId: 77,
+      rankedHospitalIndex: 0,
+      hospitalId: 11,
+      contactId: 31,
+    };
+
+    expect(getOrCreateReferralClientRequestId(selection)).toBe(
+      "66666666-6666-4666-8666-666666666666"
+    );
+    expect(getOrCreateReferralClientRequestId(selection)).toBe(
+      "66666666-6666-4666-8666-666666666666"
+    );
+    expect(globalThis.crypto.randomUUID).toHaveBeenCalledTimes(1);
   });
 });
 

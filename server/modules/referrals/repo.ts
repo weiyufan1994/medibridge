@@ -3,19 +3,24 @@ import {
   asc,
   desc,
   eq,
+  inArray,
   isNull,
+  lte,
+  or,
   sql,
 } from "drizzle-orm";
 import {
   departments,
   hospitals,
   referralContacts,
+  referralNotificationOutbox,
   referralOrderOperations,
   referralOrders,
   referralOrderStatusEvents,
   refundRequests,
   users,
   type InsertReferralContact,
+  type InsertReferralNotificationOutbox,
   type InsertReferralOrder,
   type InsertRefundRequest,
 } from "../../../drizzle/schema";
@@ -31,7 +36,14 @@ import {
   isAllowedReferralStatusTransition,
 } from "./stateMachine";
 
-type DbExecutor = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+type BaseDb = NonNullable<
+  Awaited<ReturnType<typeof getDb>>
+>;
+export type ReferralRepoExecutor = Pick<
+  BaseDb,
+  "select" | "insert" | "update"
+>;
+type DbExecutor = ReferralRepoExecutor;
 
 async function resolveDbExecutor(dbExecutor?: DbExecutor) {
   const db = dbExecutor ?? (await getDb());
@@ -148,9 +160,34 @@ export async function createReferralOrder(input: {
   const rows = await db
     .insert(referralOrders)
     .values(input.values)
+    .onConflictDoNothing({
+      target: [
+        referralOrders.patientUserId,
+        referralOrders.clientRequestId,
+      ],
+    })
     .returning({ id: referralOrders.id });
 
   return rows[0]?.id ?? null;
+}
+
+export async function getReferralOrderByClientRequest(input: {
+  patientUserId: number;
+  clientRequestId: string;
+}) {
+  const db = await resolveDbExecutor();
+  const rows = await db
+    .select()
+    .from(referralOrders)
+    .where(
+      and(
+        eq(referralOrders.patientUserId, input.patientUserId),
+        eq(referralOrders.clientRequestId, input.clientRequestId)
+      )
+    )
+    .limit(1);
+
+  return rows[0] ?? null;
 }
 
 export async function getReferralOrderById(
@@ -176,6 +213,38 @@ export async function getReferralOrderByPaymentSessionId(
     .select()
     .from(referralOrders)
     .where(eq(referralOrders.paymentProviderSessionId, paymentSessionId))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+export async function getReferralOrderByProviderReference(input: {
+  providerRefundId?: string | null;
+  providerTransactionId?: string | null;
+}) {
+  const db = await resolveDbExecutor();
+  const filters = [];
+  if (input.providerRefundId) {
+    filters.push(
+      eq(referralOrders.paymentProviderRefundId, input.providerRefundId)
+    );
+  }
+  if (input.providerTransactionId) {
+    filters.push(
+      eq(
+        referralOrders.paymentProviderTransactionId,
+        input.providerTransactionId
+      )
+    );
+  }
+  if (filters.length === 0) {
+    return null;
+  }
+
+  const rows = await db
+    .select()
+    .from(referralOrders)
+    .where(or(...filters))
     .limit(1);
 
   return rows[0] ?? null;
@@ -361,11 +430,30 @@ export async function markOrderPendingPayment(input: {
   });
 }
 
+export async function markOrderPaymentFailed(input: {
+  orderId: number;
+  reason: string;
+  actorType?: ReferralActorType;
+  dbExecutor?: DbExecutor;
+}) {
+  return tryTransitionOrderById({
+    orderId: input.orderId,
+    allowedFrom: ["pending_payment"],
+    toStatus: "pending_payment",
+    toPaymentStatus: "failed",
+    actorType: input.actorType ?? "webhook",
+    reason: input.reason,
+    dbExecutor: input.dbExecutor,
+  });
+}
+
 export async function tryMarkOrderPaidByPaymentSessionId(input: {
   paymentSessionId: string;
   actorType?: ReferralActorType;
   reason?: string | null;
   paidAt?: Date;
+  fulfillmentDeadlineAt?: Date;
+  paymentProviderTransactionId?: string | null;
   dbExecutor?: DbExecutor;
 }) {
   return tryTransitionOrderById({
@@ -381,9 +469,51 @@ export async function tryMarkOrderPaidByPaymentSessionId(input: {
     reason: input.reason ?? "payment_settled",
     update: {
       paidAt: input.paidAt ?? new Date(),
+      fulfillmentDeadlineAt: input.fulfillmentDeadlineAt,
+      paymentProviderTransactionId:
+        input.paymentProviderTransactionId ?? undefined,
     },
     dbExecutor: input.dbExecutor,
   });
+}
+
+export async function listExpiredReferralSlaOrders(input: {
+  now: Date;
+  limit: number;
+}) {
+  const db = await resolveDbExecutor();
+  return db
+    .select()
+    .from(referralOrders)
+    .where(
+      and(
+        inArray(referralOrders.status, [
+          "paid_pending_assignment",
+          "assigned",
+          "contacting",
+          "booking_in_progress",
+        ]),
+        eq(referralOrders.paymentStatus, "paid"),
+        lte(referralOrders.fulfillmentDeadlineAt, input.now)
+      )
+    )
+    .orderBy(asc(referralOrders.fulfillmentDeadlineAt), asc(referralOrders.id))
+    .limit(input.limit);
+}
+
+export async function listRefundProcessingOrders(limit: number) {
+  const db = await resolveDbExecutor();
+  return db
+    .select()
+    .from(referralOrders)
+    .where(
+      and(
+        eq(referralOrders.status, "refund_processing"),
+        eq(referralOrders.paymentStatus, "paid")
+      )
+    )
+    .orderBy(asc(referralOrders.updatedAt), asc(referralOrders.id))
+    .limit(limit);
 }
 
 export async function listStatusEventsByOrderId(orderId: number) {
@@ -450,6 +580,149 @@ export async function updateRefundRequestById(input: {
     .where(eq(refundRequests.id, input.refundRequestId));
 
   return extractAffectedRows(result);
+}
+
+export async function enqueueReferralNotification(input: {
+  values: InsertReferralNotificationOutbox;
+}) {
+  const db = await resolveDbExecutor();
+  await db
+    .insert(referralNotificationOutbox)
+    .values(input.values)
+    .onConflictDoNothing({
+      target: referralNotificationOutbox.dedupeKey,
+    });
+}
+
+export async function listDueReferralNotificationIds(input: {
+  now: Date;
+  staleProcessingBefore: Date;
+  limit: number;
+}) {
+  const db = await resolveDbExecutor();
+  const rows = await db
+    .select({ id: referralNotificationOutbox.id })
+    .from(referralNotificationOutbox)
+    .where(
+      or(
+        and(
+          eq(referralNotificationOutbox.status, "pending"),
+          lte(referralNotificationOutbox.nextAttemptAt, input.now)
+        ),
+        and(
+          eq(referralNotificationOutbox.status, "processing"),
+          lte(
+            referralNotificationOutbox.processingStartedAt,
+            input.staleProcessingBefore
+          )
+        )
+      )
+    )
+    .orderBy(
+      asc(referralNotificationOutbox.nextAttemptAt),
+      asc(referralNotificationOutbox.id)
+    )
+    .limit(input.limit);
+
+  return rows.map(row => row.id);
+}
+
+export async function claimReferralNotification(input: {
+  notificationId: number;
+  now: Date;
+  staleProcessingBefore: Date;
+}) {
+  const db = await resolveDbExecutor();
+  const result = await db
+    .update(referralNotificationOutbox)
+    .set({
+      status: "processing",
+      processingStartedAt: input.now,
+      attemptCount: sql`${referralNotificationOutbox.attemptCount} + 1`,
+      updatedAt: input.now,
+    })
+    .where(
+      and(
+        eq(referralNotificationOutbox.id, input.notificationId),
+        or(
+          eq(referralNotificationOutbox.status, "pending"),
+          and(
+            eq(referralNotificationOutbox.status, "processing"),
+            lte(
+              referralNotificationOutbox.processingStartedAt,
+              input.staleProcessingBefore
+            )
+          )
+        )
+      )
+    );
+
+  if (extractAffectedRows(result) !== 1) {
+    return null;
+  }
+
+  const rows = await db
+    .select()
+    .from(referralNotificationOutbox)
+    .where(eq(referralNotificationOutbox.id, input.notificationId))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+export async function markReferralNotificationSent(input: {
+  notificationId: number;
+  sentAt: Date;
+}) {
+  const db = await resolveDbExecutor();
+  await db
+    .update(referralNotificationOutbox)
+    .set({
+      status: "sent",
+      sentAt: input.sentAt,
+      lastError: null,
+      processingStartedAt: null,
+      updatedAt: input.sentAt,
+    })
+    .where(eq(referralNotificationOutbox.id, input.notificationId));
+}
+
+export async function markReferralNotificationFailed(input: {
+  notificationId: number;
+  error: string;
+  nextAttemptAt: Date;
+  terminal: boolean;
+}) {
+  const db = await resolveDbExecutor();
+  await db
+    .update(referralNotificationOutbox)
+    .set({
+      status: input.terminal ? "failed" : "pending",
+      lastError: input.error,
+      nextAttemptAt: input.nextAttemptAt,
+      processingStartedAt: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(referralNotificationOutbox.id, input.notificationId));
+}
+
+export async function listFailedReferralNotificationsByOrderId(
+  orderId: number
+) {
+  const db = await resolveDbExecutor();
+  return db
+    .select()
+    .from(referralNotificationOutbox)
+    .where(
+      and(
+        eq(referralNotificationOutbox.orderId, orderId),
+        eq(referralNotificationOutbox.status, "failed")
+      )
+    )
+    .orderBy(
+      desc(referralNotificationOutbox.updatedAt),
+      desc(referralNotificationOutbox.id)
+    );
 }
 
 export async function listMineReferralOrders(input: {

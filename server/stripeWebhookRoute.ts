@@ -11,6 +11,12 @@ import * as schedulingRepo from "./modules/scheduling/repo";
 import { APPOINTMENT_INVALID_TRANSITION_ERROR } from "./modules/appointments/stateMachine";
 import { incrementMetric } from "./_core/metrics";
 import { isDuplicateDbError } from "./_core/dbCompat";
+import * as referralRepo from "./modules/referrals/repo";
+import {
+  publishReferralPaymentSettlement,
+  settleReferralPaymentTransition,
+} from "./modules/referrals/paymentSettlement";
+import { finalizeReferralRefund } from "./modules/referrals/refunds";
 
 function sendJson(res: Response, status: number, payload: Record<string, unknown>) {
   res.status(status).setHeader("content-type", "application/json");
@@ -97,16 +103,104 @@ export async function handleStripeWebhook(req: Request, res: Response) {
     const nestedCheckoutSessionId =
       typeof object.checkout_session === "string" ? object.checkout_session.trim() : null;
     const stripeSessionId =
-      event.type === "checkout.session.completed" || event.type === "checkout.session.expired"
+      event.type === "checkout.session.completed" ||
+      event.type === "checkout.session.async_payment_succeeded" ||
+      event.type === "checkout.session.expired"
         ? directObjectId
         : metadataStripeSessionId || nestedCheckoutSessionId;
-    const metadataAppointmentId = Number(metadata.appointmentId ?? NaN);
+    const metadataResourceType =
+      typeof metadata.resourceType === "string"
+        ? metadata.resourceType.trim()
+        : null;
+    const metadataResourceIdRaw = Number(metadata.resourceId ?? NaN);
+    const metadataResourceId =
+      Number.isInteger(metadataResourceIdRaw) && metadataResourceIdRaw > 0
+        ? metadataResourceIdRaw
+        : null;
+    const metadataAppointmentId = Number(
+      metadata.appointmentId ??
+        (metadataResourceType === "appointment" ? metadataResourceId : NaN)
+    );
     const appointmentIdFromMetadata =
       Number.isInteger(metadataAppointmentId) && metadataAppointmentId > 0
         ? metadataAppointmentId
         : null;
+    const paymentIntentId =
+      typeof object.payment_intent === "string"
+        ? object.payment_intent.trim()
+        : null;
+    const nestedRefunds =
+      object.refunds &&
+      typeof object.refunds === "object" &&
+      Array.isArray((object.refunds as { data?: unknown }).data)
+        ? ((object.refunds as { data: unknown[] }).data)
+        : [];
+    const chargeRefundId =
+      nestedRefunds.length > 0 &&
+      nestedRefunds[0] &&
+      typeof nestedRefunds[0] === "object" &&
+      typeof (nestedRefunds[0] as { id?: unknown }).id === "string"
+        ? String((nestedRefunds[0] as { id: string }).id).trim()
+        : null;
+    const providerRefundId =
+      event.type === "refund.updated" ? directObjectId : chargeRefundId;
+    const isRefundEvent =
+      event.type === "charge.refunded" ||
+      (event.type === "refund.updated" &&
+        (String(object.status ?? "").toLowerCase() === "succeeded" ||
+          String(object.status ?? "").toLowerCase() === "successful"));
+    const referralOrderBySession = stripeSessionId
+      ? metadataResourceType === "referral_order" ||
+        appointmentIdFromMetadata === null
+        ? await referralRepo.getReferralOrderByPaymentSessionId(stripeSessionId)
+        : null
+      : null;
+    const referralOrderByRefund = isRefundEvent
+      ? await referralRepo.getReferralOrderByProviderReference({
+          providerRefundId,
+          providerTransactionId: paymentIntentId,
+        })
+      : null;
+    const isReferralCheckout =
+      metadataResourceType === "referral_order" ||
+      Boolean(referralOrderBySession);
+    const referralReconciliation: {
+      settlement?: {
+        paymentSessionId: string;
+        paymentProviderTransactionId: string | null;
+      };
+      refund?: {
+        orderId: number;
+        providerRefundId: string;
+      };
+    } = {};
+    const checkoutPaymentSucceeded =
+      String(object.payment_status ?? "").toLowerCase() === "paid";
 
-    if (event.type === "checkout.session.completed" && !stripeSessionId) {
+    if (
+      (event.type === "checkout.session.completed" ||
+        event.type === "checkout.session.async_payment_succeeded") &&
+      stripeSessionId &&
+      isReferralCheckout &&
+      checkoutPaymentSucceeded
+    ) {
+      referralReconciliation.settlement = {
+        paymentSessionId: stripeSessionId,
+        paymentProviderTransactionId: paymentIntentId,
+      };
+    }
+    if (isRefundEvent && referralOrderByRefund && providerRefundId) {
+      referralReconciliation.refund = {
+        orderId: referralOrderByRefund.id,
+        providerRefundId,
+      };
+    }
+
+    if (
+      (event.type === "checkout.session.completed" ||
+        event.type === "checkout.session.async_payment_succeeded") &&
+      !stripeSessionId
+    ) {
       await recordStripeWebhookFailure({
         type: "webhook_error_missing_session_id",
         stripeSessionId: null,
@@ -135,7 +229,7 @@ export async function handleStripeWebhook(req: Request, res: Response) {
 
     await db.transaction(async tx => {
       let appointmentId: number | null = appointmentIdFromMetadata;
-      if (stripeSessionId) {
+      if (stripeSessionId && !isReferralCheckout) {
         const appointment = await appointmentsRepo.getAppointmentByStripeSessionId(
           stripeSessionId,
           tx
@@ -150,6 +244,12 @@ export async function handleStripeWebhook(req: Request, res: Response) {
           provider: "stripe",
           stripeSessionId,
           appointmentId,
+          resourceType: isReferralCheckout
+            ? "referral_order"
+            : metadataResourceType,
+          resourceId: isReferralCheckout
+            ? referralOrderBySession?.id ?? metadataResourceId
+            : metadataResourceId,
           payloadHash,
           dbExecutor: tx,
         });
@@ -162,7 +262,13 @@ export async function handleStripeWebhook(req: Request, res: Response) {
         throw error;
       }
 
-      if (event.type === "checkout.session.completed") {
+      if (
+        event.type === "checkout.session.completed" ||
+        event.type === "checkout.session.async_payment_succeeded"
+      ) {
+        if (isReferralCheckout) {
+          return;
+        }
         await settleStripePaymentBySessionId({
           stripeSessionId: stripeSessionId!,
           source: "webhook",
@@ -174,6 +280,30 @@ export async function handleStripeWebhook(req: Request, res: Response) {
       }
 
       if (event.type === "checkout.session.expired" && stripeSessionId) {
+        if (
+          isReferralCheckout &&
+          (referralOrderBySession?.id ?? metadataResourceId)
+        ) {
+          const failed = await referralRepo.markOrderPaymentFailed({
+            orderId: (referralOrderBySession?.id ?? metadataResourceId)!,
+            reason: "checkout_session_expired",
+            actorType: "webhook",
+            dbExecutor: tx,
+          });
+          if (failed.ok) {
+            await referralRepo.insertOperation({
+              orderId: (referralOrderBySession?.id ?? metadataResourceId)!,
+              operatorType: "webhook",
+              actionType: "payment_failed",
+              actionPayload: {
+                eventId: event.id,
+                eventType: event.type,
+              },
+              dbExecutor: tx,
+            });
+          }
+          return;
+        }
         const expired = await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
           stripeSessionId,
           allowedFrom: ["pending_payment"],
@@ -196,19 +326,59 @@ export async function handleStripeWebhook(req: Request, res: Response) {
         return;
       }
 
-      if (event.type === "payment_intent.payment_failed" && stripeSessionId) {
-        const failed = await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
-          stripeSessionId,
-          allowedFrom: ["pending_payment"],
-          toStatus: "canceled",
-          toPaymentStatus: "failed",
-          operatorType: "webhook",
-          reason: "payment_failed",
-          payloadJson: { eventId: event.id },
-          dbExecutor: tx,
-        });
+      if (
+        event.type === "payment_intent.payment_failed" &&
+        (stripeSessionId || appointmentId || isReferralCheckout)
+      ) {
+        if (isReferralCheckout && metadataResourceId) {
+          const failed = await referralRepo.markOrderPaymentFailed({
+            orderId: metadataResourceId,
+            reason: "payment_intent_failed",
+            actorType: "webhook",
+            dbExecutor: tx,
+          });
+          if (failed.ok) {
+            await referralRepo.insertOperation({
+              orderId: metadataResourceId,
+              operatorType: "webhook",
+              actionType: "payment_failed",
+              actionPayload: {
+                eventId: event.id,
+                eventType: event.type,
+              },
+              dbExecutor: tx,
+            });
+          }
+          return;
+        }
+        const failed = stripeSessionId
+          ? await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
+              stripeSessionId,
+              allowedFrom: ["pending_payment"],
+              toStatus: "canceled",
+              toPaymentStatus: "failed",
+              operatorType: "webhook",
+              reason: "payment_failed",
+              payloadJson: { eventId: event.id },
+              dbExecutor: tx,
+            })
+          : await appointmentsRepo.tryTransitionAppointmentById({
+              appointmentId: appointmentId!,
+              allowedFrom: ["pending_payment"],
+              toStatus: "canceled",
+              toPaymentStatus: "failed",
+              operatorType: "webhook",
+              reason: "payment_failed",
+              payloadJson: { eventId: event.id },
+              dbExecutor: tx,
+            });
         if (failed.ok) {
-          const appointment = await appointmentsRepo.getAppointmentByStripeSessionId(stripeSessionId, tx);
+          const appointment = stripeSessionId
+            ? await appointmentsRepo.getAppointmentByStripeSessionId(
+                stripeSessionId,
+                tx
+              )
+            : { id: appointmentId! };
           if (appointment) {
             await schedulingRepo.releaseHeldSlotByAppointmentId({
               appointmentId: appointment.id,
@@ -219,11 +389,9 @@ export async function handleStripeWebhook(req: Request, res: Response) {
         return;
       }
 
-      const isRefundEvent =
-        event.type === "charge.refunded" ||
-        (event.type === "refund.updated" &&
-          (String(object.status ?? "").toLowerCase() === "succeeded" ||
-            String(object.status ?? "").toLowerCase() === "successful"));
+      if (isRefundEvent && referralOrderByRefund && providerRefundId) {
+        return;
+      }
       if (isRefundEvent && (stripeSessionId || appointmentId)) {
         const targetAppointment =
           appointmentId ??
@@ -262,6 +430,25 @@ export async function handleStripeWebhook(req: Request, res: Response) {
         });
       }
     });
+
+    if (referralReconciliation.settlement) {
+      const settlement = await settleReferralPaymentTransition({
+        paymentSessionId: referralReconciliation.settlement.paymentSessionId,
+        paymentProviderTransactionId:
+          referralReconciliation.settlement.paymentProviderTransactionId,
+        actorType: "webhook",
+        reason: "stripe_webhook_paid",
+      });
+      await publishReferralPaymentSettlement(settlement.orderId);
+    }
+    if (referralReconciliation.refund) {
+      await finalizeReferralRefund({
+        orderId: referralReconciliation.refund.orderId,
+        providerRefundId: referralReconciliation.refund.providerRefundId,
+        actorType: "webhook",
+        reason: "stripe_refund_webhook_succeeded",
+      });
+    }
 
     if (duplicatedEvent) {
       return sendJson(res, 200, { ok: true });

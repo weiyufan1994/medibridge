@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import axios from "axios";
 
 const STRIPE_SIGNATURE_TOLERANCE_SECONDS = 5 * 60;
 
@@ -23,13 +24,46 @@ function buildMockSessionId() {
   return `cs_test_${crypto.randomBytes(18).toString("hex")}`;
 }
 
-export function createStripeCheckoutSession(input: {
-  appointmentId: number;
+type StripeResource = {
+  type: "appointment" | "referral_order";
+  id: number;
+};
+
+type StripeCheckoutInput = {
+  appointmentId?: number;
+  resource?: StripeResource;
   amount: number;
   currency: string;
   successUrl: string;
   cancelUrl: string;
-}): CheckoutSession {
+};
+
+function getStripeApiBase(): string {
+  return (process.env.STRIPE_API_BASE_URL ?? "https://api.stripe.com").replace(
+    /\/$/,
+    ""
+  );
+}
+
+function getStripeSecretKey(): string {
+  const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
+  if (!secretKey) {
+    throw new Error("STRIPE_SECRET_KEY is required");
+  }
+  return secretKey;
+}
+
+function resolveResource(input: StripeCheckoutInput): StripeResource {
+  if (input.resource) {
+    return input.resource;
+  }
+  if (input.appointmentId) {
+    return { type: "appointment", id: input.appointmentId };
+  }
+  throw new Error("Payment resource is required");
+}
+
+function buildDevelopmentCheckout(input: StripeCheckoutInput): CheckoutSession {
   const configuredCheckoutBase = process.env.STRIPE_CHECKOUT_BASE_URL?.trim();
   const id = buildMockSessionId();
 
@@ -51,6 +85,61 @@ export function createStripeCheckoutSession(input: {
     id,
     url,
   };
+}
+
+export async function createStripeCheckoutSession(
+  input: StripeCheckoutInput
+): Promise<CheckoutSession> {
+  if (!process.env.STRIPE_SECRET_KEY?.trim()) {
+    if (process.env.NODE_ENV === "production") {
+      getStripeSecretKey();
+    }
+    return buildDevelopmentCheckout(input);
+  }
+
+  const resource = resolveResource(input);
+  const form = new URLSearchParams({
+    mode: "payment",
+    success_url: input.successUrl,
+    cancel_url: input.cancelUrl,
+    client_reference_id: String(resource.id),
+    "metadata[resourceType]": resource.type,
+    "metadata[resourceId]": String(resource.id),
+    "payment_intent_data[metadata][resourceType]": resource.type,
+    "payment_intent_data[metadata][resourceId]": String(resource.id),
+    "line_items[0][quantity]": "1",
+    "line_items[0][price_data][currency]": input.currency.toLowerCase(),
+    "line_items[0][price_data][unit_amount]": String(input.amount),
+    "line_items[0][price_data][product_data][name]":
+      resource.type === "referral_order"
+        ? "MediBridge referral coordination service"
+        : "MediBridge consultation",
+  });
+  if (resource.type === "appointment") {
+    form.set("metadata[appointmentId]", String(resource.id));
+    form.set(
+      "payment_intent_data[metadata][appointmentId]",
+      String(resource.id)
+    );
+  }
+  const response = await axios.post(
+    `${getStripeApiBase()}/v1/checkout/sessions`,
+    form.toString(),
+    {
+      headers: {
+        Authorization: `Bearer ${getStripeSecretKey()}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      timeout: 12_000,
+    }
+  );
+  const id = String(response.data?.id || "").trim();
+  const url = String(response.data?.url || "").trim();
+  if (!id || !url) {
+    throw new Error("Stripe Checkout API returned an invalid session");
+  }
+
+  return { provider: STRIPE_PROVIDER, id, url };
 }
 
 function parseStripeSignatureHeader(signatureHeader: string) {
@@ -159,13 +248,100 @@ export function extractSessionIdFromWebhookEvent(event: StripeWebhookEvent): str
 
 export async function captureOrFinalizeStripeSession(input: {
   providerSessionId: string;
-}): Promise<{ provider: "stripe"; providerSessionId: string }> {
+}) {
   if (!input.providerSessionId) {
     throw new Error("Missing session id");
   }
+  if (!process.env.STRIPE_SECRET_KEY?.trim()) {
+    if (process.env.NODE_ENV === "production") {
+      getStripeSecretKey();
+    }
+    return {
+      provider: STRIPE_PROVIDER,
+      providerSessionId: input.providerSessionId,
+      providerTransactionId: input.providerSessionId,
+      paymentStatus: "paid" as const,
+    };
+  }
+
+  const response = await axios.get(
+    `${getStripeApiBase()}/v1/checkout/sessions/${encodeURIComponent(
+      input.providerSessionId
+    )}`,
+    {
+      headers: {
+        Authorization: `Bearer ${getStripeSecretKey()}`,
+      },
+      timeout: 12_000,
+    }
+  );
+  const paymentStatus = String(response.data?.payment_status || "").toLowerCase();
+  const transactionId = String(response.data?.payment_intent || "").trim();
   return {
     provider: STRIPE_PROVIDER,
     providerSessionId: input.providerSessionId,
+    providerTransactionId: transactionId || null,
+    paymentStatus: paymentStatus === "paid" ? ("paid" as const) : ("unpaid" as const),
+  };
+}
+
+export async function refundStripePayment(input: {
+  resource?: StripeResource;
+  providerSessionId: string;
+  providerTransactionId?: string | null;
+  amount: number;
+  currency: string;
+  idempotencyKey: string;
+}) {
+  if (!process.env.STRIPE_SECRET_KEY?.trim()) {
+    if (process.env.NODE_ENV === "production") {
+      getStripeSecretKey();
+    }
+    return {
+      provider: STRIPE_PROVIDER,
+      providerRefundId: `re_test_${crypto.randomBytes(18).toString("hex")}`,
+      status: "succeeded" as const,
+    };
+  }
+
+  let transactionId = input.providerTransactionId?.trim() ?? "";
+  if (!transactionId) {
+    const checkout = await captureOrFinalizeStripeSession({
+      providerSessionId: input.providerSessionId,
+    });
+    transactionId = checkout.providerTransactionId ?? "";
+  }
+  if (!transactionId) {
+    throw new Error("Stripe Payment Intent is required for refund");
+  }
+
+  const form = new URLSearchParams({
+    payment_intent: transactionId,
+    amount: String(input.amount),
+    "metadata[resourceType]": input.resource?.type ?? "",
+    "metadata[resourceId]": String(input.resource?.id ?? ""),
+  });
+  const response = await axios.post(
+    `${getStripeApiBase()}/v1/refunds`,
+    form.toString(),
+    {
+      headers: {
+        Authorization: `Bearer ${getStripeSecretKey()}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Idempotency-Key": input.idempotencyKey,
+      },
+      timeout: 12_000,
+    }
+  );
+  const refundId = String(response.data?.id || "").trim();
+  if (!refundId) {
+    throw new Error("Stripe refund API returned no refund id");
+  }
+  const status = String(response.data?.status || "").toLowerCase();
+  return {
+    provider: STRIPE_PROVIDER,
+    providerRefundId: refundId,
+    status: status === "succeeded" ? ("succeeded" as const) : ("pending" as const),
   };
 }
 
@@ -186,4 +362,5 @@ export const stripeAdapter = {
   },
   extractSessionId: extractSessionIdFromWebhookEvent,
   captureOrFinalize: captureOrFinalizeStripeSession,
+  refund: refundStripePayment,
 } as const;

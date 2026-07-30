@@ -55,13 +55,37 @@ export const REFUND_REQUEST_STATUS_VALUES = [
 export type RefundRequestStatus =
   (typeof REFUND_REQUEST_STATUS_VALUES)[number];
 
-export const REFERRAL_SERVICE_AGREEMENT_VERSION = "referral_service_v1";
+export const REFERRAL_SERVICE_AGREEMENT_VERSION = "referral_service_v2";
 export const REFERRAL_SERVICE_AMOUNT = 19900;
-export const REFERRAL_SERVICE_CURRENCY = "usd";
+export const REFERRAL_SERVICE_CURRENCY = "cny";
+export const REFERRAL_FULFILLMENT_BUSINESS_DAYS = 2;
+export const REFERRAL_FULFILLMENT_TIME_ZONE = "Asia/Shanghai";
+
+export type ReferralConsultationArrangement = {
+  scheduledAt: Date;
+  timeZone: string;
+  providerName: string;
+  platform: string;
+  joinUrl: string;
+  instructions: string;
+};
+
+export const REFERRAL_NOTIFICATION_CHANNEL_VALUES = ["email"] as const;
+export const REFERRAL_NOTIFICATION_RECIPIENT_VALUES = [
+  "patient",
+  "ops",
+] as const;
+export const REFERRAL_NOTIFICATION_STATUS_VALUES = [
+  "pending",
+  "processing",
+  "sent",
+  "failed",
+] as const;
 
 export const REFERRAL_REFUND_REASON_CODE_VALUES = [
   "contact_failed",
   "booking_failed",
+  "sla_expired",
   "patient_requested",
   "internal_exception",
 ] as const;

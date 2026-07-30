@@ -16,6 +16,7 @@ type TranslateFn = (zh: string, en: string) => string;
 type ActionsSectionProps = {
   tr: TranslateFn;
   selectedAppointmentId: number;
+  hideQuickActions?: boolean;
   beforeReinitiatePayment: () => boolean;
   beforeResendAccessLink: () => boolean;
   beforeIssueLinks: () => boolean;
@@ -51,6 +52,7 @@ type ActionsSectionProps = {
 export function ActionsSection({
   tr,
   selectedAppointmentId,
+  hideQuickActions = false,
   beforeReinitiatePayment,
   beforeResendAccessLink,
   beforeIssueLinks,
@@ -86,50 +88,65 @@ export function ActionsSection({
     ? tr("仅管理员可重新发起支付。", "Only admin can re-initiate payment.")
     : "";
   const resendLinkDisabledReason = !canResendAccessLink
-    ? tr("仅管理员与 ops 可重发访问链接。", "Only admin/ops can resend access links.")
+    ? tr(
+        "仅管理员与 ops 可重发访问链接。",
+        "Only admin/ops can resend access links."
+      )
     : "";
   const issueLinksDisabledReason = !canIssueAccessLinks
-    ? tr("仅管理员与 ops 可签发新访问链接。", "Only admin/ops can issue new access links.")
+    ? tr(
+        "仅管理员与 ops 可签发新访问链接。",
+        "Only admin/ops can issue new access links."
+      )
     : "";
   const manualUpdateDisabledReason = !canMutateAdmin
-    ? tr("仅管理员可执行预约状态/财务更新。", "Only admin can update appointment status/payment.")
+    ? tr(
+        "仅管理员可执行预约状态/财务更新。",
+        "Only admin can update appointment status/payment."
+      )
     : "";
 
   return (
     <>
       <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() =>
-            beforeReinitiatePayment() &&
-            resendPaymentMutation.mutate({
-              appointmentId: selectedAppointmentId,
-            })
-          }
-          disabled={!canReinitiatePayment || resendPaymentMutation.isPending}
-          title={reinitiateDisabledReason || undefined}
-        >
-          {resendPaymentMutation.isPending
-            ? tr("正在打开支付页...", "Opening checkout...")
-            : tr("重新发起支付", "Re-initiate Payment")}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() =>
-            beforeResendAccessLink() &&
-            resendAccessLinkMutation.mutate({
-              appointmentId: selectedAppointmentId,
-            })
-          }
-          disabled={!canResendAccessLink || resendAccessLinkMutation.isPending}
-          title={resendLinkDisabledReason || undefined}
-        >
-          {resendAccessLinkMutation.isPending
-            ? tr("发送中...", "Sending...")
-            : tr("重发访问链接邮件", "Resend Access Link Email")}
-        </Button>
+        {!hideQuickActions ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              beforeReinitiatePayment() &&
+              resendPaymentMutation.mutate({
+                appointmentId: selectedAppointmentId,
+              })
+            }
+            disabled={!canReinitiatePayment || resendPaymentMutation.isPending}
+            title={reinitiateDisabledReason || undefined}
+          >
+            {resendPaymentMutation.isPending
+              ? tr("正在打开支付页...", "Opening checkout...")
+              : tr("重新发起支付", "Re-initiate Payment")}
+          </Button>
+        ) : null}
+        {!hideQuickActions ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              beforeResendAccessLink() &&
+              resendAccessLinkMutation.mutate({
+                appointmentId: selectedAppointmentId,
+              })
+            }
+            disabled={
+              !canResendAccessLink || resendAccessLinkMutation.isPending
+            }
+            title={resendLinkDisabledReason || undefined}
+          >
+            {resendAccessLinkMutation.isPending
+              ? tr("发送中...", "Sending...")
+              : tr("重发访问链接邮件", "Resend Access Link Email")}
+          </Button>
+        ) : null}
         <Button
           type="button"
           onClick={() =>
@@ -145,13 +162,19 @@ export function ActionsSection({
             ? tr("签发中...", "Issuing...")
             : tr("签发新访问链接", "Issue New Access Links")}
         </Button>
-        <Button type="button" variant="secondary" onClick={() => void handleCopyDebugSnapshot()}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => void handleCopyDebugSnapshot()}
+        >
           {tr("复制调试快照", "Copy Debug Snapshot")}
         </Button>
       </div>
 
       <div className="space-y-2 rounded border p-3">
-        <p className="text-sm font-medium">{tr("手动状态更新", "Manual Status Update")}</p>
+        <p className="text-sm font-medium">
+          {tr("手动状态更新", "Manual Status Update")}
+        </p>
         {!canMutateAdmin ? (
           <p className="text-xs text-muted-foreground">
             {manualUpdateDisabledReason}
@@ -203,7 +226,9 @@ export function ActionsSection({
       </div>
 
       <div className="space-y-2 rounded border p-3">
-        <p className="text-sm font-medium">{tr("测试预约时间", "Test Appointment Time")}</p>
+        <p className="text-sm font-medium">
+          {tr("测试预约时间", "Test Appointment Time")}
+        </p>
         {!canMutateAdmin ? (
           <p className="text-xs text-muted-foreground">
             {manualUpdateDisabledReason}
@@ -238,7 +263,9 @@ export function ActionsSection({
 
       <div className="space-y-2 rounded border p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-medium">{tr("会后总结（中/英）", "Post-Visit Summary (ZH/EN)")}</p>
+          <p className="text-sm font-medium">
+            {tr("会后总结（中/英）", "Post-Visit Summary (ZH/EN)")}
+          </p>
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -287,17 +314,23 @@ export function ActionsSection({
           </div>
         </div>
         {visitSummaryQuery.isLoading ? (
-          <p className="text-sm text-muted-foreground">{tr("正在加载总结...", "Loading summary...")}</p>
+          <p className="text-sm text-muted-foreground">
+            {tr("正在加载总结...", "Loading summary...")}
+          </p>
         ) : visitSummaryQuery.data ? (
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
             <div className="rounded bg-slate-50 p-2">
-              <p className="mb-1 text-xs font-medium text-slate-700">{tr("中文", "Chinese")}</p>
+              <p className="mb-1 text-xs font-medium text-slate-700">
+                {tr("中文", "Chinese")}
+              </p>
               <pre className="overflow-auto whitespace-pre-wrap text-xs">
                 {visitSummaryQuery.data.summary.zh}
               </pre>
             </div>
             <div className="rounded bg-slate-50 p-2">
-              <p className="mb-1 text-xs font-medium text-slate-700">{tr("English", "English")}</p>
+              <p className="mb-1 text-xs font-medium text-slate-700">
+                {tr("English", "English")}
+              </p>
               <pre className="overflow-auto whitespace-pre-wrap text-xs">
                 {visitSummaryQuery.data.summary.en}
               </pre>
@@ -313,8 +346,12 @@ export function ActionsSection({
       {issuedLinks ? (
         <div className="rounded border bg-slate-50 p-3 text-xs">
           <p className="font-medium">{tr("签发链接", "Issued Links")}</p>
-          <p className="mt-1 break-all">{tr("患者：", "Patient: ")} {issuedLinks.patientLink}</p>
-          <p className="mt-1 break-all">{tr("医生：", "Doctor: ")} {issuedLinks.doctorLink}</p>
+          <p className="mt-1 break-all">
+            {tr("患者：", "Patient: ")} {issuedLinks.patientLink}
+          </p>
+          <p className="mt-1 break-all">
+            {tr("医生：", "Doctor: ")} {issuedLinks.doctorLink}
+          </p>
         </div>
       ) : null}
     </>

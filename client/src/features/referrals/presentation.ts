@@ -197,7 +197,8 @@ export function formatReferralMoney(input: {
 
 export function formatReferralDateTime(
   value: Date | string | null | undefined,
-  lang: ReferralLang
+  lang: ReferralLang,
+  timeZone?: string
 ) {
   if (!value) {
     return getReferralCopy(lang).common.notAvailable;
@@ -208,7 +209,10 @@ export function formatReferralDateTime(
     return getReferralCopy(lang).common.notAvailable;
   }
 
-  return date.toLocaleString(getDisplayLocale(lang));
+  return date.toLocaleString(
+    getDisplayLocale(lang),
+    timeZone ? { timeZone } : undefined
+  );
 }
 
 export function getReferralPaymentAction(input: {
@@ -312,6 +316,43 @@ export function buildReferralOrderHref(orderId: number) {
 export function buildReferralOrdersListHref() {
   // Referral orders currently live in the dashboard appointments section.
   return "/dashboard?section=appointments";
+}
+
+export function getOrCreateReferralClientRequestId(input: {
+  triageSessionId: number;
+  rankedHospitalIndex?: number;
+  hospitalId?: number;
+  contactId?: number;
+}) {
+  const storageKey = `medibridge:referral-draft:${JSON.stringify(input)}`;
+  const existing =
+    typeof window === "undefined"
+      ? null
+      : window.sessionStorage.getItem(storageKey);
+  if (
+    existing &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      existing
+    )
+  ) {
+    return existing;
+  }
+
+  const requestId =
+    typeof globalThis.crypto?.randomUUID === "function"
+      ? globalThis.crypto.randomUUID()
+      : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, character =>
+          (
+            Number(character) ^
+            (Math.random() * 16) >>
+              (Number(character) / 4)
+          ).toString(16)
+        );
+
+  if (typeof window !== "undefined") {
+    window.sessionStorage.setItem(storageKey, requestId);
+  }
+  return requestId;
 }
 
 export function isReferralMockCheckoutEnabled() {

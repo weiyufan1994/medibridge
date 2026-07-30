@@ -12,6 +12,8 @@ import { handleStripeWebhook } from "../stripeWebhookRoute";
 import { handlePaypalWebhook } from "../paypalWebhookRoute";
 import { createVisitRealtimeGateway } from "../modules/visit/realtimeGateway";
 import { startAppointmentAutoCloseWorker } from "../modules/appointments/autoCloseWorker";
+import { startReferralFulfillmentWorker } from "../modules/referrals/fulfillmentWorker";
+import { startReferralNotificationWorker } from "../modules/referrals/notificationWorker";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -37,6 +39,8 @@ async function startServer() {
   const server = createServer(app);
   const visitRealtimeGateway = createVisitRealtimeGateway();
   const stopAppointmentAutoCloseWorker = startAppointmentAutoCloseWorker();
+  const stopReferralFulfillmentWorker = startReferralFulfillmentWorker();
+  const stopReferralNotificationWorker = startReferralNotificationWorker();
   app.set("trust proxy", true);
   app.use("/uploads", express.static(getLocalUploadDir()));
   app.post(
@@ -90,6 +94,8 @@ async function startServer() {
 
   process.on("SIGTERM", () => {
     stopAppointmentAutoCloseWorker();
+    stopReferralFulfillmentWorker();
+    stopReferralNotificationWorker();
     visitRealtimeGateway.shutdown();
     server.close();
   });

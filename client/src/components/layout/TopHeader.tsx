@@ -81,7 +81,7 @@ export default function TopHeader(props: TopHeaderProps) {
               title={t.browseHospitals}
               aria-label={t.browseHospitals}
               className="h-10 w-10 inline-flex items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-teal-50 hover:text-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600/30"
-              onClick={() => setLocation("/hospitals")}
+              onClick={() => setLocation("/triage")}
             >
               <Building2 className="h-5 w-5" aria-hidden="true" />
             </button>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  REQUIRED_COLUMNS,
   REQUIRED_INDEXES,
   REQUIRED_TABLES,
   validateRequiredArtifacts,
@@ -11,7 +12,7 @@ describe("validateRequiredArtifacts", () => {
       validateRequiredArtifacts({
         tableNames: REQUIRED_TABLES,
         indexNames: REQUIRED_INDEXES,
-        columns: [{ tableName: "departments", columnName: "url" }],
+        columns: REQUIRED_COLUMNS,
       })
     ).not.toThrow();
   });
@@ -21,7 +22,7 @@ describe("validateRequiredArtifacts", () => {
       validateRequiredArtifacts({
         tableNames: REQUIRED_TABLES.filter(name => name !== "doctor_user_bindings"),
         indexNames: REQUIRED_INDEXES,
-        columns: [{ tableName: "departments", columnName: "url" }],
+        columns: REQUIRED_COLUMNS,
       })
     ).toThrow("Missing required tables: doctor_user_bindings");
   });
@@ -33,8 +34,22 @@ describe("validateRequiredArtifacts", () => {
         indexNames: REQUIRED_INDEXES.filter(
           name => name !== "doctorAccountInvitesTokenHashUk"
         ),
-        columns: [{ tableName: "departments", columnName: "url" }],
+        columns: REQUIRED_COLUMNS,
       })
     ).toThrow("Missing required indexes: doctorAccountInvitesTokenHashUk");
+  });
+
+  it("fails when referral fulfillment columns are missing", () => {
+    expect(() =>
+      validateRequiredArtifacts({
+        tableNames: REQUIRED_TABLES,
+        indexNames: REQUIRED_INDEXES,
+        columns: REQUIRED_COLUMNS.filter(
+          column => column.columnName !== "fulfillmentDeadlineAt"
+        ),
+      })
+    ).toThrow(
+      "Missing required columns: referral_orders.fulfillmentDeadlineAt"
+    );
   });
 });

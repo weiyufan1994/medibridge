@@ -15,7 +15,16 @@ describe("referral state machine", () => {
       )
     ).toBe(true);
     expect(
+      isAllowedReferralStatusTransition(
+        "paid_pending_assignment",
+        "assigned"
+      )
+    ).toBe(true);
+    expect(
       isAllowedReferralStatusTransition("assigned", "contacting")
+    ).toBe(true);
+    expect(
+      isAllowedReferralStatusTransition("contacting", "booking_in_progress")
     ).toBe(true);
     expect(
       isAllowedReferralStatusTransition(

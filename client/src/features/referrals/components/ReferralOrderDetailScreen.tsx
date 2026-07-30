@@ -22,6 +22,7 @@ import {
   getReferralStatusLabel,
   getRefundStatusLabel,
 } from "@/features/referrals/presentation";
+import { REFERRAL_FULFILLMENT_TIME_ZONE } from "@shared/referrals";
 
 type ReferralOrderDetailScreenProps = {
   orderId: number;
@@ -146,7 +147,9 @@ export function ReferralOrderDetailScreen({
               {detail.contact?.name ?? copy.common.contactPending}
             </p>
             <p className="mt-1 text-sm text-slate-500">
-              {detail.contact?.roleType ?? copy.confirmation.fulfillmentDescription}
+              {detail.contact
+                ? copy.selection.coordinatorRole
+                : copy.selection.teamDescription}
             </p>
           </div>
         </CardContent>
@@ -222,6 +225,82 @@ export function ReferralOrderDetailScreen({
                   </p>
                 </div>
               </div>
+
+              {detail.order.fulfillmentDeadlineAt ? (
+                <div className="rounded-2xl border border-slate-200 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    {copy.orderDetail.fulfillmentDeadline}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-slate-900">
+                    {formatReferralDateTime(
+                      detail.order.fulfillmentDeadlineAt,
+                      lang,
+                      REFERRAL_FULFILLMENT_TIME_ZONE
+                    )}{" "}
+                    ({REFERRAL_FULFILLMENT_TIME_ZONE})
+                  </p>
+                </div>
+              ) : null}
+
+              {detail.consultationArrangement ? (
+                <div className="space-y-4 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                        {copy.orderDetail.consultationProvider}
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">
+                        {detail.consultationArrangement.providerName}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                        {copy.orderDetail.consultationPlatform}
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">
+                        {detail.consultationArrangement.platform}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                        {copy.orderDetail.consultationTime}
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">
+                        {formatReferralDateTime(
+                          detail.consultationArrangement.scheduledAt,
+                          lang,
+                          detail.consultationArrangement.timeZone
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                        {copy.orderDetail.consultationTimeZone}
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">
+                        {detail.consultationArrangement.timeZone}
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                      {copy.orderDetail.consultationInstructions}
+                    </p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                      {detail.consultationArrangement.instructions}
+                    </p>
+                  </div>
+                  <Button asChild className="rounded-xl bg-teal-600 text-white">
+                    <a
+                      href={detail.consultationArrangement.joinUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {copy.orderDetail.consultationJoinLink}
+                    </a>
+                  </Button>
+                </div>
+              ) : null}
 
               <div className="rounded-2xl border border-slate-200 p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-500">

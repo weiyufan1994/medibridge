@@ -46,6 +46,8 @@ pnpm test
 - `modules/ai`: triage service and AI session/message repository layer
 - `modules/appointments`: appointment persistence and magic-link related DB operations
 - `modules/visit`: visit/patient-session and appointment message persistence
+- `modules/referrals`: hospital referral orders, coordinator fulfillment, SLA,
+  refunds, and notification outbox workers
 - `modules/chat`: chat-oriented business composition
 - `modules/doctors`: doctor search and recommendation repositories
 - `modules/hospitals`: hospital and department query repositories
@@ -68,6 +70,9 @@ pnpm test
 - `RESEND_API_KEY`: Resend API key used in production.
 - `RESEND_FROM`: optional, overrides `MAIL_FROM` for sender address.
 - `MAIL_FROM`: fallback sender address (e.g. `MediBridge <no-reply@your-domain.com>`).
+- `REFERRAL_OPS_EMAILS`: comma-separated operations recipients for paid
+  referral orders and refund/notification failures.
+- `APP_BASE_URL`: public application origin used in referral order email links.
 
 Minimal production setup checklist:
 1. Configure DNS for your sending domain in Resend (SPF/DKIM/DMARC as required by your provider dashboard).
@@ -79,6 +84,18 @@ Common failures:
 - `401` / `403`: invalid or revoked API key, or sender domain mismatch.
 - `422`: invalid `from`/recipient format or message payload rejected by provider.
 - `4xx/5xx` with empty body: transient provider issue or temporary invalid domain status.
+
+### Referral Stripe Configuration
+
+- `PAYMENT_PROVIDER=stripe`: production provider for the referral service.
+- `STRIPE_SECRET_KEY`: creates Checkout Sessions, verifies returned sessions,
+  and submits full refunds.
+- `STRIPE_WEBHOOK_SECRET`: verifies
+  `/api/payments/stripe/webhook` signatures.
+- `STRIPE_API_BASE_URL`: optional Stripe-compatible API base override.
+- `VITE_REFERRAL_MOCK_CHECKOUT=1`: enables the development-only referral mock
+  checkout UI; it is disabled in production. Without Stripe credentials,
+  non-production provider calls also use local checkout/refund fallbacks.
 
 ## Account & Access Architecture (Progressive Profiling)
 

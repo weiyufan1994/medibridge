@@ -72,7 +72,7 @@ export default function Home() {
                 {t.startConsultation}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
-              <Link href="/hospitals">
+              <Link href="/triage">
                 <Button
                   size="lg"
                   variant="outline"
