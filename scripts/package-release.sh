@@ -7,6 +7,7 @@ TIMESTAMP="$(date +%Y%m%d%H%M%S)"
 ARTIFACT_DIR="${ROOT_DIR}/.artifacts"
 RELEASE_DIR="${ARTIFACT_DIR}/medibridge-${TIMESTAMP}"
 ARCHIVE_PATH="${ARTIFACT_DIR}/medibridge-${TIMESTAMP}.tar.gz"
+TRIAGE_REFERENCE_DIR="data/triage_hospital_reference_2022"
 
 mkdir -p "${RELEASE_DIR}"
 
@@ -17,6 +18,14 @@ cp package.json "${RELEASE_DIR}/package.json"
 cp pnpm-lock.yaml "${RELEASE_DIR}/pnpm-lock.yaml"
 cp -R dist "${RELEASE_DIR}/dist"
 cp -R deploy "${RELEASE_DIR}/deploy"
+
+if [[ ! -d "${TRIAGE_REFERENCE_DIR}" ]]; then
+  echo "Missing triage hospital reference data: ${TRIAGE_REFERENCE_DIR}" >&2
+  exit 1
+fi
+
+mkdir -p "${RELEASE_DIR}/data"
+cp -R "${TRIAGE_REFERENCE_DIR}" "${RELEASE_DIR}/data/"
 
 if [[ -d patches ]]; then
   cp -R patches "${RELEASE_DIR}/patches"
