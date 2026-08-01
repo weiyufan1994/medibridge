@@ -1,4 +1,8 @@
 import type { LocalizedText } from "@shared/types";
+import type {
+  AdminAppointmentStatus,
+  AdminPaymentStatus,
+} from "@/features/admin/types";
 
 export type AdminLang = "zh" | "en";
 
@@ -155,6 +159,16 @@ const ADMIN_CONFIRMATION_COPY = {
       en: "The order will move to the selected state and the reason will remain in its timeline.",
     },
   },
+  completeReferralConsultation: {
+    title: {
+      zh: "确认患者已经完成问诊？",
+      en: "Confirm the consultation is complete?",
+    },
+    description: {
+      zh: "请仅在核实患者实际完成问诊后继续。订单将进入已完成状态，填写的依据会保留在时间线中。",
+      en: "Continue only after verifying that the consultation actually occurred. The order will be completed and the recorded evidence will remain in its timeline.",
+    },
+  },
   deleteScheduleRule: {
     title: { zh: "删除排班规则？", en: "Delete schedule rule?" },
     description: {
@@ -205,6 +219,133 @@ const ADMIN_CONFIRMATION_COPY = {
     },
   },
 } as const;
+
+const ADMIN_STATUS_GUIDANCE_COPY = {
+  referral: {
+    title: { zh: "状态推进条件", en: "Status progression" },
+    description: {
+      zh: "系统会根据当前阶段决定推进方式；常规流程请优先使用下方专用操作。",
+      en: "The current stage determines how the order advances. Use the dedicated action below for normal progression.",
+    },
+    currentStatus: { zh: "当前状态", en: "Current status" },
+    nextStatus: { zh: "预计下一状态", en: "Expected next status" },
+    noFixedTarget: {
+      zh: "由当前操作结果决定",
+      en: "Determined by the action outcome",
+    },
+    noNextStatus: {
+      zh: "无后续状态",
+      en: "No further status",
+    },
+    advanceModes: {
+      automatic: {
+        zh: "完成当前任务后自动推进，无需再手动更新状态。",
+        en: "The status advances automatically after the current task; no separate status update is needed.",
+      },
+      manual: {
+        zh: "完成条件后，由管理员确认进入下一状态。",
+        en: "After the condition is met, an admin confirms the next status.",
+      },
+      dynamic: {
+        zh: "下一状态由审核结果决定，请使用当前阶段的专用操作。",
+        en: "The next status depends on the review outcome. Use the dedicated action for this stage.",
+      },
+      terminal: {
+        zh: "这是终态，不能继续推进；如需核对请查看时间线。",
+        en: "This is a terminal state. Review the timeline if verification is needed.",
+      },
+    },
+    manualCorrectionTitle: {
+      zh: "异常状态修正",
+      en: "Exceptional status correction",
+    },
+    manualCorrectionDescription: {
+      zh: "常规流程请使用上方当前任务。仅当业务动作已在线下完成、但系统记录未同步时，才手动修正状态。",
+      en: "Use the current task for normal progression. Correct the state manually only when the business action happened outside the system and the record needs reconciliation.",
+    },
+    completionTitle: {
+      zh: "确认问诊结果",
+      en: "Confirm consultation outcome",
+    },
+    completionDescription: {
+      zh: "“已完成”表示患者实际完成了问诊，不只是预约时间已经到达。请在联系患者或服务方核实后登记。",
+      en: "Completed means the consultation actually occurred, not merely that its scheduled time passed. Verify with the patient or provider before recording it.",
+    },
+    completionNoAutoNotice: {
+      zh: "预约时间经过后，系统不会自动更新为“已完成”。这可以避免患者未出席、医生改期或问诊取消时产生错误记录。",
+      en: "The order does not complete automatically when the scheduled time passes. This avoids incorrect records when the patient does not attend, the provider reschedules, or the consultation is cancelled.",
+    },
+    completionReasonLabel: {
+      zh: "完成依据 / 处理说明",
+      en: "Completion evidence / handling note",
+    },
+    completionAction: {
+      zh: "确认并标记已完成",
+      en: "Confirm and mark completed",
+    },
+    statusDraftSaved: {
+      zh: "未提交的说明已按订单保存在当前浏览器标签页中。",
+      en: "The unsaved note is kept for this order in the current browser tab.",
+    },
+  },
+  appointment: {
+    title: { zh: "预约状态更新条件", en: "Appointment status conditions" },
+    description: {
+      zh: "只显示当前预约可以进入的下一状态；选择目标状态后，支付状态会限制为合法组合。",
+      en: "Only valid next appointment states are shown. Payment choices are constrained to valid combinations for the selected target.",
+    },
+    currentCombination: {
+      zh: "当前状态组合",
+      en: "Current state pair",
+    },
+    targetStatus: { zh: "目标预约状态", en: "Target booking status" },
+    availableTargets: {
+      zh: "个可选目标状态",
+      en: "valid next states",
+    },
+    targetPaymentStatus: {
+      zh: "目标支付状态",
+      en: "Target payment status",
+    },
+    noTransitions: {
+      zh: "当前预约已处于终态，没有可用的后续状态更新。",
+      en: "This booking is in a terminal state and has no available status transition.",
+    },
+    invalidSelection: {
+      zh: "所选状态不是当前预约允许的下一步，请重新选择。",
+      en: "The selected state is not a valid next step for this booking.",
+    },
+  },
+  reasonRequirement: {
+    zh: "请填写至少 3 个字符的操作原因；该原因会写入时间线。",
+    en: "Enter at least 3 characters. The reason will be recorded in the timeline.",
+  },
+} as const;
+
+const ADMIN_APPOINTMENT_STATUS_LABELS: Record<
+  AdminAppointmentStatus,
+  LocalizedText
+> = {
+  draft: { zh: "草稿", en: "Draft" },
+  pending_payment: { zh: "待支付", en: "Pending payment" },
+  paid: { zh: "已支付", en: "Paid" },
+  active: { zh: "问诊中", en: "Active" },
+  ended: { zh: "问诊已结束", en: "Ended" },
+  completed: { zh: "已完成", en: "Completed" },
+  expired: { zh: "已过期", en: "Expired" },
+  refunded: { zh: "已退款", en: "Refunded" },
+  canceled: { zh: "已取消", en: "Canceled" },
+};
+
+const ADMIN_PAYMENT_STATUS_LABELS: Record<AdminPaymentStatus, LocalizedText> = {
+  unpaid: { zh: "未支付", en: "Unpaid" },
+  pending: { zh: "支付处理中", en: "Pending" },
+  paid: { zh: "已支付", en: "Paid" },
+  failed: { zh: "支付失败", en: "Failed" },
+  expired: { zh: "支付已过期", en: "Expired" },
+  refunded: { zh: "已退款", en: "Refunded" },
+  canceled: { zh: "支付已取消", en: "Canceled" },
+};
 
 export type AdminConfirmationKey = Exclude<
   keyof typeof ADMIN_CONFIRMATION_COPY,
@@ -259,6 +400,122 @@ export function getAdminConfirmationCopy(
     continueLabel: getAdminText(lang, ADMIN_CONFIRMATION_COPY.common.continue),
     cancelLabel: getAdminText(lang, ADMIN_CONFIRMATION_COPY.common.cancel),
   };
+}
+
+export function getAdminStatusGuidanceCopy(lang: AdminLang) {
+  return {
+    referral: {
+      title: getAdminText(lang, ADMIN_STATUS_GUIDANCE_COPY.referral.title),
+      description: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.referral.description
+      ),
+      currentStatus: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.referral.currentStatus
+      ),
+      nextStatus: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.referral.nextStatus
+      ),
+      noFixedTarget: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.referral.noFixedTarget
+      ),
+      noNextStatus: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.referral.noNextStatus
+      ),
+      advanceModes: Object.fromEntries(
+        Object.entries(ADMIN_STATUS_GUIDANCE_COPY.referral.advanceModes).map(
+          ([key, value]) => [key, getAdminText(lang, value)]
+        )
+      ) as {
+        [TKey in keyof typeof ADMIN_STATUS_GUIDANCE_COPY.referral.advanceModes]: string;
+      },
+      manualCorrectionTitle: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.referral.manualCorrectionTitle
+      ),
+      manualCorrectionDescription: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.referral.manualCorrectionDescription
+      ),
+      completionTitle: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.referral.completionTitle
+      ),
+      completionDescription: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.referral.completionDescription
+      ),
+      completionNoAutoNotice: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.referral.completionNoAutoNotice
+      ),
+      completionReasonLabel: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.referral.completionReasonLabel
+      ),
+      completionAction: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.referral.completionAction
+      ),
+      statusDraftSaved: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.referral.statusDraftSaved
+      ),
+    },
+    appointment: {
+      title: getAdminText(lang, ADMIN_STATUS_GUIDANCE_COPY.appointment.title),
+      description: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.appointment.description
+      ),
+      currentCombination: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.appointment.currentCombination
+      ),
+      targetStatus: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.appointment.targetStatus
+      ),
+      availableTargets: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.appointment.availableTargets
+      ),
+      targetPaymentStatus: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.appointment.targetPaymentStatus
+      ),
+      noTransitions: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.appointment.noTransitions
+      ),
+      invalidSelection: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.appointment.invalidSelection
+      ),
+    },
+    reasonRequirement: getAdminText(
+      lang,
+      ADMIN_STATUS_GUIDANCE_COPY.reasonRequirement
+    ),
+  };
+}
+
+export function getAdminAppointmentStatusLabel(
+  status: AdminAppointmentStatus,
+  lang: AdminLang
+) {
+  return getAdminText(lang, ADMIN_APPOINTMENT_STATUS_LABELS[status]);
+}
+
+export function getAdminPaymentStatusLabel(
+  status: AdminPaymentStatus,
+  lang: AdminLang
+) {
+  return getAdminText(lang, ADMIN_PAYMENT_STATUS_LABELS[status]);
 }
 
 type LocalizedOption<TValue extends string> = {

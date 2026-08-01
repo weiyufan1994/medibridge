@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  getAdminAppointmentStatusLabel,
   getAdminConfirmationCopy,
+  getAdminPaymentStatusLabel,
   getAdminRoleCapabilitySummary,
+  getAdminStatusGuidanceCopy,
   type AdminConfirmationKey,
 } from "@/features/admin/copy";
 
@@ -10,6 +13,7 @@ const DANGEROUS_ACTIONS = [
   "retentionCleanup",
   "updateAppointmentStatus",
   "updateReferralStatus",
+  "completeReferralConsultation",
   "clearHospitalImage",
   "updateUserRole",
   "deleteScheduleRule",
@@ -44,5 +48,24 @@ describe("admin action copy", () => {
     );
     expect(getAdminRoleCapabilitySummary("free", "en")).toContain("No access");
     expect(getAdminRoleCapabilitySummary("pro", "en")).toContain("No access");
+  });
+
+  it("provides bilingual status guidance and readable state labels", () => {
+    expect(getAdminStatusGuidanceCopy("zh").referral.title).toBe(
+      "状态推进条件"
+    );
+    expect(
+      getAdminStatusGuidanceCopy("zh").referral.completionNoAutoNotice
+    ).toContain("不会自动更新");
+    expect(
+      getAdminStatusGuidanceCopy("en").referral.completionAction
+    ).toContain("mark completed");
+    expect(getAdminStatusGuidanceCopy("en").appointment.description).toContain(
+      "valid next"
+    );
+    expect(getAdminAppointmentStatusLabel("pending_payment", "zh")).toBe(
+      "待支付"
+    );
+    expect(getAdminPaymentStatusLabel("paid", "en")).toBe("Paid");
   });
 });

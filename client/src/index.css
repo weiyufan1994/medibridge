@@ -87,6 +87,21 @@
   --sidebar-accent-foreground: oklch(0.35 0.12 230);
   --sidebar-border: oklch(0.88 0.02 230);
   --sidebar-ring: oklch(0.55 0.15 230);
+  /*
+   * Admin semantic tokens live at the document level because Radix portals
+   * render Sheets and Dialogs outside of the .admin-console subtree.
+   * They remain opt-in: only admin-specific utility classes consume them.
+   */
+  --admin-background: oklch(0.975 0.006 215);
+  --admin-surface: oklch(0.995 0.002 215);
+  --admin-surface-muted: oklch(0.955 0.008 215);
+  --admin-sidebar: oklch(0.985 0.004 215);
+  --admin-border: oklch(0.89 0.012 215);
+  --admin-border-strong: oklch(0.8 0.025 215);
+  --admin-foreground: oklch(0.25 0.025 225);
+  --admin-muted-foreground: oklch(0.5 0.025 225);
+  --admin-accent: oklch(0.925 0.035 185);
+  --admin-accent-foreground: oklch(0.31 0.075 185);
 }
 
 .dark {
@@ -122,6 +137,16 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.488 0.243 264.376);
+  --admin-background: oklch(0.155 0.01 235);
+  --admin-surface: oklch(0.195 0.012 235);
+  --admin-surface-muted: oklch(0.235 0.014 235);
+  --admin-sidebar: oklch(0.175 0.012 235);
+  --admin-border: oklch(1 0 0 / 11%);
+  --admin-border-strong: oklch(1 0 0 / 20%);
+  --admin-foreground: oklch(0.93 0.01 210);
+  --admin-muted-foreground: oklch(0.7 0.02 215);
+  --admin-accent: oklch(0.28 0.045 185);
+  --admin-accent-foreground: oklch(0.9 0.055 175);
 }
 
 @layer base {
@@ -146,16 +171,6 @@
 
 @layer components {
   .admin-console {
-    --admin-background: oklch(0.975 0.006 215);
-    --admin-surface: oklch(0.995 0.002 215);
-    --admin-surface-muted: oklch(0.955 0.008 215);
-    --admin-sidebar: oklch(0.985 0.004 215);
-    --admin-border: oklch(0.89 0.012 215);
-    --admin-border-strong: oklch(0.8 0.025 215);
-    --admin-foreground: oklch(0.25 0.025 225);
-    --admin-muted-foreground: oklch(0.5 0.025 225);
-    --admin-accent: oklch(0.925 0.035 185);
-    --admin-accent-foreground: oklch(0.31 0.075 185);
     color: var(--admin-foreground);
     background:
       linear-gradient(180deg, oklch(0.99 0.004 205), transparent 180px),
@@ -163,16 +178,6 @@
   }
 
   .dark .admin-console {
-    --admin-background: oklch(0.155 0.01 235);
-    --admin-surface: oklch(0.195 0.012 235);
-    --admin-surface-muted: oklch(0.235 0.014 235);
-    --admin-sidebar: oklch(0.175 0.012 235);
-    --admin-border: oklch(1 0 0 / 11%);
-    --admin-border-strong: oklch(1 0 0 / 20%);
-    --admin-foreground: oklch(0.93 0.01 210);
-    --admin-muted-foreground: oklch(0.7 0.02 215);
-    --admin-accent: oklch(0.28 0.045 185);
-    --admin-accent-foreground: oklch(0.9 0.055 175);
     background:
       linear-gradient(180deg, oklch(0.19 0.02 225), transparent 180px),
       var(--admin-background);

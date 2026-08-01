@@ -24,7 +24,6 @@ import {
   type AdminOperationsTabKey,
 } from "@/features/admin/adminConsoleLayout";
 import { AdminNavigationRail } from "@/features/admin/components/AdminNavigationRail";
-import { AdminSectionHeader } from "@/features/admin/components/AdminSectionHeader";
 import { TriageSessionsCard } from "@/features/admin/components/TriageSessionsCard";
 import { TriageRiskEventsCard } from "@/features/admin/components/TriageRiskEventsCard";
 import { AdminOverview } from "@/features/admin/components/AdminOverview";
@@ -270,7 +269,6 @@ function AdminConsoleContent() {
     ),
   };
 
-  const activeSection = sectionCopyByKey[activeTab];
   const bookingItems = (appointmentsQuery.data?.items ?? []).map(item => ({
     id: item.id,
     userId: item.userId ?? null,
@@ -378,6 +376,10 @@ function AdminConsoleContent() {
             canResendAccessLink={canResendAccessLink}
             canIssueAccessLinks={canIssueAccessLinks}
             handleCopyDebugSnapshot={handleCopyDebugSnapshot}
+            currentStatus={appointmentDetailQuery.data.appointment.status}
+            currentPaymentStatus={
+              appointmentDetailQuery.data.appointment.paymentStatus
+            }
             manualStatus={manualStatus}
             setManualStatus={setManualStatus}
             manualPaymentStatus={manualPaymentStatus}
@@ -387,8 +389,6 @@ function AdminConsoleContent() {
             manualScheduledAt={manualScheduledAt}
             setManualScheduledAt={setManualScheduledAt}
             setScheduleToNow={setScheduleToNow}
-            appointmentStatusOptions={appointmentStatusOptions}
-            paymentStatusOptions={paymentStatusOptions}
             applyManualStatusUpdate={applyManualStatusUpdate}
             applyManualScheduleUpdate={applyManualScheduleUpdate}
             updateStatusMutation={updateStatusMutation}
@@ -525,10 +525,7 @@ function AdminConsoleContent() {
           />
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-admin-background">
-            <AdminSectionHeader
-              title={activeSection.title}
-              description={activeSection.description}
-            />
+            <h1 className="sr-only">{sectionCopyByKey[activeTab].title}</h1>
 
             <TabsList className="h-11 w-full shrink-0 justify-start gap-1 overflow-x-auto rounded-none border-b border-admin-border bg-admin-surface px-3 lg:hidden">
               {navigationItems.map(item => (

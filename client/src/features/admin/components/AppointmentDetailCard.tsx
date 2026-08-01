@@ -60,8 +60,6 @@ type AppointmentDetailCardProps = {
   manualScheduledAt: string;
   setManualScheduledAt: (value: string) => void;
   setScheduleToNow: () => void;
-  appointmentStatusOptions: readonly string[];
-  paymentStatusOptions: readonly string[];
   applyManualStatusUpdate: () => void;
   applyManualScheduleUpdate: () => void;
   updateStatusMutation: UpdateStatusMutation;
@@ -103,8 +101,6 @@ export function AppointmentDetailCard({
   manualScheduledAt,
   setManualScheduledAt,
   setScheduleToNow,
-  appointmentStatusOptions,
-  paymentStatusOptions,
   applyManualStatusUpdate,
   applyManualScheduleUpdate,
   updateStatusMutation,
@@ -186,6 +182,10 @@ export function AppointmentDetailCard({
               issueLinksMutation={issueLinksMutation}
               canMutateAdmin={canMutateAppointments}
               handleCopyDebugSnapshot={handleCopyDebugSnapshot}
+              currentStatus={appointmentDetailQuery.data.appointment.status}
+              currentPaymentStatus={
+                appointmentDetailQuery.data.appointment.paymentStatus
+              }
               manualStatus={manualStatus}
               setManualStatus={setManualStatus}
               manualPaymentStatus={manualPaymentStatus}
@@ -195,8 +195,6 @@ export function AppointmentDetailCard({
               manualScheduledAt={manualScheduledAt}
               setManualScheduledAt={setManualScheduledAt}
               setScheduleToNow={setScheduleToNow}
-              appointmentStatusOptions={appointmentStatusOptions}
-              paymentStatusOptions={paymentStatusOptions}
               applyManualStatusUpdate={applyManualStatusUpdate}
               applyManualScheduleUpdate={applyManualScheduleUpdate}
               updateStatusMutation={updateStatusMutation}

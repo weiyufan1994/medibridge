@@ -21,8 +21,15 @@ import type {
 } from "@/features/admin/adminConsoleLayout";
 import {
   getAdminConfirmationCopy,
+  getAdminStatusGuidanceCopy,
   type AdminLang,
 } from "@/features/admin/copy";
+import {
+  getAdminAppointmentNextStatuses,
+  getAdminAppointmentPaymentStatuses,
+  isAdminAppointmentStatus,
+  isAdminPaymentStatus,
+} from "@/features/admin/adminStatusTransitions";
 import type { AdminConfirmationRequest } from "@/features/admin/adminActionConfirmationContext";
 import {
   getAppointmentSelectionScopeKey,
@@ -146,8 +153,7 @@ export function useAdminConsole({
   >([]);
   const [manualStatus, setManualStatus] = useState("active");
   const [manualPaymentStatus, setManualPaymentStatus] = useState("paid");
-  const [manualStatusReason, setManualStatusReason] =
-    useState("ops_manual_update");
+  const [manualStatusReason, setManualStatusReason] = useState("");
   const [manualScheduledAt, setManualScheduledAt] = useState("");
   const [issuedLinks, setIssuedLinks] = useState<{
     patientLink: string;
@@ -156,6 +162,10 @@ export function useAdminConsole({
   const [batchLastResult, setBatchLastResult] = useState<
     AdminBatchActionResult[] | null
   >(DEFAULT_BATCH_RESULT);
+
+  useEffect(() => {
+    setManualStatusReason("");
+  }, [selectedAppointmentId]);
 
   const appointmentStatusOptions = [
     "",
@@ -692,6 +702,21 @@ export function useAdminConsole({
   const applyManualStatusUpdate = () => {
     if (!selectedAppointmentId) {
       toast.error(tr("请先加载预约详情。", "Load appointment detail first."));
+      return;
+    }
+
+    const statusCopy = getAdminStatusGuidanceCopy(lang);
+    const currentStatus = appointmentDetailQuery.data?.appointment.status ?? "";
+    if (
+      !isAdminAppointmentStatus(currentStatus) ||
+      !isAdminAppointmentStatus(manualStatus) ||
+      !isAdminPaymentStatus(manualPaymentStatus) ||
+      !getAdminAppointmentNextStatuses(currentStatus).includes(manualStatus) ||
+      !getAdminAppointmentPaymentStatuses(manualStatus).includes(
+        manualPaymentStatus
+      )
+    ) {
+      toast.error(statusCopy.appointment.invalidSelection);
       return;
     }
 

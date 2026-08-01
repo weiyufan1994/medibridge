@@ -244,6 +244,25 @@ const referralCopyByLang = {
       bookingResultTitle: "Booking progress",
       consultationTimeTitle: "Consultation time",
       beginTimeCoordination: "Start time coordination",
+      consultationScheduleHint:
+        "Saving this arrangement moves the order to Consultation scheduled. Scheduled is not a manual status option.",
+      saveAndScheduleConsultation: "Save and mark scheduled",
+      saveConsultationArrangement: "Save consultation arrangement",
+      consultationValidationTitle:
+        "Complete the following items before saving:",
+      consultationDraftSaved:
+        "Unsaved changes are kept for this order in the current browser tab.",
+      consultationValidationIssues: {
+        consultation_time_required: "Select the consultation time.",
+        consultation_time_invalid: "Enter a valid consultation time.",
+        time_zone_required: "Enter the consultation time zone.",
+        provider_required: "Enter the doctor or service provider.",
+        platform_required: "Enter the consultation platform.",
+        join_url_required: "Enter the joining link.",
+        join_url_https_required:
+          "The joining link must start with https://, for example https://www.abc.com.",
+        instructions_required: "Enter the patient joining instructions.",
+      },
       refundTitle: "Refund handling",
       actionOutcome: "Outcome",
       actionSuccess: "Saved",
@@ -283,7 +302,7 @@ const referralCopyByLang = {
         schedule:
           "Enter the confirmed provider, platform, joining link, and patient instructions.",
         complete:
-          "Confirm the consultation is complete, or update its arrangement.",
+          "Verify that the consultation actually occurred, then record completion. The scheduled time passing does not complete the order automatically.",
         refund_review:
           "Review the refund request and record an approval or rejection.",
         refund_processing:
@@ -571,6 +590,23 @@ const referralCopyByLang = {
       bookingResultTitle: "挂号进展",
       consultationTimeTitle: "问诊时间",
       beginTimeCoordination: "开始协调面诊时间",
+      consultationScheduleHint:
+        "保存这份问诊安排后，订单会自动进入“问诊时间已确认”；“已排期”不是手动状态选项。",
+      saveAndScheduleConsultation: "保存并进入已排期",
+      saveConsultationArrangement: "保存问诊安排",
+      consultationValidationTitle: "保存前还需要完成以下内容：",
+      consultationDraftSaved: "未提交的修改已按订单保存在当前浏览器标签页中。",
+      consultationValidationIssues: {
+        consultation_time_required: "请选择问诊时间。",
+        consultation_time_invalid: "请输入有效的问诊时间。",
+        time_zone_required: "请填写问诊时区。",
+        provider_required: "请填写医生或服务方。",
+        platform_required: "请填写线上问诊平台。",
+        join_url_required: "请填写加入链接。",
+        join_url_https_required:
+          "加入链接必须以 https:// 开头，例如 https://www.abc.com。",
+        instructions_required: "请填写患者操作说明。",
+      },
       refundTitle: "退款处理",
       actionOutcome: "结果",
       actionSuccess: "已保存",
@@ -602,7 +638,8 @@ const referralCopyByLang = {
         booking: "记录挂号结果；选择处理中会将订单推进到下一阶段。",
         coordinate_time: "确认挂号已推进后，开始协调线上问诊时间。",
         schedule: "填写确认后的服务方、平台、加入链接和患者说明。",
-        complete: "确认问诊完成，或更新现有安排。",
+        complete:
+          "核实患者确实完成问诊后再登记完成；预约时间经过不会自动完成订单。",
         refund_review: "审核退款申请，并记录批准或驳回决定。",
         refund_processing: "退款正在处理中，请从时间线跟踪结算结果。",
         terminal: "订单已关闭，仅保留结果和时间线，不再提供履约操作。",

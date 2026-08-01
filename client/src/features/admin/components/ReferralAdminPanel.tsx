@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Loader2, X } from "lucide-react";
+import { ArrowRight, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,26 @@ import {
   type ReferralOrderStatus,
 } from "@shared/referrals";
 import {
+  getReferralAdminManualStatusTargets,
+  getReferralAdminPrimaryNextStatus,
+  getReferralStatusAdvanceMode,
+} from "@/features/admin/adminStatusTransitions";
+import {
+  areReferralConsultationDraftsEqual,
+  clearReferralConsultationDraft,
+  getReferralConsultationDraftIssues,
+  readReferralConsultationDraft,
+  saveReferralConsultationDraft,
+  type ReferralConsultationDraft,
+  type ReferralConsultationDraftIssue,
+} from "@/features/admin/referralConsultationDraft";
+import {
+  clearReferralStatusDraft,
+  isReferralStatusDraftCompatible,
+  readReferralStatusDraft,
+  saveReferralStatusDraft,
+} from "@/features/admin/referralStatusDraft";
+import {
   formatReferralWaitingDuration,
   getReferralAdminStatusTone,
   getReferralAdminTaskKind,
@@ -30,25 +50,16 @@ import {
 } from "@/features/admin/referralAdminPresentation";
 import { useAdminActionConfirmation } from "@/features/admin/adminActionConfirmationContext";
 import { AdminStatusBadge } from "@/features/admin/components/AdminStatusBadge";
-import { getAdminConfirmationCopy } from "@/features/admin/copy";
+import {
+  getAdminConfirmationCopy,
+  getAdminStatusGuidanceCopy,
+} from "@/features/admin/copy";
 
 type ReferralAdminPanelProps = {
   currentUserId: number | null;
   currentUserRole: string | null;
   requestedOrderId?: number | null;
 };
-
-const MANUAL_REFERRAL_STATUS_VALUES = REFERRAL_ORDER_STATUS_VALUES.filter(
-  status =>
-    ![
-      "paid_pending_assignment",
-      "time_coordination",
-      "scheduled",
-      "refund_pending_review",
-      "refund_processing",
-      "refunded",
-    ].includes(status)
-);
 
 function toLocalDateTimeInputValue(value: Date | string | null | undefined) {
   if (!value) {
@@ -86,6 +97,7 @@ export function ReferralAdminPanel({
   const { resolved } = useLanguage();
   const lang = resolved as "en" | "zh";
   const copy = getReferralCopy(lang);
+  const statusGuidanceCopy = getAdminStatusGuidanceCopy(lang);
   const utils = trpc.useUtils();
   const [statusFilter, setStatusFilter] = useState<ReferralOrderStatus | "all">(
     "all"
@@ -97,6 +109,9 @@ export function ReferralAdminPanel({
   const [selectedStatus, setSelectedStatus] =
     useState<ReferralOrderStatus>("assigned");
   const [statusReason, setStatusReason] = useState("");
+  const [statusDraftContext, setStatusDraftContext] = useState<string | null>(
+    null
+  );
   const [internalNote, setInternalNote] = useState("");
   const [patientProgressUpdate, setPatientProgressUpdate] = useState("");
   const [contactOutcome, setContactOutcome] = useState<
@@ -115,6 +130,11 @@ export function ReferralAdminPanel({
   const [consultationJoinUrl, setConsultationJoinUrl] = useState("");
   const [consultationInstructions, setConsultationInstructions] = useState("");
   const [consultationNote, setConsultationNote] = useState("");
+  const [consultationDraftOrderId, setConsultationDraftOrderId] = useState<
+    number | null
+  >(null);
+  const [consultationDraftBaseline, setConsultationDraftBaseline] =
+    useState<ReferralConsultationDraft | null>(null);
   const [refundReasonCode, setRefundReasonCode] =
     useState<(typeof REFERRAL_REFUND_REASON_CODE_VALUES)[number]>(
       "contact_failed"
@@ -213,31 +233,6 @@ export function ReferralAdminPanel({
       return;
     }
 
-    setSelectedStatus(
-      detailQuery.data.order.status === "scheduled"
-        ? "completed"
-        : MANUAL_REFERRAL_STATUS_VALUES.includes(detailQuery.data.order.status)
-          ? detailQuery.data.order.status
-          : "cancelled"
-    );
-    setConsultationTimeInput(
-      toLocalDateTimeInputValue(detailQuery.data.order.consultationTime)
-    );
-    setConsultationTimeZone(
-      detailQuery.data.consultationArrangement?.timeZone ?? "Asia/Shanghai"
-    );
-    setConsultationProviderName(
-      detailQuery.data.consultationArrangement?.providerName ?? ""
-    );
-    setConsultationPlatform(
-      detailQuery.data.consultationArrangement?.platform ?? ""
-    );
-    setConsultationJoinUrl(
-      detailQuery.data.consultationArrangement?.joinUrl ?? ""
-    );
-    setConsultationInstructions(
-      detailQuery.data.consultationArrangement?.instructions ?? ""
-    );
     setAssigneeId(
       detailQuery.data.order.assignedAgentId
         ? String(detailQuery.data.order.assignedAgentId)
@@ -247,6 +242,83 @@ export function ReferralAdminPanel({
       detailQuery.data.contact ? String(detailQuery.data.contact.id) : ""
     );
   }, [detailQuery.data]);
+
+  useEffect(() => {
+    const detail = detailQuery.data;
+    if (!detail || detail.order.id !== selectedOrderId) {
+      return;
+    }
+
+    const currentStatus = detail.order.status;
+    const nextContext = `${detail.order.id}:${currentStatus}`;
+    if (statusDraftContext === nextContext) {
+      return;
+    }
+
+    const allowedTargets = getReferralAdminManualStatusTargets(currentStatus);
+    const defaultTarget = allowedTargets[0] ?? currentStatus;
+    const storedDraft = readReferralStatusDraft(
+      window.sessionStorage,
+      detail.order.id
+    );
+
+    if (
+      storedDraft &&
+      isReferralStatusDraftCompatible({
+        draft: storedDraft,
+        currentStatus,
+        allowedTargets,
+      })
+    ) {
+      setSelectedStatus(storedDraft.toStatus);
+      setStatusReason(storedDraft.reason);
+    } else {
+      if (storedDraft) {
+        clearReferralStatusDraft(window.sessionStorage, detail.order.id);
+      }
+      setSelectedStatus(defaultTarget);
+      setStatusReason("");
+    }
+    setStatusDraftContext(nextContext);
+  }, [detailQuery.data, selectedOrderId, statusDraftContext]);
+
+  useEffect(() => {
+    const detail = detailQuery.data;
+    if (
+      !detail ||
+      detail.order.id !== selectedOrderId ||
+      consultationDraftOrderId === detail.order.id
+    ) {
+      return;
+    }
+
+    const serverDraft: ReferralConsultationDraft = {
+      consultationTimeInput: toLocalDateTimeInputValue(
+        detail.order.consultationTime
+      ),
+      timeZone: detail.consultationArrangement?.timeZone ?? "Asia/Shanghai",
+      providerName: detail.consultationArrangement?.providerName ?? "",
+      platform: detail.consultationArrangement?.platform ?? "",
+      joinUrl: detail.consultationArrangement?.joinUrl ?? "",
+      instructions: detail.consultationArrangement?.instructions ?? "",
+      note: "",
+    };
+    const storedDraft = readReferralConsultationDraft(
+      window.sessionStorage,
+      detail.order.id
+    );
+    const initialDraft = storedDraft ?? serverDraft;
+
+    setConsultationTimeInput(initialDraft.consultationTimeInput);
+    setConsultationTimeZone(initialDraft.timeZone);
+    setConsultationProviderName(initialDraft.providerName);
+    setConsultationPlatform(initialDraft.platform);
+    setConsultationJoinUrl(initialDraft.joinUrl);
+    setConsultationInstructions(initialDraft.instructions);
+    setConsultationNote(initialDraft.note);
+    setConsultationDraftBaseline(serverDraft);
+    setConsultationDraftOrderId(detail.order.id);
+  }, [consultationDraftOrderId, detailQuery.data, selectedOrderId]);
 
   useEffect(() => {
     setDetailTab("operations");
@@ -295,7 +367,8 @@ export function ReferralAdminPanel({
       onError: handleMutationError,
     });
   const updateStatusMutation = trpc.referrals.updateOrderStatus.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (_data, variables) => {
+      clearReferralStatusDraft(window.sessionStorage, variables.orderId);
       toast.success(copy.admin.actionSuccess);
       setStatusReason("");
       await refreshReferralAdminData();
@@ -346,7 +419,26 @@ export function ReferralAdminPanel({
     });
   const consultationTimeMutation =
     trpc.referrals.setConsultationTime.useMutation({
-      onSuccess: async () => {
+      onSuccess: async (_data, variables) => {
+        const savedDraft: ReferralConsultationDraft = {
+          consultationTimeInput: toLocalDateTimeInputValue(
+            variables.consultationTime
+          ),
+          timeZone: variables.timeZone,
+          providerName: variables.providerName,
+          platform: variables.platform,
+          joinUrl: variables.joinUrl,
+          instructions: variables.instructions,
+          note: "",
+        };
+
+        clearReferralConsultationDraft(
+          window.sessionStorage,
+          variables.orderId
+        );
+        if (consultationDraftOrderId === variables.orderId) {
+          setConsultationDraftBaseline(savedDraft);
+        }
         toast.success(copy.admin.actionSuccess);
         setConsultationNote("");
         await refreshReferralAdminData();
@@ -375,6 +467,126 @@ export function ReferralAdminPanel({
   const taskKind = orderState
     ? getReferralAdminTaskKind(orderState.status)
     : null;
+  const primaryNextStatus = orderState
+    ? getReferralAdminPrimaryNextStatus(orderState.status)
+    : null;
+  const advanceMode = orderState
+    ? getReferralStatusAdvanceMode(orderState.status)
+    : null;
+  const manualStatusTargets = orderState
+    ? getReferralAdminManualStatusTargets(orderState.status)
+    : [];
+  const statusReasonIsValid = statusReason.trim().length >= 3;
+  const activeStatusDraftContext = orderState
+    ? `${orderState.id}:${orderState.status}`
+    : null;
+  const isScheduledCompletion =
+    orderState?.status === "scheduled" &&
+    manualStatusTargets.includes("completed");
+  const statusDraftIsDirty =
+    statusDraftContext === activeStatusDraftContext &&
+    statusReason.length > 0 &&
+    orderState !== null &&
+    manualStatusTargets.includes(selectedStatus);
+
+  useEffect(() => {
+    if (
+      !orderState ||
+      statusDraftContext !== activeStatusDraftContext ||
+      !manualStatusTargets.includes(selectedStatus)
+    ) {
+      return;
+    }
+
+    if (!statusReason) {
+      clearReferralStatusDraft(window.sessionStorage, orderState.id);
+      return;
+    }
+
+    saveReferralStatusDraft(window.sessionStorage, orderState.id, {
+      fromStatus: orderState.status,
+      toStatus: selectedStatus,
+      reason: statusReason,
+    });
+  }, [
+    activeStatusDraftContext,
+    manualStatusTargets,
+    orderState,
+    selectedStatus,
+    statusDraftContext,
+    statusReason,
+  ]);
+
+  const consultationDraft = useMemo<ReferralConsultationDraft>(
+    () => ({
+      consultationTimeInput,
+      timeZone: consultationTimeZone,
+      providerName: consultationProviderName,
+      platform: consultationPlatform,
+      joinUrl: consultationJoinUrl,
+      instructions: consultationInstructions,
+      note: consultationNote,
+    }),
+    [
+      consultationInstructions,
+      consultationJoinUrl,
+      consultationNote,
+      consultationPlatform,
+      consultationProviderName,
+      consultationTimeInput,
+      consultationTimeZone,
+    ]
+  );
+  const consultationDraftIssues = useMemo(
+    () => getReferralConsultationDraftIssues(consultationDraft),
+    [consultationDraft]
+  );
+  const consultationIssueMessages: Record<
+    ReferralConsultationDraftIssue,
+    string
+  > = copy.admin.consultationValidationIssues;
+  const consultationDraftIsDirty =
+    consultationDraftOrderId === selectedOrderId &&
+    consultationDraftBaseline !== null &&
+    !areReferralConsultationDraftsEqual(
+      consultationDraft,
+      consultationDraftBaseline
+    );
+
+  useEffect(() => {
+    if (
+      consultationDraftOrderId === null ||
+      consultationDraftOrderId !== selectedOrderId ||
+      consultationDraftBaseline === null
+    ) {
+      return;
+    }
+
+    if (
+      areReferralConsultationDraftsEqual(
+        consultationDraft,
+        consultationDraftBaseline
+      )
+    ) {
+      clearReferralConsultationDraft(
+        window.sessionStorage,
+        consultationDraftOrderId
+      );
+      return;
+    }
+
+    saveReferralConsultationDraft(
+      window.sessionStorage,
+      consultationDraftOrderId,
+      consultationDraft
+    );
+  }, [
+    consultationDraft,
+    consultationDraftBaseline,
+    consultationDraftOrderId,
+    selectedOrderId,
+  ]);
+
   const selectedAssignee = useMemo(() => {
     if (!orderState?.assignedAgentId) {
       return copy.admin.unassigned;
@@ -788,11 +1000,58 @@ export function ReferralAdminPanel({
                 {taskKind ? (
                   <section className="mb-4 rounded-xl border border-admin-border-strong bg-admin-accent px-4 py-3">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-admin-accent-foreground">
-                      {copy.admin.nextStep}
+                      {statusGuidanceCopy.referral.title}
                     </p>
-                    <p className="mt-1 text-sm leading-6 text-admin-foreground">
+                    <p className="mt-1 text-xs leading-5 text-admin-muted-foreground">
+                      {statusGuidanceCopy.referral.description}
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <div className="space-y-1">
+                        <p className="text-[11px] font-medium text-admin-muted-foreground">
+                          {statusGuidanceCopy.referral.currentStatus}
+                        </p>
+                        <AdminStatusBadge
+                          label={getReferralStatusLabel(
+                            orderState.status,
+                            lang
+                          )}
+                          tone={getReferralAdminStatusTone(orderState.status)}
+                        />
+                      </div>
+                      <ArrowRight
+                        aria-hidden="true"
+                        className="mt-4 size-4 text-admin-accent-foreground"
+                      />
+                      <div className="space-y-1">
+                        <p className="text-[11px] font-medium text-admin-muted-foreground">
+                          {statusGuidanceCopy.referral.nextStatus}
+                        </p>
+                        {primaryNextStatus ? (
+                          <AdminStatusBadge
+                            label={getReferralStatusLabel(
+                              primaryNextStatus,
+                              lang
+                            )}
+                            tone={getReferralAdminStatusTone(primaryNextStatus)}
+                          />
+                        ) : (
+                          <span className="inline-flex min-h-6 items-center rounded-md border border-admin-border bg-admin-surface px-2 text-xs font-medium text-admin-foreground">
+                            {advanceMode === "terminal"
+                              ? statusGuidanceCopy.referral.noNextStatus
+                              : statusGuidanceCopy.referral.noFixedTarget}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <p className="mt-3 text-sm font-medium leading-6 text-admin-foreground">
+                      {copy.admin.nextStep}:{" "}
                       {copy.admin.taskDescriptions[taskKind]}
                     </p>
+                    {advanceMode ? (
+                      <p className="mt-1 text-xs leading-5 text-admin-muted-foreground">
+                        {statusGuidanceCopy.referral.advanceModes[advanceMode]}
+                      </p>
+                    ) : null}
                     {taskKind === "refund_review" ? (
                       <Button
                         size="sm"
@@ -932,48 +1191,86 @@ export function ReferralAdminPanel({
                     </SectionBox>
                   ) : null}
 
-                  {taskKind !== "terminal" &&
-                  taskKind !== "refund_processing" &&
-                  taskKind !== "refund_review" ? (
+                  {manualStatusTargets.length > 0 ? (
                     <SectionBox
-                      title={copy.admin.updateStatus}
-                      collapsible={taskKind !== "complete"}
+                      title={
+                        isScheduledCompletion
+                          ? statusGuidanceCopy.referral.completionTitle
+                          : statusGuidanceCopy.referral.manualCorrectionTitle
+                      }
+                      collapsible={!isScheduledCompletion}
                     >
                       <div className="space-y-2">
-                        <select
-                          className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
-                          value={selectedStatus}
-                          onChange={event =>
-                            setSelectedStatus(
-                              event.target.value as ReferralOrderStatus
-                            )
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          {isScheduledCompletion
+                            ? statusGuidanceCopy.referral.completionDescription
+                            : statusGuidanceCopy.referral
+                                .manualCorrectionDescription}
+                        </p>
+                        {isScheduledCompletion ? (
+                          <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                            {statusGuidanceCopy.referral.completionNoAutoNotice}
+                          </p>
+                        ) : (
+                          <select
+                            className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                            value={selectedStatus}
+                            onChange={event =>
+                              setSelectedStatus(
+                                event.target.value as ReferralOrderStatus
+                              )
+                            }
+                          >
+                            {manualStatusTargets.map(status => (
+                              <option key={status} value={status}>
+                                {getReferralStatusLabel(status, lang)}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        <FieldShell
+                          label={
+                            isScheduledCompletion
+                              ? statusGuidanceCopy.referral
+                                  .completionReasonLabel
+                              : copy.admin.reason
                           }
                         >
-                          {MANUAL_REFERRAL_STATUS_VALUES.map(status => (
-                            <option key={status} value={status}>
-                              {getReferralStatusLabel(status, lang)}
-                            </option>
-                          ))}
-                        </select>
-                        <Input
-                          className="h-8"
-                          value={statusReason}
-                          onChange={event =>
-                            setStatusReason(event.target.value)
-                          }
-                          placeholder={copy.admin.reason}
-                        />
+                          <Textarea
+                            className="min-h-20 px-2 py-1 text-sm leading-tight"
+                            value={statusReason}
+                            onChange={event =>
+                              setStatusReason(event.target.value)
+                            }
+                            placeholder={
+                              isScheduledCompletion
+                                ? statusGuidanceCopy.referral
+                                    .completionReasonLabel
+                                : copy.admin.reason
+                            }
+                          />
+                        </FieldShell>
+                        {statusDraftIsDirty ? (
+                          <p className="text-xs leading-5 text-muted-foreground">
+                            {statusGuidanceCopy.referral.statusDraftSaved}
+                          </p>
+                        ) : null}
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant={
+                            isScheduledCompletion ? "default" : "outline"
+                          }
                           disabled={
                             updateStatusMutation.isPending ||
-                            statusReason.trim().length < 3
+                            !manualStatusTargets.includes(selectedStatus) ||
+                            !statusReasonIsValid
                           }
                           onClick={() => {
                             const confirmation = getAdminConfirmationCopy(
                               lang,
-                              "updateReferralStatus"
+                              isScheduledCompletion
+                                ? "completeReferralConsultation"
+                                : "updateReferralStatus"
                             );
                             requestConfirmation({
                               title: confirmation.title,
@@ -993,8 +1290,20 @@ export function ReferralAdminPanel({
                             });
                           }}
                         >
-                          {copy.admin.updateStatus}
+                          {isScheduledCompletion
+                            ? statusGuidanceCopy.referral.completionAction
+                            : copy.admin.updateStatus}
                         </Button>
+                        <p
+                          className={cn(
+                            "text-xs leading-5",
+                            statusReasonIsValid
+                              ? "text-muted-foreground"
+                              : "text-amber-700 dark:text-amber-300"
+                          )}
+                        >
+                          {statusGuidanceCopy.reasonRequirement}
+                        </p>
                       </div>
                     </SectionBox>
                   ) : null}
@@ -1032,78 +1341,162 @@ export function ReferralAdminPanel({
                           </>
                         ) : (
                           <>
-                            <Input
-                              className="h-8"
-                              type="datetime-local"
-                              value={consultationTimeInput}
-                              onChange={event =>
-                                setConsultationTimeInput(event.target.value)
-                              }
-                            />
-                            <Input
-                              className="h-8"
-                              value={consultationTimeZone}
-                              onChange={event =>
-                                setConsultationTimeZone(event.target.value)
-                              }
-                              placeholder={copy.admin.consultationTimeZone}
-                            />
-                            <Input
-                              className="h-8"
-                              value={consultationProviderName}
-                              onChange={event =>
-                                setConsultationProviderName(event.target.value)
-                              }
-                              placeholder={copy.admin.consultationProviderName}
-                            />
-                            <Input
-                              className="h-8"
-                              value={consultationPlatform}
-                              onChange={event =>
-                                setConsultationPlatform(event.target.value)
-                              }
-                              placeholder={copy.admin.consultationPlatform}
-                            />
-                            <Input
-                              className="h-8"
-                              type="url"
-                              value={consultationJoinUrl}
-                              onChange={event =>
-                                setConsultationJoinUrl(event.target.value)
-                              }
-                              placeholder={copy.admin.consultationJoinUrl}
-                            />
-                            <Textarea
-                              value={consultationInstructions}
-                              onChange={event =>
-                                setConsultationInstructions(event.target.value)
-                              }
-                              placeholder={copy.admin.consultationInstructions}
-                              className="min-h-24 px-2 py-1 text-sm leading-tight"
-                            />
-                            <Textarea
-                              value={consultationNote}
-                              onChange={event =>
-                                setConsultationNote(event.target.value)
-                              }
-                              placeholder={copy.admin.consultationTimeNote}
-                              className="min-h-24 px-2 py-1 text-sm leading-tight"
-                            />
+                            <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100">
+                              {copy.admin.consultationScheduleHint}
+                            </p>
+                            <FieldShell
+                              label={copy.admin.consultationTimeInput}
+                            >
+                              <Input
+                                className="h-8"
+                                type="datetime-local"
+                                value={consultationTimeInput}
+                                aria-invalid={
+                                  consultationDraftIssues.includes(
+                                    "consultation_time_required"
+                                  ) ||
+                                  consultationDraftIssues.includes(
+                                    "consultation_time_invalid"
+                                  )
+                                }
+                                onChange={event =>
+                                  setConsultationTimeInput(event.target.value)
+                                }
+                              />
+                            </FieldShell>
+                            <FieldShell label={copy.admin.consultationTimeZone}>
+                              <Input
+                                className="h-8"
+                                value={consultationTimeZone}
+                                aria-invalid={consultationDraftIssues.includes(
+                                  "time_zone_required"
+                                )}
+                                onChange={event =>
+                                  setConsultationTimeZone(event.target.value)
+                                }
+                                placeholder={copy.admin.consultationTimeZone}
+                              />
+                            </FieldShell>
+                            <FieldShell
+                              label={copy.admin.consultationProviderName}
+                            >
+                              <Input
+                                className="h-8"
+                                value={consultationProviderName}
+                                aria-invalid={consultationDraftIssues.includes(
+                                  "provider_required"
+                                )}
+                                onChange={event =>
+                                  setConsultationProviderName(
+                                    event.target.value
+                                  )
+                                }
+                                placeholder={
+                                  copy.admin.consultationProviderName
+                                }
+                              />
+                            </FieldShell>
+                            <FieldShell label={copy.admin.consultationPlatform}>
+                              <Input
+                                className="h-8"
+                                value={consultationPlatform}
+                                aria-invalid={consultationDraftIssues.includes(
+                                  "platform_required"
+                                )}
+                                onChange={event =>
+                                  setConsultationPlatform(event.target.value)
+                                }
+                                placeholder={copy.admin.consultationPlatform}
+                              />
+                            </FieldShell>
+                            <FieldShell label={copy.admin.consultationJoinUrl}>
+                              <Input
+                                className="h-8"
+                                type="url"
+                                value={consultationJoinUrl}
+                                aria-invalid={
+                                  consultationDraftIssues.includes(
+                                    "join_url_required"
+                                  ) ||
+                                  consultationDraftIssues.includes(
+                                    "join_url_https_required"
+                                  )
+                                }
+                                onChange={event =>
+                                  setConsultationJoinUrl(event.target.value)
+                                }
+                                placeholder={copy.admin.consultationJoinUrl}
+                              />
+                            </FieldShell>
+                            <FieldShell
+                              label={copy.admin.consultationInstructions}
+                            >
+                              <Textarea
+                                value={consultationInstructions}
+                                aria-invalid={consultationDraftIssues.includes(
+                                  "instructions_required"
+                                )}
+                                onChange={event =>
+                                  setConsultationInstructions(
+                                    event.target.value
+                                  )
+                                }
+                                placeholder={
+                                  copy.admin.consultationInstructions
+                                }
+                                className="min-h-24 px-2 py-1 text-sm leading-tight"
+                              />
+                            </FieldShell>
+                            <FieldShell label={copy.admin.consultationTimeNote}>
+                              <Textarea
+                                value={consultationNote}
+                                onChange={event =>
+                                  setConsultationNote(event.target.value)
+                                }
+                                placeholder={copy.admin.consultationTimeNote}
+                                className="min-h-24 px-2 py-1 text-sm leading-tight"
+                              />
+                            </FieldShell>
+                            {consultationDraftIssues.length > 0 ? (
+                              <div
+                                id={`referral-consultation-validation-${orderState.id}`}
+                                role="status"
+                                className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                              >
+                                <p className="font-medium">
+                                  {copy.admin.consultationValidationTitle}
+                                </p>
+                                <ul className="mt-1 list-disc pl-4">
+                                  {consultationDraftIssues.map(issue => (
+                                    <li key={issue}>
+                                      {consultationIssueMessages[issue]}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : null}
+                            {consultationDraftIsDirty ? (
+                              <p className="text-xs leading-5 text-muted-foreground">
+                                {copy.admin.consultationDraftSaved}
+                              </p>
+                            ) : null}
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant={
+                                orderState.status === "time_coordination"
+                                  ? "default"
+                                  : "outline"
+                              }
+                              aria-describedby={
+                                consultationDraftIssues.length > 0
+                                  ? `referral-consultation-validation-${orderState.id}`
+                                  : undefined
+                              }
                               disabled={
                                 consultationTimeMutation.isPending ||
                                 (orderState.status !== "time_coordination" &&
                                   orderState.status !== "scheduled") ||
-                                consultationTimeInput.trim().length < 1 ||
-                                consultationTimeZone.trim().length < 1 ||
-                                consultationProviderName.trim().length < 1 ||
-                                consultationPlatform.trim().length < 1 ||
-                                !consultationJoinUrl
-                                  .trim()
-                                  .startsWith("https://") ||
-                                consultationInstructions.trim().length < 1
+                                consultationDraftIssues.length > 0
                               }
                               onClick={() => {
                                 void consultationTimeMutation.mutateAsync({
@@ -1120,7 +1513,9 @@ export function ReferralAdminPanel({
                                 });
                               }}
                             >
-                              {copy.admin.consultationTimeTitle}
+                              {orderState.status === "time_coordination"
+                                ? copy.admin.saveAndScheduleConsultation
+                                : copy.admin.saveConsultationArrangement}
                             </Button>
                           </>
                         )}
