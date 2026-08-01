@@ -56,13 +56,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          archive_path="$(./scripts/package-release.sh)"
-          archive_name="$(basename "$archive_path")"
+          package_output="$(./scripts/package-release.sh)"
+          archive_path="$(printf '%s\n' "${package_output}" | tail -n 1)"
+
+          if [ ! -f "${archive_path}" ]; then
+            echo "Package script did not return a valid archive path" >&2
+            printf '%s\n' "${package_output}" >&2
+            exit 1
+          fi
+
+          archive_name="$(basename "${archive_path}")"
           release_basename="${archive_name%.tar.gz}"
 
-          echo "archive_path=$archive_path" >> "$GITHUB_OUTPUT"
-          echo "archive_name=$archive_name" >> "$GITHUB_OUTPUT"
-          echo "release_basename=$release_basename" >> "$GITHUB_OUTPUT"
+          echo "archive_path=${archive_path}" >> "${GITHUB_OUTPUT}"
+          echo "archive_name=${archive_name}" >> "${GITHUB_OUTPUT}"
+          echo "release_basename=${release_basename}" >> "${GITHUB_OUTPUT}"
 
       - name: Upload release archive to S3
         run: |
@@ -79,39 +87,45 @@ jobs:
 
           release_basename="${{ steps.package.outputs.release_basename }}"
           archive_name="${{ steps.package.outputs.archive_name }}"
-          s3_uri="s3://${{ env.DEPLOY_BUCKET }}/releases/${archive_name}"
+          archive_url="$(
+            aws s3 presign \
+              "s3://${{ env.DEPLOY_BUCKET }}/releases/${archive_name}" \
+              --expires-in 3600 \
+              --region "${AWS_REGION}"
+          )"
 
           RELEASE_BASENAME="${release_basename}" \
           ARCHIVE_NAME="${archive_name}" \
-          S3_URI="${s3_uri}" \
+          ARCHIVE_URL="${archive_url}" \
           python - <<'PY'
           import json
           import os
 
           release_basename = os.environ["RELEASE_BASENAME"]
           archive_name = os.environ["ARCHIVE_NAME"]
-          s3_uri = os.environ["S3_URI"]
+          archive_url = os.environ["ARCHIVE_URL"]
 
           commands = [
-              "set -euo pipefail",
+              "set -eu",
               "export HOME=/root",
+              "export PATH=/usr/local/bin:/usr/bin:/bin:/root/.local/bin",
               f"RELEASE_BASENAME='{release_basename}'",
               f"ARCHIVE_NAME='{archive_name}'",
-              f"S3_URI='{s3_uri}'",
+              f"ARCHIVE_URL='{archive_url}'",
               "RELEASES_DIR='/srv/medibridge/releases'",
               "SHARED_DIR='/srv/medibridge/shared'",
               'RELEASE_DIR="${RELEASES_DIR}/${RELEASE_BASENAME}"',
               'TMP_ARCHIVE="/tmp/${ARCHIVE_NAME}"',
               'mkdir -p "${RELEASES_DIR}" "${SHARED_DIR}"',
               'rm -rf "${RELEASE_DIR}"',
-              'aws s3 cp "${S3_URI}" "${TMP_ARCHIVE}"',
+              'curl --fail --silent --show-error --location "${ARCHIVE_URL}" --output "${TMP_ARCHIVE}"',
               'tar -xzf "${TMP_ARCHIVE}" -C "${RELEASES_DIR}"',
               'cd "${RELEASE_DIR}"',
               "corepack enable",
               "pnpm install --prod --frozen-lockfile",
               'ln -sfn "${RELEASE_DIR}" /srv/medibridge/current',
               "pm2 startOrReload /srv/medibridge/current/deploy/ecosystem.config.cjs --update-env",
-              "curl --fail --silent http://127.0.0.1:3000/ > /dev/null",
+              'for attempt in 1 2 3 4 5 6 7 8 9 10; do curl --fail --silent http://127.0.0.1:3000/ > /dev/null && exit 0; sleep 3; done; exit 1',
               'rm -f "${TMP_ARCHIVE}"',
           ]
 
@@ -130,28 +144,34 @@ jobs:
               --output text
           )"
 
-          echo "command_id=${command_id}" >> "$GITHUB_OUTPUT"
+          echo "command_id=${command_id}" >> "${GITHUB_OUTPUT}"
 
-          aws ssm wait command-executed \
-            --region "${AWS_REGION}" \
-            --command-id "${command_id}" \
-            --instance-id "${INSTANCE_ID}"
+          status="Pending"
+          for _ in $(seq 1 60); do
+            aws ssm get-command-invocation \
+              --region "${AWS_REGION}" \
+              --command-id "${command_id}" \
+              --instance-id "${INSTANCE_ID}" \
+              --query '{Status:Status,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+              --output json > deploy-result.json
 
-          aws ssm get-command-invocation \
-            --region "${AWS_REGION}" \
-            --command-id "${command_id}" \
-            --instance-id "${INSTANCE_ID}" \
-            --query '{Status:Status,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
-            --output json > deploy-result.json
-
-          cat deploy-result.json
-
-          status="$(python - <<'PY'
+            status="$(python - <<'PY'
           import json
           with open("deploy-result.json", "r", encoding="utf-8") as fh:
               print(json.load(fh)["Status"])
           PY
-          )"
+            )"
+
+            case "${status}" in
+              Success|Cancelled|TimedOut|Failed|Cancelling)
+                break
+                ;;
+            esac
+
+            sleep 2
+          done
+
+          cat deploy-result.json
 
           if [ "${status}" != "Success" ]; then
             echo "Deployment failed with status ${status}" >&2

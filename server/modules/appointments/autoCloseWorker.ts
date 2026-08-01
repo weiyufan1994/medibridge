@@ -19,19 +19,19 @@ async function findInactiveActiveAppointmentIds(cutoff: Date) {
   const rows = await db
     .select({ id: appointments.id })
     .from(appointments)
+    .leftJoin(
+      appointmentMessages,
+      eq(appointmentMessages.appointmentId, appointments.id)
+    )
     .where(
       and(
         eq(appointments.status, "active"),
-        eq(appointments.paymentStatus, "paid"),
-        sql`coalesce(
-          (
-            select max(${appointmentMessages.createdAt})
-            from ${appointmentMessages}
-            where ${appointmentMessages.appointmentId} = ${appointments.id}
-          ),
-          ${appointments.updatedAt}
-        ) < ${cutoff}`
+        eq(appointments.paymentStatus, "paid")
       )
+    )
+    .groupBy(appointments.id, appointments.updatedAt)
+    .having(
+      sql`coalesce(max(${appointmentMessages.createdAt}), ${appointments.updatedAt}) < ${cutoff}`
     )
     .limit(BATCH_LIMIT);
 

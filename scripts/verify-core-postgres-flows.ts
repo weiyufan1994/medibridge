@@ -67,7 +67,6 @@ async function main() {
     lang: "zh",
   });
 
-  const appointmentCheckout = await caller.appointments.createV2({
   const adminCaller = appRouter.createCaller(
     createContext({
       ...user,

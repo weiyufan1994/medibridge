@@ -25,6 +25,8 @@ import {
   REFUND_REQUEST_STATUS_VALUES,
 } from "../shared/referrals";
 
+const DOCTOR_EMBEDDING_DIMENSIONS = 1024;
+
 /**
  * Core user table backing auth flow.
  */
@@ -405,13 +407,21 @@ export const doctorEmbeddings = pgTable(
   {
     id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
     doctorId: integer("doctorId").notNull().unique(),
-    embedding: jsonb("embedding").notNull(), // Store as JSON array
+    embeddingVector: vector("embeddingVector", {
+      dimensions: DOCTOR_EMBEDDING_DIMENSIONS,
+    }).notNull(),
+    embeddingModel: varchar("embeddingModel", { length: 128 }).notNull(),
+    embeddingDimensions: integer("embeddingDimensions").notNull(),
     content: text("content").notNull(), // Original text used for embedding
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().$onUpdateFn(() => new Date()).notNull(),
   },
   table => ({
     doctorIdx: index("doctorEmbeddingsDoctorIdx").on(table.doctorId),
+    vectorIdx: index("doctorEmbeddingsVectorIdx").using(
+      "hnsw",
+      table.embeddingVector.op("vector_cosine_ops")
+    ),
   })
 );
 

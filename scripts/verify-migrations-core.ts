@@ -2,6 +2,9 @@ export const REQUIRED_TABLES = [
   "appointment_visit_summaries",
   "visit_retention_policies",
   "retention_cleanup_audits",
+  "doctor_schedule_rules",
+  "doctor_schedule_exceptions",
+  "doctor_slots",
   "doctor_user_bindings",
   "doctor_account_invites",
   "referral_notification_outbox",
@@ -9,6 +12,15 @@ export const REQUIRED_TABLES = [
 
 export const REQUIRED_INDEXES = [
   "appointmentMessagesAppointmentCreatedAtIdx",
+  "doctorScheduleRulesDoctorIdx",
+  "doctorScheduleRulesDoctorActiveIdx",
+  "doctorScheduleExceptionsDoctorDateIdx",
+  "doctorSlotsDoctorLocalDateIdx",
+  "doctorSlotsStatusStartIdx",
+  "doctorSlotsHoldExpiresIdx",
+  "doctorSlotsAppointmentIdx",
+  "doctorSlotsDoctorTypeStartUk",
+  "appointmentsSlotIdx",
   "doctorUserBindingsDoctorIdx",
   "doctorUserBindingsUserIdx",
   "doctorUserBindingsStatusIdx",
@@ -31,6 +43,10 @@ export const REQUIRED_COLUMNS = [
   {
     tableName: "departments",
     columnName: "url",
+  },
+  {
+    tableName: "appointments",
+    columnName: "slotId",
   },
   {
     tableName: "referral_orders",

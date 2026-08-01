@@ -4,6 +4,10 @@ import { eq } from "drizzle-orm";
 import axios from "axios";
 import "../server/_core/loadEnv.ts";
 import { Pool } from "pg";
+import {
+  DOCTOR_EMBEDDING_DIMENSIONS,
+  isFiniteEmbedding,
+} from "../server/modules/doctors/embedding.ts";
 import { deriveDoctorSpecialtyTags } from "../server/modules/doctors/taxonomy.ts";
 
 // Database connection
@@ -73,7 +77,16 @@ async function generateEmbedding(text) {
       }
     );
     
-    return response.data.data[0].embedding;
+    const embedding = response.data.data[0].embedding;
+    if (!isFiniteEmbedding(embedding)) {
+      throw new Error(
+        `Expected ${DOCTOR_EMBEDDING_DIMENSIONS}-dimensional embedding but received ${
+          Array.isArray(embedding) ? embedding.length : "invalid"
+        }`
+      );
+    }
+
+    return embedding;
   } catch (error) {
     console.error("Error generating embedding:", error.response?.data || error.message);
     throw error;
@@ -171,13 +184,17 @@ async function vectorizeDoctors() {
         .insert(doctorEmbeddings)
         .values({
           doctorId: doctor.id,
-          embedding,
-          content: content
+          embeddingVector: embedding,
+          embeddingModel: EMBEDDING_MODEL,
+          embeddingDimensions: DOCTOR_EMBEDDING_DIMENSIONS,
+          content,
         })
         .onConflictDoUpdate({
           target: doctorEmbeddings.doctorId,
           set: {
-            embedding,
+            embeddingVector: embedding,
+            embeddingModel: EMBEDDING_MODEL,
+            embeddingDimensions: DOCTOR_EMBEDDING_DIMENSIONS,
             content,
             updatedAt: new Date(),
           },

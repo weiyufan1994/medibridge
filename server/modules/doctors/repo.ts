@@ -210,7 +210,7 @@ export async function searchDoctorsByEmbedding(
       doctor: doctors,
       hospital: hospitals,
       department: departments,
-      embedding: doctorEmbeddings.embedding,
+      embedding: doctorEmbeddings.embeddingVector,
     })
     .from(doctorEmbeddings)
     .innerJoin(doctors, eq(doctorEmbeddings.doctorId, doctors.id))
@@ -222,7 +222,7 @@ export async function searchDoctorsByEmbedding(
       ? await rowsQuery.where(inArray(doctors.id, candidateDoctorIds))
       : await rowsQuery;
 
-  const ranked = rows
+  return rows
     .map(row => {
       const vector = parseEmbedding(row.embedding);
       if (!vector) return null;
@@ -248,8 +248,6 @@ export async function searchDoctorsByEmbedding(
     })
     .slice(0, limit)
     .map(({ doctor, hospital, department }) => ({ doctor, hospital, department }));
-
-  return ranked;
 }
 
 export async function listDoctorSpecialtyTagsByDoctorIds(doctorIds: number[]) {

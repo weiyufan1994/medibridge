@@ -39,6 +39,29 @@ describe("validateRequiredArtifacts", () => {
     ).toThrow("Missing required indexes: doctorAccountInvitesTokenHashUk");
   });
 
+  it("fails when scheduling artifacts are missing", () => {
+    expect(() =>
+      validateRequiredArtifacts({
+        tableNames: REQUIRED_TABLES.filter(name => name !== "doctor_slots"),
+        indexNames: REQUIRED_INDEXES,
+        columns: REQUIRED_COLUMNS,
+      })
+    ).toThrow("Missing required tables: doctor_slots");
+  });
+
+  it("fails when appointment slot linkage is missing", () => {
+    expect(() =>
+      validateRequiredArtifacts({
+        tableNames: REQUIRED_TABLES,
+        indexNames: REQUIRED_INDEXES,
+        columns: REQUIRED_COLUMNS.filter(
+          column =>
+            column.tableName !== "appointments" || column.columnName !== "slotId"
+        ),
+      })
+    ).toThrow("Missing required columns: appointments.slotId");
+  });
+
   it("fails when referral fulfillment columns are missing", () => {
     expect(() =>
       validateRequiredArtifacts({

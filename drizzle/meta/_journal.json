@@ -18,55 +18,69 @@
     },
     {
       "idx": 2,
+      "tag": "0002_enable_pgvector_for_doctor_embeddings",
+      "version": "7",
+      "when": 1773561600000,
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "tag": "0003_finalize_doctor_embeddings_pgvector",
+      "version": "7",
+      "when": 1773563200000,
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
       "tag": "0002_stream_b_triage_safety_and_knowledge",
       "version": "7",
       "when": 1773627600000,
       "breakpoints": true
     },
     {
-      "idx": 3,
+      "idx": 5,
       "tag": "0003_stream_a_scheduling_slots",
       "version": "7",
       "when": 1773628200000,
       "breakpoints": true
     },
     {
-      "idx": 4,
+      "idx": 6,
       "tag": "0004_doctor_account_invites_and_bindings",
       "version": "7",
       "when": 1773651000000,
       "breakpoints": true
     },
     {
-      "idx": 5,
+      "idx": 7,
       "version": "7",
       "when": 1775101994306,
       "tag": "0005_hospital_reference_rankings",
       "breakpoints": true
     },
     {
-      "idx": 6,
+      "idx": 8,
       "version": "7",
       "when": 1775902285376,
       "tag": "0006_equal_scarlet_witch",
       "breakpoints": true
     },
     {
-      "idx": 7,
+      "idx": 9,
       "tag": "0007_referral_orders_contact_nullable",
       "version": "7",
       "when": 1775919522514,
       "breakpoints": true
     },
     {
-      "idx": 8,
+      "idx": 10,
       "tag": "0008_referral_order_snapshot_manual_fulfillment",
       "version": "7",
       "when": 1775925696904,
       "breakpoints": true
     },
     {
-      "idx": 9,
+      "idx": 11,
       "version": "7",
       "when": 1785257778627,
       "tag": "0009_uneven_mystique",

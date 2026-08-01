@@ -122,6 +122,75 @@ async function verify() {
       columns: columnRows.rows,
     });
 
+    const vectorExtensionRows = await pool.query<{ extname: string }>(
+      `select extname
+       from pg_extension
+       where extname = 'vector'
+       limit 1`
+    );
+    if (vectorExtensionRows.rows.length === 0) {
+      throw new Error("Missing required PostgreSQL extension: vector");
+    }
+
+    const embeddingVectorColumnRows = await pool.query<{ columnName: string }>(
+      `select column_name as "columnName"
+       from information_schema.columns
+       where table_schema = current_schema()
+         and table_name = 'doctorEmbeddings'
+         and column_name = 'embeddingVector'
+       limit 1`
+    );
+    if (embeddingVectorColumnRows.rows.length === 0) {
+      throw new Error("Missing required column: doctorEmbeddings.embeddingVector");
+    }
+
+    const embeddingModelColumnRows = await pool.query<{ columnName: string }>(
+      `select column_name as "columnName"
+       from information_schema.columns
+       where table_schema = current_schema()
+         and table_name = 'doctorEmbeddings'
+         and column_name = 'embeddingModel'
+       limit 1`
+    );
+    if (embeddingModelColumnRows.rows.length === 0) {
+      throw new Error("Missing required column: doctorEmbeddings.embeddingModel");
+    }
+
+    const embeddingDimensionsColumnRows = await pool.query<{ columnName: string }>(
+      `select column_name as "columnName"
+       from information_schema.columns
+       where table_schema = current_schema()
+         and table_name = 'doctorEmbeddings'
+         and column_name = 'embeddingDimensions'
+       limit 1`
+    );
+    if (embeddingDimensionsColumnRows.rows.length === 0) {
+      throw new Error("Missing required column: doctorEmbeddings.embeddingDimensions");
+    }
+
+    const legacyEmbeddingColumnRows = await pool.query<{ columnName: string }>(
+      `select column_name as "columnName"
+       from information_schema.columns
+       where table_schema = current_schema()
+         and table_name = 'doctorEmbeddings'
+         and column_name = 'embedding'
+       limit 1`
+    );
+    if (legacyEmbeddingColumnRows.rows.length > 0) {
+      throw new Error("Legacy column still present: doctorEmbeddings.embedding");
+    }
+
+    const vectorIndexRows = await pool.query<{ indexName: string }>(
+      `select indexname as "indexName"
+       from pg_indexes
+       where schemaname = current_schema()
+         and tablename = 'doctorEmbeddings'
+         and indexname = 'doctorEmbeddingsVectorIdx'`
+    );
+    if (vectorIndexRows.rows.length === 0) {
+      throw new Error("Missing required index: doctorEmbeddingsVectorIdx");
+    }
+
     const retentionRows = await pool.query<{ count: string }>(
       "select count(*) as count from visit_retention_policies"
     );
@@ -137,7 +206,7 @@ async function verify() {
         "- warning: __drizzle_migrations count is behind local journal, but required schema artifacts exist."
       );
     }
-    console.log("- required tables/index/columns: present");
+    console.log("- required tables/index/columns/extensions: present");
     console.log(`- retention policies rows: ${retentionCount}`);
     console.log(`- required tags: ${Array.from(requiredTagSet).join(", ")}`);
     if (migrationDrift) {
