@@ -1,4 +1,7 @@
-import type { VisitMessageItem, VisitParticipantRole } from "@/features/visit/types";
+import type {
+  VisitMessageItem,
+  VisitParticipantRole,
+} from "@/features/visit/types";
 import type { ResolvedLanguage } from "@/contexts/LanguageContext";
 import { MISSING_TRANSLATION } from "@/lib/i18n";
 
@@ -179,7 +182,9 @@ export function getVisitMessageDisplayLines(
         (isEnglishSafeMessageLine(original) ? original : null) ??
         MISSING_TRANSLATION;
       const secondary =
-        original !== primary && CJK_TEXT_PATTERN.test(original) ? original : null;
+        original !== primary && CJK_TEXT_PATTERN.test(original)
+          ? original
+          : null;
 
       return {
         primary,
@@ -189,13 +194,9 @@ export function getVisitMessageDisplayLines(
     },
     zh: () => {
       const hasMeaningfulTranslation =
-        translated.trim() &&
-        translated.trim() !== original.trim();
+        translated.trim() && translated.trim() !== original.trim();
 
-      if (
-        !hasMeaningfulTranslation ||
-        targetLanguage !== resolved
-      ) {
+      if (!hasMeaningfulTranslation || targetLanguage !== resolved) {
         return {
           primary: original,
           secondary: null,
@@ -214,15 +215,15 @@ export function getVisitMessageDisplayLines(
   return displayLinesByLanguage[resolved]();
 }
 
-export function flattenHistoryPages(pages: RoomMessagesPage[]): VisitMessageItem[] {
-  return [...pages]
-    .reverse()
-    .flatMap(page =>
-      page.messages.map(message => ({
-        ...message,
-        createdAt: toDate(message.createdAt),
-      }))
-    );
+export function flattenHistoryPages(
+  pages: RoomMessagesPage[]
+): VisitMessageItem[] {
+  return [...pages].reverse().flatMap(page =>
+    page.messages.map(message => ({
+      ...message,
+      createdAt: toDate(message.createdAt),
+    }))
+  );
 }
 
 export function isFatalCode(code: string) {

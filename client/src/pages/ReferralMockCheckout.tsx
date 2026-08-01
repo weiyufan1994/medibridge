@@ -20,23 +20,26 @@ export default function ReferralMockCheckoutPage() {
   const lang = resolved as "en" | "zh";
   const copy = getReferralCopy(lang);
   const [, setLocation] = useLocation();
-  const [, params] = useRoute<{ orderId: string }>("/referrals/mock-checkout/:orderId");
+  const [, params] = useRoute<{ orderId: string }>(
+    "/referrals/mock-checkout/:orderId"
+  );
   const orderId = parsePositiveNumberParam(params?.orderId);
   const mockCheckoutEnabled = isReferralMockCheckoutEnabled();
 
-  const confirmMockPaymentMutation = trpc.referrals.confirmMockPayment.useMutation({
-    onSuccess: result => {
-      if (typeof window !== "undefined") {
-        window.location.href = buildReferralPaymentSuccessHref({
-          orderId: result.orderId,
-          paymentSessionId: result.paymentSessionId,
-        });
-      }
-    },
-    onError: error => {
-      toast.error(error.message || copy.payment.paymentFailed);
-    },
-  });
+  const confirmMockPaymentMutation =
+    trpc.referrals.confirmMockPayment.useMutation({
+      onSuccess: result => {
+        if (typeof window !== "undefined") {
+          window.location.href = buildReferralPaymentSuccessHref({
+            orderId: result.orderId,
+            paymentSessionId: result.paymentSessionId,
+          });
+        }
+      },
+      onError: error => {
+        toast.error(error.message || copy.payment.paymentFailed);
+      },
+    });
 
   if (!orderId) {
     return (
@@ -61,7 +64,9 @@ export default function ReferralMockCheckoutPage() {
         <div className="mx-auto w-full max-w-2xl space-y-4 px-4 py-6 sm:px-6">
           <Card className="rounded-3xl border-slate-200/80">
             <CardHeader>
-              <CardTitle className="text-2xl">{copy.payment.mockTitle}</CardTitle>
+              <CardTitle className="text-2xl">
+                {copy.payment.mockTitle}
+              </CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
               {copy.payment.mockDisabled}

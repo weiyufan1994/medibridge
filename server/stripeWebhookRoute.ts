@@ -18,7 +18,11 @@ import {
 } from "./modules/referrals/paymentSettlement";
 import { finalizeReferralRefund } from "./modules/referrals/refunds";
 
-function sendJson(res: Response, status: number, payload: Record<string, unknown>) {
+function sendJson(
+  res: Response,
+  status: number,
+  payload: Record<string, unknown>
+) {
   res.status(status).setHeader("content-type", "application/json");
   res.send(JSON.stringify(payload));
 }
@@ -48,13 +52,18 @@ async function recordStripeWebhookFailure(input: {
       dbExecutor: db,
     });
   } catch (error) {
-    console.warn("[StripeWebhook] failed to persist webhook failure audit:", error);
+    console.warn(
+      "[StripeWebhook] failed to persist webhook failure audit:",
+      error
+    );
   }
 }
 
 function classifyWebhookError(error: unknown): string {
   const message =
-    error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+    error instanceof Error
+      ? error.message.toLowerCase()
+      : String(error).toLowerCase();
   if (message.includes("stripe-signature")) {
     return "signature_invalid";
   }
@@ -99,9 +108,13 @@ export async function handleStripeWebhook(req: Request, res: Response) {
         ? (object.metadata as Record<string, unknown>)
         : {};
     const metadataStripeSessionId =
-      typeof metadata.stripeSessionId === "string" ? metadata.stripeSessionId.trim() : null;
+      typeof metadata.stripeSessionId === "string"
+        ? metadata.stripeSessionId.trim()
+        : null;
     const nestedCheckoutSessionId =
-      typeof object.checkout_session === "string" ? object.checkout_session.trim() : null;
+      typeof object.checkout_session === "string"
+        ? object.checkout_session.trim()
+        : null;
     const stripeSessionId =
       event.type === "checkout.session.completed" ||
       event.type === "checkout.session.async_payment_succeeded" ||
@@ -133,7 +146,7 @@ export async function handleStripeWebhook(req: Request, res: Response) {
       object.refunds &&
       typeof object.refunds === "object" &&
       Array.isArray((object.refunds as { data?: unknown }).data)
-        ? ((object.refunds as { data: unknown[] }).data)
+        ? (object.refunds as { data: unknown[] }).data
         : [];
     const chargeRefundId =
       nestedRefunds.length > 0 &&
@@ -204,10 +217,7 @@ export async function handleStripeWebhook(req: Request, res: Response) {
       await recordStripeWebhookFailure({
         type: "webhook_error_missing_session_id",
         stripeSessionId: null,
-        payloadHash: crypto
-          .createHash("sha256")
-          .update(rawBody)
-          .digest("hex"),
+        payloadHash: crypto.createHash("sha256").update(rawBody).digest("hex"),
         error: "checkout.session.completed missing session id",
       });
       return sendJson(res, 400, {
@@ -230,10 +240,11 @@ export async function handleStripeWebhook(req: Request, res: Response) {
     await db.transaction(async tx => {
       let appointmentId: number | null = appointmentIdFromMetadata;
       if (stripeSessionId && !isReferralCheckout) {
-        const appointment = await appointmentsRepo.getAppointmentByStripeSessionId(
-          stripeSessionId,
-          tx
-        );
+        const appointment =
+          await appointmentsRepo.getAppointmentByStripeSessionId(
+            stripeSessionId,
+            tx
+          );
         appointmentId = appointment?.id ?? null;
       }
 
@@ -248,7 +259,7 @@ export async function handleStripeWebhook(req: Request, res: Response) {
             ? "referral_order"
             : metadataResourceType,
           resourceId: isReferralCheckout
-            ? referralOrderBySession?.id ?? metadataResourceId
+            ? (referralOrderBySession?.id ?? metadataResourceId)
             : metadataResourceId,
           payloadHash,
           dbExecutor: tx,
@@ -304,18 +315,23 @@ export async function handleStripeWebhook(req: Request, res: Response) {
           }
           return;
         }
-        const expired = await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
-          stripeSessionId,
-          allowedFrom: ["pending_payment"],
-          toStatus: "expired",
-          toPaymentStatus: "expired",
-          operatorType: "webhook",
-          reason: "checkout_session_expired",
-          payloadJson: { eventId: event.id },
-          dbExecutor: tx,
-        });
+        const expired =
+          await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
+            stripeSessionId,
+            allowedFrom: ["pending_payment"],
+            toStatus: "expired",
+            toPaymentStatus: "expired",
+            operatorType: "webhook",
+            reason: "checkout_session_expired",
+            payloadJson: { eventId: event.id },
+            dbExecutor: tx,
+          });
         if (expired.ok) {
-          const appointment = await appointmentsRepo.getAppointmentByStripeSessionId(stripeSessionId, tx);
+          const appointment =
+            await appointmentsRepo.getAppointmentByStripeSessionId(
+              stripeSessionId,
+              tx
+            );
           if (appointment) {
             await schedulingRepo.releaseHeldSlotByAppointmentId({
               appointmentId: appointment.id,
@@ -406,20 +422,21 @@ export async function handleStripeWebhook(req: Request, res: Response) {
           return;
         }
 
-        const transitioned = await appointmentsRepo.tryTransitionAppointmentById({
-          appointmentId: targetAppointment,
-          allowedFrom: ["paid", "active", "ended", "completed"],
-          toStatus: "refunded",
-          toPaymentStatus: "refunded",
-          operatorType: "webhook",
-          reason: "payment_refunded",
-          payloadJson: {
-            stripeSessionId: stripeSessionId ?? null,
-            eventId: event.id,
-            eventType: event.type,
-          },
-          dbExecutor: tx,
-        });
+        const transitioned =
+          await appointmentsRepo.tryTransitionAppointmentById({
+            appointmentId: targetAppointment,
+            allowedFrom: ["paid", "active", "ended", "completed"],
+            toStatus: "refunded",
+            toPaymentStatus: "refunded",
+            operatorType: "webhook",
+            reason: "payment_refunded",
+            payloadJson: {
+              stripeSessionId: stripeSessionId ?? null,
+              eventId: event.id,
+              eventType: event.type,
+            },
+            dbExecutor: tx,
+          });
         if (!transitioned.ok && transitioned.reason === "illegal_transition") {
           throw new Error(APPOINTMENT_INVALID_TRANSITION_ERROR);
         }

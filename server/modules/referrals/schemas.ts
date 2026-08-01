@@ -61,7 +61,7 @@ const rankedHospitalSelectionInputFields = {
 } as const;
 
 function withRankedHospitalSelectionConstraint<
-  T extends z.ZodObject<typeof rankedHospitalSelectionInputFields>
+  T extends z.ZodObject<typeof rankedHospitalSelectionInputFields>,
 >(schema: T) {
   return schema.refine(
     value =>
@@ -74,9 +74,10 @@ function withRankedHospitalSelectionConstraint<
   );
 }
 
-export const getSelectionContextInputSchema = withRankedHospitalSelectionConstraint(
-  z.object(rankedHospitalSelectionInputFields)
-);
+export const getSelectionContextInputSchema =
+  withRankedHospitalSelectionConstraint(
+    z.object(rankedHospitalSelectionInputFields)
+  );
 
 export const referralHospitalSchema = z.object({
   id: z.number().int().positive(),
@@ -134,16 +135,17 @@ export const selectionContextOutputSchema = z.object({
   contacts: z.array(referralContactSchema),
 });
 
-export const createOrderDraftInputSchema = withRankedHospitalSelectionConstraint(
-  z.object({
-    ...rankedHospitalSelectionInputFields,
-    contactId: z.number().int().positive().optional(),
-    clientRequestId: z.string().uuid(),
-    agreementAccepted: z.literal(true),
-    agreementVersion: z.string().trim().min(1).max(32),
-    agreementLang: z.enum(["zh", "en"]),
-  })
-);
+export const createOrderDraftInputSchema =
+  withRankedHospitalSelectionConstraint(
+    z.object({
+      ...rankedHospitalSelectionInputFields,
+      contactId: z.number().int().positive().optional(),
+      clientRequestId: z.string().uuid(),
+      agreementAccepted: z.literal(true),
+      agreementVersion: z.string().trim().min(1).max(32),
+      agreementLang: z.enum(["zh", "en"]),
+    })
+  );
 
 export const referralOrderSummarySchema = z.object({
   id: z.number().int().positive(),
@@ -278,24 +280,25 @@ export const referralOrderDetailOutputSchema = z.object({
   refundRequest: refundRequestSchema.nullable(),
 });
 
-export const adminReferralOrderDetailOutputSchema = referralOrderDetailOutputSchema.extend({
-  patient: z.object({
-    id: z.number().int().positive(),
-    email: z.string().email().nullable(),
-    role: z.string().nullable(),
-  }),
-  notificationFailures: z.array(
-    z.object({
+export const adminReferralOrderDetailOutputSchema =
+  referralOrderDetailOutputSchema.extend({
+    patient: z.object({
       id: z.number().int().positive(),
-      eventType: z.string(),
-      recipientType: z.enum(["patient", "ops"]),
-      recipient: z.string(),
-      attemptCount: z.number().int().nonnegative(),
-      lastError: z.string().nullable(),
-      updatedAt: z.date(),
-    })
-  ),
-});
+      email: z.string().email().nullable(),
+      role: z.string().nullable(),
+    }),
+    notificationFailures: z.array(
+      z.object({
+        id: z.number().int().positive(),
+        eventType: z.string(),
+        recipientType: z.enum(["patient", "ops"]),
+        recipient: z.string(),
+        attemptCount: z.number().int().nonnegative(),
+        lastError: z.string().nullable(),
+        updatedAt: z.date(),
+      })
+    ),
+  });
 
 export const listOrdersInputSchema = z.object({
   page: z.number().int().min(1).optional().default(1),
@@ -459,8 +462,12 @@ export const updateContactActiveInputSchema = z.object({
 });
 
 export const listReferralContactsOutputSchema = z.array(referralContactSchema);
-export const listReferralHospitalsOutputSchema = z.array(referralHospitalSchema);
-export const listReferralDepartmentsOutputSchema = z.array(referralDepartmentSchema);
+export const listReferralHospitalsOutputSchema = z.array(
+  referralHospitalSchema
+);
+export const listReferralDepartmentsOutputSchema = z.array(
+  referralDepartmentSchema
+);
 
 export const assignableAgentSchema = z.object({
   id: z.number().int().positive(),

@@ -6,7 +6,10 @@ import {
   getAppointmentByIdOrThrow,
   getSessionEmailFromContext,
 } from "./accessValidation";
-import { localizeTriageContent, parseIntakeFromNotes } from "./accessQueryActions";
+import {
+  localizeTriageContent,
+  parseIntakeFromNotes,
+} from "./accessQueryActions";
 import { resolveConsultationTimerState } from "./consultationTimer";
 import {
   classifyMyAppointments,
@@ -32,7 +35,9 @@ export async function listMineAppointments(input: {
 export async function listMyAppointmentsByContext(ctx: TrpcContext) {
   const userEmail = ctx.user?.email?.trim().toLowerCase();
 
-  let rows: Awaited<ReturnType<typeof appointmentsRepo.listAppointmentsByEmail>> = [];
+  let rows: Awaited<
+    ReturnType<typeof appointmentsRepo.listAppointmentsByEmail>
+  > = [];
   if (ctx.user) {
     rows = await appointmentsRepo.listAppointmentsByUserOrEmail({
       userId: ctx.user.id,
@@ -91,7 +96,10 @@ function canDoctorStartAppointment(status: string, paymentStatus: string) {
 }
 
 function canDoctorOpenRoom(status: string, paymentStatus: string) {
-  return paymentStatus === "paid" && ["paid", "active", "ended", "completed"].includes(status);
+  return (
+    paymentStatus === "paid" &&
+    ["paid", "active", "ended", "completed"].includes(status)
+  );
 }
 
 function canDoctorCompleteAppointment(status: string, paymentStatus: string) {
@@ -138,12 +146,18 @@ export async function listDoctorWorkbenchAppointments(input: {
   return {
     upcoming: items.filter(item => {
       const scheduledAt = item.scheduledAt?.getTime() ?? 0;
-      return scheduledAt >= now && ["pending_payment", "paid", "active"].includes(item.status);
+      return (
+        scheduledAt >= now &&
+        ["pending_payment", "paid", "active"].includes(item.status)
+      );
     }),
     recent: items
       .filter(item => {
         const scheduledAt = item.scheduledAt?.getTime() ?? 0;
-        return scheduledAt < now || ["ended", "completed", "canceled", "expired"].includes(item.status);
+        return (
+          scheduledAt < now ||
+          ["ended", "completed", "canceled", "expired"].includes(item.status)
+        );
       })
       .slice(0, 10),
   };
@@ -167,7 +181,9 @@ export async function getDoctorWorkbenchAppointmentDetail(input: {
     appointmentDoctorId: appointment.doctorId,
   });
 
-  const triageSession = await aiRepo.getAiChatSessionById(appointment.triageSessionId);
+  const triageSession = await aiRepo.getAiChatSessionById(
+    appointment.triageSessionId
+  );
   const intake = parseIntakeFromNotes(appointment.notes, value =>
     appointmentIntakeSchema.safeParse(value)
   );
@@ -176,7 +192,8 @@ export async function getDoctorWorkbenchAppointmentDetail(input: {
     intake,
     targetLang: input.lang,
   });
-  const medicalSummary = await appointmentsRepo.getMedicalSummaryByAppointmentId(appointment.id);
+  const medicalSummary =
+    await appointmentsRepo.getMedicalSummaryByAppointmentId(appointment.id);
   const timer = resolveConsultationTimerState(appointment.notes);
 
   return {
@@ -204,8 +221,14 @@ export async function getDoctorWorkbenchAppointmentDetail(input: {
     consultationDurationMinutes: timer.baseDurationMinutes,
     consultationExtensionMinutes: timer.extensionMinutes,
     consultationTotalMinutes: timer.totalDurationMinutes,
-    canStartConsultation: canDoctorStartAppointment(appointment.status, appointment.paymentStatus),
-    canOpenRoom: canDoctorOpenRoom(appointment.status, appointment.paymentStatus),
+    canStartConsultation: canDoctorStartAppointment(
+      appointment.status,
+      appointment.paymentStatus
+    ),
+    canOpenRoom: canDoctorOpenRoom(
+      appointment.status,
+      appointment.paymentStatus
+    ),
     canCompleteConsultation: canDoctorCompleteAppointment(
       appointment.status,
       appointment.paymentStatus

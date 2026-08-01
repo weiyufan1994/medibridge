@@ -9,9 +9,7 @@ function getSessionIdFromQuery() {
     return "";
   }
   const params = new URLSearchParams(window.location.search);
-  return (
-    params.get("session_id")?.trim() || params.get("token")?.trim() || ""
-  );
+  return params.get("session_id")?.trim() || params.get("token")?.trim() || "";
 }
 
 export default function PaymentCancelPage() {
@@ -25,16 +23,17 @@ export default function PaymentCancelPage() {
     }
   );
 
-  const retryMutation = trpc.payments.createCheckoutSessionForAppointment.useMutation({
-    onSuccess: result => {
-      if (typeof window !== "undefined") {
-        window.location.href = result.checkoutSessionUrl;
-      }
-    },
-    onError: error => {
-      toast.error(error.message || "Failed to restart checkout.");
-    },
-  });
+  const retryMutation =
+    trpc.payments.createCheckoutSessionForAppointment.useMutation({
+      onSuccess: result => {
+        if (typeof window !== "undefined") {
+          window.location.href = result.checkoutSessionUrl;
+        }
+      },
+      onError: error => {
+        toast.error(error.message || "Failed to restart checkout.");
+      },
+    });
 
   const canRetry = Boolean(checkoutResultQuery.data?.appointmentId);
 

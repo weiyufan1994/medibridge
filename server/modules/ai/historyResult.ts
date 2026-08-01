@@ -68,7 +68,9 @@ export const historicalTriageResultSchema = z.object({
     .optional(),
 });
 
-export type HistoricalTriageResult = z.infer<typeof historicalTriageResultSchema>;
+export type HistoricalTriageResult = z.infer<
+  typeof historicalTriageResultSchema
+>;
 
 const normalizeText = (value: string | null | undefined) => value?.trim() ?? "";
 

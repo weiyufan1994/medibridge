@@ -70,7 +70,9 @@ function buildDevelopmentCheckout(input: StripeCheckoutInput): CheckoutSession {
   const url = configuredCheckoutBase
     ? `${configuredCheckoutBase.replace(/\/$/, "")}/${id}`
     : (() => {
-        const successUrlWithSessionId = input.successUrl.includes("{CHECKOUT_SESSION_ID}")
+        const successUrlWithSessionId = input.successUrl.includes(
+          "{CHECKOUT_SESSION_ID}"
+        )
           ? input.successUrl.replace("{CHECKOUT_SESSION_ID}", id)
           : input.successUrl;
         const urlObj = new URL(successUrlWithSessionId);
@@ -179,7 +181,9 @@ export function verifyStripeWebhookSignature(input: {
     throw new Error("Missing Stripe-Signature header");
   }
 
-  const { timestamp, signatures } = parseStripeSignatureHeader(input.signatureHeader);
+  const { timestamp, signatures } = parseStripeSignatureHeader(
+    input.signatureHeader
+  );
   if (!timestamp || signatures.length === 0) {
     throw new Error("Invalid Stripe-Signature header");
   }
@@ -190,7 +194,9 @@ export function verifyStripeWebhookSignature(input: {
     throw new Error("Invalid Stripe signature timestamp");
   }
 
-  if (Math.abs(nowSeconds - signedAtSeconds) > STRIPE_SIGNATURE_TOLERANCE_SECONDS) {
+  if (
+    Math.abs(nowSeconds - signedAtSeconds) > STRIPE_SIGNATURE_TOLERANCE_SECONDS
+  ) {
     throw new Error("Stripe signature timestamp is out of tolerance");
   }
 
@@ -226,18 +232,23 @@ export function parseStripeWebhookEvent(rawBody: Buffer): StripeWebhookEvent {
   return payload;
 }
 
-export function extractSessionIdFromWebhookEvent(event: StripeWebhookEvent): string | null {
+export function extractSessionIdFromWebhookEvent(
+  event: StripeWebhookEvent
+): string | null {
   const metadata =
     event.data.object?.metadata &&
     typeof event.data.object.metadata === "object"
       ? (event.data.object.metadata as Record<string, unknown>)
       : {};
   const directObjectId =
-    typeof event.data.object.id === "string" && event.data.object.id.trim().length > 0
+    typeof event.data.object.id === "string" &&
+    event.data.object.id.trim().length > 0
       ? event.data.object.id.trim()
       : null;
   const metadataSessionId =
-    typeof metadata.stripeSessionId === "string" ? metadata.stripeSessionId.trim() : null;
+    typeof metadata.stripeSessionId === "string"
+      ? metadata.stripeSessionId.trim()
+      : null;
   const nestedCheckoutSessionId =
     typeof event.data.object.checkout_session === "string"
       ? event.data.object.checkout_session.trim()
@@ -275,13 +286,16 @@ export async function captureOrFinalizeStripeSession(input: {
       timeout: 12_000,
     }
   );
-  const paymentStatus = String(response.data?.payment_status || "").toLowerCase();
+  const paymentStatus = String(
+    response.data?.payment_status || ""
+  ).toLowerCase();
   const transactionId = String(response.data?.payment_intent || "").trim();
   return {
     provider: STRIPE_PROVIDER,
     providerSessionId: input.providerSessionId,
     providerTransactionId: transactionId || null,
-    paymentStatus: paymentStatus === "paid" ? ("paid" as const) : ("unpaid" as const),
+    paymentStatus:
+      paymentStatus === "paid" ? ("paid" as const) : ("unpaid" as const),
   };
 }
 
@@ -341,7 +355,8 @@ export async function refundStripePayment(input: {
   return {
     provider: STRIPE_PROVIDER,
     providerRefundId: refundId,
-    status: status === "succeeded" ? ("succeeded" as const) : ("pending" as const),
+    status:
+      status === "succeeded" ? ("succeeded" as const) : ("pending" as const),
   };
 }
 

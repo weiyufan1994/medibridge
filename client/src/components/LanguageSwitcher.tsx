@@ -16,7 +16,10 @@ export default function LanguageSwitcher() {
   const { mode, setMode } = useLanguage();
 
   return (
-    <Select value={mode} onValueChange={(value) => setMode(value as LanguageMode)}>
+    <Select
+      value={mode}
+      onValueChange={value => setMode(value as LanguageMode)}
+    >
       <SelectTrigger
         size="sm"
         aria-label="Switch language / 切换语言"

@@ -160,7 +160,7 @@ ${TRIAGE_TEMPLATE_GUIDANCE_EN}`;
 const TRIAGE_FALLBACK_REPLY_ZH =
   "如果方便，请先告诉我年龄和性别。然后我们按 4 个问题来：1. 现在最主要的不适是什么，具体在哪个部位？2. 这个症状出现多久了，是突然发生还是逐渐加重/反复发作？3. 这次不适和外伤或近期手术有没有关系？4. 有没有需要特别注意的基础疾病，比如糖尿病、高血压或心脏病、免疫系统疾病或肿瘤？没有可直接写“无”。";
 const TRIAGE_FALLBACK_REPLY_EN =
-  "If you are comfortable, please start with your age and gender. Then let's go through 4 quick questions: 1. What is the main symptom, and where is it located? 2. How long has it been happening, and did it start suddenly or gradually? 3. Is it related to any recent injury or surgery? 4. Do you have any important underlying conditions, such as diabetes, high blood pressure, heart disease, immune disorders, or cancer? If something does not apply, write \"none\".";
+  'If you are comfortable, please start with your age and gender. Then let\'s go through 4 quick questions: 1. What is the main symptom, and where is it located? 2. How long has it been happening, and did it start suddenly or gradually? 3. Is it related to any recent injury or surgery? 4. Do you have any important underlying conditions, such as diabetes, high blood pressure, heart disease, immune disorders, or cancer? If something does not apply, write "none".';
 
 const extractAssistantText = (
   content: InvokeResult["choices"][number]["message"]["content"] | undefined

@@ -1,5 +1,10 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import { doctors, doctorEmbeddings, hospitals, departments } from "../drizzle/schema.ts";
+import {
+  doctors,
+  doctorEmbeddings,
+  hospitals,
+  departments,
+} from "../drizzle/schema.ts";
 import { eq } from "drizzle-orm";
 import axios from "axios";
 import "../server/_core/loadEnv.ts";
@@ -67,16 +72,16 @@ async function generateEmbedding(text) {
       `${LLM_API_URL.replace(/\/$/, "")}/v1/embeddings`,
       {
         input: text,
-        model: EMBEDDING_MODEL
+        model: EMBEDDING_MODEL,
       },
       {
         headers: {
-          "Authorization": `Bearer ${LLM_API_KEY}`,
-          "Content-Type": "application/json"
-        }
+          Authorization: `Bearer ${LLM_API_KEY}`,
+          "Content-Type": "application/json",
+        },
       }
     );
-    
+
     const embedding = response.data.data[0].embedding;
     if (!isFiniteEmbedding(embedding)) {
       throw new Error(
@@ -88,7 +93,10 @@ async function generateEmbedding(text) {
 
     return embedding;
   } catch (error) {
-    console.error("Error generating embedding:", error.response?.data || error.message);
+    console.error(
+      "Error generating embedding:",
+      error.response?.data || error.message
+    );
     throw error;
   }
 }
@@ -132,12 +140,12 @@ async function vectorizeDoctors() {
   console.log("Starting doctor vectorization...");
   console.log(`Embedding model: ${EMBEDDING_MODEL}`);
   console.log(JSON.stringify({ refreshExisting, targetDoctorId }));
-  
+
   let query = db
     .select({
       doctor: doctors,
       hospital: hospitals,
-      department: departments
+      department: departments,
     })
     .from(doctors)
     .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
@@ -148,16 +156,16 @@ async function vectorizeDoctors() {
   }
 
   const allDoctors = await query;
-  
+
   console.log(`Found ${allDoctors.length} doctors to vectorize`);
-  
+
   let processed = 0;
   let skipped = 0;
   let errors = 0;
-  
+
   for (const row of allDoctors) {
     const { doctor, hospital, department } = row;
-    
+
     try {
       // Check if embedding already exists
       const existing = await db
@@ -165,7 +173,7 @@ async function vectorizeDoctors() {
         .from(doctorEmbeddings)
         .where(eq(doctorEmbeddings.doctorId, doctor.id))
         .limit(1);
-      
+
       if (existing.length > 0 && !refreshExisting) {
         skipped++;
         if (skipped % 100 === 0) {
@@ -173,13 +181,13 @@ async function vectorizeDoctors() {
         }
         continue;
       }
-      
+
       // Build text for embedding
       const content = buildDoctorText(doctor, hospital, department);
-      
+
       // Generate embedding
       const embedding = await generateEmbedding(content);
-      
+
       await db
         .insert(doctorEmbeddings)
         .values({
@@ -199,29 +207,33 @@ async function vectorizeDoctors() {
             updatedAt: new Date(),
           },
         });
-      
+
       processed++;
-      
+
       if (processed % 10 === 0) {
-        console.log(`  Processed ${processed}/${allDoctors.length - skipped} doctors...`);
+        console.log(
+          `  Processed ${processed}/${allDoctors.length - skipped} doctors...`
+        );
       }
-      
+
       // Rate limiting: small delay between requests
       await new Promise(resolve => setTimeout(resolve, 100));
-      
     } catch (error) {
-      console.error(`  Error processing doctor ${doctor.id} (${doctor.name}):`, error.message);
+      console.error(
+        `  Error processing doctor ${doctor.id} (${doctor.name}):`,
+        error.message
+      );
       errors++;
     }
   }
-  
+
   console.log("\n=== Vectorization Summary ===");
   console.log(`Total doctors: ${allDoctors.length}`);
   console.log(`Processed: ${processed}`);
   console.log(`Skipped (already exists): ${skipped}`);
   console.log(`Errors: ${errors}`);
   console.log("Vectorization completed!");
-  
+
   await pool.end();
 }
 

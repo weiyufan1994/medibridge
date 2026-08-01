@@ -98,7 +98,9 @@ describe("useVisits helpers", () => {
     const flattened = flattenHistoryPages(pages);
 
     expect(flattened.map(message => message.id)).toEqual([2, 1, 3]);
-    expect(flattened.every(message => message.createdAt instanceof Date)).toBe(true);
+    expect(flattened.every(message => message.createdAt instanceof Date)).toBe(
+      true
+    );
   });
 
   it("normalizeRealtimeMessage maps translated/original fields with fallbacks", () => {

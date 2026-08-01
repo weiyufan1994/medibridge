@@ -43,9 +43,7 @@ describe("referral admin task presentation", () => {
   it("formats active wait time without exposing raw minute totals", () => {
     expect(formatReferralWaitingDuration(17, "en")).toBe("17 min");
     expect(formatReferralWaitingDuration(138, "zh")).toBe("2小时 18分钟");
-    expect(formatReferralWaitingDuration(157_318, "en")).toBe(
-      "109 days 5 hr"
-    );
+    expect(formatReferralWaitingDuration(157_318, "en")).toBe("109 days 5 hr");
     expect(shouldShowReferralWaitDuration("contacting")).toBe(true);
     expect(shouldShowReferralWaitDuration("completed")).toBe(false);
     expect(shouldShowReferralWaitDuration("refunded")).toBe(false);

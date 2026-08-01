@@ -5,10 +5,7 @@ import {
   toPublicLocalizedDoctorSearchResult,
   type PublicLocalizedDoctorRecommendation,
 } from "./presentation";
-import {
-  deriveDoctorSpecialtyTags,
-  type DoctorSpecialtyTag,
-} from "./taxonomy";
+import { deriveDoctorSpecialtyTags, type DoctorSpecialtyTag } from "./taxonomy";
 import type {
   GetDoctorByIdInput,
   GetDoctorsByDepartmentInput,
@@ -23,7 +20,9 @@ type SpecialtyIntent = {
   normalizedTags: DoctorSpecialtyTag[];
 };
 
-type DoctorResult = Awaited<ReturnType<typeof doctorsRepo.searchDoctors>>[number];
+type DoctorResult = Awaited<
+  ReturnType<typeof doctorsRepo.searchDoctors>
+>[number];
 
 type RecommendationBuckets = {
   zhResults: DoctorResult[];
@@ -253,7 +252,17 @@ const SPECIALTY_INTENTS: SpecialtyIntent[] = [
   },
   {
     id: "dermatology",
-    triggerKeywords: ["皮肤", "皮疹", "湿疹", "瘙痒", "痘", "rash", "itch", "eczema", "dermat"],
+    triggerKeywords: [
+      "皮肤",
+      "皮疹",
+      "湿疹",
+      "瘙痒",
+      "痘",
+      "rash",
+      "itch",
+      "eczema",
+      "dermat",
+    ],
     departmentTerms: ["皮肤", "dermat"],
     normalizedTags: ["dermatology"],
   },
@@ -284,7 +293,8 @@ const buildDoctorSearchableText = (result: DoctorResult) =>
     result.hospital.nameEn,
   ]
     .filter(
-      (value): value is string => typeof value === "string" && value.trim().length > 0
+      (value): value is string =>
+        typeof value === "string" && value.trim().length > 0
     )
     .join(" ")
     .toLowerCase();
@@ -313,7 +323,9 @@ function detectSpecialtyIntents(input: string[]) {
     .join(" ");
 
   return SPECIALTY_INTENTS.filter(intent =>
-    intent.triggerKeywords.some(keyword => haystack.includes(keyword.toLowerCase()))
+    intent.triggerKeywords.some(keyword =>
+      haystack.includes(keyword.toLowerCase())
+    )
   );
 }
 
@@ -324,7 +336,10 @@ function isGeneralDepartment(result: DoctorResult) {
   );
 }
 
-function countIntentDepartmentMatches(result: DoctorResult, intents: SpecialtyIntent[]) {
+function countIntentDepartmentMatches(
+  result: DoctorResult,
+  intents: SpecialtyIntent[]
+) {
   if (intents.length === 0) {
     return 0;
   }
@@ -333,7 +348,9 @@ function countIntentDepartmentMatches(result: DoctorResult, intents: SpecialtyIn
   let matches = 0;
   for (const intent of intents) {
     if (
-      intent.departmentTerms.some(term => searchableText.includes(term.toLowerCase()))
+      intent.departmentTerms.some(term =>
+        searchableText.includes(term.toLowerCase())
+      )
     ) {
       matches += 1;
     }
@@ -349,9 +366,11 @@ function getIntentNormalizedTags(intents: SpecialtyIntent[]) {
 function getUniqueDoctorIdsFromBuckets(buckets: RecommendationBuckets) {
   return Array.from(
     new Set(
-      [...buckets.zhResults, ...buckets.enResults, ...buckets.vectorResults].map(
-        item => item.doctor.id
-      )
+      [
+        ...buckets.zhResults,
+        ...buckets.enResults,
+        ...buckets.vectorResults,
+      ].map(item => item.doctor.id)
     )
   );
 }
@@ -392,9 +411,13 @@ async function retrieveRecommendationBuckets(input: {
   if (input.semanticQuery.length > 0) {
     try {
       const queryEmbedding = await createEmbedding(input.semanticQuery);
-      vectorResults = await doctorsRepo.searchDoctorsByEmbedding(queryEmbedding, 20, {
-        candidateDoctorIds: input.candidateDoctorIds,
-      });
+      vectorResults = await doctorsRepo.searchDoctorsByEmbedding(
+        queryEmbedding,
+        20,
+        {
+          candidateDoctorIds: input.candidateDoctorIds,
+        }
+      );
     } catch (error) {
       console.warn("[Doctors] vector retrieval failed:", error);
     }
@@ -417,7 +440,10 @@ function parseYearsOfExperience(value: string | null | undefined) {
   return numericMatch ? Number(numericMatch[0]) : null;
 }
 
-function buildRecommendationReason(result: DoctorResult, keywordPool: string[]) {
+function buildRecommendationReason(
+  result: DoctorResult,
+  keywordPool: string[]
+) {
   const searchableText = [
     result.doctor.specialty,
     result.doctor.specialtyEn,
@@ -590,28 +616,35 @@ export async function recommendDoctors(input: RecommendDoctorsInput) {
     let candidateDoctorIds: number[] | undefined;
     let storedTagsByDoctorId = new Map<number, string[]>();
     if (matchedIntents.length > 0) {
-      recommendationCandidates = await doctorsRepo.listRecommendationCandidates();
-      storedTagsByDoctorId = await doctorsRepo.listDoctorSpecialtyTagsByDoctorIds(
-        recommendationCandidates.map(item => item.doctor.id)
-      );
+      recommendationCandidates =
+        await doctorsRepo.listRecommendationCandidates();
+      storedTagsByDoctorId =
+        await doctorsRepo.listDoctorSpecialtyTagsByDoctorIds(
+          recommendationCandidates.map(item => item.doctor.id)
+        );
 
-      const stronglyMatchedCandidates = recommendationCandidates.filter(candidate => {
-        const normalizedTags = getNormalizedDoctorTags(
-          candidate,
-          storedTagsByDoctorId
-        );
-        return tagHints.some(tag => normalizedTags.has(tag));
-      });
-      const generalFallbackCandidates = recommendationCandidates.filter(candidate => {
-        const normalizedTags = getNormalizedDoctorTags(
-          candidate,
-          storedTagsByDoctorId
-        );
-        return (
-          !tagHints.some(tag => normalizedTags.has(tag)) &&
-          (normalizedTags.has("general_medicine") || isGeneralDepartment(candidate))
-        );
-      });
+      const stronglyMatchedCandidates = recommendationCandidates.filter(
+        candidate => {
+          const normalizedTags = getNormalizedDoctorTags(
+            candidate,
+            storedTagsByDoctorId
+          );
+          return tagHints.some(tag => normalizedTags.has(tag));
+        }
+      );
+      const generalFallbackCandidates = recommendationCandidates.filter(
+        candidate => {
+          const normalizedTags = getNormalizedDoctorTags(
+            candidate,
+            storedTagsByDoctorId
+          );
+          return (
+            !tagHints.some(tag => normalizedTags.has(tag)) &&
+            (normalizedTags.has("general_medicine") ||
+              isGeneralDepartment(candidate))
+          );
+        }
+      );
       candidatePool = [
         ...stronglyMatchedCandidates,
         ...generalFallbackCandidates,
@@ -660,9 +693,10 @@ export async function recommendDoctors(input: RecommendDoctorsInput) {
         id => !storedTagsByDoctorId.has(id)
       );
       if (missingTagDoctorIds.length > 0) {
-        const missingTags = await doctorsRepo.listDoctorSpecialtyTagsByDoctorIds(
-          missingTagDoctorIds
-        );
+        const missingTags =
+          await doctorsRepo.listDoctorSpecialtyTagsByDoctorIds(
+            missingTagDoctorIds
+          );
         missingTags.forEach((tags, doctorId) => {
           storedTagsByDoctorId.set(doctorId, tags);
         });
@@ -684,18 +718,24 @@ export async function recommendDoctors(input: RecommendDoctorsInput) {
       const searchableText = buildDoctorSearchableText(result);
 
       return keywordPool.reduce(
-        (count, keyword) => (searchableText.includes(keyword) ? count + 1 : count),
+        (count, keyword) =>
+          searchableText.includes(keyword) ? count + 1 : count,
         0
       );
     };
 
     const upsertScore = (result: DoctorResult, baseScore: number) => {
-      const intentMatches = countIntentDepartmentMatches(result, matchedIntents);
+      const intentMatches = countIntentDepartmentMatches(
+        result,
+        matchedIntents
+      );
       const normalizedTagSet = getNormalizedDoctorTags(
         result,
         storedTagsByDoctorId
       );
-      const tagMatches = tagHints.filter(tag => normalizedTagSet.has(tag)).length;
+      const tagMatches = tagHints.filter(tag =>
+        normalizedTagSet.has(tag)
+      ).length;
       const keywordHitScore = scoreKeywordHits(result) * 2;
       const recScoreBonus = (result.doctor.recommendationScore ?? 0) / 20;
       const intentBoost = intentMatches * 10;
@@ -732,7 +772,8 @@ export async function recommendDoctors(input: RecommendDoctorsInput) {
     let fallbackSource = "none";
     if (scored.size === 0) {
       if (recommendationCandidates.length === 0) {
-        recommendationCandidates = await doctorsRepo.listRecommendationCandidates();
+        recommendationCandidates =
+          await doctorsRepo.listRecommendationCandidates();
       }
 
       const fallbackCandidates =
@@ -743,9 +784,10 @@ export async function recommendDoctors(input: RecommendDoctorsInput) {
           id => !storedTagsByDoctorId.has(id)
         );
         if (missingFallbackTagDoctorIds.length > 0) {
-          const missingTags = await doctorsRepo.listDoctorSpecialtyTagsByDoctorIds(
-            missingFallbackTagDoctorIds
-          );
+          const missingTags =
+            await doctorsRepo.listDoctorSpecialtyTagsByDoctorIds(
+              missingFallbackTagDoctorIds
+            );
           missingTags.forEach((tags, doctorId) => {
             storedTagsByDoctorId.set(doctorId, tags);
           });
@@ -754,7 +796,9 @@ export async function recommendDoctors(input: RecommendDoctorsInput) {
         fallbackCandidates.forEach(result => upsertScore(result, 1));
         usedRankFallback = true;
         fallbackSource =
-          candidatePool.length > 0 ? "candidate_pool" : "recommendation_candidates";
+          candidatePool.length > 0
+            ? "candidate_pool"
+            : "recommendation_candidates";
       }
     }
 
@@ -776,11 +820,12 @@ export async function recommendDoctors(input: RecommendDoctorsInput) {
             .slice(0, limit)
             .map(result => toPublicRecommendation(result, keywordPool))
         : (() => {
-            const stronglyMatched = rankedResults.filter(item =>
-              countIntentDepartmentMatches(item, matchedIntents) > 0 ||
-              tagHints.some(tag =>
-                getNormalizedDoctorTags(item, storedTagsByDoctorId).has(tag)
-              )
+            const stronglyMatched = rankedResults.filter(
+              item =>
+                countIntentDepartmentMatches(item, matchedIntents) > 0 ||
+                tagHints.some(tag =>
+                  getNormalizedDoctorTags(item, storedTagsByDoctorId).has(tag)
+                )
             );
             const generalFallback = rankedResults.filter(
               item =>
@@ -820,7 +865,9 @@ export async function recommendDoctors(input: RecommendDoctorsInput) {
   }
 }
 
-export async function getDoctorsByDepartment(input: GetDoctorsByDepartmentInput) {
+export async function getDoctorsByDepartment(
+  input: GetDoctorsByDepartmentInput
+) {
   const results = await doctorsRepo.getDoctorsByDepartment(
     input.departmentId,
     input.limit,

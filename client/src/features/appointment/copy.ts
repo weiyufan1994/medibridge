@@ -38,7 +38,9 @@ export function getAppointmentCopy(lang: Lang) {
     bookingIdentityVerified: t.bookingIdentityVerified,
     bookingIdentityVerifyFailed: t.bookingIdentityVerifyFailed,
     bookingDeviceIdMissing: t.bookingDeviceIdMissing,
-    step1Title: isZh ? "Step 1：选择时间与服务套餐" : "Step 1: Select Time & Service Package",
+    step1Title: isZh
+      ? "Step 1：选择时间与服务套餐"
+      : "Step 1: Select Time & Service Package",
     step1Desc: isZh
       ? "先确认预约对象、时间与服务套餐。"
       : "Confirm doctor, time slot, and service package first.",
@@ -60,8 +62,12 @@ export function getAppointmentCopy(lang: Lang) {
     bookingInvalidTime: isZh ? "请输入有效的时间格式" : "Invalid time format",
     bookingInvalidFormat: isZh ? "请输入有效的时间格式" : "Invalid time format",
     bookingPastDate: isZh ? "不能选择过去日期" : "Cannot select past dates",
-    bookingPastTimeToday: isZh ? "不能选择已经过去的时间" : "Cannot select a past time today",
-    bookingOutsideWorkingHours: isZh ? "超出医生接诊时间" : "Outside doctor's working hours",
+    bookingPastTimeToday: isZh
+      ? "不能选择已经过去的时间"
+      : "Cannot select a past time today",
+    bookingOutsideWorkingHours: isZh
+      ? "超出医生接诊时间"
+      : "Outside doctor's working hours",
     bookingOutOfHours: isZh
       ? "超出医生工作时间（可接诊：09:00 - 18:00）"
       : "Out of working hours (Available: 09:00 - 18:00)",
@@ -75,9 +81,7 @@ export function getAppointmentCopy(lang: Lang) {
     doctorAvailableAllDay: isZh
       ? "医生全天可接诊（24 小时）"
       : "Doctor available 24 hours",
-    localTimeInputLabel: isZh
-      ? "当地时间"
-      : "Local Time",
+    localTimeInputLabel: isZh ? "当地时间" : "Local Time",
     bookingLocalTime: isZh ? "当地时间" : "Local Time",
     localTimeShortLabel: isZh ? "当地时间" : "Local Time",
     chinaMirrorPrefix: isZh
@@ -87,9 +91,7 @@ export function getAppointmentCopy(lang: Lang) {
     doctorAvailableStatus: isZh
       ? "医生可用 (Doctor Available)"
       : "Doctor Available",
-    doctorUnavailableStatus: isZh
-      ? "超出医生工作时间"
-      : "Out of working hours",
+    doctorUnavailableStatus: isZh ? "超出医生工作时间" : "Out of working hours",
     bookingOutsideWorkingHoursWithRange: isZh
       ? "超出医生工作时间（可接诊：{range}）"
       : "Out of working hours (Available: {range})",
@@ -99,7 +101,9 @@ export function getAppointmentCopy(lang: Lang) {
     timezoneSyncPrefix: isZh ? "当前：" : "Current:",
     localTimeLabel: isZh ? "当地时间" : "Local Time",
     chinaTimeLabel: isZh ? "中国时间" : "China Time",
-    aiSummaryPreviewTitle: isZh ? "AI 问诊摘要（已自动填写）" : "AI Triage Summary (Auto-filled)",
+    aiSummaryPreviewTitle: isZh
+      ? "AI 问诊摘要（已自动填写）"
+      : "AI Triage Summary (Auto-filled)",
     aiSummaryPreviewDesc: isZh
       ? "以下信息已由 AI 会话自动同步。"
       : "The following info was synced automatically from AI triage.",
@@ -107,8 +111,12 @@ export function getAppointmentCopy(lang: Lang) {
     hideEditInfo: isZh ? "收起编辑" : "Hide Edit",
     doctorDetailConfirmBook: isZh ? "确认选择并预约" : "Confirm & Book",
     doctorFallback: t.doctorFallback,
-    slotSelectionHint: isZh ? "请选择一个真实可售时间段。" : "Choose one real sellable slot.",
-    noSellableSlots: isZh ? "该日期暂无可售 slot。请换一天。" : "No sellable slots on this date. Pick another day.",
+    slotSelectionHint: isZh
+      ? "请选择一个真实可售时间段。"
+      : "Choose one real sellable slot.",
+    noSellableSlots: isZh
+      ? "该日期暂无可售 slot。请换一天。"
+      : "No sellable slots on this date. Pick another day.",
     bookingSummaryTitle: isZh ? "预约摘要" : "Booking Summary",
     notSelected: isZh ? "尚未选择" : "Not selected",
     notProvided: isZh ? "未填写" : "Not provided",
@@ -132,7 +140,9 @@ export function getAppointmentCopy(lang: Lang) {
     intakePlaceholderChiefComplaint: isZh
       ? "例如：反复咳嗽、夜间加重"
       : "e.g. recurrent cough, worse at night",
-    intakePlaceholderDuration: isZh ? "例如：3天 / 2周" : "e.g. 3 days / 2 weeks",
+    intakePlaceholderDuration: isZh
+      ? "例如：3天 / 2周"
+      : "e.g. 3 days / 2 weeks",
     intakePlaceholderMedicalHistory: isZh
       ? "例如：高血压、糖尿病、手术史"
       : "e.g. hypertension, diabetes, surgery history",

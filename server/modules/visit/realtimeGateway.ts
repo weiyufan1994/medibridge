@@ -47,7 +47,9 @@ type ClientEnvelope =
     };
 
 function encodeCursor(createdAt: Date, id: number) {
-  return Buffer.from(`${createdAt.toISOString()}|${id}`, "utf8").toString("base64url");
+  return Buffer.from(`${createdAt.toISOString()}|${id}`, "utf8").toString(
+    "base64url"
+  );
 }
 
 function toWireMessage(message: AppointmentMessage) {
@@ -166,7 +168,9 @@ function parseFrames(buffer: Buffer) {
     }
 
     const payloadStart = cursor + maskBytes;
-    const payload = Buffer.from(buffer.subarray(payloadStart, payloadStart + payloadLength));
+    const payload = Buffer.from(
+      buffer.subarray(payloadStart, payloadStart + payloadLength)
+    );
 
     if (masked) {
       const mask = buffer.subarray(cursor, cursor + 4);
@@ -216,7 +220,9 @@ function toRoomTimerPayload(notes: string | null | undefined) {
   };
 }
 
-function getInsertedMessageId(result: Awaited<ReturnType<typeof visitRepo.createMessage>>) {
+function getInsertedMessageId(
+  result: Awaited<ReturnType<typeof visitRepo.createMessage>>
+) {
   const insertedId = Number(
     (result as { id?: number })?.id ??
       (result as { insertId?: number })?.insertId ??
@@ -237,7 +243,11 @@ export function createVisitRealtimeGateway() {
     connection.socket.write(jsonToTextFrame({ event, data }));
   }
 
-  function sendError(connection: RoomConnection, code: string, detail?: string) {
+  function sendError(
+    connection: RoomConnection,
+    code: string,
+    detail?: string
+  ) {
     sendEvent(connection, "error", {
       code,
       message: detail ?? code,
@@ -310,7 +320,11 @@ export function createVisitRealtimeGateway() {
     });
   }
 
-  async function handleRoomJoin(connection: RoomConnection, req: IncomingMessage, token: string) {
+  async function handleRoomJoin(
+    connection: RoomConnection,
+    req: IncomingMessage,
+    token: string
+  ) {
     const validated = await validateAppointmentAccessToken({
       token,
       action: "join_room",
@@ -332,7 +346,8 @@ export function createVisitRealtimeGateway() {
       status: appointment.status,
       paymentStatus: appointment.paymentStatus,
     });
-    const latestCursorRow = await visitRepo.getLatestMessageCursor(appointmentId);
+    const latestCursorRow =
+      await visitRepo.getLatestMessageCursor(appointmentId);
     const recentCursor = latestCursorRow
       ? encodeCursor(latestCursorRow.createdAt, latestCursorRow.id)
       : null;
@@ -364,7 +379,11 @@ export function createVisitRealtimeGateway() {
   async function handleMessageSend(
     connection: RoomConnection,
     req: IncomingMessage,
-    payload: { textOriginal?: string; clientMessageId?: string; targetLanguage?: string }
+    payload: {
+      textOriginal?: string;
+      clientMessageId?: string;
+      targetLanguage?: string;
+    }
   ) {
     const appointmentId = connection.appointmentId;
     const role = connection.role;
@@ -377,7 +396,11 @@ export function createVisitRealtimeGateway() {
     const textOriginal = (payload.textOriginal ?? "").trim();
     const clientMessageId = (payload.clientMessageId ?? "").trim();
     if (!textOriginal || !clientMessageId) {
-      sendError(connection, "BAD_REQUEST", "textOriginal and clientMessageId are required");
+      sendError(
+        connection,
+        "BAD_REQUEST",
+        "textOriginal and clientMessageId are required"
+      );
       return;
     }
     if (textOriginal.length > 4000 || clientMessageId.length > 128) {
@@ -411,7 +434,8 @@ export function createVisitRealtimeGateway() {
 
     let messageRow: AppointmentMessage | null = null;
     const senderType: VisitSender = role === "doctor" ? "doctor" : "patient";
-    const messageUserId = role === "patient" ? (appointment.userId ?? null) : null;
+    const messageUserId =
+      role === "patient" ? (appointment.userId ?? null) : null;
     const createdAt = new Date();
     let translatedMessage: Awaited<ReturnType<typeof translateVisitMessage>>;
     try {
@@ -423,7 +447,11 @@ export function createVisitRealtimeGateway() {
         targetLanguage: "auto",
       });
     } catch (error) {
-      sendError(connection, "INTERNAL_SERVER_ERROR", (error as Error).message || "translation failed");
+      sendError(
+        connection,
+        "INTERNAL_SERVER_ERROR",
+        (error as Error).message || "translation failed"
+      );
       return;
     }
 
@@ -447,7 +475,10 @@ export function createVisitRealtimeGateway() {
       }
     } catch (error) {
       if (isDuplicateDbError(error)) {
-        messageRow = await visitRepo.getMessageByClientMessageId(appointmentId, clientMessageId);
+        messageRow = await visitRepo.getMessageByClientMessageId(
+          appointmentId,
+          clientMessageId
+        );
       } else if (isForeignKeyDbError(error)) {
         const retryInsertResult = await visitRepo.createMessage({
           appointmentId,
@@ -474,7 +505,11 @@ export function createVisitRealtimeGateway() {
     await markInSessionIfTransitioned(appointmentId);
 
     if (!messageRow) {
-      sendError(connection, "INTERNAL_SERVER_ERROR", "failed to resolve message row");
+      sendError(
+        connection,
+        "INTERNAL_SERVER_ERROR",
+        "failed to resolve message row"
+      );
       return;
     }
 
@@ -519,7 +554,10 @@ export function createVisitRealtimeGateway() {
     });
   }
 
-  function startConnectionTimers(connection: RoomConnection, req: IncomingMessage) {
+  function startConnectionTimers(
+    connection: RoomConnection,
+    req: IncomingMessage
+  ) {
     connection.heartbeatTimer = setInterval(() => {
       if (connection.isClosed) {
         return;
@@ -537,10 +575,16 @@ export function createVisitRealtimeGateway() {
     }, 25_000);
 
     connection.statusTimer = setInterval(async () => {
-      if (connection.isClosed || !connection.appointmentId || !connection.role) {
+      if (
+        connection.isClosed ||
+        !connection.appointmentId ||
+        !connection.role
+      ) {
         return;
       }
-      const appointment = await appointmentsRepo.getAppointmentById(connection.appointmentId);
+      const appointment = await appointmentsRepo.getAppointmentById(
+        connection.appointmentId
+      );
       if (!appointment) {
         closeConnection(connection);
         return;
@@ -549,7 +593,10 @@ export function createVisitRealtimeGateway() {
         status: appointment.status,
         paymentStatus: appointment.paymentStatus,
       });
-      if (appointment.status !== connection.status || nextCanSend !== connection.canSendMessage) {
+      if (
+        appointment.status !== connection.status ||
+        nextCanSend !== connection.canSendMessage
+      ) {
         await pushRoomStatus({
           connection,
           appointmentId: appointment.id,
@@ -628,16 +675,20 @@ export function createVisitRealtimeGateway() {
           }
 
           if (envelope.event === "message.send") {
-            void handleMessageSend(connection, req, envelope.data ?? {}).catch(error => {
-              sendError(connection, asErrorCode(error));
-            });
+            void handleMessageSend(connection, req, envelope.data ?? {}).catch(
+              error => {
+                sendError(connection, asErrorCode(error));
+              }
+            );
             continue;
           }
 
           if (envelope.event === "room.timer.extend") {
-            void handleTimerExtend(connection, req, envelope.data ?? {}).catch(error => {
-              sendError(connection, asErrorCode(error));
-            });
+            void handleTimerExtend(connection, req, envelope.data ?? {}).catch(
+              error => {
+                sendError(connection, asErrorCode(error));
+              }
+            );
             continue;
           }
 

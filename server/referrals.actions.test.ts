@@ -210,17 +210,21 @@ function createOrderRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function createBundle(overrides: {
-  order?: Record<string, unknown>;
-  hospital?: Record<string, unknown> | null;
-  department?: Record<string, unknown> | null;
-  contact?: Record<string, unknown> | null;
-  patient?: Record<string, unknown> | null;
-} = {}) {
+function createBundle(
+  overrides: {
+    order?: Record<string, unknown>;
+    hospital?: Record<string, unknown> | null;
+    department?: Record<string, unknown> | null;
+    contact?: Record<string, unknown> | null;
+    patient?: Record<string, unknown> | null;
+  } = {}
+) {
   return {
     order: createOrderRow(overrides.order),
     hospital:
-      overrides.hospital === null ? null : createHospitalRow(overrides.hospital),
+      overrides.hospital === null
+        ? null
+        : createHospitalRow(overrides.hospital),
     department:
       overrides.department === null
         ? null
@@ -242,7 +246,9 @@ function createBundle(overrides: {
 describe("referral actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(aiRepo.getAiChatSessionById).mockResolvedValue(createSession() as never);
+    vi.mocked(aiRepo.getAiChatSessionById).mockResolvedValue(
+      createSession() as never
+    );
     vi.mocked(aiRepo.getLatestSessionFlagByType).mockResolvedValue({
       id: 1,
       sessionId: 77,
@@ -260,8 +266,12 @@ describe("referral actions", () => {
     vi.mocked(referralRepo.getDepartmentById).mockResolvedValue(null as never);
     vi.mocked(referralRepo.getContactById).mockResolvedValue(null as never);
     vi.mocked(referralRepo.isOrderOwnedByUser).mockReturnValue(true as never);
-    vi.mocked(referralRepo.listDepartmentsByHospitalId).mockResolvedValue([] as never);
-    vi.mocked(referralRepo.listActiveContactsByHospital).mockResolvedValue([] as never);
+    vi.mocked(referralRepo.listDepartmentsByHospitalId).mockResolvedValue(
+      [] as never
+    );
+    vi.mocked(referralRepo.listActiveContactsByHospital).mockResolvedValue(
+      [] as never
+    );
     vi.mocked(referralRepo.listHospitalsForReferralCatalog).mockResolvedValue(
       [] as never
     );
@@ -271,8 +281,12 @@ describe("referral actions", () => {
     vi.mocked(referralRepo.getReferralOrderByClientRequest).mockResolvedValue(
       null as never
     );
-    vi.mocked(referralRepo.listStatusEventsByOrderId).mockResolvedValue([] as never);
-    vi.mocked(referralRepo.listOperationsByOrderId).mockResolvedValue([] as never);
+    vi.mocked(referralRepo.listStatusEventsByOrderId).mockResolvedValue(
+      [] as never
+    );
+    vi.mocked(referralRepo.listOperationsByOrderId).mockResolvedValue(
+      [] as never
+    );
     vi.mocked(
       referralRepo.listFailedReferralNotificationsByOrderId
     ).mockResolvedValue([] as never);
@@ -280,17 +294,14 @@ describe("referral actions", () => {
 
   it("requires a formal account before creating a paid referral draft", async () => {
     await expect(
-      createOrderDraftAction(
-        { id: 501, role: "free", isGuest: 1 } as never,
-        {
-          triageSessionId: 77,
-          rankedHospitalIndex: 0,
-          clientRequestId: "33333333-3333-4333-8333-333333333333",
-          agreementAccepted: true,
-          agreementVersion: "referral_service_v2",
-          agreementLang: "zh",
-        }
-      )
+      createOrderDraftAction({ id: 501, role: "free", isGuest: 1 } as never, {
+        triageSessionId: 77,
+        rankedHospitalIndex: 0,
+        clientRequestId: "33333333-3333-4333-8333-333333333333",
+        agreementAccepted: true,
+        agreementVersion: "referral_service_v2",
+        agreementLang: "zh",
+      })
     ).rejects.toMatchObject({
       code: "UNAUTHORIZED",
       message: "FORMAL_ACCOUNT_REQUIRED",
@@ -332,18 +343,15 @@ describe("referral actions", () => {
     vi.mocked(referralRepo.getContactById).mockResolvedValue(null as never);
 
     await expect(
-      createOrderDraftAction(
-        { id: 501, role: "free", isGuest: 0 } as never,
-        {
-          triageSessionId: 77,
-          rankedHospitalIndex: 0,
-          contactId: 31,
-          clientRequestId: "55555555-5555-4555-8555-555555555555",
-          agreementAccepted: true,
-          agreementVersion: "referral_service_v2",
-          agreementLang: "zh",
-        }
-      )
+      createOrderDraftAction({ id: 501, role: "free", isGuest: 0 } as never, {
+        triageSessionId: 77,
+        rankedHospitalIndex: 0,
+        contactId: 31,
+        clientRequestId: "55555555-5555-4555-8555-555555555555",
+        agreementAccepted: true,
+        agreementVersion: "referral_service_v2",
+        agreementLang: "zh",
+      })
     ).rejects.toMatchObject({
       code: "BAD_REQUEST",
       message: "Selected contact is invalid",
@@ -361,7 +369,9 @@ describe("referral actions", () => {
     vi.mocked(resolvePaymentAdapter).mockReturnValue({
       captureOrFinalize,
     } as never);
-    vi.mocked(referralRepo.getReferralOrderByPaymentSessionId).mockResolvedValue(
+    vi.mocked(
+      referralRepo.getReferralOrderByPaymentSessionId
+    ).mockResolvedValue(
       createOrderRow({
         id: 101,
         contactId: 31,
@@ -370,7 +380,9 @@ describe("referral actions", () => {
         paymentProviderSessionId: "cs_referral_1",
       }) as never
     );
-    vi.mocked(referralRepo.tryMarkOrderPaidByPaymentSessionId).mockResolvedValue({
+    vi.mocked(
+      referralRepo.tryMarkOrderPaidByPaymentSessionId
+    ).mockResolvedValue({
       ok: true,
       current: { id: 101 },
     } as never);
@@ -461,7 +473,8 @@ describe("referral actions", () => {
       req: {
         protocol: "https",
         headers: {},
-        get: (name: string) => (name === "host" ? "app.medibridge.test" : undefined),
+        get: (name: string) =>
+          name === "host" ? "app.medibridge.test" : undefined,
       } as never,
     });
 
@@ -592,7 +605,8 @@ describe("referral actions", () => {
       req: {
         protocol: "https",
         headers: {},
-        get: (name: string) => (name === "host" ? "app.medibridge.test" : undefined),
+        get: (name: string) =>
+          name === "host" ? "app.medibridge.test" : undefined,
       } as never,
     });
 
@@ -675,9 +689,9 @@ describe("referral actions", () => {
     vi.mocked(referralRepo.getDepartmentById).mockResolvedValue(
       createDepartmentRow() as never
     );
-    vi.mocked(referralRepo.listDepartmentsByHospitalId).mockResolvedValue(
-      [createDepartmentRow()] as never
-    );
+    vi.mocked(referralRepo.listDepartmentsByHospitalId).mockResolvedValue([
+      createDepartmentRow(),
+    ] as never);
     vi.mocked(referralRepo.listActiveContactsByHospital).mockResolvedValue(
       [] as never
     );
@@ -741,18 +755,16 @@ describe("referral actions", () => {
     vi.mocked(referralRepo.getHospitalById).mockResolvedValue(
       createHospitalRow() as never
     );
-    vi.mocked(referralRepo.listDepartmentsByHospitalId).mockResolvedValue(
-      [
-        createDepartmentRow({
-          id: 99,
-          name: "神经内科",
-          nameEn: "Neurology",
-        }),
-      ] as never
-    );
-    vi.mocked(referralRepo.listActiveContactsByHospital).mockResolvedValue(
-      [createContactRow({ departmentId: 99 })] as never
-    );
+    vi.mocked(referralRepo.listDepartmentsByHospitalId).mockResolvedValue([
+      createDepartmentRow({
+        id: 99,
+        name: "神经内科",
+        nameEn: "Neurology",
+      }),
+    ] as never);
+    vi.mocked(referralRepo.listActiveContactsByHospital).mockResolvedValue([
+      createContactRow({ departmentId: 99 }),
+    ] as never);
     vi.mocked(referralRepo.createReferralOrder).mockResolvedValue(102 as never);
     vi.mocked(referralRepo.getReferralOrderById).mockResolvedValue(
       createOrderRow({
@@ -968,28 +980,26 @@ describe("referral actions", () => {
         },
       }) as never
     );
-    vi.mocked(referralRepo.listOperationsByOrderId).mockResolvedValue(
-      [
-        {
-          id: 2,
-          orderId: 112,
-          operatorType: "admin",
-          operatorId: 900,
-          actionType: "internal_note",
-          actionPayload: { note: "只给内部看的备注" },
-          createdAt: new Date("2026-04-12T09:00:00.000Z"),
-        },
-        {
-          id: 1,
-          orderId: 112,
-          operatorType: "admin",
-          operatorId: 900,
-          actionType: "patient_notification",
-          actionPayload: { detail: "我们正在联系医院协助安排预约" },
-          createdAt: new Date("2026-04-12T08:00:00.000Z"),
-        },
-      ] as never
-    );
+    vi.mocked(referralRepo.listOperationsByOrderId).mockResolvedValue([
+      {
+        id: 2,
+        orderId: 112,
+        operatorType: "admin",
+        operatorId: 900,
+        actionType: "internal_note",
+        actionPayload: { note: "只给内部看的备注" },
+        createdAt: new Date("2026-04-12T09:00:00.000Z"),
+      },
+      {
+        id: 1,
+        orderId: 112,
+        operatorType: "admin",
+        operatorId: 900,
+        actionType: "patient_notification",
+        actionPayload: { detail: "我们正在联系医院协助安排预约" },
+        createdAt: new Date("2026-04-12T08:00:00.000Z"),
+      },
+    ] as never);
 
     const detail = await getOrderDetailAction(patientUser, 112);
 
@@ -1022,41 +1032,37 @@ describe("referral actions", () => {
       }) as never
     );
     vi.mocked(referralRepo.listOperationsByOrderId)
-      .mockResolvedValueOnce(
-        [
-          {
-            id: 9,
-            orderId: 113,
-            operatorType: "admin",
-            operatorId: 900,
-            actionType: "patient_notification",
-            actionPayload: { detail: "已与院方沟通，正在协调时间" },
-            createdAt: progressCreatedAt,
-          },
-        ] as never
-      )
-      .mockResolvedValueOnce(
-        [
-          {
-            id: 9,
-            orderId: 113,
-            operatorType: "admin",
-            operatorId: 900,
-            actionType: "patient_notification",
-            actionPayload: { detail: "已与院方沟通，正在协调时间" },
-            createdAt: progressCreatedAt,
-          },
-          {
-            id: 8,
-            orderId: 113,
-            operatorType: "system",
-            operatorId: null,
-            actionType: "payment_success",
-            actionPayload: { paymentSessionId: "cs_referral_113" },
-            createdAt: new Date("2026-04-12T09:00:00.000Z"),
-          },
-        ] as never
-      );
+      .mockResolvedValueOnce([
+        {
+          id: 9,
+          orderId: 113,
+          operatorType: "admin",
+          operatorId: 900,
+          actionType: "patient_notification",
+          actionPayload: { detail: "已与院方沟通，正在协调时间" },
+          createdAt: progressCreatedAt,
+        },
+      ] as never)
+      .mockResolvedValueOnce([
+        {
+          id: 9,
+          orderId: 113,
+          operatorType: "admin",
+          operatorId: 900,
+          actionType: "patient_notification",
+          actionPayload: { detail: "已与院方沟通，正在协调时间" },
+          createdAt: progressCreatedAt,
+        },
+        {
+          id: 8,
+          orderId: 113,
+          operatorType: "system",
+          operatorId: null,
+          actionType: "payment_success",
+          actionPayload: { paymentSessionId: "cs_referral_113" },
+          createdAt: new Date("2026-04-12T09:00:00.000Z"),
+        },
+      ] as never);
 
     await publishPatientProgressUpdateAction(adminUser, {
       orderId: 113,
@@ -1279,9 +1285,9 @@ describe("referral actions", () => {
 
     expect(referralRepo.updateRefundRequestById).toHaveBeenCalledTimes(3);
     expect(
-      vi.mocked(referralRepo.updateRefundRequestById).mock.calls.map(
-        ([call]) => call.update.status
-      )
+      vi
+        .mocked(referralRepo.updateRefundRequestById)
+        .mock.calls.map(([call]) => call.update.status)
     ).toEqual(["approved", "processing", "refunded"]);
     expect(referralRepo.tryTransitionOrderById).toHaveBeenNthCalledWith(
       1,

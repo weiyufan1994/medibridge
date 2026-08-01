@@ -81,7 +81,9 @@ async function main() {
     }
 
     if (!documentId) {
-      throw new Error(`Failed to resolve knowledge document id for ${card.title}`);
+      throw new Error(
+        `Failed to resolve knowledge document id for ${card.title}`
+      );
     }
 
     const embedding = await createEmbedding(card.body);
@@ -94,7 +96,10 @@ async function main() {
       specialtyTags: card.specialtyTags,
       riskCodes: card.riskCodes,
       embeddingVector: embedding,
-      embeddingModel: process.env.LLM_EMBEDDING_MODEL ?? process.env.EMBEDDING_MODEL ?? "text-embedding-3-small",
+      embeddingModel:
+        process.env.LLM_EMBEDDING_MODEL ??
+        process.env.EMBEDDING_MODEL ??
+        "text-embedding-3-small",
       embeddingDimensions: embedding.length,
     });
 

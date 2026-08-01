@@ -135,7 +135,9 @@ describe("visit realtime gateway", () => {
       createdAt: new Date("2026-03-01T10:00:00.000Z"),
       clientMessageId: "msg-test-1",
     } as never);
-    vi.mocked(markInSessionIfTransitioned).mockResolvedValue(undefined as never);
+    vi.mocked(markInSessionIfTransitioned).mockResolvedValue(
+      undefined as never
+    );
   });
 
   afterEach(() => {
@@ -151,7 +153,11 @@ describe("visit realtime gateway", () => {
     const socket = new FakeSocket();
     const req = createHttpReq();
 
-    const handled = gateway.handleUpgrade(req, socket as never, Buffer.alloc(0));
+    const handled = gateway.handleUpgrade(
+      req,
+      socket as never,
+      Buffer.alloc(0)
+    );
     expect(handled).toBe(true);
 
     const joinFrame = createWsTextFrame({
@@ -179,7 +185,9 @@ describe("visit realtime gateway", () => {
       )
       .map(chunk => parseTextFrame(chunk));
     const events = envelopes.map(event => event.event);
-    const messageNewEvent = envelopes.find(event => event.event === "message.new");
+    const messageNewEvent = envelopes.find(
+      event => event.event === "message.new"
+    );
     expect(messageNewEvent).toBeDefined();
     expect(messageNewEvent?.data).toEqual(
       expect.objectContaining({
@@ -236,7 +244,11 @@ describe("visit realtime gateway", () => {
     const gateway = createVisitRealtimeGateway();
     const socket = new FakeSocket();
     const req = createHttpReq();
-    const handled = gateway.handleUpgrade(req, socket as never, Buffer.alloc(0));
+    const handled = gateway.handleUpgrade(
+      req,
+      socket as never,
+      Buffer.alloc(0)
+    );
     expect(handled).toBe(true);
 
     socket.emit(

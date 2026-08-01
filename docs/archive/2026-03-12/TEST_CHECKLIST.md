@@ -4,6 +4,7 @@
 >
 > This archived checklist reflects the pre-PostgreSQL migration workflow from 2026-03-12.
 > For the current local/test database flow, use:
+>
 > - `docs/plans/postgres-local-cutover-checklist.md`
 > - `docs/plans/postgres-migration-history-strategy.md`
 
@@ -12,22 +13,31 @@ This checklist is for daily local validation after code changes.
 ## 1. Quick Start
 
 1. Install dependencies
+
 ```bash
 pnpm install
 ```
+
 2. Apply migrations (if schema changed)
+
 ```bash
 pnpm db:migrate:safe
 ```
+
 3. Run type check
+
 ```bash
 pnpm check
 ```
+
 4. Run tests
+
 ```bash
 pnpm test
 ```
+
 5. Start dev server
+
 ```bash
 pnpm dev
 ```
@@ -42,6 +52,7 @@ pnpm test
 ```
 
 Expected:
+
 - Type check passes with no errors.
 - Existing test suites pass (`auth`, `ai-billing`, `appointments`, `visit`, `doctors`, `appointmentToken`).
 - E2E-style payment flow test passes:
@@ -59,6 +70,7 @@ Expected:
 4. Continue chatting and verify behavior is stable.
 
 Expected:
+
 - No auth crash for guest.
 - Conversation persists in current session.
 
@@ -68,6 +80,7 @@ Expected:
 2. Reach the per-session cap.
 
 Expected:
+
 - At cap, system returns predefined closing reply.
 - Session transitions to `completed`.
 - Input is disabled on frontend.
@@ -78,6 +91,7 @@ Expected:
 2. Select a doctor and create an appointment.
 
 Expected:
+
 - Appointment is created successfully.
 - In development, `appointments.create` response includes:
   - `devLink` (patient link)
@@ -93,6 +107,7 @@ Expected:
 6. Confirm patient receives doctor message.
 
 Expected:
+
 - Both sides can read and send.
 - Sender type is correct (`patient` / `doctor`).
 - No duplicate message on retries (clientMessageId idempotency).
@@ -103,6 +118,7 @@ Expected:
 2. Access visit/appointment page with invalid token.
 
 Expected:
+
 - Returns authorization error.
 - No data leak.
 
@@ -113,6 +129,7 @@ Expected:
 3. Open dashboard.
 
 Expected:
+
 - Guest assets are merged into formal user.
 - Session/appointment records remain accessible.
 
@@ -142,15 +159,19 @@ When these files change, run full checklist:
 ## 6. Common Failure Triage
 
 1. `FORBIDDEN` on triage create session:
+
 - Check guest/free quota rules.
 
 2. Visit room works for patient but not doctor:
+
 - Verify using `devDoctorLink` instead of `devLink`.
 
 3. No response from model:
+
 - Verify `.env` keys and `LLM_MODEL` / API base URL.
 
 4. Data shape mismatch after DB changes:
+
 - Re-run `pnpm db:migrate:safe` and re-test affected flows.
 
 ## 7. Release Minimum Bar
@@ -160,8 +181,10 @@ Before merge/release:
 1. `pnpm check` pass
 2. `pnpm test` pass
 3. Manual core flow pass:
+
 - triage
 - booking
 - patient/doctor visit messaging
 - OTP merge
+
 4. No critical console/server errors in dev logs

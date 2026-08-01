@@ -1,8 +1,15 @@
 function escapePdfText(text: string): string {
-  return text.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+  return text
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)");
 }
 
-function toPdfLines(text: string, maxLineLength = 88, maxLines = 160): string[] {
+function toPdfLines(
+  text: string,
+  maxLineLength = 88,
+  maxLines = 160
+): string[] {
   const inputLines = text
     .replace(/\r\n/g, "\n")
     .split("\n")
@@ -48,7 +55,9 @@ export function renderSimpleTextPdf(text: string): Buffer {
   objects.push(
     `4 0 obj\n<< /Length ${Buffer.byteLength(stream, "utf8")} >>\nstream\n${stream}\nendstream\nendobj\n`
   );
-  objects.push("5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n");
+  objects.push(
+    "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n"
+  );
 
   let pdf = "%PDF-1.4\n";
   const offsets: number[] = [0];

@@ -3,7 +3,7 @@
 
 import fs from "fs/promises";
 import path from "path";
-import { ENV } from './_core/env';
+import { ENV } from "./_core/env";
 
 type ForgeStorageConfig = { mode: "forge"; baseUrl: string; apiKey: string };
 type LocalStorageConfig = { mode: "local"; localDir: string };
@@ -113,14 +113,20 @@ function sanitizeLocalKey(relKey: string): string {
 function resolveLocalFilePath(localDir: string, relKey: string): string {
   const rootDir = path.resolve(localDir);
   const targetPath = path.resolve(rootDir, relKey);
-  if (targetPath !== rootDir && !targetPath.startsWith(`${rootDir}${path.sep}`)) {
+  if (
+    targetPath !== rootDir &&
+    !targetPath.startsWith(`${rootDir}${path.sep}`)
+  ) {
     throw new Error(`Storage key resolves outside upload directory: ${relKey}`);
   }
   return targetPath;
 }
 
 function encodeUrlKey(relKey: string): string {
-  return relKey.split("/").map(segment => encodeURIComponent(segment)).join("/");
+  return relKey
+    .split("/")
+    .map(segment => encodeURIComponent(segment))
+    .join("/");
 }
 
 function buildLocalPublicUrl(relKey: string): string {
@@ -203,7 +209,9 @@ export async function storagePut(
   return { key, url };
 }
 
-export async function storageGet(relKey: string): Promise<{ key: string; url: string; }> {
+export async function storageGet(
+  relKey: string
+): Promise<{ key: string; url: string }> {
   const key = normalizeKey(relKey);
   const config = getStorageConfig();
 

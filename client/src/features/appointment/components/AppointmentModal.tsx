@@ -147,8 +147,12 @@ export function AppointmentModal({
   }, [bookingType, slotQuery.data]);
 
   const slotGroups = useMemo(() => buildSlotGroups(slots), [slots]);
-  const availableDates = useMemo(() => Array.from(slotGroups.keys()).sort(), [slotGroups]);
-  const activeDate = selectedDate || availableDates[0] || formatDateInput(new Date());
+  const availableDates = useMemo(
+    () => Array.from(slotGroups.keys()).sort(),
+    [slotGroups]
+  );
+  const activeDate =
+    selectedDate || availableDates[0] || formatDateInput(new Date());
   const activeSlots = slotGroups.get(activeDate) ?? [];
 
   useEffect(() => {
@@ -173,7 +177,9 @@ export function AppointmentModal({
     }
   }, [bookingSlotId, setBookingScheduledAt, setBookingSlotId, slots]);
 
-  const selectedPackage = packageOptions.find(option => option.id === bookingPackageId);
+  const selectedPackage = packageOptions.find(
+    option => option.id === bookingPackageId
+  );
   const selectedDoctor = doctorQuery.data?.doctor ?? null;
   const selectedSlot = slots.find(slot => slot.id === bookingSlotId) ?? null;
 
@@ -219,8 +225,12 @@ export function AppointmentModal({
                       getAppointmentSurfaceText({
                         lang: resolved,
                         value: selectedDoctor?.name,
-                        fallback: t.doctorFallback.replace("{{id}}", String(doctorId ?? "")),
-                      }) ?? t.doctorFallback.replace("{{id}}", String(doctorId ?? ""))
+                        fallback: t.doctorFallback.replace(
+                          "{{id}}",
+                          String(doctorId ?? "")
+                        ),
+                      }) ??
+                      t.doctorFallback.replace("{{id}}", String(doctorId ?? ""))
                     )
                       .slice(0, 1)
                       .toUpperCase()}
@@ -232,9 +242,15 @@ export function AppointmentModal({
                       ? getAppointmentSurfaceText({
                           lang: resolved,
                           value: selectedDoctor.name,
-                          fallback: t.doctorFallback.replace("{{id}}", String(doctorId ?? "")),
+                          fallback: t.doctorFallback.replace(
+                            "{{id}}",
+                            String(doctorId ?? "")
+                          ),
                         })
-                      : t.doctorFallback.replace("{{id}}", String(doctorId ?? ""))}
+                      : t.doctorFallback.replace(
+                          "{{id}}",
+                          String(doctorId ?? "")
+                        )}
                   </p>
                   <p className="truncate text-sm text-slate-500">
                     {selectedDoctor
@@ -289,7 +305,9 @@ export function AppointmentModal({
                             : "border-slate-200 bg-white text-slate-700 hover:border-teal-300"
                         }`}
                       >
-                        <div className="font-medium">{formatSlotRange(slot, resolved)}</div>
+                        <div className="font-medium">
+                          {formatSlotRange(slot, resolved)}
+                        </div>
                         <div className="mt-1 text-xs text-slate-500">
                           {slot.slotDurationMinutes} min
                         </div>
@@ -343,7 +361,9 @@ export function AppointmentModal({
                       <button
                         key={option.id}
                         type="button"
-                        onClick={() => setBookingPackageId(option.id as AppointmentPackageId)}
+                        onClick={() =>
+                          setBookingPackageId(option.id as AppointmentPackageId)
+                        }
                         disabled={isSubmitting || packagesLoading}
                         className={`w-full rounded-2xl border px-3 py-3 text-left transition ${
                           bookingPackageId === option.id
@@ -354,7 +374,10 @@ export function AppointmentModal({
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <p className="font-medium text-slate-900">
-                              {getLocalizedText({ lang: resolved, value: option.title })}
+                              {getLocalizedText({
+                                lang: resolved,
+                                value: option.title,
+                              })}
                             </p>
                             <p className="mt-1 text-xs text-slate-500">
                               {getLocalizedText({
@@ -367,7 +390,9 @@ export function AppointmentModal({
                             <p className="text-sm font-semibold text-slate-900">
                               ${(option.amount / 100).toFixed(0)}
                             </p>
-                            <p className="text-xs text-slate-500">{option.durationMinutes} min</p>
+                            <p className="text-xs text-slate-500">
+                              {option.durationMinutes} min
+                            </p>
                           </div>
                         </div>
                       </button>
@@ -379,7 +404,10 @@ export function AppointmentModal({
               <div className="mt-6 space-y-4">
                 {!isLoggedInWithEmail ? (
                   <div className="rounded-3xl border border-slate-200/70 bg-white p-4 shadow-sm">
-                    <Label htmlFor="booking-email" className="text-sm font-medium text-slate-700">
+                    <Label
+                      htmlFor="booking-email"
+                      className="text-sm font-medium text-slate-700"
+                    >
                       {t.bookingEmail}
                     </Label>
                     <Input
@@ -421,7 +449,10 @@ export function AppointmentModal({
                         {requestOtpMutation.isPending
                           ? t.bookingSendingOtp
                           : otpCooldownSeconds > 0
-                            ? t.bookingOtpCooldown.replace("{seconds}", String(otpCooldownSeconds))
+                            ? t.bookingOtpCooldown.replace(
+                                "{seconds}",
+                                String(otpCooldownSeconds)
+                              )
                             : otpRequested
                               ? t.bookingResendOtp
                               : t.bookingSendOtp}
@@ -440,7 +471,9 @@ export function AppointmentModal({
                       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                         {t.aiSummaryPreviewTitle}
                       </p>
-                      <p className="mt-1 text-xs text-slate-500">{t.aiSummaryPreviewDesc}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {t.aiSummaryPreviewDesc}
+                      </p>
                     </div>
                     <Button
                       type="button"
@@ -454,12 +487,17 @@ export function AppointmentModal({
 
                   <div className="mt-4 grid gap-3">
                     <div>
-                      <Label htmlFor="intake-chief-complaint">{t.intakeChiefComplaint}</Label>
+                      <Label htmlFor="intake-chief-complaint">
+                        {t.intakeChiefComplaint}
+                      </Label>
                       <Textarea
                         id="intake-chief-complaint"
                         value={intake.chiefComplaint}
                         onChange={event =>
-                          setIntake(current => ({ ...current, chiefComplaint: event.target.value }))
+                          setIntake(current => ({
+                            ...current,
+                            chiefComplaint: event.target.value,
+                          }))
                         }
                         placeholder={t.intakePlaceholderChiefComplaint}
                         className="mt-2 min-h-[88px]"
@@ -469,19 +507,26 @@ export function AppointmentModal({
                     {showEditInfo ? (
                       <>
                         <div>
-                          <Label htmlFor="intake-duration">{t.intakeDuration}</Label>
+                          <Label htmlFor="intake-duration">
+                            {t.intakeDuration}
+                          </Label>
                           <Input
                             id="intake-duration"
                             value={intake.duration}
                             onChange={event =>
-                              setIntake(current => ({ ...current, duration: event.target.value }))
+                              setIntake(current => ({
+                                ...current,
+                                duration: event.target.value,
+                              }))
                             }
                             placeholder={t.intakePlaceholderDuration}
                             className="mt-2"
                           />
                         </div>
                         <div>
-                          <Label htmlFor="intake-medical-history">{t.intakeMedicalHistory}</Label>
+                          <Label htmlFor="intake-medical-history">
+                            {t.intakeMedicalHistory}
+                          </Label>
                           <Textarea
                             id="intake-medical-history"
                             value={intake.medicalHistory}
@@ -496,7 +541,9 @@ export function AppointmentModal({
                           />
                         </div>
                         <div>
-                          <Label htmlFor="intake-medications">{t.intakeMedications}</Label>
+                          <Label htmlFor="intake-medications">
+                            {t.intakeMedications}
+                          </Label>
                           <Input
                             id="intake-medications"
                             value={intake.medications}
@@ -511,7 +558,9 @@ export function AppointmentModal({
                           />
                         </div>
                         <div>
-                          <Label htmlFor="intake-allergies">{t.intakeAllergies}</Label>
+                          <Label htmlFor="intake-allergies">
+                            {t.intakeAllergies}
+                          </Label>
                           <Input
                             id="intake-allergies"
                             value={intake.allergies}
@@ -526,7 +575,9 @@ export function AppointmentModal({
                           />
                         </div>
                         <div>
-                          <Label htmlFor="intake-age-group">{t.intakeAgeGroup}</Label>
+                          <Label htmlFor="intake-age-group">
+                            {t.intakeAgeGroup}
+                          </Label>
                           <Input
                             id="intake-age-group"
                             value={intake.ageGroup}
@@ -541,7 +592,9 @@ export function AppointmentModal({
                           />
                         </div>
                         <div>
-                          <Label htmlFor="intake-other-symptoms">{t.intakeOtherSymptoms}</Label>
+                          <Label htmlFor="intake-other-symptoms">
+                            {t.intakeOtherSymptoms}
+                          </Label>
                           <Textarea
                             id="intake-other-symptoms"
                             value={intake.otherSymptoms}
@@ -563,50 +616,56 @@ export function AppointmentModal({
             )}
           </div>
 
-            <div className="border-t border-slate-200/80 bg-white/95 p-6 backdrop-blur md:p-8">
-              <DialogFooter className="flex-col gap-3 sm:flex-col">
-                {step === 1 ? (
-                  <>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => onOpenChange(false)}
-                    >
-                      {t.bookingCancel}
-                    </Button>
-                    <Button
-                      type="button"
-                      className="w-full bg-teal-600 text-white hover:bg-teal-500"
-                      onClick={handleContinue}
-                      disabled={!selectedSlot || !selectedPackage || slotQuery.isLoading}
-                    >
-                      {t.continueStep}
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => setStep(1)}
-                      disabled={isSubmitting}
-                    >
-                      {t.backStep}
-                    </Button>
-                    <Button
-                      type="button"
-                      className="w-full bg-teal-600 text-white hover:bg-teal-500"
-                      onClick={() => void handleCreateBooking()}
-                      disabled={isSubmitting || !bookingSlotId || !bookingScheduledAt}
-                    >
-                      {isSubmitting ? t.bookingCreating : t.doctorDetailConfirmBook}
-                    </Button>
-                  </>
-                )}
-              </DialogFooter>
-            </div>
+          <div className="border-t border-slate-200/80 bg-white/95 p-6 backdrop-blur md:p-8">
+            <DialogFooter className="flex-col gap-3 sm:flex-col">
+              {step === 1 ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => onOpenChange(false)}
+                  >
+                    {t.bookingCancel}
+                  </Button>
+                  <Button
+                    type="button"
+                    className="w-full bg-teal-600 text-white hover:bg-teal-500"
+                    onClick={handleContinue}
+                    disabled={
+                      !selectedSlot || !selectedPackage || slotQuery.isLoading
+                    }
+                  >
+                    {t.continueStep}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setStep(1)}
+                    disabled={isSubmitting}
+                  >
+                    {t.backStep}
+                  </Button>
+                  <Button
+                    type="button"
+                    className="w-full bg-teal-600 text-white hover:bg-teal-500"
+                    onClick={() => void handleCreateBooking()}
+                    disabled={
+                      isSubmitting || !bookingSlotId || !bookingScheduledAt
+                    }
+                  >
+                    {isSubmitting
+                      ? t.bookingCreating
+                      : t.doctorDetailConfirmBook}
+                  </Button>
+                </>
+              )}
+            </DialogFooter>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

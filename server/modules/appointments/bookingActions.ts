@@ -26,7 +26,9 @@ export async function prepareCreateCheckout(input: {
     });
   }
 
-  const triageSession = await aiRepo.getAiChatSessionById(input.createInput.triageSessionId);
+  const triageSession = await aiRepo.getAiChatSessionById(
+    input.createInput.triageSessionId
+  );
   if (!triageSession || triageSession.userId !== input.userId) {
     throw new TRPCError({
       code: "FORBIDDEN",
@@ -70,7 +72,11 @@ export async function prepareCreateV2Checkout(input: {
       message: "Invalid triage session for appointment",
     });
   }
-  if (input.userId && triageSession.userId && triageSession.userId !== input.userId) {
+  if (
+    input.userId &&
+    triageSession.userId &&
+    triageSession.userId !== input.userId
+  ) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Invalid triage session for appointment",
@@ -107,7 +113,8 @@ export async function prepareCreateV2Checkout(input: {
     });
   }
 
-  const appointmentType = input.createInput.appointmentType ?? slot.appointmentType;
+  const appointmentType =
+    input.createInput.appointmentType ?? slot.appointmentType;
   return {
     slotId: slot.id,
     triageSessionId,

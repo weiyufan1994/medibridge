@@ -53,22 +53,27 @@ function createTestContext(): TrpcContext {
 }
 
 function encodeTestCursor(createdAt: Date, id: number) {
-  return Buffer.from(`${createdAt.toISOString()}|${id}`, "utf8").toString("base64url");
+  return Buffer.from(`${createdAt.toISOString()}|${id}`, "utf8").toString(
+    "base64url"
+  );
 }
 
 describe("visit router", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(translateVisitMessage).mockImplementation(async input => ({
-      originalContent: input.content.trim(),
-      translatedContent: input.content.trim(),
-      sourceLanguage: input.sourceLanguage ?? "en",
-      targetLanguage: input.targetLanguage ?? "en",
-      translationProvider: "identity",
-    }) as never);
-    vi.mocked(appointmentsRepo.markAppointmentInSessionIfNeeded).mockResolvedValue(
-      null as never
+    vi.mocked(translateVisitMessage).mockImplementation(
+      async input =>
+        ({
+          originalContent: input.content.trim(),
+          translatedContent: input.content.trim(),
+          sourceLanguage: input.sourceLanguage ?? "en",
+          targetLanguage: input.targetLanguage ?? "en",
+          translationProvider: "identity",
+        }) as never
     );
+    vi.mocked(
+      appointmentsRepo.markAppointmentInSessionIfNeeded
+    ).mockResolvedValue(null as never);
     vi.mocked(validateAppointmentAccessToken).mockResolvedValue({
       appointmentId: 9001,
       role: "patient",
@@ -300,7 +305,10 @@ describe("visit router", () => {
       clientMessageId: "msg-1",
     });
 
-    expect(visitRepo.getMessageByClientMessageId).toHaveBeenCalledWith(9001, "msg-1");
+    expect(visitRepo.getMessageByClientMessageId).toHaveBeenCalledWith(
+      9001,
+      "msg-1"
+    );
     expect(visitRepo.createMessage).not.toHaveBeenCalled();
     expect(result).toEqual({
       id: 77,
@@ -310,8 +318,12 @@ describe("visit router", () => {
   });
 
   it("sendMessageByToken creates a new message and returns insert id", async () => {
-    vi.mocked(visitRepo.getMessageByClientMessageId).mockResolvedValue(null as never);
-    vi.mocked(visitRepo.createMessage).mockResolvedValue({ insertId: 88 } as never);
+    vi.mocked(visitRepo.getMessageByClientMessageId).mockResolvedValue(
+      null as never
+    );
+    vi.mocked(visitRepo.createMessage).mockResolvedValue({
+      insertId: 88,
+    } as never);
 
     const caller = visitRouter.createCaller(createTestContext());
     const result = await caller.sendMessageByToken({
@@ -338,11 +350,15 @@ describe("visit router", () => {
   });
 
   it("sendMessageByToken logs active transition from paid", async () => {
-    vi.mocked(visitRepo.getMessageByClientMessageId).mockResolvedValue(null as never);
-    vi.mocked(visitRepo.createMessage).mockResolvedValue({ insertId: 101 } as never);
-    vi.mocked(appointmentsRepo.markAppointmentInSessionIfNeeded).mockResolvedValue(
-      "paid" as never
+    vi.mocked(visitRepo.getMessageByClientMessageId).mockResolvedValue(
+      null as never
     );
+    vi.mocked(visitRepo.createMessage).mockResolvedValue({
+      insertId: 101,
+    } as never);
+    vi.mocked(
+      appointmentsRepo.markAppointmentInSessionIfNeeded
+    ).mockResolvedValue("paid" as never);
 
     const caller = visitRouter.createCaller(createTestContext());
     await caller.sendMessageByToken({
@@ -363,8 +379,12 @@ describe("visit router", () => {
   });
 
   it("sendMessageByToken uses translated content and stores source/target languages", async () => {
-    vi.mocked(visitRepo.getMessageByClientMessageId).mockResolvedValue(null as never);
-    vi.mocked(visitRepo.createMessage).mockResolvedValue({ insertId: 120 } as never);
+    vi.mocked(visitRepo.getMessageByClientMessageId).mockResolvedValue(
+      null as never
+    );
+    vi.mocked(visitRepo.createMessage).mockResolvedValue({
+      insertId: 120,
+    } as never);
     vi.mocked(translateVisitMessage).mockResolvedValue({
       originalContent: "我今天有点发烧",
       translatedContent: "I have a bit of fever today.",

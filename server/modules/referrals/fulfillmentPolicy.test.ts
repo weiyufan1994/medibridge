@@ -24,9 +24,9 @@ describe("referral fulfillment policy", () => {
   });
 
   it("rejects invalid business-day values", () => {
-    expect(() =>
-      calculateReferralFulfillmentDeadline(new Date(), -1)
-    ).toThrow("Business days must be a non-negative integer");
+    expect(() => calculateReferralFulfillmentDeadline(new Date(), -1)).toThrow(
+      "Business days must be a non-negative integer"
+    );
   });
 
   it("limits SLA refunds to pre-coordination fulfillment states", () => {

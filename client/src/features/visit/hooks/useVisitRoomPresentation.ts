@@ -22,17 +22,15 @@ type AppointmentForView = {
   role: "patient" | "doctor";
   status: string;
   triageSummary?: string | null;
-  intake?:
-    | {
-        chiefComplaint?: string;
-        duration?: string;
-        medicalHistory?: string;
-        medications?: string;
-        allergies?: string;
-        ageGroup?: string;
-        otherSymptoms?: string;
-      }
-    | null;
+  intake?: {
+    chiefComplaint?: string;
+    duration?: string;
+    medicalHistory?: string;
+    medications?: string;
+    allergies?: string;
+    ageGroup?: string;
+    otherSymptoms?: string;
+  } | null;
 };
 
 type DoctorDataForView = {
@@ -107,20 +105,28 @@ export function buildVisitRoomPresentation(input: VisitRoomPresentationInput) {
     : doctorRoleFallback;
 
   const roomClosedByStatus =
-    isClosedStatus(input.appointment.status) || isClosedStatus(input.currentStatus);
+    isClosedStatus(input.appointment.status) ||
+    isClosedStatus(input.currentStatus);
   const effectiveCanSendMessage = input.canSendMessage && !roomClosedByStatus;
   const composerHint = effectiveCanSendMessage
     ? input.t.composerHint
     : input.t.composerReadOnlyHint;
   const composerDisabled =
-    input.isSending || !effectiveCanSendMessage || Boolean(input.pollingFatalError);
+    input.isSending ||
+    !effectiveCanSendMessage ||
+    Boolean(input.pollingFatalError);
 
   const datePattern = DATE_PATTERN_BY_LANGUAGE[input.resolved];
   const dateLocale = DATE_LOCALE_BY_LANGUAGE[input.resolved];
   const localNowText = format(input.now, datePattern, { locale: dateLocale });
-  const chinaNowText = formatInTimeZone(input.now, "Asia/Shanghai", datePattern, {
-    locale: dateLocale,
-  });
+  const chinaNowText = formatInTimeZone(
+    input.now,
+    "Asia/Shanghai",
+    datePattern,
+    {
+      locale: dateLocale,
+    }
+  );
 
   const consultationLiveText = getConsultationStatusText({
     t: input.t,
@@ -135,16 +141,38 @@ export function buildVisitRoomPresentation(input: VisitRoomPresentationInput) {
   const triageRecommendationTitle = input.t.triageRecommendationTitle;
 
   const intakeItemsRaw: Array<{ label: string; value: string | undefined }> = [
-    { label: input.t.intakeChiefComplaint, value: input.appointment.intake?.chiefComplaint },
-    { label: input.t.intakeDuration, value: input.appointment.intake?.duration },
-    { label: input.t.intakeMedicalHistory, value: input.appointment.intake?.medicalHistory },
-    { label: input.t.intakeMedications, value: input.appointment.intake?.medications },
-    { label: input.t.intakeAllergies, value: input.appointment.intake?.allergies },
-    { label: input.t.intakeAgeGroup, value: input.appointment.intake?.ageGroup },
-    { label: input.t.intakeOtherSymptoms, value: input.appointment.intake?.otherSymptoms },
+    {
+      label: input.t.intakeChiefComplaint,
+      value: input.appointment.intake?.chiefComplaint,
+    },
+    {
+      label: input.t.intakeDuration,
+      value: input.appointment.intake?.duration,
+    },
+    {
+      label: input.t.intakeMedicalHistory,
+      value: input.appointment.intake?.medicalHistory,
+    },
+    {
+      label: input.t.intakeMedications,
+      value: input.appointment.intake?.medications,
+    },
+    {
+      label: input.t.intakeAllergies,
+      value: input.appointment.intake?.allergies,
+    },
+    {
+      label: input.t.intakeAgeGroup,
+      value: input.appointment.intake?.ageGroup,
+    },
+    {
+      label: input.t.intakeOtherSymptoms,
+      value: input.appointment.intake?.otherSymptoms,
+    },
   ];
   const intakeItems = intakeItemsRaw.filter(
-    (item): item is { label: string; value: string } => Boolean(item.value?.trim())
+    (item): item is { label: string; value: string } =>
+      Boolean(item.value?.trim())
   );
 
   const triageSummary = input.appointment.triageSummary?.trim() || "";

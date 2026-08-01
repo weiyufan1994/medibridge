@@ -32,7 +32,9 @@ export type ProviderWebhookEvent = {
 
 export type PaymentProviderWebhookAdapter = {
   provider: PaymentProvider;
-  createSession: (input: PaymentCheckoutInput) => Promise<PaymentCheckoutSession> | PaymentCheckoutSession;
+  createSession: (
+    input: PaymentCheckoutInput
+  ) => Promise<PaymentCheckoutSession> | PaymentCheckoutSession;
   parseWebhookEvent: (rawBody: Buffer) => unknown;
   verifyWebhook: (input: {
     rawBody: Buffer;
@@ -40,9 +42,7 @@ export type PaymentProviderWebhookAdapter = {
     webhookSecret?: string;
   }) => Promise<void> | void;
   extractSessionIdFromWebhookEvent: (event: unknown) => string | null;
-  captureOrFinalize: (input: {
-    providerSessionId: string;
-  }) => Promise<{
+  captureOrFinalize: (input: { providerSessionId: string }) => Promise<{
     provider: PaymentProvider;
     providerSessionId: string;
     providerTransactionId?: string | null;
@@ -83,7 +83,7 @@ const ADAPTERS: Record<PaymentProvider, PaymentProviderWebhookAdapter> = {
     ...stripeAdapter,
     createSession: stripeAdapter.createSession,
     parseWebhookEvent: stripeAdapter.parseWebhookEvent,
-    verifyWebhook: (input) => {
+    verifyWebhook: input => {
       stripeAdapter.verifyWebhook({
         rawBody: input.rawBody,
         headers: input.headers,

@@ -64,7 +64,10 @@ import { createPaymentCheckoutSession } from "./modules/payments/providerManager
 import { sendMagicLinkEmail } from "./_core/mailer";
 import { issueAppointmentAccessLinks } from "./modules/appointments/tokenService";
 import { validateAppointmentAccessToken } from "./modules/appointments/tokenValidation";
-import { appointmentsRouter, validateAppointmentToken } from "./routers/appointments";
+import {
+  appointmentsRouter,
+  validateAppointmentToken,
+} from "./routers/appointments";
 
 function createTestContext(): TrpcContext {
   return {
@@ -150,7 +153,8 @@ describe("appointments router", () => {
       provider: "stripe",
     });
     vi.mocked(getDb).mockResolvedValue({
-      transaction: async (callback: (tx: unknown) => Promise<unknown>) => callback({}),
+      transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback({}),
     } as never);
     vi.mocked(schedulingRepo.getSlotById).mockResolvedValue({
       id: 501,
@@ -191,7 +195,9 @@ describe("appointments router", () => {
     vi.mocked(schedulingRepo.attachHeldSlotToAppointment).mockResolvedValue({
       id: 501,
     } as never);
-    vi.mocked(doctorAccountActions.resolveBoundDoctorIdForUser).mockResolvedValue(11);
+    vi.mocked(
+      doctorAccountActions.resolveBoundDoctorIdForUser
+    ).mockResolvedValue(11);
   });
 
   it("create validates input and calls draft + checkout flow", async () => {
@@ -222,11 +228,13 @@ describe("appointments router", () => {
       })
     );
 
-    expect(appointmentsRepo.markAppointmentPendingPayment).toHaveBeenCalledWith({
-      appointmentId: 123,
-      stripeSessionId: "cs_test_abc",
-      paymentProvider: "stripe",
-    });
+    expect(appointmentsRepo.markAppointmentPendingPayment).toHaveBeenCalledWith(
+      {
+        appointmentId: 123,
+        stripeSessionId: "cs_test_abc",
+        paymentProvider: "stripe",
+      }
+    );
 
     expect(result).toMatchObject({
       appointmentId: 123,
@@ -275,10 +283,12 @@ describe("appointments router", () => {
   });
 
   it("create resolves insert id via fallback lookup when insertId missing", async () => {
-    vi.mocked(appointmentsRepo.createAppointmentDraft).mockResolvedValue({} as never);
-    vi.mocked(appointmentsRepo.findLatestAppointmentIdByLookup).mockResolvedValue(
-      456 as never
+    vi.mocked(appointmentsRepo.createAppointmentDraft).mockResolvedValue(
+      {} as never
     );
+    vi.mocked(
+      appointmentsRepo.findLatestAppointmentIdByLookup
+    ).mockResolvedValue(456 as never);
 
     const ctx = createTestContext();
     ctx.user = {
@@ -295,7 +305,9 @@ describe("appointments router", () => {
       email: "fallback@example.com",
     });
 
-    expect(appointmentsRepo.findLatestAppointmentIdByLookup).toHaveBeenCalledWith({
+    expect(
+      appointmentsRepo.findLatestAppointmentIdByLookup
+    ).toHaveBeenCalledWith({
       doctorId: 22,
       email: "fallback@example.com",
       scheduledAt,
@@ -731,9 +743,9 @@ describe("appointments router", () => {
         updatedAt: new Date("2026-03-01T00:00:00.000Z"),
       },
     } as never);
-    vi.mocked(appointmentsRepo.getMedicalSummaryByAppointmentId).mockResolvedValue(
-      null as never
-    );
+    vi.mocked(
+      appointmentsRepo.getMedicalSummaryByAppointmentId
+    ).mockResolvedValue(null as never);
 
     const caller = appointmentsRouter.createCaller(createTestContext());
     const result = await caller.generateMedicalSummaryDraft({
@@ -776,9 +788,9 @@ describe("appointments router", () => {
         updatedAt: new Date("2026-03-01T00:00:00.000Z"),
       },
     } as never);
-    vi.mocked(appointmentsRepo.getMedicalSummaryByAppointmentId).mockResolvedValue(
-      null as never
-    );
+    vi.mocked(
+      appointmentsRepo.getMedicalSummaryByAppointmentId
+    ).mockResolvedValue(null as never);
 
     const caller = appointmentsRouter.createCaller(createTestContext());
     const result = await caller.generateMedicalSummaryDraft({
@@ -822,9 +834,9 @@ describe("appointments router", () => {
         updatedAt: new Date("2026-03-01T00:00:00.000Z"),
       },
     } as never);
-    vi.mocked(appointmentsRepo.getMedicalSummaryByAppointmentId).mockResolvedValue(
-      null as never
-    );
+    vi.mocked(
+      appointmentsRepo.getMedicalSummaryByAppointmentId
+    ).mockResolvedValue(null as never);
     vi.mocked(visitRepo.getRecentMessages).mockResolvedValue([
       {
         content: "patient has mild fever and cough",
@@ -852,7 +864,9 @@ describe("appointments router", () => {
     });
 
     expect(result.source).toBe("fallback");
-    expect(appointmentsRepo.upsertMedicalSummaryByAppointmentId).toHaveBeenCalledWith(
+    expect(
+      appointmentsRepo.upsertMedicalSummaryByAppointmentId
+    ).toHaveBeenCalledWith(
       expect.objectContaining({
         appointmentId: 7007,
         source: "ai_draft_fallback",
@@ -935,9 +949,9 @@ describe("appointments router", () => {
       ok: true,
       reason: "updated",
     } as never);
-    vi.mocked(appointmentsRepo.upsertMedicalSummaryByAppointmentId).mockResolvedValue(
-      { id: 99 } as never
-    );
+    vi.mocked(
+      appointmentsRepo.upsertMedicalSummaryByAppointmentId
+    ).mockResolvedValue({ id: 99 } as never);
     vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue({
       id: 7003,
       status: "completed",
@@ -967,7 +981,9 @@ describe("appointments router", () => {
         toStatus: "completed",
       })
     );
-    expect(appointmentsRepo.upsertMedicalSummaryByAppointmentId).toHaveBeenCalled();
+    expect(
+      appointmentsRepo.upsertMedicalSummaryByAppointmentId
+    ).toHaveBeenCalled();
   });
 
   it("signMedicalSummary rejects invalid status transition", async () => {
@@ -1014,7 +1030,8 @@ describe("appointments router", () => {
         historyOfPresentIllness: "Intermittent dry cough with mild fever.",
         pastMedicalHistory: "No chronic disease reported.",
         assessmentDiagnosis: "Likely upper respiratory tract infection.",
-        planRecommendations: "Hydration, rest, and follow-up if symptoms worsen.",
+        planRecommendations:
+          "Hydration, rest, and follow-up if symptoms worsen.",
       })
     ).rejects.toThrow("APPOINTMENT_INVALID_STATUS_TRANSITION");
   });
@@ -1141,7 +1158,9 @@ describe("appointments router", () => {
       status: "completed",
       summary: "Likely upper respiratory infection",
     } as never);
-    vi.mocked(appointmentsRepo.getMedicalSummaryByAppointmentId).mockResolvedValue({
+    vi.mocked(
+      appointmentsRepo.getMedicalSummaryByAppointmentId
+    ).mockResolvedValue({
       id: 73,
       appointmentId: 9001,
       chiefComplaint: "Cough",
@@ -1201,17 +1220,19 @@ describe("appointments router", () => {
         paymentStatus: "paid",
       },
     } as never);
-    vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValueOnce({
-      id: 9010,
-      doctorId: 11,
-      status: "paid",
-      paymentStatus: "paid",
-    } as never).mockResolvedValueOnce({
-      id: 9010,
-      doctorId: 11,
-      status: "active",
-      paymentStatus: "paid",
-    } as never);
+    vi.mocked(appointmentsRepo.getAppointmentById)
+      .mockResolvedValueOnce({
+        id: 9010,
+        doctorId: 11,
+        status: "paid",
+        paymentStatus: "paid",
+      } as never)
+      .mockResolvedValueOnce({
+        id: 9010,
+        doctorId: 11,
+        status: "active",
+        paymentStatus: "paid",
+      } as never);
 
     const caller = appointmentsRouter.createCaller(createTestContext());
     const result = await caller.startDoctorWorkbenchAppointment({
@@ -1251,5 +1272,4 @@ describe("appointments router", () => {
       "APPOINTMENT_INVALID_STATUS_TRANSITION"
     );
   });
-
 });

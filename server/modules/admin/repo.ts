@@ -22,7 +22,9 @@ export type RetentionTier = keyof typeof DEFAULT_RETENTION_DAYS;
 export type AdminUserRole = "free" | "pro" | "admin" | "ops";
 
 function getGuestRetentionDays() {
-  const raw = Number(process.env.GUEST_RETENTION_DAYS ?? DEFAULT_GUEST_RETENTION_DAYS);
+  const raw = Number(
+    process.env.GUEST_RETENTION_DAYS ?? DEFAULT_GUEST_RETENTION_DAYS
+  );
   if (!Number.isFinite(raw) || raw < 1) {
     return DEFAULT_GUEST_RETENTION_DAYS;
   }
@@ -234,7 +236,10 @@ export async function listRetentionCleanupAudits(limit = 20) {
   return db
     .select()
     .from(retentionCleanupAudits)
-    .orderBy(desc(retentionCleanupAudits.createdAt), desc(retentionCleanupAudits.id))
+    .orderBy(
+      desc(retentionCleanupAudits.createdAt),
+      desc(retentionCleanupAudits.id)
+    )
     .limit(limit);
 }
 
@@ -243,8 +248,14 @@ function toPolicyMap(rows: Awaited<ReturnType<typeof listRetentionPolicies>>) {
   const paid = rows.find(item => item.tier === "paid");
 
   return {
-    freeRetentionDays: Math.max(1, Number(free?.retentionDays ?? DEFAULT_RETENTION_DAYS.free)),
-    paidRetentionDays: Math.max(1, Number(paid?.retentionDays ?? DEFAULT_RETENTION_DAYS.paid)),
+    freeRetentionDays: Math.max(
+      1,
+      Number(free?.retentionDays ?? DEFAULT_RETENTION_DAYS.free)
+    ),
+    paidRetentionDays: Math.max(
+      1,
+      Number(paid?.retentionDays ?? DEFAULT_RETENTION_DAYS.paid)
+    ),
     freeEnabled: Number(free?.enabled ?? 1) === 1,
     paidEnabled: Number(paid?.enabled ?? 1) === 1,
   };
@@ -277,25 +288,28 @@ export async function runRetentionCleanup(input: {
 
   const now = new Date();
   const guestRetentionDays = getGuestRetentionDays();
-  const buildEmptyFailureResult = (failureReason: string) => ({
-    dryRun: Boolean(input.dryRun),
-    scannedMessages: 0,
-    deletedMessages: 0,
-    totalCandidates: 0,
-    freeCandidates: 0,
-    paidCandidates: 0,
-    freeRetentionDays: 0,
-    paidRetentionDays: 0,
-    guestCandidates: 0,
-    deletedGuests: 0,
-    guestRetentionDays,
-    freeSampleIds: [] as number[],
-    paidSampleIds: [] as number[],
-    guestSampleIds: [] as number[],
-    failureReason,
-    generatedAt: new Date().toISOString(),
-    nextCleanupAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-  } as const);
+  const buildEmptyFailureResult = (failureReason: string) =>
+    ({
+      dryRun: Boolean(input.dryRun),
+      scannedMessages: 0,
+      deletedMessages: 0,
+      totalCandidates: 0,
+      freeCandidates: 0,
+      paidCandidates: 0,
+      freeRetentionDays: 0,
+      paidRetentionDays: 0,
+      guestCandidates: 0,
+      deletedGuests: 0,
+      guestRetentionDays,
+      freeSampleIds: [] as number[],
+      paidSampleIds: [] as number[],
+      guestSampleIds: [] as number[],
+      failureReason,
+      generatedAt: new Date().toISOString(),
+      nextCleanupAt: new Date(
+        now.getTime() + 24 * 60 * 60 * 1000
+      ).toISOString(),
+    }) as const;
 
   try {
     const policies = await ensureDefaultRetentionPolicies();
@@ -306,7 +320,9 @@ export async function runRetentionCleanup(input: {
     const paidCutoff = new Date(
       now.getTime() - policyMap.paidRetentionDays * 24 * 60 * 60 * 1000
     );
-    const guestCutoff = new Date(now.getTime() - guestRetentionDays * 24 * 60 * 60 * 1000);
+    const guestCutoff = new Date(
+      now.getTime() - guestRetentionDays * 24 * 60 * 60 * 1000
+    );
 
     const paidPredicate = toPaidTierPredicate();
     const freePredicate = toFreeTierPredicate();
@@ -320,16 +336,26 @@ export async function runRetentionCleanup(input: {
       ? await db
           .select({ count: sql<number>`count(*)` })
           .from(appointmentMessages)
-          .innerJoin(appointments, eq(appointmentMessages.appointmentId, appointments.id))
-          .where(and(freePredicate, lt(appointmentMessages.createdAt, freeCutoff)))
+          .innerJoin(
+            appointments,
+            eq(appointmentMessages.appointmentId, appointments.id)
+          )
+          .where(
+            and(freePredicate, lt(appointmentMessages.createdAt, freeCutoff))
+          )
       : [{ count: 0 }];
 
     const paidCandidateRows = policyMap.paidEnabled
       ? await db
           .select({ count: sql<number>`count(*)` })
           .from(appointmentMessages)
-          .innerJoin(appointments, eq(appointmentMessages.appointmentId, appointments.id))
-          .where(and(paidPredicate, lt(appointmentMessages.createdAt, paidCutoff)))
+          .innerJoin(
+            appointments,
+            eq(appointmentMessages.appointmentId, appointments.id)
+          )
+          .where(
+            and(paidPredicate, lt(appointmentMessages.createdAt, paidCutoff))
+          )
       : [{ count: 0 }];
 
     const freeCandidates = Number(freeCandidateRows[0]?.count ?? 0);
@@ -339,8 +365,13 @@ export async function runRetentionCleanup(input: {
       ? await db
           .select({ id: appointmentMessages.id })
           .from(appointmentMessages)
-          .innerJoin(appointments, eq(appointmentMessages.appointmentId, appointments.id))
-          .where(and(freePredicate, lt(appointmentMessages.createdAt, freeCutoff)))
+          .innerJoin(
+            appointments,
+            eq(appointmentMessages.appointmentId, appointments.id)
+          )
+          .where(
+            and(freePredicate, lt(appointmentMessages.createdAt, freeCutoff))
+          )
           .orderBy(desc(appointmentMessages.id))
           .limit(10)
       : [];
@@ -349,8 +380,13 @@ export async function runRetentionCleanup(input: {
       ? await db
           .select({ id: appointmentMessages.id })
           .from(appointmentMessages)
-          .innerJoin(appointments, eq(appointmentMessages.appointmentId, appointments.id))
-          .where(and(paidPredicate, lt(appointmentMessages.createdAt, paidCutoff)))
+          .innerJoin(
+            appointments,
+            eq(appointmentMessages.appointmentId, appointments.id)
+          )
+          .where(
+            and(paidPredicate, lt(appointmentMessages.createdAt, paidCutoff))
+          )
           .orderBy(desc(appointmentMessages.id))
           .limit(10)
       : [];
@@ -401,36 +437,32 @@ export async function runRetentionCleanup(input: {
     let deletedGuests = 0;
     if (!input.dryRun) {
       if (policyMap.freeEnabled) {
-        const freeDelete = await db
-          .delete(appointmentMessages)
-          .where(
-            and(
-              lt(appointmentMessages.createdAt, freeCutoff),
-              sql`exists (
+        const freeDelete = await db.delete(appointmentMessages).where(
+          and(
+            lt(appointmentMessages.createdAt, freeCutoff),
+            sql`exists (
                 select 1
                 from ${appointments}
                 where ${appointments.id} = ${appointmentMessages.appointmentId}
                 and ${freePredicate}
               )`
-            )
-          );
+          )
+        );
         deletedMessages += extractAffectedRows(freeDelete);
       }
 
       if (policyMap.paidEnabled) {
-        const paidDelete = await db
-          .delete(appointmentMessages)
-          .where(
-            and(
-              lt(appointmentMessages.createdAt, paidCutoff),
-              sql`exists (
+        const paidDelete = await db.delete(appointmentMessages).where(
+          and(
+            lt(appointmentMessages.createdAt, paidCutoff),
+            sql`exists (
                 select 1
                 from ${appointments}
                 where ${appointments.id} = ${appointmentMessages.appointmentId}
                 and ${paidPredicate}
               )`
-            )
-          );
+          )
+        );
         deletedMessages += extractAffectedRows(paidDelete);
       }
 
@@ -439,7 +471,9 @@ export async function runRetentionCleanup(input: {
     }
 
     const totalCandidates = freeCandidates + paidCandidates + guestCandidates;
-    const nextCleanupAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+    const nextCleanupAt = new Date(
+      now.getTime() + 24 * 60 * 60 * 1000
+    ).toISOString();
 
     await db.insert(retentionCleanupAudits).values({
       dryRun: input.dryRun ? 1 : 0,
@@ -486,8 +520,11 @@ export async function runRetentionCleanup(input: {
       generatedAt: now.toISOString(),
     } as const;
   } catch (error) {
-    const failureReason = error instanceof Error ? error.message : "Unknown cleanup error";
-    const nextCleanupAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+    const failureReason =
+      error instanceof Error ? error.message : "Unknown cleanup error";
+    const nextCleanupAt = new Date(
+      now.getTime() + 24 * 60 * 60 * 1000
+    ).toISOString();
 
     try {
       await db.insert(retentionCleanupAudits).values({

@@ -15,7 +15,9 @@ export type AppointmentAccessContext = {
   tokenId: number;
   tokenHash: string;
   expiresAt: Date;
-  appointment: Awaited<ReturnType<typeof appointmentsRepo.getAppointmentById>> extends infer T
+  appointment: Awaited<
+    ReturnType<typeof appointmentsRepo.getAppointmentById>
+  > extends infer T
     ? NonNullable<T>
     : never;
   displayInfo: {
@@ -61,7 +63,9 @@ function canReuseJoinWithoutIncrement(input: {
   if (!input.lastUsedAt) {
     return false;
   }
-  return input.now.getTime() - input.lastUsedAt.getTime() <= JOIN_REUSE_WINDOW_MS;
+  return (
+    input.now.getTime() - input.lastUsedAt.getTime() <= JOIN_REUSE_WINDOW_MS
+  );
 }
 
 function getClientIp(req?: Request): string | null {
@@ -155,18 +159,30 @@ export async function validateAppointmentAccessToken(input: {
   const tokenHash = hashToken(token);
   const tokenRow = await appointmentsRepo.getAppointmentTokenByHash(tokenHash);
   if (!tokenRow) {
-    await handleFailedAttempt({ tokenHash, reason: "TOKEN_INVALID", req: input.req });
+    await handleFailedAttempt({
+      tokenHash,
+      reason: "TOKEN_INVALID",
+      req: input.req,
+    });
     throwTokenError("TOKEN_INVALID");
   }
 
   const now = new Date();
   if (tokenRow.revokedAt) {
-    await handleFailedAttempt({ tokenHash, reason: "TOKEN_REVOKED", req: input.req });
+    await handleFailedAttempt({
+      tokenHash,
+      reason: "TOKEN_REVOKED",
+      req: input.req,
+    });
     throwTokenError("TOKEN_REVOKED");
   }
 
   if (tokenRow.expiresAt.getTime() <= now.getTime()) {
-    await handleFailedAttempt({ tokenHash, reason: "TOKEN_EXPIRED", req: input.req });
+    await handleFailedAttempt({
+      tokenHash,
+      reason: "TOKEN_EXPIRED",
+      req: input.req,
+    });
     throwTokenError("TOKEN_EXPIRED");
   }
 
@@ -178,13 +194,25 @@ export async function validateAppointmentAccessToken(input: {
     now,
   });
 
-  if (action === "join_room" && tokenRow.useCount >= tokenRow.maxUses && !isJoinReuseAllowed) {
-    await handleFailedAttempt({ tokenHash, reason: "TOKEN_MAX_USES", req: input.req });
+  if (
+    action === "join_room" &&
+    tokenRow.useCount >= tokenRow.maxUses &&
+    !isJoinReuseAllowed
+  ) {
+    await handleFailedAttempt({
+      tokenHash,
+      reason: "TOKEN_MAX_USES",
+      req: input.req,
+    });
     throwTokenError("TOKEN_MAX_USES");
   }
 
   if (input.expectedRole && tokenRow.role !== input.expectedRole) {
-    await handleFailedAttempt({ tokenHash, reason: "TOKEN_INVALID", req: input.req });
+    await handleFailedAttempt({
+      tokenHash,
+      reason: "TOKEN_INVALID",
+      req: input.req,
+    });
     throwTokenError("TOKEN_INVALID");
   }
 
@@ -192,11 +220,17 @@ export async function validateAppointmentAccessToken(input: {
     typeof input.expectedAppointmentId === "number" &&
     tokenRow.appointmentId !== input.expectedAppointmentId
   ) {
-    await handleFailedAttempt({ tokenHash, reason: "TOKEN_INVALID", req: input.req });
+    await handleFailedAttempt({
+      tokenHash,
+      reason: "TOKEN_INVALID",
+      req: input.req,
+    });
     throwTokenError("TOKEN_INVALID");
   }
 
-  const appointment = await appointmentsRepo.getAppointmentById(tokenRow.appointmentId);
+  const appointment = await appointmentsRepo.getAppointmentById(
+    tokenRow.appointmentId
+  );
   if (!appointment) {
     await handleFailedAttempt({
       tokenHash,
@@ -240,7 +274,11 @@ export async function validateAppointmentAccessToken(input: {
       now,
     });
     if (touched !== 1) {
-      await handleFailedAttempt({ tokenHash, reason: "TOKEN_MAX_USES", req: input.req });
+      await handleFailedAttempt({
+        tokenHash,
+        reason: "TOKEN_MAX_USES",
+        req: input.req,
+      });
       throwTokenError("TOKEN_MAX_USES");
     }
   }

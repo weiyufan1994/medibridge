@@ -1,6 +1,7 @@
 # Appointment Entry Link Auth
 
 ## Overview
+
 Medibridge uses short-lived appointment access tokens instead of traditional account login for room entry links.
 
 - Link format: `{APP_BASE_URL}/room?token=<token>`
@@ -8,6 +9,7 @@ Medibridge uses short-lived appointment access tokens instead of traditional acc
 - Database stores only `sha256(token)` in `appointmentTokens.tokenHash`
 
 ## Issuance Strategy
+
 Current strategy is **revoke-and-reissue**:
 
 1. Revoke existing non-revoked tokens for the appointment (`reason=reissued`)
@@ -17,6 +19,7 @@ Current strategy is **revoke-and-reissue**:
 This avoids long-lived forwarded links remaining valid after re-send.
 
 ## Validation Rules
+
 Server validation checks:
 
 - token exists
@@ -36,12 +39,14 @@ Success returns access context:
 - `displayInfo`
 
 ## Abuse Controls
+
 - In-memory IP failure rate limiting (`APPOINTMENT_TOKEN_FAIL_*`)
 - Validation failures are reason-coded (`TOKEN_INVALID`, `TOKEN_EXPIRED`, ...)
 - Repeated failures on the same token hash auto-revoke token after threshold
 - First successful IP/UA are persisted on token row (`ipFirstSeen`, `uaFirstSeen`)
 
 ## Environment Variables
+
 - `APP_BASE_URL` (required for link generation)
 - `APPOINTMENT_TOKEN_TTL_HOURS` (default: `24`)
 - `APPOINTMENT_PATIENT_TOKEN_MAX_USES` (default: `1`)
@@ -51,6 +56,7 @@ Success returns access context:
 - `APPOINTMENT_TOKEN_AUTO_REVOKE_FAILURES` (default: `30`)
 
 ## APIs
+
 Implemented in `appointmentsRouter`:
 
 - `issueAccessLinks({ appointmentId })`

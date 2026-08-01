@@ -43,7 +43,10 @@ export const CHECKOUT_REINIT_BLOCKED_STATUSES: AppointmentStatus[] = [
   "refunded",
 ];
 
-const ALLOWED_STATUS_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
+const ALLOWED_STATUS_TRANSITIONS: Record<
+  AppointmentStatus,
+  AppointmentStatus[]
+> = {
   draft: ["pending_payment", "canceled"],
   pending_payment: ["paid", "expired", "canceled"],
   paid: ["active", "ended", "completed", "refunded", "canceled"],
@@ -89,7 +92,9 @@ export function ensureValidAppointmentStatePair(input: {
   status: AppointmentStatus;
   paymentStatus: PaymentStatus;
 }) {
-  if (!isAllowedPaymentStatusForAppointment(input.status, input.paymentStatus)) {
+  if (
+    !isAllowedPaymentStatusForAppointment(input.status, input.paymentStatus)
+  ) {
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message: APPOINTMENT_INVALID_TRANSITION_ERROR,
@@ -109,7 +114,9 @@ export function ensureValidTransitionOrThrow(input: {
     });
   }
 
-  if (!isAllowedPaymentStatusForAppointment(input.toStatus, input.toPaymentStatus)) {
+  if (
+    !isAllowedPaymentStatusForAppointment(input.toStatus, input.toPaymentStatus)
+  ) {
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message: APPOINTMENT_INVALID_TRANSITION_ERROR,

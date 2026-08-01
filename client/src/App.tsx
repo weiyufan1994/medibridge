@@ -88,7 +88,9 @@ function AuthBootstrap() {
       return;
     }
 
-    const appointmentId = parseAppointmentIdFromPathname(window.location.pathname);
+    const appointmentId = parseAppointmentIdFromPathname(
+      window.location.pathname
+    );
     void verifyMagicLinkMutation
       .mutateAsync({ token, appointmentId })
       .finally(() => {
@@ -143,7 +145,10 @@ function Router() {
           path={"/referrals/mock-checkout/:orderId"}
           component={ReferralMockCheckoutPage}
         />
-        <Route path={"/mock-checkout/:bookingId"} component={MockCheckoutPage} />
+        <Route
+          path={"/mock-checkout/:bookingId"}
+          component={MockCheckoutPage}
+        />
         <Route path={"/visit/:id"} component={VisitRoomPage} />
         <Route path={"/doctor/claim"} component={DoctorClaimInvitePage} />
         <Route path={"/doctor/workbench"} component={DoctorWorkbenchPage} />
@@ -151,7 +156,10 @@ function Router() {
         <Route path={"/doctor/:id"} component={DoctorDetailPage} />
         <Route path={"/hospitals"} component={HospitalsPage} />
         {DevComponentShowcasePage ? (
-          <Route path={"/__dev__/components"} component={DevComponentShowcasePage} />
+          <Route
+            path={"/__dev__/components"}
+            component={DevComponentShowcasePage}
+          />
         ) : null}
         <Route path={"/404"} component={NotFound} />
         {/* Final fallback route */}
@@ -187,9 +195,7 @@ function DashboardRouteGuard() {
           <h1 className="text-xl font-semibold tracking-tight">
             {t.guardTitle}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            {t.guardDesc}
-          </p>
+          <p className="text-sm text-muted-foreground">{t.guardDesc}</p>
           <Button onClick={openLoginModal}>{t.guardAction}</Button>
         </div>
       </main>

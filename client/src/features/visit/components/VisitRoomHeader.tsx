@@ -26,7 +26,8 @@ type VisitRoomHeaderProps = {
 
 const TIMER_CLASS_BY_STATUS: Record<ConsultationTimerStatus, string> = {
   normal: "bg-slate-50 text-slate-600 border-slate-200",
-  warning: "bg-amber-50 text-amber-600 border-amber-200 animate-pulse motion-reduce:animate-none",
+  warning:
+    "bg-amber-50 text-amber-600 border-amber-200 animate-pulse motion-reduce:animate-none",
   expired: "bg-rose-50 text-rose-600 border-rose-200",
 };
 
@@ -56,7 +57,9 @@ export function VisitRoomHeader({
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-sm font-semibold text-slate-900">{doctorName}</p>
+            <p className="truncate text-sm font-semibold text-slate-900">
+              {doctorName}
+            </p>
             <span className="inline-flex whitespace-nowrap items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
               <span className="animate-pulse">●</span>
               {consultationLiveText}

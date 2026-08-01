@@ -1,4 +1,12 @@
-import { Hospital, Stethoscope, Star, ThumbsUp, Globe, ExternalLink, User } from "lucide-react";
+import {
+  Hospital,
+  Stethoscope,
+  Star,
+  ThumbsUp,
+  Globe,
+  ExternalLink,
+  User,
+} from "lucide-react";
 import {
   getHospitalBrowseText,
   isHospitalBrowsePlaceholder,
@@ -127,12 +135,15 @@ export function DoctorDetailContent({
   const satisfactionClean = cleanupText(satisfaction);
   const attitudeClean = cleanupText(attitude);
   const recommendationClean = cleanupText(
-    doctor.recommendationScore === null || doctor.recommendationScore === undefined
+    doctor.recommendationScore === null ||
+      doctor.recommendationScore === undefined
       ? ""
       : String(doctor.recommendationScore)
   );
 
-  const avatarInitial = doctorDisplayName ? doctorDisplayName.charAt(0).toUpperCase() : "";
+  const avatarInitial = doctorDisplayName
+    ? doctorDisplayName.charAt(0).toUpperCase()
+    : "";
   const expertiseItems = Array.from(
     new Set([doctorSpecialtyClean, doctorExpertiseClean].filter(Boolean))
   );
@@ -184,13 +195,19 @@ export function DoctorDetailContent({
         aria-label={t("doctor.hero_profile_aria")}
       >
         <div className="w-24 h-24 rounded-full bg-teal-50 flex items-center justify-center text-teal-700 flex-shrink-0 text-4xl font-bold">
-          {avatarInitial ? <span aria-hidden="true">{avatarInitial}</span> : <User className="w-10 h-10" aria-hidden="true" />}
+          {avatarInitial ? (
+            <span aria-hidden="true">{avatarInitial}</span>
+          ) : (
+            <User className="w-10 h-10" aria-hidden="true" />
+          )}
         </div>
         <div className="min-w-0">
           <h1 className="text-3xl font-bold text-slate-900 leading-tight">
             {doctorDisplayName || t("doctor.default_name")}
           </h1>
-          {doctorDisplayTitle && <p className="mt-2 text-slate-600">{doctorDisplayTitle}</p>}
+          {doctorDisplayTitle && (
+            <p className="mt-2 text-slate-600">{doctorDisplayTitle}</p>
+          )}
           <div className="mt-4 flex flex-wrap gap-2">
             {hospitalNameClean && (
               <span className="inline-flex items-center gap-2 bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-sm">
@@ -216,7 +233,10 @@ export function DoctorDetailContent({
         </div>
       </section>
 
-      <section className="bg-white rounded-2xl p-6 shadow-sm mb-6" aria-label={t("doctor.expertise")}>
+      <section
+        className="bg-white rounded-2xl p-6 shadow-sm mb-6"
+        aria-label={t("doctor.expertise")}
+      >
         <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2 mb-3">
           <Stethoscope className="w-5 h-5 text-slate-700" aria-hidden="true" />
           {t("doctor.expertise")}
@@ -225,12 +245,17 @@ export function DoctorDetailContent({
           {visibleExpertiseItems.length > 0 ? (
             visibleExpertiseItems.map(item => <p key={item}>{item}</p>)
           ) : (
-            <p className="text-sm text-slate-400 italic">{t("common.no_details", "暂无详细介绍")}</p>
+            <p className="text-sm text-slate-400 italic">
+              {t("common.no_details", "暂无详细介绍")}
+            </p>
           )}
         </div>
       </section>
 
-      <section className="bg-white rounded-2xl p-6 shadow-sm mb-6" aria-label={t("doctor.ratings")}>
+      <section
+        className="bg-white rounded-2xl p-6 shadow-sm mb-6"
+        aria-label={t("doctor.ratings")}
+      >
         <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2 mb-3">
           <Star className="w-5 h-5 text-slate-700" aria-hidden="true" />
           {t("doctor.ratings")}
@@ -245,13 +270,18 @@ export function DoctorDetailContent({
                 </div>
                 <p className="flex items-center gap-1 text-2xl font-bold text-slate-900">
                   <span>{item.value}</span>
-                  <Star className="w-4 h-4 fill-amber-400 text-amber-400" aria-hidden="true" />
+                  <Star
+                    className="w-4 h-4 fill-amber-400 text-amber-400"
+                    aria-hidden="true"
+                  />
                 </p>
               </article>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-400 italic">{t("common.no_statistics")}</p>
+          <p className="text-sm text-slate-400 italic">
+            {t("common.no_statistics")}
+          </p>
         )}
       </section>
 
@@ -291,7 +321,9 @@ export function DoctorDetailContent({
           {hospitalAddressClean ? (
             <p className="text-sm text-slate-600">{hospitalAddressClean}</p>
           ) : (
-            <p className="text-sm italic text-slate-500">{t("common.no_data_yet")}</p>
+            <p className="text-sm italic text-slate-500">
+              {t("common.no_data_yet")}
+            </p>
           )}
           <div className="pt-2 flex flex-wrap gap-3">
             {hospital.website && (

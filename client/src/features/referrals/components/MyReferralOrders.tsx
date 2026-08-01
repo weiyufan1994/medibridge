@@ -65,7 +65,9 @@ export function MyReferralOrders() {
                     <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                       {copy.dashboard.latestStatus}
                     </p>
-                    <p className="mt-1">{getReferralStatusLabel(order.status, lang)}</p>
+                    <p className="mt-1">
+                      {getReferralStatusLabel(order.status, lang)}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -81,7 +83,9 @@ export function MyReferralOrders() {
                   <Button
                     variant="outline"
                     className="rounded-xl border-slate-200"
-                    onClick={() => setLocation(buildReferralOrderHref(order.id))}
+                    onClick={() =>
+                      setLocation(buildReferralOrderHref(order.id))
+                    }
                   >
                     {copy.dashboard.viewOrder}
                   </Button>

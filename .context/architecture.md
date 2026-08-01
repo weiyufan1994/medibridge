@@ -4,20 +4,20 @@ This file is the placement and dependency contract used by `architecture-guard`.
 
 ## Top-level modules
 
-| Module | Responsibility |
-|---|---|
-| `client/src/features/*` | Feature domain UI, feature hooks, feature API adapters, feature copy/types |
-| `client/src/pages/*` | Route entry only; compose feature components and route-level guards |
-| `client/src/components/ui/*` | Generic design-system primitives (no business domain logic) |
-| `client/src/components/layout/*` | App-shell and reusable layout wrappers |
-| `client/src/lib/*` | Cross-feature frontend utilities and client integrations |
-| `client/src/contexts/*` | Global React context providers |
-| `server/modules/*` | Domain business logic and persistence coordination |
-| `server/routers/*` | tRPC router/input-output boundary layer |
-| `server/_core/*` | Runtime infrastructure (context, trpc bootstrap, env, adapters) |
-| `shared/*` | Cross-runtime types/constants/validators |
-| `drizzle/*` | Database schema and migrations |
-| `scripts/*` | Operational or data maintenance scripts |
+| Module                           | Responsibility                                                             |
+| -------------------------------- | -------------------------------------------------------------------------- |
+| `client/src/features/*`          | Feature domain UI, feature hooks, feature API adapters, feature copy/types |
+| `client/src/pages/*`             | Route entry only; compose feature components and route-level guards        |
+| `client/src/components/ui/*`     | Generic design-system primitives (no business domain logic)                |
+| `client/src/components/layout/*` | App-shell and reusable layout wrappers                                     |
+| `client/src/lib/*`               | Cross-feature frontend utilities and client integrations                   |
+| `client/src/contexts/*`          | Global React context providers                                             |
+| `server/modules/*`               | Domain business logic and persistence coordination                         |
+| `server/routers/*`               | tRPC router/input-output boundary layer                                    |
+| `server/_core/*`                 | Runtime infrastructure (context, trpc bootstrap, env, adapters)            |
+| `shared/*`                       | Cross-runtime types/constants/validators                                   |
+| `drizzle/*`                      | Database schema and migrations                                             |
+| `scripts/*`                      | Operational or data maintenance scripts                                    |
 
 ## Placement rules
 

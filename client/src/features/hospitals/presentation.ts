@@ -34,10 +34,7 @@ export function buildDepartmentDoctorsInput(
   return { departmentId, limit, lang } as const;
 }
 
-export function buildDoctorDetailInput(
-  doctorId: number,
-  lang: HospitalsLang
-) {
+export function buildDoctorDetailInput(doctorId: number, lang: HospitalsLang) {
   return { id: doctorId, lang } as const;
 }
 

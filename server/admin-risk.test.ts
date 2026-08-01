@@ -18,7 +18,9 @@ describe("computeAdminRisks", () => {
       now
     );
 
-    expect(risks.some(item => item.code === "PENDING_PAYMENT_TIMEOUT")).toBe(true);
+    expect(risks.some(item => item.code === "PENDING_PAYMENT_TIMEOUT")).toBe(
+      true
+    );
   });
 
   it("returns webhook failure critical risk", () => {
@@ -82,8 +84,12 @@ describe("computeAdminRisks", () => {
     const risks = computeAdminRisks(detail);
     const suggestions = computeAdminSuggestions(detail, risks);
 
-    expect(suggestions.some(item => item.action === "resend_access_link")).toBe(true);
-    expect(suggestions.some(item => item.action === "issue_access_links")).toBe(true);
+    expect(suggestions.some(item => item.action === "resend_access_link")).toBe(
+      true
+    );
+    expect(suggestions.some(item => item.action === "issue_access_links")).toBe(
+      true
+    );
   });
 
   it("detects doctor reply SLA overdue", () => {
@@ -105,7 +111,9 @@ describe("computeAdminRisks", () => {
       now
     );
 
-    expect(risks.some(item => item.code === "DOCTOR_REPLY_SLA_OVERDUE")).toBe(true);
+    expect(risks.some(item => item.code === "DOCTOR_REPLY_SLA_OVERDUE")).toBe(
+      true
+    );
   });
 
   it("suggests notify-doctor action when SLA is overdue", () => {
@@ -126,6 +134,8 @@ describe("computeAdminRisks", () => {
     const risks = computeAdminRisks(detail, now);
     const suggestions = computeAdminSuggestions(detail, risks);
 
-    expect(suggestions.some(item => item.action === "notify_doctor_followup")).toBe(true);
+    expect(
+      suggestions.some(item => item.action === "notify_doctor_followup")
+    ).toBe(true);
   });
 });

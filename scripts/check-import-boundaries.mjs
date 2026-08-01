@@ -32,7 +32,8 @@ function normalizeImportFrom(raw) {
 
 function checkFile(filePath) {
   const source = fs.readFileSync(filePath, "utf8");
-  const importPattern = /(?:import|export)\s+[^'"`]+?\s+from\s+['"]([^'"]+)['"]/g;
+  const importPattern =
+    /(?:import|export)\s+[^'"`]+?\s+from\s+['"]([^'"]+)['"]/g;
   const matches = [];
   let match;
 
@@ -63,7 +64,9 @@ for (const file of featureFiles) {
 }
 
 if (violations.length > 0) {
-  console.error("Import boundary check failed: features must not import pages.");
+  console.error(
+    "Import boundary check failed: features must not import pages."
+  );
   for (const item of violations) {
     console.error(`- ${item}`);
   }

@@ -110,12 +110,7 @@ export function ReferralConfirmationScreen({
     }
     setResumeAfterLogin(false);
     submitOrder();
-  }, [
-    agreementAccepted,
-    isAuthenticated,
-    resumeAfterLogin,
-    submitOrder,
-  ]);
+  }, [agreementAccepted, isAuthenticated, resumeAfterLogin, submitOrder]);
 
   if (selectionQuery.isLoading) {
     return (
@@ -144,7 +139,7 @@ export function ReferralConfirmationScreen({
     getLocalizedText({ lang, value: context.department.name }).trim() ||
     copy.common.notAvailable;
   const selectedContact = contactId
-    ? context.contacts.find(contact => contact.id === contactId) ?? null
+    ? (context.contacts.find(contact => contact.id === contactId) ?? null)
     : null;
   const invalidSelectedContact =
     contactInvalidAfterSubmit || (contactId !== null && !selectedContact);
@@ -192,9 +187,7 @@ export function ReferralConfirmationScreen({
             <p className="mt-2 text-base font-semibold text-slate-900">
               {hospitalName}
             </p>
-            <p className="mt-1 text-sm text-slate-500">
-              {departmentName}
-            </p>
+            <p className="mt-1 text-sm text-slate-500">{departmentName}</p>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -275,7 +268,9 @@ export function ReferralConfirmationScreen({
             <Checkbox
               id="referral-agreement"
               checked={agreementAccepted}
-              onCheckedChange={checked => setAgreementAccepted(checked === true)}
+              onCheckedChange={checked =>
+                setAgreementAccepted(checked === true)
+              }
             />
             <Label
               htmlFor="referral-agreement"

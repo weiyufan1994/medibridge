@@ -8,8 +8,7 @@ export const TRIAGE_HOSPITAL_REFERENCE_DIRECTORY = path.resolve(
 );
 export const SPECIALTY_REPUTATION_FILENAME =
   "fudan_specialty_reputation_2022_all.csv";
-export const GENERAL_GRADE_FILENAME =
-  "fudan_national_general_grade_2022.csv";
+export const GENERAL_GRADE_FILENAME = "fudan_national_general_grade_2022.csv";
 export const STEM_FILENAME = "hospital_science_stem_top100_2022.csv";
 
 export type SpecialtyReferenceSeedRow = {

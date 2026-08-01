@@ -32,7 +32,10 @@ describe("mailer", () => {
       text: vi.fn(async () => ""),
     } as unknown as Response);
 
-    await sendMagicLinkEmail("user@example.com", "https://medibridge.test/visit/1?t=token");
+    await sendMagicLinkEmail(
+      "user@example.com",
+      "https://medibridge.test/visit/1?t=token"
+    );
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
@@ -68,7 +71,10 @@ describe("mailer", () => {
       text: vi.fn(async () => ""),
     } as unknown as Response);
 
-    await sendMagicLinkEmail("user@example.com", "https://medibridge.test/visit/2?t=token");
+    await sendMagicLinkEmail(
+      "user@example.com",
+      "https://medibridge.test/visit/2?t=token"
+    );
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const body = JSON.parse(
@@ -82,7 +88,10 @@ describe("mailer", () => {
     const fetchMock = vi.mocked(fetch);
 
     await expect(
-      sendMagicLinkEmail("user@example.com", "https://medibridge.test/visit/1?t=token")
+      sendMagicLinkEmail(
+        "user@example.com",
+        "https://medibridge.test/visit/1?t=token"
+      )
     ).rejects.toThrow("Email provider is not configured for production");
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -97,19 +106,31 @@ describe("mailer", () => {
     } as unknown as Response);
 
     await expect(
-      sendMagicLinkEmail("user@example.com", "https://medibridge.test/visit/3?t=token")
+      sendMagicLinkEmail(
+        "user@example.com",
+        "https://medibridge.test/visit/3?t=token"
+      )
     ).rejects.toThrow("Failed to send email: 401 Unauthorized");
   });
 
   it("skips actual send in development", async () => {
     process.env.NODE_ENV = "development";
     const fetchMock = vi.mocked(fetch);
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const consoleSpy = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
 
-    await sendMagicLinkEmail("user@example.com", "https://medibridge.test/visit/4?t=token");
+    await sendMagicLinkEmail(
+      "user@example.com",
+      "https://medibridge.test/visit/4?t=token"
+    );
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalledWith("[Mailer][DEV] To: user@example.com");
-    expect(consoleSpy).toHaveBeenCalledWith("[Mailer][DEV] Magic link: https://medibridge.test/visit/4?t=token");
+    expect(consoleSpy).toHaveBeenCalledWith(
+      "[Mailer][DEV] To: user@example.com"
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(
+      "[Mailer][DEV] Magic link: https://medibridge.test/visit/4?t=token"
+    );
   });
 });

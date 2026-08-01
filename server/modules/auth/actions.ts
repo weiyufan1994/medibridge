@@ -8,7 +8,11 @@ import * as appointmentsRepo from "../appointments/repo";
 import { validateAppointmentAccessToken } from "../appointments/tokenValidation";
 import * as authRepo from "./repo";
 import * as doctorAccountRepo from "../doctorAccounts/repo";
-import type { RequestOtpInput, VerifyMagicLinkInput, VerifyOtpInput } from "./schemas";
+import type {
+  RequestOtpInput,
+  VerifyMagicLinkInput,
+  VerifyOtpInput,
+} from "./schemas";
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const otpStore = new Map<
@@ -21,7 +25,11 @@ const otpStore = new Map<
 
 type CookieRequest = Parameters<typeof getSessionCookieOptions>[0];
 type CookieResponse = {
-  cookie: (name: string, value: string, options: Record<string, unknown>) => void;
+  cookie: (
+    name: string,
+    value: string,
+    options: Record<string, unknown>
+  ) => void;
   clearCookie: (name: string, options: Record<string, unknown>) => void;
 };
 
@@ -165,7 +173,9 @@ export async function verifyOtpAndMergeAction(input: {
     });
   }
 
-  const guestUser = await authRepo.getGuestUserByDeviceId(input.payload.deviceId);
+  const guestUser = await authRepo.getGuestUserByDeviceId(
+    input.payload.deviceId
+  );
   if (guestUser) {
     await authRepo.mergeGuestDataIntoFormalUser({
       guestUserId: guestUser.id,
@@ -264,7 +274,10 @@ export async function verifyMagicLinkAction(input: {
   };
 }
 
-export function logoutAction(input: { req: CookieRequest; res: CookieResponse }) {
+export function logoutAction(input: {
+  req: CookieRequest;
+  res: CookieResponse;
+}) {
   const cookieOptions = getSessionCookieOptions(input.req);
   const { maxAge: _maxAge, ...clearCookieOptions } = cookieOptions as Record<
     string,

@@ -36,21 +36,22 @@ export function ReferralOrderDetailScreen({
   const [, setLocation] = useLocation();
   const copy = getReferralCopy(lang);
   const orderQuery = trpc.referrals.getOrderDetail.useQuery({ orderId });
-  const createPaymentSessionMutation = trpc.referrals.createPaymentSession.useMutation({
-    onSuccess: result => {
-      if (typeof window !== "undefined") {
-        window.location.href = getReferralCheckoutRedirectHref({
-          orderId: result.orderId,
-          checkoutSessionUrl: result.checkoutSessionUrl,
-        });
-      }
-    },
-    onError: error => {
-      toast.error(
-        getReferralUserErrorMessage(error, copy.payment.paymentFailed)
-      );
-    },
-  });
+  const createPaymentSessionMutation =
+    trpc.referrals.createPaymentSession.useMutation({
+      onSuccess: result => {
+        if (typeof window !== "undefined") {
+          window.location.href = getReferralCheckoutRedirectHref({
+            orderId: result.orderId,
+            checkoutSessionUrl: result.checkoutSessionUrl,
+          });
+        }
+      },
+      onError: error => {
+        toast.error(
+          getReferralUserErrorMessage(error, copy.payment.paymentFailed)
+        );
+      },
+    });
 
   const latestUpdate = useMemo(
     () =>
@@ -92,9 +93,7 @@ export function ReferralOrderDetailScreen({
     status: detail.order.status,
     paymentStatus: detail.order.paymentStatus,
   });
-  const paymentActionLabel = paymentAction
-    ? copy.payment[paymentAction]
-    : null;
+  const paymentActionLabel = paymentAction ? copy.payment[paymentAction] : null;
   const helperNotice = getReferralOrderDetailHelperNotice({
     status: detail.order.status,
     manualFulfillmentRequired: detail.order.manualFulfillmentRequired,
@@ -117,7 +116,9 @@ export function ReferralOrderDetailScreen({
           </Button>
           <div className="flex flex-row items-start justify-between gap-4">
             <div className="space-y-2">
-              <CardTitle className="text-2xl">{copy.orderDetail.title}</CardTitle>
+              <CardTitle className="text-2xl">
+                {copy.orderDetail.title}
+              </CardTitle>
               <p className="text-sm text-muted-foreground">
                 {copy.orderDetail.orderId}: #{detail.order.id}
               </p>
@@ -135,9 +136,7 @@ export function ReferralOrderDetailScreen({
             <p className="mt-2 text-base font-semibold text-slate-900">
               {hospitalName}
             </p>
-            <p className="mt-1 text-sm text-slate-500">
-              {departmentName}
-            </p>
+            <p className="mt-1 text-sm text-slate-500">{departmentName}</p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -211,7 +210,10 @@ export function ReferralOrderDetailScreen({
                     {copy.orderDetail.consultationTime}
                   </p>
                   <p className="mt-2 text-sm font-semibold text-slate-900">
-                    {formatReferralDateTime(detail.order.consultationTime, lang)}
+                    {formatReferralDateTime(
+                      detail.order.consultationTime,
+                      lang
+                    )}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 p-4">

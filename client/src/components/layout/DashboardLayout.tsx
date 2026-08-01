@@ -45,7 +45,9 @@ export default function DashboardLayout(props: DashboardLayoutProps) {
           </nav>
         </aside>
 
-        <section className="flex-1 h-full overflow-y-auto">{props.children}</section>
+        <section className="flex-1 h-full overflow-y-auto">
+          {props.children}
+        </section>
       </div>
     </div>
   );

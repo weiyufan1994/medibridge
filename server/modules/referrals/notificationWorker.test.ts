@@ -31,9 +31,9 @@ function createNotification(attemptCount: number) {
 describe("referral notification worker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(referralRepo.listDueReferralNotificationIds).mockResolvedValue(
-      [801] as never
-    );
+    vi.mocked(referralRepo.listDueReferralNotificationIds).mockResolvedValue([
+      801,
+    ] as never);
   });
 
   it("claims and marks a delivered notification sent", async () => {

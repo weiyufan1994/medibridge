@@ -93,7 +93,9 @@ describe("referral mock checkout helpers", () => {
   });
 
   it("builds referral mock and return routes", () => {
-    expect(buildReferralMockCheckoutHref(42)).toBe("/referrals/mock-checkout/42");
+    expect(buildReferralMockCheckoutHref(42)).toBe(
+      "/referrals/mock-checkout/42"
+    );
     expect(
       buildReferralPaymentSuccessHref({
         orderId: 42,

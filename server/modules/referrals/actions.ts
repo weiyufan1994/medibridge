@@ -74,10 +74,14 @@ import type {
 } from "./schemas";
 
 type CurrentUser = User;
-type TriageRecommendationsInput = z.infer<typeof getTriageRecommendationsInputSchema>;
+type TriageRecommendationsInput = z.infer<
+  typeof getTriageRecommendationsInputSchema
+>;
 type SelectionContextInput = z.infer<typeof getSelectionContextInputSchema>;
 type CreateOrderDraftInput = z.infer<typeof createOrderDraftInputSchema>;
-type CreatePaymentSessionInput = z.infer<typeof createPaymentSessionInputSchema>;
+type CreatePaymentSessionInput = z.infer<
+  typeof createPaymentSessionInputSchema
+>;
 type ListMineOrdersInput = z.infer<typeof listMineOrdersInputSchema>;
 type ListOrdersInput = z.infer<typeof listOrdersInputSchema>;
 type AssignOrderInput = z.infer<typeof assignOrderInputSchema>;
@@ -90,7 +94,9 @@ type AddInternalNoteInput = z.infer<typeof addInternalNoteInputSchema>;
 type PublishPatientProgressUpdateInput = z.infer<
   typeof publishPatientProgressUpdateInputSchema
 >;
-type RecordContactAttemptInput = z.infer<typeof recordContactAttemptInputSchema>;
+type RecordContactAttemptInput = z.infer<
+  typeof recordContactAttemptInputSchema
+>;
 type RecordBookingResultInput = z.infer<typeof recordBookingResultInputSchema>;
 type SetConsultationTimeInput = z.infer<typeof setConsultationTimeInputSchema>;
 type InitiateRefundInput = z.infer<typeof initiateRefundInputSchema>;
@@ -110,10 +116,12 @@ type OwnedTriageRecommendation = Awaited<
 type RankedHospitalRecommendation = NonNullable<
   NonNullable<OwnedTriageRecommendation["triageResult"]>["routing"]
 >["hospitals"][number];
-type NullableLocalHospital = Awaited<ReturnType<typeof referralRepo.getHospitalById>> | null;
-type NullableLocalDepartment =
-  | Awaited<ReturnType<typeof referralRepo.getDepartmentById>>
-  | null;
+type NullableLocalHospital = Awaited<
+  ReturnType<typeof referralRepo.getHospitalById>
+> | null;
+type NullableLocalDepartment = Awaited<
+  ReturnType<typeof referralRepo.getDepartmentById>
+> | null;
 
 const REFERRAL_MOCK_CHECKOUT_ENABLED_VALUE = "1";
 
@@ -185,10 +193,7 @@ async function getOwnedTriageRecommendation(input: {
   };
 }
 
-async function getOwnedOrder(input: {
-  orderId: number;
-  userId: number;
-}) {
+async function getOwnedOrder(input: { orderId: number; userId: number }) {
   const order = await referralRepo.getReferralOrderById(input.orderId);
   if (!order || !referralRepo.isOrderOwnedByUser(order, input.userId)) {
     throw new TRPCError({
@@ -245,14 +250,14 @@ async function resolveRankedHospitalSelection(input: {
 
   const selectedByIndex =
     typeof input.rankedHospitalIndex === "number"
-      ? rankedHospitals[input.rankedHospitalIndex] ?? null
+      ? (rankedHospitals[input.rankedHospitalIndex] ?? null)
       : null;
   const selectedHospital =
     selectedByIndex ??
     (isPositiveInteger(input.hospitalId)
-      ? rankedHospitals.find(
+      ? (rankedHospitals.find(
           hospital => hospital.matchedHospitalId === input.hospitalId
-        ) ?? null
+        ) ?? null)
       : null);
 
   if (!selectedHospital) {
@@ -311,9 +316,8 @@ async function resolveLocalDepartmentForRankedHospital(input: {
   const matchedDepartmentId = input.rankedHospital.matchedDepartmentId;
   if (isPositiveInteger(matchedDepartmentId)) {
     const departmentId = matchedDepartmentId as number;
-    const matchedDepartment = await referralRepo.getDepartmentById(
-      departmentId
-    );
+    const matchedDepartment =
+      await referralRepo.getDepartmentById(departmentId);
     if (
       matchedDepartment &&
       matchedDepartment.isActive === 1 &&
@@ -324,9 +328,13 @@ async function resolveLocalDepartmentForRankedHospital(input: {
   }
 
   const hospitalId = localHospitalId as number;
-  const departments = await referralRepo.listDepartmentsByHospitalId(hospitalId);
-  const activeDepartments = departments.filter(department => department.isActive === 1);
-  const recommendedDepartment = input.triageResult?.routing?.recommendedDepartment;
+  const departments =
+    await referralRepo.listDepartmentsByHospitalId(hospitalId);
+  const activeDepartments = departments.filter(
+    department => department.isActive === 1
+  );
+  const recommendedDepartment =
+    input.triageResult?.routing?.recommendedDepartment;
 
   return (
     activeDepartments.find(department =>
@@ -363,14 +371,18 @@ function buildOrderDisplayContext(input: {
       snapshotDepartmentName:
         input.order.recommendedDepartmentName ?? input.department?.name ?? "",
       snapshotDepartmentNameEn:
-        input.order.recommendedDepartmentNameEn ?? input.department?.nameEn ?? "",
+        input.order.recommendedDepartmentNameEn ??
+        input.department?.nameEn ??
+        "",
     }),
   };
 }
 
-function mapBundleToOrderSummary(bundle: NonNullable<
-  Awaited<ReturnType<typeof referralRepo.getReferralOrderBundleById>>
->) {
+function mapBundleToOrderSummary(
+  bundle: NonNullable<
+    Awaited<ReturnType<typeof referralRepo.getReferralOrderBundleById>>
+  >
+) {
   return mapOrderToSummary(bundle.order);
 }
 
@@ -421,9 +433,11 @@ function toConsultationArrangement(
   };
 }
 
-function toPatientVisibleOperation(operation: Awaited<
-  ReturnType<typeof referralRepo.listOperationsByOrderId>
->[number]) {
+function toPatientVisibleOperation(
+  operation: Awaited<
+    ReturnType<typeof referralRepo.listOperationsByOrderId>
+  >[number]
+) {
   const visibleActionTypes = new Set([
     "patient_notification",
     "consultation_time_confirmed",
@@ -451,11 +465,17 @@ function derivePaymentStatusForManualStatusChange(input: {
   if (input.toStatus === "refunded") {
     return "refunded" as const;
   }
-  if (input.toStatus === "refund_pending_review" || input.toStatus === "refund_processing") {
+  if (
+    input.toStatus === "refund_pending_review" ||
+    input.toStatus === "refund_processing"
+  ) {
     return "paid" as const;
   }
   if (input.toStatus === "cancelled") {
-    if (input.currentPaymentStatus === "unpaid" || input.currentPaymentStatus === "failed") {
+    if (
+      input.currentPaymentStatus === "unpaid" ||
+      input.currentPaymentStatus === "failed"
+    ) {
       return "cancelled" as const;
     }
     throw new TRPCError({
@@ -494,7 +514,10 @@ function throwReferralPaymentCreationError(input: {
     });
   }
 
-  if (input.paymentStatus === "refunded" || input.paymentStatus === "cancelled") {
+  if (
+    input.paymentStatus === "refunded" ||
+    input.paymentStatus === "cancelled"
+  ) {
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message: "This referral order can no longer be paid.",
@@ -522,8 +545,7 @@ async function settleReferralOrderPaymentBySessionId(input: {
 }) {
   const settlement = await settleReferralPaymentTransition({
     paymentSessionId: input.paymentSessionId,
-    paymentProviderTransactionId:
-      input.paymentProviderTransactionId ?? null,
+    paymentProviderTransactionId: input.paymentProviderTransactionId ?? null,
     actorType: input.actorType,
     reason: input.reason,
   });
@@ -604,19 +626,22 @@ export async function getSelectionContextAction(
       rankedHospitalIndex: input.rankedHospitalIndex,
       hospitalId: input.hospitalId,
     });
-  const localHospital = await resolveLocalHospitalForRankedHospital(selectedHospital);
+  const localHospital =
+    await resolveLocalHospitalForRankedHospital(selectedHospital);
   const localDepartment = await resolveLocalDepartmentForRankedHospital({
     localHospitalId: localHospital?.id ?? null,
     rankedHospital: selectedHospital,
     triageResult,
   });
-  const contacts = localHospital && localDepartment
-    ? await referralRepo.listActiveContactsByHospital({
-        hospitalId: localHospital.id,
-        departmentId: localDepartment.id,
-      })
-    : [];
-  const recommendedDepartment = triageResult?.routing?.recommendedDepartment ?? null;
+  const contacts =
+    localHospital && localDepartment
+      ? await referralRepo.listActiveContactsByHospital({
+          hospitalId: localHospital.id,
+          departmentId: localDepartment.id,
+        })
+      : [];
+  const recommendedDepartment =
+    triageResult?.routing?.recommendedDepartment ?? null;
   const manualFulfillmentRequired =
     !localHospital || !localDepartment || contacts.length === 0;
 
@@ -667,7 +692,8 @@ export async function createOrderDraftAction(
       rankedHospitalIndex: input.rankedHospitalIndex,
       hospitalId: input.hospitalId,
     });
-  const localHospital = await resolveLocalHospitalForRankedHospital(selectedHospital);
+  const localHospital =
+    await resolveLocalHospitalForRankedHospital(selectedHospital);
   const mappedDepartment = await resolveLocalDepartmentForRankedHospital({
     localHospitalId: localHospital?.id ?? null,
     rankedHospital: selectedHospital,
@@ -698,21 +724,23 @@ export async function createOrderDraftAction(
     });
   }
 
-  const activeContacts = localHospital && department
-    ? contact
-      ? [contact]
-      : await referralRepo.listActiveContactsByHospital({
-          hospitalId: localHospital.id,
-          departmentId: department.id,
-        })
-    : [];
+  const activeContacts =
+    localHospital && department
+      ? contact
+        ? [contact]
+        : await referralRepo.listActiveContactsByHospital({
+            hospitalId: localHospital.id,
+            departmentId: department.id,
+          })
+      : [];
   if (!contact && activeContacts.length > 0) {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: "Selected contact is required",
     });
   }
-  const recommendedDepartment = triageResult?.routing?.recommendedDepartment ?? null;
+  const recommendedDepartment =
+    triageResult?.routing?.recommendedDepartment ?? null;
   const manualFulfillmentRequired =
     !localHospital || !department || activeContacts.length === 0;
 
@@ -901,7 +929,8 @@ export async function createPaymentSessionAction(input: {
 
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
-      message: "Unable to start payment right now. Please refresh and try again.",
+      message:
+        "Unable to start payment right now. Please refresh and try again.",
     });
   }
 
@@ -938,8 +967,7 @@ export async function confirmReturnedPaymentSessionAction(input: {
     });
   }
 
-  let paymentProviderTransactionId =
-    order.paymentProviderTransactionId ?? null;
+  let paymentProviderTransactionId = order.paymentProviderTransactionId ?? null;
   if (order.paymentStatus !== "paid") {
     const verification = await resolvePaymentAdapter().captureOrFinalize({
       providerSessionId: input.paymentSessionId,
@@ -950,8 +978,7 @@ export async function confirmReturnedPaymentSessionAction(input: {
         message: "Payment has not been confirmed by the provider.",
       });
     }
-    paymentProviderTransactionId =
-      verification.providerTransactionId ?? null;
+    paymentProviderTransactionId = verification.providerTransactionId ?? null;
   }
 
   const settledOrder = await settleReferralOrderPaymentBySessionId({
@@ -1058,7 +1085,8 @@ export async function getOrderDetailAction(
   }
   const timeline = await referralRepo.listStatusEventsByOrderId(orderId);
   const operations = await referralRepo.listOperationsByOrderId(orderId);
-  const refundRequest = await referralRepo.getLatestRefundRequestByOrderId(orderId);
+  const refundRequest =
+    await referralRepo.getLatestRefundRequestByOrderId(orderId);
   const agreementLang = bundle.order.agreementLang === "zh" ? "zh" : "en";
   const displayContext = buildOrderDisplayContext({
     order: bundle.order,
@@ -1099,8 +1127,9 @@ export async function getOrderDetailAction(
       .filter(
         (
           operation
-        ): operation is NonNullable<ReturnType<typeof toPatientVisibleOperation>> =>
-          Boolean(operation)
+        ): operation is NonNullable<
+          ReturnType<typeof toPatientVisibleOperation>
+        > => Boolean(operation)
       ),
     refundRequest: refundRequest
       ? {
@@ -1181,7 +1210,8 @@ export async function getAdminOrderDetailAction(
   }
   const timeline = await referralRepo.listStatusEventsByOrderId(orderId);
   const operations = await referralRepo.listOperationsByOrderId(orderId);
-  const refundRequest = await referralRepo.getLatestRefundRequestByOrderId(orderId);
+  const refundRequest =
+    await referralRepo.getLatestRefundRequestByOrderId(orderId);
   const notificationFailures =
     await referralRepo.listFailedReferralNotificationsByOrderId(orderId);
   const agreementLang = bundle.order.agreementLang === "zh" ? "zh" : "en";
@@ -1258,7 +1288,10 @@ export async function getAdminOrderDetailAction(
   };
 }
 
-export async function claimOrderAction(user: User | null, input: { orderId: number }) {
+export async function claimOrderAction(
+  user: User | null,
+  input: { orderId: number }
+) {
   const currentUser = requireUser(user);
   const order = await referralRepo.getReferralOrderById(input.orderId);
   if (!order) {
@@ -1303,7 +1336,10 @@ export async function claimOrderAction(user: User | null, input: { orderId: numb
   return getAdminOrderDetailAction(currentUser, order.id);
 }
 
-export async function assignOrderAction(user: User | null, input: AssignOrderInput) {
+export async function assignOrderAction(
+  user: User | null,
+  input: AssignOrderInput
+) {
   const currentUser = requireUser(user);
   const order = await referralRepo.getReferralOrderById(input.orderId);
   if (!order) {
@@ -1368,7 +1404,11 @@ export async function assignOrderContactAction(
   }
 
   const contact = await referralRepo.getContactById(input.contactId);
-  if (!contact || contact.isActive !== 1 || contact.hospitalId !== order.hospitalId) {
+  if (
+    !contact ||
+    contact.isActive !== 1 ||
+    contact.hospitalId !== order.hospitalId
+  ) {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: "Selected contact is invalid",
@@ -1438,9 +1478,7 @@ export async function updateOrderStatusAction(
     actorId: currentUser.id,
     reason: input.reason,
     update:
-      input.toStatus === "completed"
-        ? { completedAt: new Date() }
-        : undefined,
+      input.toStatus === "completed" ? { completedAt: new Date() } : undefined,
   });
   await referralRepo.insertOperation({
     orderId: order.id,
@@ -1754,7 +1792,9 @@ export async function initiateRefundAction(
     });
   }
 
-  const latestRefund = await referralRepo.getLatestRefundRequestByOrderId(order.id);
+  const latestRefund = await referralRepo.getLatestRefundRequestByOrderId(
+    order.id
+  );
   if (
     latestRefund &&
     latestRefund.status !== "refunded" &&
@@ -1822,7 +1862,9 @@ export async function initiateRefundAction(
   return getAdminOrderDetailAction(currentUser, order.id);
 }
 
-function deriveRefundResumeStatus(order: Awaited<ReturnType<typeof referralRepo.getReferralOrderById>>) {
+function deriveRefundResumeStatus(
+  order: Awaited<ReturnType<typeof referralRepo.getReferralOrderById>>
+) {
   if (!order) {
     return "paid_pending_assignment" as const;
   }
@@ -1847,7 +1889,9 @@ export async function reviewRefundAction(
       message: "Referral order not found",
     });
   }
-  const refundRequest = await referralRepo.getLatestRefundRequestByOrderId(order.id);
+  const refundRequest = await referralRepo.getLatestRefundRequestByOrderId(
+    order.id
+  );
   if (!refundRequest || refundRequest.id !== input.refundRequestId) {
     throw new TRPCError({
       code: "NOT_FOUND",
@@ -1954,7 +1998,9 @@ export async function listReferralHospitalsForAdminAction() {
   return rows.map(toPublicReferralHospital);
 }
 
-export async function listReferralDepartmentsForAdminAction(hospitalId: number) {
+export async function listReferralDepartmentsForAdminAction(
+  hospitalId: number
+) {
   const rows = await referralRepo.listDepartmentsByHospitalId(hospitalId);
   return rows.map(toPublicReferralDepartment);
 }

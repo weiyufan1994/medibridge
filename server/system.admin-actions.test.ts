@@ -232,7 +232,9 @@ describe("system admin actions", () => {
     vi.mocked(notifyOwner).mockResolvedValue(true as never);
 
     const caller = createAdminCaller();
-    const result = await caller.adminNotifyDoctorFollowup({ appointmentId: 321 });
+    const result = await caller.adminNotifyDoctorFollowup({
+      appointmentId: 321,
+    });
 
     expect(result).toEqual({ ok: true });
     expect(notifyOwner).toHaveBeenCalledWith(
@@ -262,7 +264,9 @@ describe("system admin actions", () => {
     vi.mocked(notifyOwner).mockResolvedValue(true as never);
 
     const caller = createOpsCaller();
-    const result = await caller.adminNotifyDoctorFollowup({ appointmentId: 321 });
+    const result = await caller.adminNotifyDoctorFollowup({
+      appointmentId: 321,
+    });
 
     expect(result).toEqual({ ok: true });
   });
@@ -308,15 +312,20 @@ describe("system admin actions", () => {
       payloadHash: null,
     } as never);
     vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue(
-      mockAppointment({ status: "pending_payment", paymentStatus: "pending" }) as never
+      mockAppointment({
+        status: "pending_payment",
+        paymentStatus: "pending",
+      }) as never
     );
-    vi.mocked(appointmentsRepo.hasAppointmentStatusReason).mockResolvedValue(false as never);
-    vi.mocked(appointmentsRepo.tryTransitionAppointmentByStripeSessionId).mockResolvedValue(
-      {
-        ok: true,
-        reason: "updated",
-      } as never
+    vi.mocked(appointmentsRepo.hasAppointmentStatusReason).mockResolvedValue(
+      false as never
     );
+    vi.mocked(
+      appointmentsRepo.tryTransitionAppointmentByStripeSessionId
+    ).mockResolvedValue({
+      ok: true,
+      reason: "updated",
+    } as never);
 
     const caller = createOpsCaller();
     const result = await caller.adminWebhookReplay({
@@ -330,7 +339,9 @@ describe("system admin actions", () => {
       action: "payment_intent.payment_failed",
       eventId: "evt_ops_replay_1",
     });
-    expect(appointmentsRepo.tryTransitionAppointmentByStripeSessionId).toHaveBeenCalledWith(
+    expect(
+      appointmentsRepo.tryTransitionAppointmentByStripeSessionId
+    ).toHaveBeenCalledWith(
       expect.objectContaining({
         stripeSessionId: "cs_test_ops",
         reason: "admin_webhook_replay",
@@ -351,7 +362,9 @@ describe("system admin actions", () => {
   it("ops cannot reinitiate payment", async () => {
     const caller = createOpsCaller();
 
-    await expect(caller.adminReinitiatePayment({ appointmentId: 321 })).rejects.toBeTruthy();
+    await expect(
+      caller.adminReinitiatePayment({ appointmentId: 321 })
+    ).rejects.toBeTruthy();
   });
 
   it("ops cannot perform admin-only batch state update", async () => {
@@ -377,7 +390,9 @@ describe("system admin actions", () => {
     vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue(
       mockAppointment() as never
     );
-    vi.mocked(appointmentsRepo.hasAppointmentStatusReason).mockResolvedValue(false as never);
+    vi.mocked(appointmentsRepo.hasAppointmentStatusReason).mockResolvedValue(
+      false as never
+    );
     vi.mocked(issueAppointmentAccessLinks).mockResolvedValue({
       patient: {
         token: "ops_batch_patient_token",
@@ -386,7 +401,8 @@ describe("system admin actions", () => {
         token: "ops_batch_doctor_token",
       },
       expiresAt: new Date("2026-03-10T00:00:00.000Z"),
-      patientLink: "https://medibridge.test/visit/321?t=ops_batch_patient_token",
+      patientLink:
+        "https://medibridge.test/visit/321?t=ops_batch_patient_token",
       doctorLink: "https://medibridge.test/visit/321?t=ops_batch_doctor_token",
     } as never);
 

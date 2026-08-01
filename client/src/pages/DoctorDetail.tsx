@@ -80,10 +80,7 @@ export default function DoctorDetail() {
       <AppLayout title={t("doctor.page_title")}>
         <main className="bg-slate-50 min-h-screen w-full flex-1">
           <div className="w-full max-w-4xl mx-auto py-8 px-4 sm:px-6">
-            <nav
-              aria-label={t("doctor.back_navigation")}
-              className="mb-3"
-            >
+            <nav aria-label={t("doctor.back_navigation")} className="mb-3">
               <button
                 type="button"
                 onClick={handleGoBack}
@@ -112,9 +109,7 @@ export default function DoctorDetail() {
     <AppLayout title={t("doctor.page_title")}>
       <main className="bg-slate-50 min-h-screen w-full flex-1">
         <div className="w-full max-w-4xl mx-auto py-8 px-4 sm:px-6">
-          <nav
-            aria-label={t("doctor.back_navigation")}
-          >
+          <nav aria-label={t("doctor.back_navigation")}>
             <button
               type="button"
               onClick={handleGoBack}
@@ -128,9 +123,7 @@ export default function DoctorDetail() {
           <section className="flex flex-col gap-4 mt-4">
             <div className="flex justify-end">
               <Link href="/doctor/workbench">
-                <Button variant="outline">
-                  {t("doctor.workbench")}
-                </Button>
+                <Button variant="outline">{t("doctor.workbench")}</Button>
               </Link>
             </div>
             <DoctorDetailContent

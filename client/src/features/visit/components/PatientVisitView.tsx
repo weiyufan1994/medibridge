@@ -54,7 +54,8 @@ export function PatientVisitView({
 }: PatientVisitViewProps) {
   const [, setLocation] = useLocation();
   const goBackToAppointments = () => setLocation("/dashboard");
-  const handleClosedPromptAction = onRoomClosedPromptAction ?? goBackToAppointments;
+  const handleClosedPromptAction =
+    onRoomClosedPromptAction ?? goBackToAppointments;
 
   return (
     <div className="relative flex h-full min-h-0 flex-col rounded-2xl bg-white">
@@ -132,8 +133,12 @@ export function PatientVisitView({
       {showRoomClosedPrompt ? (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 px-4 backdrop-blur-[2px]">
           <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-lg">
-            <h3 className="text-base font-semibold text-slate-900">{roomClosedPromptTitle}</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{roomClosedPromptDesc}</p>
+            <h3 className="text-base font-semibold text-slate-900">
+              {roomClosedPromptTitle}
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              {roomClosedPromptDesc}
+            </p>
             <Button
               type="button"
               className="mt-4 h-10 w-full rounded-lg bg-teal-600 text-white hover:bg-teal-700"

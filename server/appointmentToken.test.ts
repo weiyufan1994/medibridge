@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { generateToken, hashToken, verifyToken } from "./_core/appointmentToken";
+import {
+  generateToken,
+  hashToken,
+  verifyToken,
+} from "./_core/appointmentToken";
 
 describe("appointment token utils", () => {
   it("generates high-entropy token and verifies hash", () => {

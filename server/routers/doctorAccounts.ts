@@ -1,5 +1,8 @@
 import { adminOrOpsProcedure, protectedProcedure, router } from "../_core/trpc";
-import { doctorAccountActions, doctorAccountSchemas } from "../modules/doctorAccounts/routerApi";
+import {
+  doctorAccountActions,
+  doctorAccountSchemas,
+} from "../modules/doctorAccounts/routerApi";
 
 export const doctorAccountsRouter = router({
   getMyBinding: protectedProcedure
@@ -9,7 +12,9 @@ export const doctorAccountsRouter = router({
   getDoctorAccountStatus: adminOrOpsProcedure
     .input(doctorAccountSchemas.revokeDoctorBindingInputSchema)
     .output(doctorAccountSchemas.doctorAccountStatusOutputSchema)
-    .query(({ input }) => doctorAccountActions.getDoctorAccountStatus(input.doctorId)),
+    .query(({ input }) =>
+      doctorAccountActions.getDoctorAccountStatus(input.doctorId)
+    ),
 
   invite: adminOrOpsProcedure
     .input(doctorAccountSchemas.inviteDoctorAccountInputSchema)

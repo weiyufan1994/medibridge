@@ -2,7 +2,10 @@ import type { RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VisitMessageBubble } from "@/features/visit/components/VisitMessageBubble";
-import type { VisitMessageItem, VisitParticipantRole } from "@/features/visit/types";
+import type {
+  VisitMessageItem,
+  VisitParticipantRole,
+} from "@/features/visit/types";
 import type { ResolvedLanguage } from "@/contexts/LanguageContext";
 
 type VisitMessagesListProps = {
@@ -33,7 +36,10 @@ export function VisitMessagesList({
   return (
     <section className="min-h-0 flex-1 overflow-y-auto">
       <div ref={scrollContainerRef} className="h-full">
-        <div data-slot="scroll-area-viewport" className="h-full overflow-y-auto">
+        <div
+          data-slot="scroll-area-viewport"
+          className="h-full overflow-y-auto"
+        >
           <div className="p-5">
             {hasMoreHistory ? (
               <div className="mb-3 flex justify-center">
@@ -80,7 +86,8 @@ export function VisitMessagesList({
                   const compactWithPrev = Boolean(
                     previous && previous.senderType === message.senderType
                   );
-                  const showTimestamp = !next || next.senderType !== message.senderType;
+                  const showTimestamp =
+                    !next || next.senderType !== message.senderType;
 
                   return (
                     <VisitMessageBubble

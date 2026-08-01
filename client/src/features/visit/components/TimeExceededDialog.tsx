@@ -52,15 +52,23 @@ export function TimeExceededDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className={WARNING_ALERT_DIALOG_CONTENT_CLASS}>
         <AlertDialogHeader className="gap-3 text-left">
-          <div className={`${WARNING_ALERT_DIALOG_ICON_CLASS} ${WARNING_ALERT_DIALOG_ICON_AMBER}`}>
+          <div
+            className={`${WARNING_ALERT_DIALOG_ICON_CLASS} ${WARNING_ALERT_DIALOG_ICON_AMBER}`}
+          >
             <Clock3 className="h-5 w-5" aria-hidden="true" />
           </div>
-          <AlertDialogTitle className={WARNING_ALERT_DIALOG_TITLE_CLASS}>{title}</AlertDialogTitle>
-          <AlertDialogDescription className={WARNING_ALERT_DIALOG_DESCRIPTION_CLASS}>
+          <AlertDialogTitle className={WARNING_ALERT_DIALOG_TITLE_CLASS}>
+            {title}
+          </AlertDialogTitle>
+          <AlertDialogDescription
+            className={WARNING_ALERT_DIALOG_DESCRIPTION_CLASS}
+          >
             {description}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className={canExtend ? WARNING_ALERT_DIALOG_FOOTER_CLASS : "mt-6"}>
+        <AlertDialogFooter
+          className={canExtend ? WARNING_ALERT_DIALOG_FOOTER_CLASS : "mt-6"}
+        >
           {canExtend ? (
             <AlertDialogAction
               className="h-11 rounded-lg border border-slate-200 bg-white px-4 py-2 font-medium text-slate-700 transition-colors hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-teal-500"

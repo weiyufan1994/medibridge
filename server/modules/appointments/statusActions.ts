@@ -19,7 +19,8 @@ export async function cancelAppointmentByPatient(input: {
     appointmentId: appointment.id,
     allowedFrom: ["draft", "pending_payment", "paid"],
     toStatus: "canceled",
-    toPaymentStatus: appointment.paymentStatus === "paid" ? "failed" : "canceled",
+    toPaymentStatus:
+      appointment.paymentStatus === "paid" ? "failed" : "canceled",
     operatorType: "patient",
     operatorId,
     reason: reason ?? "appointment_canceled",

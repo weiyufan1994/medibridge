@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  getLocalizedTriageText,
-  getTriageCopy,
-} from "@/features/triage/copy";
+import { getLocalizedTriageText, getTriageCopy } from "@/features/triage/copy";
 
 describe("triage copy", () => {
   it("uses AI-guided first-turn wording in Chinese instead of form-first wording", () => {
@@ -23,7 +20,9 @@ describe("triage copy", () => {
     expect(copy.fast_intake.title).toContain("Optional");
     expect(copy.fast_intake.description).toContain("default path");
     expect(copy.summary_form.title).toContain("AI-Organized");
-    expect(copy.initialAssistantMessage).toContain("start with your age and gender");
+    expect(copy.initialAssistantMessage).toContain(
+      "start with your age and gender"
+    );
     expect(copy.initialAssistantMessage).toContain("4 quick questions");
     expect(copy.initialAssistantMessage).toContain("underlying conditions");
     expect(copy.placeholder).toBe("Describe your symptoms here...");

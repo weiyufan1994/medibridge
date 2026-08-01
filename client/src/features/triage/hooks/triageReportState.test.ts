@@ -41,9 +41,7 @@ describe("triageReportState", () => {
   it("does not lock input for ordinary follow-up questions", () => {
     const shouldLock = shouldLockInputForReportGeneration({
       triageResult: { isComplete: false },
-      messages: [
-        { role: "assistant", content: "请补充症状持续多久？" },
-      ],
+      messages: [{ role: "assistant", content: "请补充症状持续多久？" }],
     });
 
     expect(shouldLock).toBe(false);

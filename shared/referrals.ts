@@ -13,8 +13,7 @@ export const REFERRAL_ORDER_STATUS_VALUES = [
   "cancelled",
 ] as const;
 
-export type ReferralOrderStatus =
-  (typeof REFERRAL_ORDER_STATUS_VALUES)[number];
+export type ReferralOrderStatus = (typeof REFERRAL_ORDER_STATUS_VALUES)[number];
 
 export const REFERRAL_PAYMENT_STATUS_VALUES = [
   "unpaid",
@@ -41,8 +40,7 @@ export const REFERRAL_ACTOR_TYPE_VALUES = [
   "webhook",
 ] as const;
 
-export type ReferralActorType =
-  (typeof REFERRAL_ACTOR_TYPE_VALUES)[number];
+export type ReferralActorType = (typeof REFERRAL_ACTOR_TYPE_VALUES)[number];
 
 export const REFUND_REQUEST_STATUS_VALUES = [
   "pending_review",
@@ -52,8 +50,7 @@ export const REFUND_REQUEST_STATUS_VALUES = [
   "rejected",
 ] as const;
 
-export type RefundRequestStatus =
-  (typeof REFUND_REQUEST_STATUS_VALUES)[number];
+export type RefundRequestStatus = (typeof REFUND_REQUEST_STATUS_VALUES)[number];
 
 export const REFERRAL_SERVICE_AGREEMENT_VERSION = "referral_service_v2";
 export const REFERRAL_SERVICE_AMOUNT = 19900;

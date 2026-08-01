@@ -36,7 +36,9 @@ function readInsertedId(value: unknown) {
         : Number.NaN)
   );
 
-  return Number.isInteger(directInsertId) && directInsertId > 0 ? directInsertId : null;
+  return Number.isInteger(directInsertId) && directInsertId > 0
+    ? directInsertId
+    : null;
 }
 
 function formatIntakeToNotes(

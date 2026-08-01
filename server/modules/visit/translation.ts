@@ -48,7 +48,10 @@ function resolveSourceLanguage(input: MessageTranslationInput): string {
   return detectLanguageFromText(input.content);
 }
 
-function resolveTargetLanguage(input: MessageTranslationInput, sourceLanguage: string): string {
+function resolveTargetLanguage(
+  input: MessageTranslationInput,
+  sourceLanguage: string
+): string {
   const normalizedTarget = normalizeLanguage(input.targetLanguage);
   if (normalizedTarget !== "auto") {
     return normalizedTarget;
@@ -65,7 +68,10 @@ function readAssistantText(content: unknown): string {
   }
   return content
     .map(item =>
-      item && typeof item === "object" && "type" in item && (item as { type?: string }).type === "text"
+      item &&
+      typeof item === "object" &&
+      "type" in item &&
+      (item as { type?: string }).type === "text"
         ? String((item as { text?: unknown }).text ?? "")
         : ""
     )
@@ -119,7 +125,9 @@ export async function translateVisitMessage(
       responseFormat: { type: "text" },
     });
 
-    const translated = readAssistantText(response.choices?.[0]?.message?.content);
+    const translated = readAssistantText(
+      response.choices?.[0]?.message?.content
+    );
     if (!translated) {
       return {
         originalContent,
@@ -139,7 +147,10 @@ export async function translateVisitMessage(
     };
   } catch (error) {
     if (process.env.NODE_ENV !== "test") {
-      console.warn("[visit] message translation failed, fallback to original", error);
+      console.warn(
+        "[visit] message translation failed, fallback to original",
+        error
+      );
     }
     return {
       originalContent,

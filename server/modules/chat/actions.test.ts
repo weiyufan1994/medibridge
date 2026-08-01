@@ -62,51 +62,55 @@ const buildDoctorSearchResult = (input: {
 });
 
 const findGroundedRecommendationCall = () =>
-  vi.mocked(invokeLLM).mock.calls.find(([request]) =>
-    request.messages?.some(
-      message =>
-        typeof message.content === "string" &&
-        message.content.includes(ENGLISH_GROUNDED_SYSTEM_PROMPT_SNIPPET)
-    )
-  )?.[0];
+  vi
+    .mocked(invokeLLM)
+    .mock.calls.find(([request]) =>
+      request.messages?.some(
+        message =>
+          typeof message.content === "string" &&
+          message.content.includes(ENGLISH_GROUNDED_SYSTEM_PROMPT_SNIPPET)
+      )
+    )?.[0];
 
 describe("chat actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(createEmbedding).mockResolvedValue([0.1, 0.2] as never);
-    vi.mocked(doctorsRepo.searchDoctorsByEmbedding).mockResolvedValue([] as never);
-    vi.mocked(visitRepo.upsertPatientSession).mockResolvedValue(undefined as never);
+    vi.mocked(doctorsRepo.searchDoctorsByEmbedding).mockResolvedValue(
+      [] as never
+    );
+    vi.mocked(visitRepo.upsertPatientSession).mockResolvedValue(
+      undefined as never
+    );
   });
 
   it("passes structured missing-translation metadata to english ranking prompts", async () => {
-    vi.mocked(doctorsRepo.searchDoctors).mockResolvedValue(
-      [
-        buildDoctorSearchResult({
-          id: 1,
-          nameEn: null,
-          hospitalNameEn: "Shanghai General Hospital",
-          departmentNameEn: null,
-          titleEn: null,
-          expertiseEn: "Cough and breathing issues",
-        }),
-        buildDoctorSearchResult({
-          id: 2,
-          nameEn: "Dr. Li",
-          hospitalNameEn: "Shanghai Pulmonary Hospital",
-          departmentNameEn: "Respiratory Department",
-          titleEn: "Chief Physician",
-          expertiseEn: "Adult asthma care",
-        }),
-        buildDoctorSearchResult({
-          id: 3,
-          nameEn: "Dr. Wang",
-          hospitalNameEn: null,
-          departmentNameEn: "Respiratory Clinic",
-          titleEn: "Attending Physician",
-          expertiseEn: null,
-        }),
-      ] as never
-    );
+    vi.mocked(doctorsRepo.searchDoctors).mockResolvedValue([
+      buildDoctorSearchResult({
+        id: 1,
+        nameEn: null,
+        hospitalNameEn: "Shanghai General Hospital",
+        departmentNameEn: null,
+        titleEn: null,
+        expertiseEn: "Cough and breathing issues",
+      }),
+      buildDoctorSearchResult({
+        id: 2,
+        nameEn: "Dr. Li",
+        hospitalNameEn: "Shanghai Pulmonary Hospital",
+        departmentNameEn: "Respiratory Department",
+        titleEn: "Chief Physician",
+        expertiseEn: "Adult asthma care",
+      }),
+      buildDoctorSearchResult({
+        id: 3,
+        nameEn: "Dr. Wang",
+        hospitalNameEn: null,
+        departmentNameEn: "Respiratory Clinic",
+        titleEn: "Attending Physician",
+        expertiseEn: null,
+      }),
+    ] as never);
 
     vi.mocked(invokeLLM)
       .mockResolvedValueOnce({
@@ -175,9 +179,11 @@ describe("chat actions", () => {
     const rankingUserContent = rankingCall.messages?.[1]?.content ?? "";
 
     expect(rankingUserContent).not.toContain("Translation in progress");
-    expect(rankingUserContent).toContain("\"missingEnglishFields\"");
+    expect(rankingUserContent).toContain('"missingEnglishFields"');
 
-    const candidateJson = rankingUserContent.split("Candidate doctors JSON:\n")[1];
+    const candidateJson = rankingUserContent.split(
+      "Candidate doctors JSON:\n"
+    )[1];
     const candidates = JSON.parse(candidateJson) as Array<{
       doctorId: number;
       doctorName: string | null;
@@ -198,34 +204,32 @@ describe("chat actions", () => {
   });
 
   it("filters english grounded recommendations down to candidates with required english display fields", async () => {
-    vi.mocked(doctorsRepo.searchDoctors).mockResolvedValue(
-      [
-        buildDoctorSearchResult({
-          id: 1,
-          nameEn: "Chen Wei",
-          hospitalNameEn: "Shanghai General Hospital",
-          departmentNameEn: "Respiratory Department",
-          titleEn: "Chief Physician",
-          expertiseEn: "Chronic cough and breathing issues",
-        }),
-        buildDoctorSearchResult({
-          id: 2,
-          nameEn: "Li Ming",
-          hospitalNameEn: null,
-          departmentNameEn: "Respiratory Department",
-          titleEn: "Attending Physician",
-          expertiseEn: "Asthma care",
-        }),
-        buildDoctorSearchResult({
-          id: 3,
-          nameEn: "Wang Jun",
-          hospitalNameEn: "Shanghai Pulmonary Hospital",
-          departmentNameEn: "Respiratory Clinic",
-          titleEn: "Associate Chief Physician",
-          expertiseEn: "General respiratory care",
-        }),
-      ] as never
-    );
+    vi.mocked(doctorsRepo.searchDoctors).mockResolvedValue([
+      buildDoctorSearchResult({
+        id: 1,
+        nameEn: "Chen Wei",
+        hospitalNameEn: "Shanghai General Hospital",
+        departmentNameEn: "Respiratory Department",
+        titleEn: "Chief Physician",
+        expertiseEn: "Chronic cough and breathing issues",
+      }),
+      buildDoctorSearchResult({
+        id: 2,
+        nameEn: "Li Ming",
+        hospitalNameEn: null,
+        departmentNameEn: "Respiratory Department",
+        titleEn: "Attending Physician",
+        expertiseEn: "Asthma care",
+      }),
+      buildDoctorSearchResult({
+        id: 3,
+        nameEn: "Wang Jun",
+        hospitalNameEn: "Shanghai Pulmonary Hospital",
+        departmentNameEn: "Respiratory Clinic",
+        titleEn: "Associate Chief Physician",
+        expertiseEn: "General respiratory care",
+      }),
+    ] as never);
 
     vi.mocked(invokeLLM)
       .mockResolvedValueOnce({
@@ -307,34 +311,32 @@ describe("chat actions", () => {
   });
 
   it("uses english-safe fallback copy when grounded recommendations have no required english display fields", async () => {
-    vi.mocked(doctorsRepo.searchDoctors).mockResolvedValue(
-      [
-        buildDoctorSearchResult({
-          id: 1,
-          nameEn: "Chen Wei",
-          hospitalNameEn: "Shanghai General Hospital",
-          departmentNameEn: null,
-          titleEn: "Chief Physician",
-          expertiseEn: null,
-        }),
-        buildDoctorSearchResult({
-          id: 2,
-          nameEn: "Li Ming",
-          hospitalNameEn: "Shanghai Pulmonary Hospital",
-          departmentNameEn: null,
-          titleEn: "Attending Physician",
-          expertiseEn: null,
-        }),
-        buildDoctorSearchResult({
-          id: 3,
-          nameEn: "Wang Jun",
-          hospitalNameEn: "Ruijin Hospital",
-          departmentNameEn: null,
-          titleEn: "Associate Chief Physician",
-          expertiseEn: null,
-        }),
-      ] as never
-    );
+    vi.mocked(doctorsRepo.searchDoctors).mockResolvedValue([
+      buildDoctorSearchResult({
+        id: 1,
+        nameEn: "Chen Wei",
+        hospitalNameEn: "Shanghai General Hospital",
+        departmentNameEn: null,
+        titleEn: "Chief Physician",
+        expertiseEn: null,
+      }),
+      buildDoctorSearchResult({
+        id: 2,
+        nameEn: "Li Ming",
+        hospitalNameEn: "Shanghai Pulmonary Hospital",
+        departmentNameEn: null,
+        titleEn: "Attending Physician",
+        expertiseEn: null,
+      }),
+      buildDoctorSearchResult({
+        id: 3,
+        nameEn: "Wang Jun",
+        hospitalNameEn: "Ruijin Hospital",
+        departmentNameEn: null,
+        titleEn: "Associate Chief Physician",
+        expertiseEn: null,
+      }),
+    ] as never);
 
     vi.mocked(invokeLLM)
       .mockResolvedValueOnce({

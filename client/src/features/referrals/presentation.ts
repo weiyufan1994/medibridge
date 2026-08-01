@@ -171,9 +171,9 @@ export function getReferralOrderDetailHelperNotice(input: {
   return null;
 }
 
-export function getPatientVisibleReferralTimeline<T extends ReferralTimelineEventLike>(
-  timeline: readonly T[]
-) {
+export function getPatientVisibleReferralTimeline<
+  T extends ReferralTimelineEventLike,
+>(timeline: readonly T[]) {
   return timeline.filter((event, index) => {
     if (index === 0) {
       return true;
@@ -245,7 +245,8 @@ export function shouldUseReferralMockCheckout(input: {
 }) {
   return (
     input.isDevelopment &&
-    String(input.flagValue ?? "").trim() === REFERRAL_MOCK_CHECKOUT_ENABLED_VALUE
+    String(input.flagValue ?? "").trim() ===
+      REFERRAL_MOCK_CHECKOUT_ENABLED_VALUE
   );
 }
 
@@ -344,8 +345,7 @@ export function getOrCreateReferralClientRequestId(input: {
       : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, character =>
           (
             Number(character) ^
-            (Math.random() * 16) >>
-              (Number(character) / 4)
+            ((Math.random() * 16) >> (Number(character) / 4))
           ).toString(16)
         );
 
@@ -382,7 +382,9 @@ export function parseNonNegativeNumberParam(value: string | null | undefined) {
 }
 
 function isConsultationConfirmedProgressDetail(detail: string) {
-  return SYSTEM_PROGRESS_DETAIL_KEYS.consultationTimeConfirmed.has(detail.trim());
+  return SYSTEM_PROGRESS_DETAIL_KEYS.consultationTimeConfirmed.has(
+    detail.trim()
+  );
 }
 
 function localizeReferralProgressDetail(input: {

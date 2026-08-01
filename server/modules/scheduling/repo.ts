@@ -1,14 +1,4 @@
-import {
-  and,
-  desc,
-  eq,
-  gt,
-  gte,
-  inArray,
-  isNull,
-  lte,
-  sql,
-} from "drizzle-orm";
+import { and, desc, eq, gt, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import {
   doctorScheduleExceptions,
   doctorScheduleRules,
@@ -25,7 +15,8 @@ import { getDb } from "../../db";
 import { SLOT_HOLD_MINUTES } from "./constants";
 
 type BaseDb = NonNullable<Awaited<ReturnType<typeof getDb>>>;
-type DbExecutor = Pick<BaseDb, "select" | "insert" | "update"> & Partial<Pick<BaseDb, "delete">>;
+type DbExecutor = Pick<BaseDb, "select" | "insert" | "update"> &
+  Partial<Pick<BaseDb, "delete">>;
 
 async function resolveDbExecutor(dbExecutor?: DbExecutor) {
   const db = dbExecutor ?? (await getDb());
@@ -41,9 +32,17 @@ export async function listScheduleRules(input: { doctorId?: number }) {
   if (input.doctorId) {
     return query
       .where(eq(doctorScheduleRules.doctorId, input.doctorId))
-      .orderBy(doctorScheduleRules.doctorId, doctorScheduleRules.weekday, doctorScheduleRules.startLocalTime);
+      .orderBy(
+        doctorScheduleRules.doctorId,
+        doctorScheduleRules.weekday,
+        doctorScheduleRules.startLocalTime
+      );
   }
-  return query.orderBy(doctorScheduleRules.doctorId, doctorScheduleRules.weekday, doctorScheduleRules.startLocalTime);
+  return query.orderBy(
+    doctorScheduleRules.doctorId,
+    doctorScheduleRules.weekday,
+    doctorScheduleRules.startLocalTime
+  );
 }
 
 export async function createScheduleRule(input: InsertDoctorScheduleRule) {
@@ -110,9 +109,14 @@ export async function listScheduleExceptions(input: {
     .orderBy(doctorScheduleExceptions.dateLocal, doctorScheduleExceptions.id);
 }
 
-export async function createScheduleException(input: InsertDoctorScheduleException) {
+export async function createScheduleException(
+  input: InsertDoctorScheduleException
+) {
   const db = await resolveDbExecutor();
-  const rows = await db.insert(doctorScheduleExceptions).values(input).returning();
+  const rows = await db
+    .insert(doctorScheduleExceptions)
+    .values(input)
+    .returning();
   return rows[0] ?? null;
 }
 
@@ -227,7 +231,9 @@ export async function holdSlot(input: {
 }) {
   const db = await resolveDbExecutor(input.dbExecutor);
   const now = new Date();
-  const holdExpiresAt = new Date(now.getTime() + (input.holdMinutes ?? SLOT_HOLD_MINUTES) * 60_000);
+  const holdExpiresAt = new Date(
+    now.getTime() + (input.holdMinutes ?? SLOT_HOLD_MINUTES) * 60_000
+  );
   const rows = await db
     .update(doctorSlots)
     .set({
@@ -285,7 +291,12 @@ export async function releaseHeldSlotByAppointmentId(input: {
       appointmentId: null,
       updatedAt: new Date(),
     })
-    .where(and(eq(doctorSlots.appointmentId, input.appointmentId), eq(doctorSlots.status, "held")));
+    .where(
+      and(
+        eq(doctorSlots.appointmentId, input.appointmentId),
+        eq(doctorSlots.status, "held")
+      )
+    );
 
   return extractAffectedRows(result);
 }
@@ -302,7 +313,12 @@ export async function bookHeldSlotByAppointmentId(input: {
       holdExpiresAt: null,
       updatedAt: new Date(),
     })
-    .where(and(eq(doctorSlots.appointmentId, input.appointmentId), eq(doctorSlots.status, "held")))
+    .where(
+      and(
+        eq(doctorSlots.appointmentId, input.appointmentId),
+        eq(doctorSlots.status, "held")
+      )
+    )
     .returning();
 
   if (rows[0]) {
@@ -312,7 +328,12 @@ export async function bookHeldSlotByAppointmentId(input: {
   const existing = await db
     .select()
     .from(doctorSlots)
-    .where(and(eq(doctorSlots.appointmentId, input.appointmentId), eq(doctorSlots.status, "booked")))
+    .where(
+      and(
+        eq(doctorSlots.appointmentId, input.appointmentId),
+        eq(doctorSlots.status, "booked")
+      )
+    )
     .limit(1);
   return existing[0] ?? null;
 }
@@ -333,10 +354,7 @@ export async function releaseExpiredHolds(input?: {
       updatedAt: now,
     })
     .where(
-      and(
-        eq(doctorSlots.status, "held"),
-        lte(doctorSlots.holdExpiresAt, now)
-      )
+      and(eq(doctorSlots.status, "held"), lte(doctorSlots.holdExpiresAt, now))
     );
   return extractAffectedRows(result);
 }
@@ -351,7 +369,12 @@ export async function blockSlot(slotId: number) {
       heldBySessionId: null,
       updatedAt: new Date(),
     })
-    .where(and(eq(doctorSlots.id, slotId), inArray(doctorSlots.status, ["open", "held"])))
+    .where(
+      and(
+        eq(doctorSlots.id, slotId),
+        inArray(doctorSlots.status, ["open", "held"])
+      )
+    )
     .returning();
   return rows[0] ?? null;
 }
@@ -378,7 +401,12 @@ export async function listUpcomingSlotsByDoctor(input: {
   return db
     .select()
     .from(doctorSlots)
-    .where(and(eq(doctorSlots.doctorId, input.doctorId), gt(doctorSlots.startAt, now)))
+    .where(
+      and(
+        eq(doctorSlots.doctorId, input.doctorId),
+        gt(doctorSlots.startAt, now)
+      )
+    )
     .orderBy(desc(doctorSlots.startAt));
 }
 

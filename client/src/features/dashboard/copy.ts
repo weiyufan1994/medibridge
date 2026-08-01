@@ -38,7 +38,8 @@ export const DASHBOARD_COPY = {
     statusCompleted: "Summary ready",
     noConsultations: "No AI consultation history yet.",
     guardTitle: "Please sign in to view your dashboard",
-    guardDesc: "After signing in, you can view account status, consultation history, and appointments.",
+    guardDesc:
+      "After signing in, you can view account status, consultation history, and appointments.",
     guardAction: "Sign in / Register",
   },
   zh: {
@@ -46,7 +47,8 @@ export const DASHBOARD_COPY = {
     pageTitle: "个人中心",
     welcomeBack: "欢迎回来，{{name}}",
     fallbackUserName: "MediBridge 用户",
-    accountHeroDescription: "这是你的健康驾驶舱，查看今日 AI 咨询额度与历史问诊数据。",
+    accountHeroDescription:
+      "这是你的健康驾驶舱，查看今日 AI 咨询额度与历史问诊数据。",
     tabAccount: "账户状态",
     tabConsultations: "我的问诊记录",
     tabAppointments: "我的行程",
@@ -63,10 +65,12 @@ export const DASHBOARD_COPY = {
     loadingConsultations: "正在加载问诊记录...",
     sessionLabel: "会话 #{{id}}",
     triageArchiveTitle: "分诊档案",
-    triageArchiveDesc: "这里保留每次 AI 分诊的结果摘要，方便继续问诊或进入下一步预约。",
+    triageArchiveDesc:
+      "这里保留每次 AI 分诊的结果摘要，方便继续问诊或进入下一步预约。",
     createdAt: "创建时间：{{time}}",
     updatedAt: "最近更新：{{time}}",
-    completedSummaryFallback: "分诊摘要已生成，可打开记录查看结果和下一步建议。",
+    completedSummaryFallback:
+      "分诊摘要已生成，可打开记录查看结果和下一步建议。",
     activeSummaryFallback: "当前分诊尚未完成，可继续补充症状让 AI 完成总结。",
     continueTriage: "继续问诊",
     reviewRecord: "查看记录",
@@ -105,7 +109,8 @@ export const DASHBOARD_APPOINTMENT_COPY = {
     viewChatHistory: "View Chat History",
     resendLink: "Resend Link",
     medicalSummaryModalTitle: "Medical Summary",
-    medicalSummaryModalSubtitle: "Official doctor-issued record for this consultation.",
+    medicalSummaryModalSubtitle:
+      "Official doctor-issued record for this consultation.",
     medicalSummaryClose: "Close medical summary",
     medicalSummaryDoctorLabel: "Attending doctor",
     medicalSummaryTimeLabel: "Consultation time",
@@ -116,7 +121,8 @@ export const DASHBOARD_APPOINTMENT_COPY = {
     medicalSummaryAssessmentLabel: "Assessment / Diagnosis",
     medicalSummaryPlanLabel: "Plan / Recommendations",
     medicalSummaryLoading: "Loading medical summary...",
-    medicalSummaryEmpty: "No signed medical summary is available for this visit yet.",
+    medicalSummaryEmpty:
+      "No signed medical summary is available for this visit yet.",
     medicalSummaryLoadFailed: "Failed to load medical summary.",
     medicalSummaryDisclaimer:
       "System generated archival view. This summary is for clinical reference only and does not replace emergency care.",

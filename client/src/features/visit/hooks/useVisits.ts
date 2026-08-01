@@ -2,7 +2,10 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
-import type { VisitMessageItem, VisitParticipantRole } from "@/features/visit/types";
+import type {
+  VisitMessageItem,
+  VisitParticipantRole,
+} from "@/features/visit/types";
 import { getVisitCopy } from "@/features/visit/copy";
 import {
   buildOutgoingMessagePayload,
@@ -38,11 +41,15 @@ export function useVisits({
   const [messages, setMessages] = useState<VisitMessageItem[]>([]);
   const [content, setContent] = useState("");
   const [isReconnecting, setIsReconnecting] = useState(false);
-  const [pollingFatalError, setPollingFatalError] = useState<string | null>(null);
+  const [pollingFatalError, setPollingFatalError] = useState<string | null>(
+    null
+  );
   const [isSending, setIsSending] = useState(false);
   const [role, setRole] = useState<VisitParticipantRole | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
-  const [canSendMessageFromRoom, setCanSendMessageFromRoom] = useState<boolean | null>(null);
+  const [canSendMessageFromRoom, setCanSendMessageFromRoom] = useState<
+    boolean | null
+  >(null);
   const [roomTimer, setRoomTimer] = useState<TimerPayload | null>(null);
   const [isExtendingTimer, setIsExtendingTimer] = useState(false);
 
@@ -69,7 +76,8 @@ export function useVisits({
 
   const hasMoreHistory = Boolean(messagesInfiniteQuery.hasNextPage);
   const isLoadingOlder = messagesInfiniteQuery.isFetchingNextPage;
-  const effectiveCanSend = Boolean(canSendMessageFromRoom) && !pollingFatalError;
+  const effectiveCanSend =
+    Boolean(canSendMessageFromRoom) && !pollingFatalError;
 
   const getViewport = () => {
     if (!scrollContainerRef.current) return null;
@@ -201,7 +209,9 @@ export function useVisits({
     onIncomingMessage: payload => {
       const nearBottomBeforeUpdate = isNearBottom();
       shouldAutoScrollRef.current = nearBottomBeforeUpdate;
-      setMessages(prev => mergeMessages(prev, [normalizeRealtimeMessage(payload)]));
+      setMessages(prev =>
+        mergeMessages(prev, [normalizeRealtimeMessage(payload)])
+      );
       setIsSending(false);
     },
     onStatus: payload => {
@@ -285,7 +295,8 @@ export function useVisits({
     return true;
   }
 
-  const showInitialSkeleton = messagesInfiniteQuery.isLoading && messages.length === 0;
+  const showInitialSkeleton =
+    messagesInfiniteQuery.isLoading && messages.length === 0;
 
   function markRoomAsClosed(nextStatus: "ended" | "completed" = "ended") {
     setCurrentStatus(nextStatus);

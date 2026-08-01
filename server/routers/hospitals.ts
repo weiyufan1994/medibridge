@@ -1,5 +1,8 @@
 import { publicProcedure, router } from "../_core/trpc";
-import { hospitalActions, hospitalSchemas } from "../modules/hospitals/routerApi";
+import {
+  hospitalActions,
+  hospitalSchemas,
+} from "../modules/hospitals/routerApi";
 
 export const hospitalsRouter = router({
   /**

@@ -1,4 +1,14 @@
-import { and, asc, desc, eq, inArray, like, notLike, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  like,
+  notLike,
+  or,
+  sql,
+} from "drizzle-orm";
 import {
   departments,
   doctorEmbeddings,
@@ -26,15 +36,15 @@ type SearchDoctorsOptions = {
 const normalizeCandidateDoctorIds = (candidateDoctorIds?: number[]) =>
   Array.from(
     new Set(
-      (candidateDoctorIds ?? []).filter(
-        id => Number.isInteger(id) && id > 0
-      )
+      (candidateDoctorIds ?? []).filter(id => Number.isInteger(id) && id > 0)
     )
   );
 
 const buildSearchConditions = (keywords: string[], fields: Array<any>) => {
   const cleaned = keywords.map(keyword => keyword.trim()).filter(Boolean);
-  return cleaned.flatMap(keyword => fields.map(field => like(field, `%${keyword}%`)));
+  return cleaned.flatMap(keyword =>
+    fields.map(field => like(field, `%${keyword}%`))
+  );
 };
 
 export async function searchDoctors(
@@ -97,7 +107,11 @@ export async function searchDoctors(
     .orderBy(desc(doctors.recommendationScore))
     .limit(limit);
 
-  if (lang !== "en" || !options.fallbackKeywords || options.fallbackKeywords.length === 0) {
+  if (
+    lang !== "en" ||
+    !options.fallbackKeywords ||
+    options.fallbackKeywords.length === 0
+  ) {
     return primaryResults;
   }
 
@@ -109,7 +123,10 @@ export async function searchDoctors(
     departments.name,
     hospitals.name,
   ];
-  const fallbackConditions = buildSearchConditions(options.fallbackKeywords, fallbackFields);
+  const fallbackConditions = buildSearchConditions(
+    options.fallbackKeywords,
+    fallbackFields
+  );
   if (fallbackConditions.length === 0) {
     return primaryResults;
   }
@@ -235,7 +252,9 @@ export async function searchDoctorsByEmbedding(
       };
     })
     .filter((item): item is DoctorSearchResult & { similarity: number } => {
-      return item !== null && Number.isFinite(item.similarity) && item.similarity > 0;
+      return (
+        item !== null && Number.isFinite(item.similarity) && item.similarity > 0
+      );
     })
     .sort((left, right) => {
       if (right.similarity !== left.similarity) {
@@ -247,7 +266,11 @@ export async function searchDoctorsByEmbedding(
       );
     })
     .slice(0, limit)
-    .map(({ doctor, hospital, department }) => ({ doctor, hospital, department }));
+    .map(({ doctor, hospital, department }) => ({
+      doctor,
+      hospital,
+      department,
+    }));
 }
 
 export async function listDoctorSpecialtyTagsByDoctorIds(doctorIds: number[]) {
@@ -269,7 +292,9 @@ export async function listDoctorSpecialtyTagsByDoctorIds(doctorIds: number[]) {
       tag: doctorSpecialtyTags.tag,
     })
     .from(doctorSpecialtyTags)
-    .where(or(...normalizedIds.map(id => eq(doctorSpecialtyTags.doctorId, id))));
+    .where(
+      or(...normalizedIds.map(id => eq(doctorSpecialtyTags.doctorId, id)))
+    );
 
   const tagMap = new Map<number, string[]>();
   for (const row of rows) {

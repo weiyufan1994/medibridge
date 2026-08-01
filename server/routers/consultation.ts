@@ -47,7 +47,9 @@ function buildSessionTitle(input: {
     return summaryTitle;
   }
 
-  const firstMessageTitle = normalizeSessionTitleCandidate(input.firstUserMessage);
+  const firstMessageTitle = normalizeSessionTitleCandidate(
+    input.firstUserMessage
+  );
   if (firstMessageTitle) {
     return firstMessageTitle;
   }
@@ -61,37 +63,44 @@ function buildSessionTitle(input: {
 }
 
 export const consultationRouter = router({
-  getHistory: publicProcedure.output(getHistoryOutputSchema).query(async ({ ctx }) => {
-    if (!ctx.userId) {
-      return [];
-    }
+  getHistory: publicProcedure
+    .output(getHistoryOutputSchema)
+    .query(async ({ ctx }) => {
+      if (!ctx.userId) {
+        return [];
+      }
 
-    const sessions = await aiRepo.listAiChatSessionsByUser(
-      ctx.userId,
-      CONSULTATION_HISTORY_LIMIT
-    );
-    let firstUserMessagesBySessionId = new Map<number, string>();
-    try {
-      firstUserMessagesBySessionId = await aiRepo.listFirstUserMessagesBySessionIds(
-        sessions.map(session => session.id)
+      const sessions = await aiRepo.listAiChatSessionsByUser(
+        ctx.userId,
+        CONSULTATION_HISTORY_LIMIT
       );
-    } catch (error) {
-      console.error("[consultation.getHistory] failed to resolve first user messages", error);
-    }
+      let firstUserMessagesBySessionId = new Map<number, string>();
+      try {
+        firstUserMessagesBySessionId =
+          await aiRepo.listFirstUserMessagesBySessionIds(
+            sessions.map(session => session.id)
+          );
+      } catch (error) {
+        console.error(
+          "[consultation.getHistory] failed to resolve first user messages",
+          error
+        );
+      }
 
-    return sessions.map(session => ({
-      id: session.id,
-      userId: session.userId ?? null,
-      title: buildSessionTitle({
-        summary: session.summary,
-        firstUserMessage: firstUserMessagesBySessionId.get(session.id) ?? null,
-        sessionId: session.id,
-      }),
-      status: session.status,
-      createdAt: session.createdAt,
-      updatedAt: session.updatedAt,
-    }));
-  }),
+      return sessions.map(session => ({
+        id: session.id,
+        userId: session.userId ?? null,
+        title: buildSessionTitle({
+          summary: session.summary,
+          firstUserMessage:
+            firstUserMessagesBySessionId.get(session.id) ?? null,
+          sessionId: session.id,
+        }),
+        status: session.status,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+      }));
+    }),
   getMessagesBySessionId: publicProcedure
     .input(getMessagesBySessionIdInputSchema)
     .output(getMessagesBySessionIdOutputSchema)
@@ -113,7 +122,9 @@ export const consultationRouter = router({
         };
       }
 
-      const messages = await aiRepo.getAiChatMessagesBySessionId(input.sessionId);
+      const messages = await aiRepo.getAiChatMessagesBySessionId(
+        input.sessionId
+      );
       const storedResultFlag = await aiRepo.getLatestSessionFlagByType(
         input.sessionId,
         TRIAGE_RESULT_FLAG_TYPE
@@ -129,7 +140,8 @@ export const consultationRouter = router({
         messages: messages.map(message => ({
           id: message.id,
           sessionId: message.sessionId,
-          role: message.role === "assistant" ? ("ai" as const) : ("user" as const),
+          role:
+            message.role === "assistant" ? ("ai" as const) : ("user" as const),
           content: message.content,
           createdAt: message.createdAt,
         })),

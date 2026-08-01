@@ -24,7 +24,7 @@ function loadJournalEntries() {
 function listMigrationTags() {
   const entries = fs.readdirSync(path.resolve("drizzle"));
   return entries
-    .filter((name) => name.endsWith(".sql"))
+    .filter(name => name.endsWith(".sql"))
     .map(name => path.basename(name, ".sql"))
     .sort();
 }
@@ -41,7 +41,7 @@ async function verify() {
     throw new Error("Local drizzle journal has no PostgreSQL baseline entries");
   }
   const migrationTags = listMigrationTags();
-  const journalTags = journalEntries.map((entry) => entry.tag).sort();
+  const journalTags = journalEntries.map(entry => entry.tag).sort();
   const missingTagsInJournalForFiles = migrationTags.filter(
     tag => !journalTags.includes(tag)
   );
@@ -107,7 +107,10 @@ async function verify() {
     const requiredColumnNames = Array.from(
       new Set(REQUIRED_COLUMNS.map(column => column.columnName))
     );
-    const columnRows = await pool.query<{ tableName: string; columnName: string }>(
+    const columnRows = await pool.query<{
+      tableName: string;
+      columnName: string;
+    }>(
       `select table_name as "tableName", column_name as "columnName"
        from information_schema.columns
        where table_schema = current_schema()
@@ -141,7 +144,9 @@ async function verify() {
        limit 1`
     );
     if (embeddingVectorColumnRows.rows.length === 0) {
-      throw new Error("Missing required column: doctorEmbeddings.embeddingVector");
+      throw new Error(
+        "Missing required column: doctorEmbeddings.embeddingVector"
+      );
     }
 
     const embeddingModelColumnRows = await pool.query<{ columnName: string }>(
@@ -153,10 +158,14 @@ async function verify() {
        limit 1`
     );
     if (embeddingModelColumnRows.rows.length === 0) {
-      throw new Error("Missing required column: doctorEmbeddings.embeddingModel");
+      throw new Error(
+        "Missing required column: doctorEmbeddings.embeddingModel"
+      );
     }
 
-    const embeddingDimensionsColumnRows = await pool.query<{ columnName: string }>(
+    const embeddingDimensionsColumnRows = await pool.query<{
+      columnName: string;
+    }>(
       `select column_name as "columnName"
        from information_schema.columns
        where table_schema = current_schema()
@@ -165,7 +174,9 @@ async function verify() {
        limit 1`
     );
     if (embeddingDimensionsColumnRows.rows.length === 0) {
-      throw new Error("Missing required column: doctorEmbeddings.embeddingDimensions");
+      throw new Error(
+        "Missing required column: doctorEmbeddings.embeddingDimensions"
+      );
     }
 
     const legacyEmbeddingColumnRows = await pool.query<{ columnName: string }>(
@@ -177,7 +188,9 @@ async function verify() {
        limit 1`
     );
     if (legacyEmbeddingColumnRows.rows.length > 0) {
-      throw new Error("Legacy column still present: doctorEmbeddings.embedding");
+      throw new Error(
+        "Legacy column still present: doctorEmbeddings.embedding"
+      );
     }
 
     const vectorIndexRows = await pool.query<{ indexName: string }>(
@@ -196,11 +209,15 @@ async function verify() {
     );
     const retentionCount = Number(retentionRows.rows[0]?.count ?? 0);
     if (retentionCount === 0) {
-      throw new Error("visit_retention_policies is empty (default rows not initialized)");
+      throw new Error(
+        "visit_retention_policies is empty (default rows not initialized)"
+      );
     }
 
     console.log("Migration verification passed.");
-    console.log(`- applied migrations history: ${appliedCount}/${expectedCount}`);
+    console.log(
+      `- applied migrations history: ${appliedCount}/${expectedCount}`
+    );
     if (migrationHistoryOutdated) {
       console.log(
         "- warning: __drizzle_migrations count is behind local journal, but required schema artifacts exist."

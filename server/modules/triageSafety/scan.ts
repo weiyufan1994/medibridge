@@ -20,7 +20,9 @@ const resolveHighestSeverity = (
 };
 
 const matchesRule = (rule: TriageRiskRule, haystack: string) =>
-  rule.triggerGroups.every(group => group.some(pattern => pattern.test(haystack)));
+  rule.triggerGroups.every(group =>
+    group.some(pattern => pattern.test(haystack))
+  );
 
 export function scanMessage(input: {
   latestMessage: string;
@@ -33,10 +35,14 @@ export function scanMessage(input: {
     .map(message => message.content.trim())
     .filter(Boolean)
     .join("\n");
-  const rawExcerpt = [priorMessageText, input.latestMessage.trim()].filter(Boolean).join("\n");
+  const rawExcerpt = [priorMessageText, input.latestMessage.trim()]
+    .filter(Boolean)
+    .join("\n");
   const haystack = rawExcerpt.toLowerCase();
 
-  const matched = DEFAULT_TRIAGE_RISK_RULES.filter(rule => matchesRule(rule, haystack));
+  const matched = DEFAULT_TRIAGE_RISK_RULES.filter(rule =>
+    matchesRule(rule, haystack)
+  );
   const highestSeverity = matched.reduce<RiskSeverity | null>(
     (current, rule) => resolveHighestSeverity(current, rule.severity),
     null

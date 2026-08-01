@@ -643,7 +643,7 @@ export default function AITriageChat() {
     ? historyTriageResult
     : triageResult;
   const displayedTriageSessionId = isHistoryReadOnly
-    ? activeSessionId ?? 0
+    ? (activeSessionId ?? 0)
     : (() => {
         const parsedSessionId = Number(triageSessionId);
         return Number.isInteger(parsedSessionId) && parsedSessionId > 0
@@ -697,7 +697,11 @@ export default function AITriageChat() {
         summary: historyTriageResult?.summary ?? historySummary,
         extraction: historyTriageResult?.extraction,
       }),
-    [historySummary, historyTriageResult?.extraction, historyTriageResult?.summary]
+    [
+      historySummary,
+      historyTriageResult?.extraction,
+      historyTriageResult?.summary,
+    ]
   );
   const displayedResultFormDraft = isHistoryReadOnly
     ? historyResultFormDraft
@@ -1125,19 +1129,19 @@ export default function AITriageChat() {
                             triageSessionId={displayedTriageSessionId}
                             summary={effectiveSummary}
                             possibilitySummary={
-                              displayedTriageResult.routing?.possibilitySummary ??
+                              displayedTriageResult.routing
+                                ?.possibilitySummary ??
                               t.triage_card.possibility_fallback
                             }
-                            recommendedDepartment={
-                              getLocalizedTriageText({
-                                lang: resolved,
-                                text:
-                                  displayedTriageResult.routing
-                                    ?.recommendedDepartment,
-                                fallback: t.triage_card.department_fallback,
-                              })
+                            recommendedDepartment={getLocalizedTriageText({
+                              lang: resolved,
+                              text: displayedTriageResult.routing
+                                ?.recommendedDepartment,
+                              fallback: t.triage_card.department_fallback,
+                            })}
+                            hospitals={
+                              displayedTriageResult.routing?.hospitals ?? []
                             }
-                            hospitals={displayedTriageResult.routing?.hospitals ?? []}
                             safetyNotice={routingSafetyNotice}
                             labels={{
                               summary: t.triage_card.summary,

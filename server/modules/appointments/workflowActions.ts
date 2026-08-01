@@ -118,11 +118,13 @@ function toFallbackDraft(input: {
   }
 
   return {
-    chiefComplaint: chiefComplaint || "Chief complaint to be completed by doctor.",
+    chiefComplaint:
+      chiefComplaint || "Chief complaint to be completed by doctor.",
     historyOfPresentIllness:
       triageSummary || "Please complete HPI based on consultation transcript.",
     pastMedicalHistory:
-      pastMedicalHistory || "No past medical history captured yet. Please complete.",
+      pastMedicalHistory ||
+      "No past medical history captured yet. Please complete.",
     assessmentDiagnosis: "Please add assessment / diagnosis.",
     planRecommendations: "Please add plan and follow-up recommendations.",
     source: "fallback" as const,
@@ -148,7 +150,9 @@ async function persistMedicalSummaryDraft(input: {
     await appointmentsRepo.upsertMedicalSummaryByAppointmentId({
       appointmentId: input.appointmentId,
       chiefComplaint: clampSectionText(input.draft.chiefComplaint),
-      historyOfPresentIllness: clampSectionText(input.draft.historyOfPresentIllness),
+      historyOfPresentIllness: clampSectionText(
+        input.draft.historyOfPresentIllness
+      ),
       pastMedicalHistory: clampSectionText(input.draft.pastMedicalHistory),
       assessmentDiagnosis: clampSectionText(input.draft.assessmentDiagnosis),
       planRecommendations: clampSectionText(input.draft.planRecommendations),
@@ -157,7 +161,10 @@ async function persistMedicalSummaryDraft(input: {
     });
   } catch (error) {
     if (process.env.NODE_ENV !== "test") {
-      console.warn("[appointments] failed to persist medical summary draft", error);
+      console.warn(
+        "[appointments] failed to persist medical summary draft",
+        error
+      );
     }
   }
 }
@@ -169,7 +176,9 @@ async function generateAndPersistMedicalSummaryDraft(input: {
   const intake = parseIntakeFromNotes(input.appointment.notes, value =>
     appointmentIntakeSchema.safeParse(value)
   );
-  const triageSession = await aiRepo.getAiChatSessionById(input.appointment.triageSessionId);
+  const triageSession = await aiRepo.getAiChatSessionById(
+    input.appointment.triageSessionId
+  );
   const triageSummary = triageSession?.summary ?? null;
 
   const fallback = toFallbackDraft({
@@ -178,7 +187,10 @@ async function generateAndPersistMedicalSummaryDraft(input: {
     intake,
   });
 
-  const recentMessagesDesc = await visitRepo.getRecentMessages(input.appointment.id, 80);
+  const recentMessagesDesc = await visitRepo.getRecentMessages(
+    input.appointment.id,
+    80
+  );
   const recentMessagesAsc = [...recentMessagesDesc].reverse();
   const transcript = recentMessagesAsc
     .map(item => {
@@ -221,7 +233,7 @@ async function generateAndPersistMedicalSummaryDraft(input: {
             "Transcript:",
             transcript,
             "Return JSON object with keys exactly:",
-            'chiefComplaint, historyOfPresentIllness, pastMedicalHistory, assessmentDiagnosis, planRecommendations',
+            "chiefComplaint, historyOfPresentIllness, pastMedicalHistory, assessmentDiagnosis, planRecommendations",
           ].join("\n"),
         },
       ],
@@ -234,10 +246,26 @@ async function generateAndPersistMedicalSummaryDraft(input: {
             type: "object",
             properties: {
               chiefComplaint: { type: "string", minLength: 1, maxLength: 4000 },
-              historyOfPresentIllness: { type: "string", minLength: 1, maxLength: 4000 },
-              pastMedicalHistory: { type: "string", minLength: 1, maxLength: 4000 },
-              assessmentDiagnosis: { type: "string", minLength: 1, maxLength: 4000 },
-              planRecommendations: { type: "string", minLength: 1, maxLength: 4000 },
+              historyOfPresentIllness: {
+                type: "string",
+                minLength: 1,
+                maxLength: 4000,
+              },
+              pastMedicalHistory: {
+                type: "string",
+                minLength: 1,
+                maxLength: 4000,
+              },
+              assessmentDiagnosis: {
+                type: "string",
+                minLength: 1,
+                maxLength: 4000,
+              },
+              planRecommendations: {
+                type: "string",
+                minLength: 1,
+                maxLength: 4000,
+              },
             },
             required: [
               "chiefComplaint",
@@ -269,10 +297,16 @@ async function generateAndPersistMedicalSummaryDraft(input: {
 
     const generated = {
       chiefComplaint: clampSectionText(validation.data.chiefComplaint),
-      historyOfPresentIllness: clampSectionText(validation.data.historyOfPresentIllness),
+      historyOfPresentIllness: clampSectionText(
+        validation.data.historyOfPresentIllness
+      ),
       pastMedicalHistory: clampSectionText(validation.data.pastMedicalHistory),
-      assessmentDiagnosis: clampSectionText(validation.data.assessmentDiagnosis),
-      planRecommendations: clampSectionText(validation.data.planRecommendations),
+      assessmentDiagnosis: clampSectionText(
+        validation.data.assessmentDiagnosis
+      ),
+      planRecommendations: clampSectionText(
+        validation.data.planRecommendations
+      ),
       source: "llm" as const,
     };
 
@@ -320,7 +354,10 @@ function startMedicalSummaryDraftGenerationTask(input: {
     .then(() => undefined)
     .catch(error => {
       if (process.env.NODE_ENV !== "test") {
-        console.warn("[appointments] medical summary draft background task failed", error);
+        console.warn(
+          "[appointments] medical summary draft background task failed",
+          error
+        );
       }
     })
     .finally(() => {
@@ -351,7 +388,9 @@ export async function generateMedicalSummaryDraftByTokenFlow(input: {
     });
   }
 
-  const existing = await appointmentsRepo.getMedicalSummaryByAppointmentId(appointment.id);
+  const existing = await appointmentsRepo.getMedicalSummaryByAppointmentId(
+    appointment.id
+  );
   if (existing && (!input.forceRegenerate || Boolean(existing.signedBy))) {
     return {
       chiefComplaint: existing.chiefComplaint,

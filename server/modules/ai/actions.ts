@@ -402,7 +402,7 @@ export async function chatTriageAction(input: ChatTriageInput) {
       reply:
         resolvedLang === "zh"
           ? "如果方便，请先告诉我年龄和性别。然后我继续按 4 个问题帮你确认：1. 最主要的不适是什么，在哪个部位？2. 这个症状多久了，是突然发生还是慢慢加重？3. 是否和外伤或近期手术有关？4. 有没有需要特别注意的基础疾病？没有可直接写“无”。"
-          : "If you are comfortable, please start with your age and gender. Then I will continue with 4 quick questions: 1. What is the main symptom, and where is it located? 2. How long has it been happening, and did it start suddenly or gradually? 3. Is it related to any recent injury or surgery? 4. Do you have any important underlying conditions? If not, write \"none\".",
+          : 'If you are comfortable, please start with your age and gender. Then I will continue with 4 quick questions: 1. What is the main symptom, and where is it located? 2. How long has it been happening, and did it start suddenly or gradually? 3. Is it related to any recent injury or surgery? 4. Do you have any important underlying conditions? If not, write "none".',
     };
   }
 }

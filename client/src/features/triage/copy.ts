@@ -249,7 +249,7 @@ export const TRIAGE_COPY = {
     bookingDeviceIdMissing:
       "Cannot read device id. Please refresh and try again.",
     initialAssistantMessage:
-      "If you are comfortable, please start with your age and gender. Then we can go through 4 quick questions so I can guide you faster: 1. What is the main symptom, and where is it located? 2. How long has it been happening, and did it start suddenly or gradually? 3. Is it related to any recent injury or surgery? 4. Do you have any important underlying conditions, such as diabetes, high blood pressure, heart disease, immune disorders, or cancer? If something does not apply, write \"none\".",
+      'If you are comfortable, please start with your age and gender. Then we can go through 4 quick questions so I can guide you faster: 1. What is the main symptom, and where is it located? 2. How long has it been happening, and did it start suddenly or gradually? 3. Is it related to any recent injury or surgery? 4. Do you have any important underlying conditions, such as diabetes, high blood pressure, heart disease, immune disorders, or cancer? If something does not apply, write "none".',
     reasonFallback: "Recommended based on triage details",
     bookingSummaryFallback: "Symptom details shared in AI chat.",
     bookingSymptomsFallback: "Shared in triage chat",

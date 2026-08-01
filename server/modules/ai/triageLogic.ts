@@ -468,8 +468,7 @@ function getLocalizedFollowupQuestion(
         "What is the main symptom, and where is it located?",
       durationAndOnset:
         "How long have you had this symptom, and did it start suddenly or gradually?",
-      traumaOrSurgery:
-        "Is this issue related to any recent injury or surgery?",
+      traumaOrSurgery: "Is this issue related to any recent injury or surgery?",
       chronicConditions:
         "Do you have any important underlying conditions, such as diabetes, high blood pressure, heart disease, immune disorders, or cancer?",
       age: "Please share your age.",
@@ -499,9 +498,7 @@ export function buildFollowupReply(input: {
         FOLLOWUP_FIELD_PRIORITY.indexOf(left) -
         FOLLOWUP_FIELD_PRIORITY.indexOf(right)
     )
-    .map(field =>
-    getLocalizedFollowupQuestion(field, input.lang)
-    );
+    .map(field => getLocalizedFollowupQuestion(field, input.lang));
 
   if (input.lang === "zh") {
     return `我再确认 ${questions.length} 点：${questions.map((question, index) => `${index + 1}. ${question}`).join(" ")} 按顺序简单回复就可以；没有或不确定的，写“无”或“不清楚”即可。`;
@@ -624,7 +621,8 @@ function buildTriageHaystack(data: TriageCollectedData) {
 function listKnowledgeDepartmentHints(
   knowledgeContext?: TriageKnowledgeContext
 ) {
-  const tags = knowledgeContext?.snippets.flatMap(snippet => snippet.specialtyTags) ?? [];
+  const tags =
+    knowledgeContext?.snippets.flatMap(snippet => snippet.specialtyTags) ?? [];
 
   return uniqueDepartmentHints(
     tags
@@ -649,7 +647,10 @@ function assessDepartmentEligibility(input: {
   department: TriageDepartmentHint;
   data: TriageCollectedData;
 }) {
-  if (input.department.key === "gynecology" || input.department.key === "obstetrics") {
+  if (
+    input.department.key === "gynecology" ||
+    input.department.key === "obstetrics"
+  ) {
     if (input.data.gender === "female") {
       return {
         isEligible: true,
@@ -723,7 +724,9 @@ export function resolveRecommendedDepartment(input: {
   knowledgeContext?: TriageKnowledgeContext;
 }): TriageDepartmentRecommendation {
   const candidates = uniqueDepartmentHints([
-    ...(input.data.age !== null && input.data.age <= 14 ? [PEDIATRICS_HINT] : []),
+    ...(input.data.age !== null && input.data.age <= 14
+      ? [PEDIATRICS_HINT]
+      : []),
     ...listKnowledgeDepartmentHints(input.knowledgeContext),
     ...listPatternDepartmentHints(input.data),
     GENERAL_MEDICINE_HINT,
@@ -740,8 +743,7 @@ export function resolveRecommendedDepartment(input: {
     if (eligibility.isEligible) {
       return {
         department,
-        confidence:
-          missingCriticalFields.size > 0 ? "reduced" : "standard",
+        confidence: missingCriticalFields.size > 0 ? "reduced" : "standard",
         missingCriticalFields: Array.from(missingCriticalFields),
       };
     }

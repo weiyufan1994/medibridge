@@ -52,7 +52,9 @@ async function main() {
     email: detail.email,
   });
 
-  const newScheduledAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
+  const newScheduledAt = new Date(
+    Date.now() + 72 * 60 * 60 * 1000
+  ).toISOString();
   const rescheduled = await caller.appointments.rescheduleByToken({
     appointmentId: createResult.appointmentId,
     token,

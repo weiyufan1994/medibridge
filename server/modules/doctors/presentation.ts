@@ -1,9 +1,5 @@
 import type { LocalizedText } from "@shared/types";
-import {
-  departments,
-  doctors,
-  hospitals,
-} from "../../../drizzle/schema";
+import { departments, doctors, hospitals } from "../../../drizzle/schema";
 import type { DoctorSearchResult } from "./repo";
 
 type DoctorRow = typeof doctors.$inferSelect;
@@ -41,7 +37,14 @@ export type PublicLocalizedDoctor = Omit<
 
 export type PublicLocalizedHospital = Omit<
   HospitalRow,
-  "name" | "nameEn" | "city" | "cityEn" | "level" | "levelEn" | "address" | "addressEn"
+  | "name"
+  | "nameEn"
+  | "city"
+  | "cityEn"
+  | "level"
+  | "levelEn"
+  | "address"
+  | "addressEn"
 > & {
   name: LocalizedText;
   city: LocalizedText;
@@ -49,7 +52,10 @@ export type PublicLocalizedHospital = Omit<
   address: LocalizedText;
 };
 
-export type PublicLocalizedDepartment = Omit<DepartmentRow, "name" | "nameEn"> & {
+export type PublicLocalizedDepartment = Omit<
+  DepartmentRow,
+  "name" | "nameEn"
+> & {
   name: LocalizedText;
 };
 
@@ -59,22 +65,28 @@ export type PublicLocalizedDoctorSearchResult = {
   department: PublicLocalizedDepartment;
 };
 
-export type PublicLocalizedDoctorRecommendation = PublicLocalizedDoctorSearchResult & {
-  reason: LocalizedText;
-  title: LocalizedText;
-  specialty: LocalizedText;
-  biography: LocalizedText;
-  yearsOfExperience: number | null;
-};
+export type PublicLocalizedDoctorRecommendation =
+  PublicLocalizedDoctorSearchResult & {
+    reason: LocalizedText;
+    title: LocalizedText;
+    specialty: LocalizedText;
+    biography: LocalizedText;
+    yearsOfExperience: number | null;
+  };
 
-function toLocalizedText(zh: string | null | undefined, en: string | null | undefined): LocalizedText {
+function toLocalizedText(
+  zh: string | null | undefined,
+  en: string | null | undefined
+): LocalizedText {
   return {
     zh: zh ?? "",
     en: en ?? "",
   };
 }
 
-export function toPublicLocalizedDoctor(doctor: DoctorRow): PublicLocalizedDoctor {
+export function toPublicLocalizedDoctor(
+  doctor: DoctorRow
+): PublicLocalizedDoctor {
   const {
     name,
     nameEn,
@@ -101,16 +113,33 @@ export function toPublicLocalizedDoctor(doctor: DoctorRow): PublicLocalizedDocto
     title: toLocalizedText(title, titleEn),
     specialty: toLocalizedText(specialty, specialtyEn),
     expertise: toLocalizedText(expertise, expertiseEn),
-    onlineConsultation: toLocalizedText(onlineConsultation, onlineConsultationEn),
-    appointmentAvailable: toLocalizedText(appointmentAvailable, appointmentAvailableEn),
+    onlineConsultation: toLocalizedText(
+      onlineConsultation,
+      onlineConsultationEn
+    ),
+    appointmentAvailable: toLocalizedText(
+      appointmentAvailable,
+      appointmentAvailableEn
+    ),
     satisfactionRate: toLocalizedText(satisfactionRate, satisfactionRateEn),
     attitudeScore: toLocalizedText(attitudeScore, attitudeScoreEn),
   };
 }
 
-export function toPublicLocalizedHospital(hospital: HospitalRow): PublicLocalizedHospital {
-  const { name, nameEn, city, cityEn, level, levelEn, address, addressEn, ...rest } =
-    hospital;
+export function toPublicLocalizedHospital(
+  hospital: HospitalRow
+): PublicLocalizedHospital {
+  const {
+    name,
+    nameEn,
+    city,
+    cityEn,
+    level,
+    levelEn,
+    address,
+    addressEn,
+    ...rest
+  } = hospital;
 
   return {
     ...rest,

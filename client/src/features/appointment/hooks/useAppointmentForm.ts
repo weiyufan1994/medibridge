@@ -49,7 +49,8 @@ export function useAppointmentForm({
   const [otpCooldownSeconds, setOtpCooldownSeconds] = useState(0);
   const [bookingSlotId, setBookingSlotId] = useState<number | null>(null);
   const [bookingScheduledAt, setBookingScheduledAt] = useState("");
-  const [bookingType, setBookingType] = useState<AppointmentType>("online_chat");
+  const [bookingType, setBookingType] =
+    useState<AppointmentType>("online_chat");
   const [bookingPackageId, setBookingPackageId] =
     useState<AppointmentPackageId>("chat_standard_60m");
   const [intake, setIntake] = useState<AppointmentIntake>(() =>
@@ -106,11 +107,14 @@ export function useAppointmentForm({
     if (options.length === 0) {
       return;
     }
-    const selectedExists = options.some(option => option.id === bookingPackageId);
+    const selectedExists = options.some(
+      option => option.id === bookingPackageId
+    );
     if (selectedExists) {
       return;
     }
-    const defaultOption = options.find(option => option.isDefault) ?? options[0];
+    const defaultOption =
+      options.find(option => option.isDefault) ?? options[0];
     setBookingPackageId(defaultOption.id);
   }, [bookingPackageId, packagesQuery.data]);
 
@@ -151,7 +155,9 @@ export function useAppointmentForm({
   });
 
   const normalizedEmail = bookingEmail.trim().toLowerCase();
-  const createEmail = isLoggedInWithEmail ? authenticatedEmail : normalizedEmail;
+  const createEmail = isLoggedInWithEmail
+    ? authenticatedEmail
+    : normalizedEmail;
   const requiresOtpFlow = !isLoggedInWithEmail;
   const otpRequested = otpRequestedEmail === normalizedEmail;
   const canRequestOtp =
@@ -165,7 +171,12 @@ export function useAppointmentForm({
     verifyOtpMutation.isPending || createAppointmentMutation.isPending;
 
   const handleCreateBooking = async () => {
-    if (!doctorId || !createEmail || !bookingScheduledAt.trim() || !bookingSlotId) {
+    if (
+      !doctorId ||
+      !createEmail ||
+      !bookingScheduledAt.trim() ||
+      !bookingSlotId
+    ) {
       toast.error(t.bookingInvalid);
       return;
     }

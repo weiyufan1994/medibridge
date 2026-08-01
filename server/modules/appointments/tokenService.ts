@@ -23,16 +23,25 @@ export function getAppointmentTokenTtlHours(): number {
 
 export function getRoleMaxUses(role: AppointmentAccessRole): number {
   if (role === "doctor") {
-    return readNumberEnv("APPOINTMENT_DOCTOR_TOKEN_MAX_USES", DEFAULT_DOCTOR_MAX_USES);
+    return readNumberEnv(
+      "APPOINTMENT_DOCTOR_TOKEN_MAX_USES",
+      DEFAULT_DOCTOR_MAX_USES
+    );
   }
-  return readNumberEnv("APPOINTMENT_PATIENT_TOKEN_MAX_USES", DEFAULT_PATIENT_MAX_USES);
+  return readNumberEnv(
+    "APPOINTMENT_PATIENT_TOKEN_MAX_USES",
+    DEFAULT_PATIENT_MAX_USES
+  );
 }
 
 export function getTokenAutoRevokeThreshold(): number {
   return readNumberEnv("APPOINTMENT_TOKEN_AUTO_REVOKE_FAILURES", 30);
 }
 
-export function generateAppointmentAccessToken(): { token: string; tokenHash: string } {
+export function generateAppointmentAccessToken(): {
+  token: string;
+  tokenHash: string;
+} {
   const token = generateToken();
   return {
     token,

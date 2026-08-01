@@ -66,7 +66,10 @@ function buildWindowsForRule(input: {
   exceptions: DoctorScheduleException[];
 }) {
   const replaceWindows = input.exceptions
-    .filter(item => item.action === "replace" && item.startLocalTime && item.endLocalTime)
+    .filter(
+      item =>
+        item.action === "replace" && item.startLocalTime && item.endLocalTime
+    )
     .map(item => ({
       startLocalTime: item.startLocalTime!,
       endLocalTime: item.endLocalTime!,
@@ -83,14 +86,20 @@ function buildWindowsForRule(input: {
         ];
 
   const extendWindows = input.exceptions
-    .filter(item => item.action === "extend" && item.startLocalTime && item.endLocalTime)
+    .filter(
+      item =>
+        item.action === "extend" && item.startLocalTime && item.endLocalTime
+    )
     .map(item => ({
       startLocalTime: item.startLocalTime!,
       endLocalTime: item.endLocalTime!,
     }));
 
   const blockedWindows = input.exceptions
-    .filter(item => item.action === "block" && item.startLocalTime && item.endLocalTime)
+    .filter(
+      item =>
+        item.action === "block" && item.startLocalTime && item.endLocalTime
+    )
     .map(item => ({
       startLocalTime: item.startLocalTime!,
       endLocalTime: item.endLocalTime!,
@@ -129,7 +138,10 @@ function buildSlotsForWindow(input: {
       `${input.dateLocal}T${startLocalTime}:00`,
       input.rule.timezone
     );
-    const endAt = fromZonedTime(`${input.dateLocal}T${endLocalTime}:00`, input.rule.timezone);
+    const endAt = fromZonedTime(
+      `${input.dateLocal}T${endLocalTime}:00`,
+      input.rule.timezone
+    );
     slots.push({
       doctorId: input.rule.doctorId,
       appointmentType: input.rule.appointmentTypeScope,
@@ -170,7 +182,10 @@ export function buildGeneratedSlots(input: GenerationInput) {
       const windows = buildWindowsForRule({
         rule,
         dateLocal,
-        exceptions: exceptionsByDate.get(dateLocal)?.filter(item => item.doctorId === rule.doctorId) ?? [],
+        exceptions:
+          exceptionsByDate
+            .get(dateLocal)
+            ?.filter(item => item.doctorId === rule.doctorId) ?? [],
       });
       for (const window of windows) {
         generated.push(...buildSlotsForWindow({ rule, dateLocal, window }));

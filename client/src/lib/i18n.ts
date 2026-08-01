@@ -24,7 +24,7 @@ export const getLocalizedField = ({
 }) => {
   return {
     zh: zh ?? MISSING_TRANSLATION_ZH,
-    en: en && !hasCjk(en) ? en : placeholder ?? MISSING_TRANSLATION,
+    en: en && !hasCjk(en) ? en : (placeholder ?? MISSING_TRANSLATION),
   }[lang];
 };
 

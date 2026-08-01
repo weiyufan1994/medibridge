@@ -1,7 +1,11 @@
 import { readChunk } from "./chunkReader";
 import { keywordSearch } from "./keywordSearch";
 import { semanticSearch } from "./semanticSearch";
-import type { KnowledgeHit, RetrievalMode, TriageKnowledgeContext } from "./types";
+import type {
+  KnowledgeHit,
+  RetrievalMode,
+  TriageKnowledgeContext,
+} from "./types";
 
 const MAX_FINAL_SNIPPETS = 3;
 
@@ -38,7 +42,10 @@ export async function runRetrieval(input: {
   latestMessage: string;
   sessionSummary?: string | null;
 }): Promise<TriageKnowledgeContext | null> {
-  const retrievalQuery = [input.latestMessage.trim(), input.sessionSummary?.trim()]
+  const retrievalQuery = [
+    input.latestMessage.trim(),
+    input.sessionSummary?.trim(),
+  ]
     .filter(Boolean)
     .join("\n");
   if (!retrievalQuery) {
@@ -47,15 +54,17 @@ export async function runRetrieval(input: {
 
   const keywordResult = await keywordSearch(retrievalQuery);
   if (keywordResult.hits.length >= MAX_FINAL_SNIPPETS) {
-    const hydrated = await readChunk(keywordResult.hits.slice(0, MAX_FINAL_SNIPPETS).map(hit => hit.chunkId));
+    const hydrated = await readChunk(
+      keywordResult.hits.slice(0, MAX_FINAL_SNIPPETS).map(hit => hit.chunkId)
+    );
     return toKnowledgeContext(hydrated, "keyword", keywordResult.terms);
   }
 
   const semanticResult = await semanticSearch(retrievalQuery);
-  const combined = dedupeHits([...keywordResult.hits, ...semanticResult.hits]).slice(
-    0,
-    MAX_FINAL_SNIPPETS
-  );
+  const combined = dedupeHits([
+    ...keywordResult.hits,
+    ...semanticResult.hits,
+  ]).slice(0, MAX_FINAL_SNIPPETS);
   if (combined.length === 0) {
     return null;
   }

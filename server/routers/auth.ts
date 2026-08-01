@@ -34,5 +34,7 @@ export const authRouter = router({
 
   logout: publicProcedure
     .output(authSchemas.logoutOutputSchema)
-    .mutation(({ ctx }) => authActions.logoutAction({ req: ctx.req, res: ctx.res })),
+    .mutation(({ ctx }) =>
+      authActions.logoutAction({ req: ctx.req, res: ctx.res })
+    ),
 });

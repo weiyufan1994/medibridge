@@ -1,6 +1,7 @@
 import type { TriageRiskRule } from "./types";
 
-const bilingualGroup = (terms: string[]) => new RegExp(`(?:${terms.join("|")})`, "i");
+const bilingualGroup = (terms: string[]) =>
+  new RegExp(`(?:${terms.join("|")})`, "i");
 
 export const DEFAULT_TRIAGE_RISK_RULES: TriageRiskRule[] = [
   {
@@ -10,8 +11,25 @@ export const DEFAULT_TRIAGE_RISK_RULES: TriageRiskRule[] = [
     recommendedAction: "go_to_er",
     lang: "bilingual",
     triggerGroups: [
-      [bilingualGroup(["胸痛", "胸闷", "heart pain", "chest pain", "pressure in chest"])],
-      [bilingualGroup(["呼吸困难", "喘不上气", "气短", "shortness of breath", "difficulty breathing", "breathing hard"])],
+      [
+        bilingualGroup([
+          "胸痛",
+          "胸闷",
+          "heart pain",
+          "chest pain",
+          "pressure in chest",
+        ]),
+      ],
+      [
+        bilingualGroup([
+          "呼吸困难",
+          "喘不上气",
+          "气短",
+          "shortness of breath",
+          "difficulty breathing",
+          "breathing hard",
+        ]),
+      ],
     ],
     userMessageZh:
       "你描述的情况可能提示急性高风险问题。请立即前往急诊或呼叫当地急救服务；本平台不会继续提供 AI 分诊建议。",
@@ -24,21 +42,23 @@ export const DEFAULT_TRIAGE_RISK_RULES: TriageRiskRule[] = [
     interrupt: true,
     recommendedAction: "call_emergency",
     lang: "bilingual",
-    triggerGroups: [[
-      bilingualGroup([
-        "单侧无力",
-        "面瘫",
-        "口角歪",
-        "言语不清",
-        "说话含糊",
-        "突发意识",
-        "one-sided weakness",
-        "face droop",
-        "slurred speech",
-        "cannot speak clearly",
-        "sudden confusion",
-      ]),
-    ]],
+    triggerGroups: [
+      [
+        bilingualGroup([
+          "单侧无力",
+          "面瘫",
+          "口角歪",
+          "言语不清",
+          "说话含糊",
+          "突发意识",
+          "one-sided weakness",
+          "face droop",
+          "slurred speech",
+          "cannot speak clearly",
+          "sudden confusion",
+        ]),
+      ],
+    ],
     userMessageZh:
       "你提供的信息提示可能存在急性神经系统危险信号。请立即呼叫当地急救服务或尽快前往急诊。",
     userMessageEn:
@@ -50,20 +70,22 @@ export const DEFAULT_TRIAGE_RISK_RULES: TriageRiskRule[] = [
     interrupt: true,
     recommendedAction: "go_to_er",
     lang: "bilingual",
-    triggerGroups: [[
-      bilingualGroup([
-        "大出血",
-        "吐血",
-        "咯血",
-        "黑便",
-        "鲜血不止",
-        "major bleeding",
-        "vomiting blood",
-        "coughing blood",
-        "black stool",
-        "passing blood",
-      ]),
-    ]],
+    triggerGroups: [
+      [
+        bilingualGroup([
+          "大出血",
+          "吐血",
+          "咯血",
+          "黑便",
+          "鲜血不止",
+          "major bleeding",
+          "vomiting blood",
+          "coughing blood",
+          "black stool",
+          "passing blood",
+        ]),
+      ],
+    ],
     userMessageZh:
       "你描述的症状可能提示活动性出血或其他急症。请立即前往急诊处理，本次 AI 分诊到此结束。",
     userMessageEn:
@@ -75,18 +97,20 @@ export const DEFAULT_TRIAGE_RISK_RULES: TriageRiskRule[] = [
     interrupt: true,
     recommendedAction: "call_emergency",
     lang: "bilingual",
-    triggerGroups: [[
-      bilingualGroup([
-        "抽搐",
-        "昏厥",
-        "意识丧失",
-        "晕倒",
-        "seizure",
-        "fainted",
-        "passed out",
-        "loss of consciousness",
-      ]),
-    ]],
+    triggerGroups: [
+      [
+        bilingualGroup([
+          "抽搐",
+          "昏厥",
+          "意识丧失",
+          "晕倒",
+          "seizure",
+          "fainted",
+          "passed out",
+          "loss of consciousness",
+        ]),
+      ],
+    ],
     userMessageZh:
       "你描述的情况可能属于急症。请立即联系当地急救服务或尽快前往急诊，本平台不会继续 AI 分诊。",
     userMessageEn:
@@ -100,7 +124,16 @@ export const DEFAULT_TRIAGE_RISK_RULES: TriageRiskRule[] = [
     lang: "bilingual",
     triggerGroups: [
       [bilingualGroup(["过敏", "allergic", "allergy"])],
-      [bilingualGroup(["呼吸困难", "喉头紧", "喘不上气", "throat closing", "difficulty breathing", "swollen tongue"])],
+      [
+        bilingualGroup([
+          "呼吸困难",
+          "喉头紧",
+          "喘不上气",
+          "throat closing",
+          "difficulty breathing",
+          "swollen tongue",
+        ]),
+      ],
     ],
     userMessageZh:
       "你描述的情况可能提示严重过敏反应。请立即联系当地急救服务或尽快前往急诊。",
@@ -113,20 +146,22 @@ export const DEFAULT_TRIAGE_RISK_RULES: TriageRiskRule[] = [
     interrupt: true,
     recommendedAction: "mental_health_hotline",
     lang: "bilingual",
-    triggerGroups: [[
-      bilingualGroup([
-        "自杀",
-        "轻生",
-        "不想活",
-        "伤害自己",
-        "自残",
-        "kill myself",
-        "suicide",
-        "hurt myself",
-        "self harm",
-        "don't want to live",
-      ]),
-    ]],
+    triggerGroups: [
+      [
+        bilingualGroup([
+          "自杀",
+          "轻生",
+          "不想活",
+          "伤害自己",
+          "自残",
+          "kill myself",
+          "suicide",
+          "hurt myself",
+          "self harm",
+          "don't want to live",
+        ]),
+      ],
+    ],
     userMessageZh:
       "你提到的内容提示你可能正处于紧急心理危机中。请立即联系当地急救服务、危机干预热线，或尽快寻求身边可信任的人陪同帮助。",
     userMessageEn:
@@ -139,8 +174,28 @@ export const DEFAULT_TRIAGE_RISK_RULES: TriageRiskRule[] = [
     recommendedAction: "seek_urgent_care",
     lang: "bilingual",
     triggerGroups: [
-      [bilingualGroup(["婴儿", "幼儿", "宝宝", "infant", "baby", "toddler", "newborn"])],
-      [bilingualGroup(["高热", "发烧 39", "发烧39", "持续发烧", "high fever", "fever above 39", "persistent fever"])],
+      [
+        bilingualGroup([
+          "婴儿",
+          "幼儿",
+          "宝宝",
+          "infant",
+          "baby",
+          "toddler",
+          "newborn",
+        ]),
+      ],
+      [
+        bilingualGroup([
+          "高热",
+          "发烧 39",
+          "发烧39",
+          "持续发烧",
+          "high fever",
+          "fever above 39",
+          "persistent fever",
+        ]),
+      ],
     ],
     userMessageZh:
       "婴幼儿高热需要尽快由线下医生评估。请尽快前往急诊或儿科急诊，本平台不会继续 AI 分诊。",

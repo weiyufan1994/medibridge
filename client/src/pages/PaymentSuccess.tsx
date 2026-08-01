@@ -12,9 +12,7 @@ function getSessionIdFromQuery() {
     return "";
   }
   const params = new URLSearchParams(window.location.search);
-  return (
-    params.get("session_id")?.trim() || params.get("token")?.trim() || ""
-  );
+  return params.get("session_id")?.trim() || params.get("token")?.trim() || "";
 }
 
 function isMockPaidQueryEnabled() {
@@ -52,14 +50,15 @@ export default function PaymentSuccessPage() {
   );
   const utils = trpc.useUtils();
 
-  const confirmMockCheckoutMutation = trpc.payments.confirmMockCheckout.useMutation({
-    onSuccess: async () => {
-      await utils.payments.getCheckoutResult.invalidate({ stripeSessionId });
-    },
-    onError: error => {
-      toast.error(error.message || "Failed to confirm payment.");
-    },
-  });
+  const confirmMockCheckoutMutation =
+    trpc.payments.confirmMockCheckout.useMutation({
+      onSuccess: async () => {
+        await utils.payments.getCheckoutResult.invalidate({ stripeSessionId });
+      },
+      onError: error => {
+        toast.error(error.message || "Failed to confirm payment.");
+      },
+    });
 
   const resendMutation = trpc.appointments.resendLink.useMutation({
     onSuccess: result => {
@@ -74,20 +73,26 @@ export default function PaymentSuccessPage() {
       toast.error(error.message || "Failed to resend access link.");
     },
   });
-  const retryPaymentMutation = trpc.payments.createCheckoutSessionForAppointment.useMutation({
-    onSuccess: result => {
-      if (typeof window !== "undefined") {
-        window.location.href = result.checkoutSessionUrl;
-      }
-    },
-    onError: error => {
-      toast.error(error.message || "Failed to restart checkout.");
-    },
-  });
+  const retryPaymentMutation =
+    trpc.payments.createCheckoutSessionForAppointment.useMutation({
+      onSuccess: result => {
+        if (typeof window !== "undefined") {
+          window.location.href = result.checkoutSessionUrl;
+        }
+      },
+      onError: error => {
+        toast.error(error.message || "Failed to restart checkout.");
+      },
+    });
 
   const isTerminalStatus = useMemo(() => {
     const status = checkoutResultQuery.data?.paymentStatus;
-    return status === "paid" || status === "failed" || status === "expired" || status === "refunded";
+    return (
+      status === "paid" ||
+      status === "failed" ||
+      status === "expired" ||
+      status === "refunded"
+    );
   }, [checkoutResultQuery.data?.paymentStatus]);
 
   useEffect(() => {
@@ -100,7 +105,10 @@ export default function PaymentSuccessPage() {
     if (checkoutResultQuery.data.paymentStatus === "paid") {
       return;
     }
-    if (confirmMockCheckoutMutation.isPending || confirmMockCheckoutMutation.isSuccess) {
+    if (
+      confirmMockCheckoutMutation.isPending ||
+      confirmMockCheckoutMutation.isSuccess
+    ) {
       return;
     }
 
@@ -254,9 +262,7 @@ export default function PaymentSuccessPage() {
                   }
                   disabled={resendMutation.isPending}
                 >
-                  {resendMutation.isPending
-                    ? "Opening..."
-                    : "Enter Visit Room"}
+                  {resendMutation.isPending ? "Opening..." : "Enter Visit Room"}
                 </Button>
               ) : null}
             </div>

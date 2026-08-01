@@ -77,7 +77,9 @@ describe("appointment access medical summary localization", () => {
   });
 
   it("translates saved medical summary sections for english patient reads", async () => {
-    vi.mocked(appointmentsRepo.getMedicalSummaryByAppointmentId).mockResolvedValue(
+    vi.mocked(
+      appointmentsRepo.getMedicalSummaryByAppointmentId
+    ).mockResolvedValue(
       buildMedicalSummary({
         chiefComplaint: "咳嗽",
         historyOfPresentIllness: "咳嗽 3 天，伴发热。",
@@ -98,8 +100,7 @@ describe("appointment access medical summary localization", () => {
             role: "assistant",
             content: JSON.stringify({
               chiefComplaint: "Cough",
-              historyOfPresentIllness:
-                "Cough for 3 days with fever.",
+              historyOfPresentIllness: "Cough for 3 days with fever.",
               pastMedicalHistory: "Hypertension",
               assessmentDiagnosis: "Upper respiratory tract infection",
               planRecommendations: "Drink more water and rest well.",
@@ -113,7 +114,7 @@ describe("appointment access medical summary localization", () => {
       appointmentId: 1,
       token: "patient-token",
       lang: "en",
-      parseIntake: () => ({ success: false } as const),
+      parseIntake: () => ({ success: false }) as const,
     });
 
     expect(invokeLLM).toHaveBeenCalledTimes(1);
@@ -127,7 +128,9 @@ describe("appointment access medical summary localization", () => {
   });
 
   it("filters unsafe chinese summary sections when english localization is unavailable", async () => {
-    vi.mocked(appointmentsRepo.getMedicalSummaryByAppointmentId).mockResolvedValue(
+    vi.mocked(
+      appointmentsRepo.getMedicalSummaryByAppointmentId
+    ).mockResolvedValue(
       buildMedicalSummary({
         chiefComplaint: "cough",
         historyOfPresentIllness: "咳嗽 3 天，伴发热。",
@@ -156,7 +159,7 @@ describe("appointment access medical summary localization", () => {
       appointmentId: 1,
       token: "patient-token",
       lang: "en",
-      parseIntake: () => ({ success: false } as const),
+      parseIntake: () => ({ success: false }) as const,
     });
 
     expect(result.medicalSummary).toMatchObject({
@@ -166,7 +169,9 @@ describe("appointment access medical summary localization", () => {
       assessmentDiagnosis: "",
       planRecommendations: "",
     });
-    expect(JSON.stringify(result.medicalSummary)).not.toMatch(/[\u4e00-\u9fff]/);
+    expect(JSON.stringify(result.medicalSummary)).not.toMatch(
+      /[\u4e00-\u9fff]/
+    );
   });
 
   it("filters unsafe triage summary and intake fields for english patient reads when localization is unavailable", async () => {
@@ -184,9 +189,9 @@ describe("appointment access medical summary localization", () => {
     vi.mocked(aiRepo.getAiChatSessionById).mockResolvedValue({
       summary: "咳嗽 3 天，伴发热。",
     } as never);
-    vi.mocked(appointmentsRepo.getMedicalSummaryByAppointmentId).mockResolvedValue(
-      null as never
-    );
+    vi.mocked(
+      appointmentsRepo.getMedicalSummaryByAppointmentId
+    ).mockResolvedValue(null as never);
     vi.mocked(invokeLLM).mockResolvedValue({
       id: "mock",
       created: Date.now(),
@@ -217,7 +222,9 @@ describe("appointment access medical summary localization", () => {
                 ? parsed.chiefComplaint
                 : undefined,
             duration:
-              typeof parsed?.duration === "string" ? parsed.duration : undefined,
+              typeof parsed?.duration === "string"
+                ? parsed.duration
+                : undefined,
             medicalHistory:
               typeof parsed?.medicalHistory === "string"
                 ? parsed.medicalHistory

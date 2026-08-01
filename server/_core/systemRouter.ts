@@ -66,30 +66,49 @@ const adminAppointmentsInputSchema = z.object({
   scheduledAtTo: z.coerce.date().optional(),
   hasRisk: z.boolean().optional(),
   sortBy: z
-    .enum(["createdAt", "scheduledAt", "amount", "status", "paymentStatus", "id"])
+    .enum([
+      "createdAt",
+      "scheduledAt",
+      "amount",
+      "status",
+      "paymentStatus",
+      "id",
+    ])
     .optional()
     .default("createdAt"),
   sortDirection: z.enum(["asc", "desc"]).optional().default("desc"),
 });
 
-const adminBatchAppointmentActionSchema = z.object({
-  action: z.enum(["resend_access_link", "reinitiate_payment", "update_status"]),
-  appointmentIds: z.array(z.number().int().positive()).min(1).max(200),
-  idempotencyKey: z.string().trim().max(128).optional(),
-  toStatus: z.enum(APPOINTMENT_STATUS_VALUES).optional(),
-  toPaymentStatus: z.enum(PAYMENT_STATUS_VALUES).optional(),
-  reason: z.string().trim().min(3).max(200).optional().default("admin_batch_action"),
-}).superRefine((input, ctx) => {
-  if (input.action === "update_status") {
-    if (!input.toStatus || !input.toPaymentStatus) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["toStatus"],
-        message: "update_status requires toStatus and toPaymentStatus",
-      });
+const adminBatchAppointmentActionSchema = z
+  .object({
+    action: z.enum([
+      "resend_access_link",
+      "reinitiate_payment",
+      "update_status",
+    ]),
+    appointmentIds: z.array(z.number().int().positive()).min(1).max(200),
+    idempotencyKey: z.string().trim().max(128).optional(),
+    toStatus: z.enum(APPOINTMENT_STATUS_VALUES).optional(),
+    toPaymentStatus: z.enum(PAYMENT_STATUS_VALUES).optional(),
+    reason: z
+      .string()
+      .trim()
+      .min(3)
+      .max(200)
+      .optional()
+      .default("admin_batch_action"),
+  })
+  .superRefine((input, ctx) => {
+    if (input.action === "update_status") {
+      if (!input.toStatus || !input.toPaymentStatus) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["toStatus"],
+          message: "update_status requires toStatus and toPaymentStatus",
+        });
+      }
     }
-  }
-});
+  });
 
 const adminWebhookReplaySchema = z
   .object({
@@ -131,7 +150,14 @@ const adminExportSchema = z.object({
   scheduledAtTo: z.coerce.date().optional(),
   hasRisk: z.boolean().optional(),
   sortBy: z
-    .enum(["createdAt", "scheduledAt", "amount", "status", "paymentStatus", "id"])
+    .enum([
+      "createdAt",
+      "scheduledAt",
+      "amount",
+      "status",
+      "paymentStatus",
+      "id",
+    ])
     .optional()
     .default("createdAt"),
   sortDirection: z.enum(["asc", "desc"]).optional().default("desc"),
@@ -183,7 +209,13 @@ const adminAppointmentActionInputSchema = z.object({
 const adminAppointmentScheduleUpdateSchema = z.object({
   appointmentId: z.number().int().positive(),
   scheduledAt: z.coerce.date(),
-  reason: z.string().trim().min(3).max(200).optional().default("ops_manual_schedule"),
+  reason: z
+    .string()
+    .trim()
+    .min(3)
+    .max(200)
+    .optional()
+    .default("ops_manual_schedule"),
 });
 const adminNotifyDoctorFollowupInputSchema = z.object({
   appointmentId: z.number().int().positive(),
@@ -264,7 +296,9 @@ const stripDataUrl = (value: string) => {
   };
 };
 
-const resolveHospitalImageContentType = (inputContentType: string | undefined) => {
+const resolveHospitalImageContentType = (
+  inputContentType: string | undefined
+) => {
   const normalized = (inputContentType ?? "").trim().toLowerCase();
   if (HOSPITAL_IMAGE_MIME_TYPES.has(normalized)) {
     return normalized;
@@ -276,7 +310,10 @@ const resolveHospitalImageExtension = (
   fileName: string | undefined,
   contentType: string
 ) => {
-  const fileNameExt = fileName?.trim().toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
+  const fileNameExt = fileName
+    ?.trim()
+    .toLowerCase()
+    .match(/\.([a-z0-9]+)$/)?.[1];
   if (fileNameExt) {
     return fileNameExt;
   }
@@ -350,7 +387,7 @@ const toLocalizedText = (input: {
 
 const toCsvCell = (value: unknown) => {
   const raw = value === undefined || value === null ? "" : String(value);
-  if (raw.includes(",") || raw.includes("\n") || raw.includes("\"")) {
+  if (raw.includes(",") || raw.includes("\n") || raw.includes('"')) {
     return `"${raw.replace(/"/g, '""')}"`;
   }
   return raw;
@@ -363,12 +400,19 @@ const formatCsvRows = (rows: Array<Record<string, unknown>>) => {
   const headers = Object.keys(rows[0]);
   const headerLine = headers.map(toCsvCell).join(",");
   const lines = rows.map(row =>
-    headers.map(key => toCsvCell(row[key] instanceof Date ? row[key].toISOString() : row[key])).join(",")
+    headers
+      .map(key =>
+        toCsvCell(row[key] instanceof Date ? row[key].toISOString() : row[key])
+      )
+      .join(",")
   );
   return [headerLine, ...lines].join("\n");
 };
 
-const normalizeAmountFilter = (value: number | undefined, side: "min" | "max") => {
+const normalizeAmountFilter = (
+  value: number | undefined,
+  side: "min" | "max"
+) => {
   if (value === undefined || !Number.isInteger(value) || value < 0) {
     return undefined;
   }
@@ -387,7 +431,14 @@ const normalizeBatchActionInput = (input: {
   action: "resend_access_link" | "reinitiate_payment" | "update_status";
   idempotencyKey?: string;
   toStatus?: AppointmentStatus;
-  toPaymentStatus?: "unpaid" | "pending" | "paid" | "failed" | "expired" | "refunded" | "canceled";
+  toPaymentStatus?:
+    | "unpaid"
+    | "pending"
+    | "paid"
+    | "failed"
+    | "expired"
+    | "refunded"
+    | "canceled";
 }) => ({
   action: input.action,
   idempotencyKey: (input.idempotencyKey ?? "").trim().slice(0, 80),
@@ -509,10 +560,9 @@ export const systemRouter = router({
         assertAdminAction(ctx.user?.role);
       }
 
-      const idempotencyKey =
-        normalized.idempotencyKey?.trim().length
-          ? normalized.idempotencyKey
-          : randomUUID();
+      const idempotencyKey = normalized.idempotencyKey?.trim().length
+        ? normalized.idempotencyKey
+        : randomUUID();
       const visited = new Set<number>();
       const results: Array<{
         appointmentId: number;
@@ -527,10 +577,11 @@ export const systemRouter = router({
         visited.add(appointmentId);
 
         const marker = `admin_batch:${normalized.action}:${idempotencyKey}:${appointmentId}`;
-        const alreadyProcessed = await appointmentsRepo.hasAppointmentStatusReason({
-          appointmentId,
-          reason: marker,
-        });
+        const alreadyProcessed =
+          await appointmentsRepo.hasAppointmentStatusReason({
+            appointmentId,
+            reason: marker,
+          });
         if (alreadyProcessed) {
           results.push({
             appointmentId,
@@ -541,7 +592,8 @@ export const systemRouter = router({
         }
 
         try {
-          const appointment = await appointmentsRepo.getAppointmentById(appointmentId);
+          const appointment =
+            await appointmentsRepo.getAppointmentById(appointmentId);
           if (!appointment) {
             results.push({
               appointmentId,
@@ -626,20 +678,21 @@ export const systemRouter = router({
             continue;
           }
 
-          const transitioned = await appointmentsRepo.tryTransitionAppointmentById({
-            appointmentId: appointment.id,
-            allowedFrom: ADMIN_ALLOWED_TRANSITION_FROM,
-            toStatus,
-            toPaymentStatus,
-            operatorType: "admin",
-            operatorId: ctx.user.id,
-            reason: input.reason,
-            payloadJson: {
-              source: "admin_batch",
-              idempotencyKey,
-              appointmentId,
-            },
-          });
+          const transitioned =
+            await appointmentsRepo.tryTransitionAppointmentById({
+              appointmentId: appointment.id,
+              allowedFrom: ADMIN_ALLOWED_TRANSITION_FROM,
+              toStatus,
+              toPaymentStatus,
+              operatorType: "admin",
+              operatorId: ctx.user.id,
+              reason: input.reason,
+              payloadJson: {
+                source: "admin_batch",
+                idempotencyKey,
+                appointmentId,
+              },
+            });
 
           if (!transitioned.ok) {
             results.push({
@@ -699,12 +752,16 @@ export const systemRouter = router({
 
       const event =
         input.eventId && input.eventId.trim().length > 0
-          ? await appointmentsRepo.getStripeWebhookEventById(input.eventId.trim())
+          ? await appointmentsRepo.getStripeWebhookEventById(
+              input.eventId.trim()
+            )
           : input.appointmentId
-            ? (await appointmentsRepo.listStripeWebhookEventsForAppointment({
-                appointmentId: input.appointmentId,
-                limit: 1,
-              }))[0] ?? null
+            ? ((
+                await appointmentsRepo.listStripeWebhookEventsForAppointment({
+                  appointmentId: input.appointmentId,
+                  limit: 1,
+                })
+              )[0] ?? null)
             : null;
 
       if (!event) {
@@ -791,23 +848,29 @@ export const systemRouter = router({
               actorRole,
             },
           });
-          return { ok: true, skipped: false, action: result.action, eventId: event.eventId } as const;
+          return {
+            ok: true,
+            skipped: false,
+            action: result.action,
+            eventId: event.eventId,
+          } as const;
         }
 
         if (event.type === "checkout.session.expired") {
-          const expired = await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
-            stripeSessionId: event.stripeSessionId,
-            allowedFrom: ["pending_payment"],
-            toStatus: "expired",
-            toPaymentStatus: "expired",
-            operatorType: "admin",
-            operatorId: ctx.user.id,
-            reason: "admin_webhook_replay",
-            payloadJson: {
-              ...result,
-              actorRole,
-            },
-          });
+          const expired =
+            await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
+              stripeSessionId: event.stripeSessionId,
+              allowedFrom: ["pending_payment"],
+              toStatus: "expired",
+              toPaymentStatus: "expired",
+              operatorType: "admin",
+              operatorId: ctx.user.id,
+              reason: "admin_webhook_replay",
+              payloadJson: {
+                ...result,
+                actorRole,
+              },
+            });
           if (!expired.ok) {
             throw new TRPCError({
               code: "PRECONDITION_FAILED",
@@ -831,23 +894,29 @@ export const systemRouter = router({
           await schedulingRepo.releaseHeldSlotByAppointmentId({
             appointmentId: event.appointmentId,
           });
-          return { ok: true, skipped: false, action: result.action, eventId: event.eventId } as const;
+          return {
+            ok: true,
+            skipped: false,
+            action: result.action,
+            eventId: event.eventId,
+          } as const;
         }
 
         if (event.type === "payment_intent.payment_failed") {
-          const failed = await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
-            stripeSessionId: event.stripeSessionId,
-            allowedFrom: ["pending_payment"],
-            toStatus: "canceled",
-            toPaymentStatus: "failed",
-            operatorType: "admin",
-            operatorId: ctx.user.id,
-            reason: "admin_webhook_replay",
-            payloadJson: {
-              ...result,
-              actorRole,
-            },
-          });
+          const failed =
+            await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
+              stripeSessionId: event.stripeSessionId,
+              allowedFrom: ["pending_payment"],
+              toStatus: "canceled",
+              toPaymentStatus: "failed",
+              operatorType: "admin",
+              operatorId: ctx.user.id,
+              reason: "admin_webhook_replay",
+              payloadJson: {
+                ...result,
+                actorRole,
+              },
+            });
           if (!failed.ok) {
             throw new TRPCError({
               code: "PRECONDITION_FAILED",
@@ -871,22 +940,28 @@ export const systemRouter = router({
           await schedulingRepo.releaseHeldSlotByAppointmentId({
             appointmentId: event.appointmentId,
           });
-          return { ok: true, skipped: false, action: result.action, eventId: event.eventId } as const;
+          return {
+            ok: true,
+            skipped: false,
+            action: result.action,
+            eventId: event.eventId,
+          } as const;
         }
 
-        const refund = await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
-          stripeSessionId: event.stripeSessionId,
-          allowedFrom: ["paid", "active", "ended", "completed"],
-          toStatus: "refunded",
-          toPaymentStatus: "refunded",
-          operatorType: "admin",
-          operatorId: ctx.user.id,
-          reason: "admin_webhook_replay",
-          payloadJson: {
-            ...result,
-            actorRole,
-          },
-        });
+        const refund =
+          await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
+            stripeSessionId: event.stripeSessionId,
+            allowedFrom: ["paid", "active", "ended", "completed"],
+            toStatus: "refunded",
+            toPaymentStatus: "refunded",
+            operatorType: "admin",
+            operatorId: ctx.user.id,
+            reason: "admin_webhook_replay",
+            payloadJson: {
+              ...result,
+              actorRole,
+            },
+          });
         if (!refund.ok) {
           throw new TRPCError({
             code: "PRECONDITION_FAILED",
@@ -907,7 +982,12 @@ export const systemRouter = router({
             actorRole,
           },
         });
-        return { ok: true, skipped: false, action: result.action, eventId: event.eventId } as const;
+        return {
+          ok: true,
+          skipped: false,
+          action: result.action,
+          eventId: event.eventId,
+        } as const;
       }
 
       throw new TRPCError({
@@ -938,7 +1018,8 @@ export const systemRouter = router({
       } as const;
 
       if (input.scope === "appointments") {
-        const queryResult = await appointmentsRepo.listAppointmentsForAdmin(baseFilters);
+        const queryResult =
+          await appointmentsRepo.listAppointmentsForAdmin(baseFilters);
         const rows = queryResult.items.map(item => ({
           id: item.id,
           email: item.email,
@@ -973,7 +1054,8 @@ export const systemRouter = router({
       }
 
       if (input.scope === "risk_summary") {
-        const queryResult = await appointmentsRepo.listAppointmentsForAdmin(baseFilters);
+        const queryResult =
+          await appointmentsRepo.listAppointmentsForAdmin(baseFilters);
         const summary = {
           total: queryResult.total,
           page: queryResult.page,
@@ -1004,7 +1086,9 @@ export const systemRouter = router({
       }
 
       if (input.scope === "retention_audits") {
-        const rows = await adminRepo.listRetentionCleanupAudits(input.auditPageSize);
+        const rows = await adminRepo.listRetentionCleanupAudits(
+          input.auditPageSize
+        );
         const details = (json: unknown) =>
           (json as {
             freeCandidates?: number;
@@ -1076,14 +1160,15 @@ export const systemRouter = router({
       }
 
       if (input.scope === "operation_audit") {
-        const result = await appointmentsRepo.listAppointmentStatusEventsForAdmin({
-          page: input.auditPage,
-          pageSize: input.auditPageSize,
-          operatorId: input.auditOperatorId,
-          actionType: input.auditActionType,
-          from: toDate(input.auditFrom),
-          to: toDate(input.auditTo),
-        });
+        const result =
+          await appointmentsRepo.listAppointmentStatusEventsForAdmin({
+            page: input.auditPage,
+            pageSize: input.auditPageSize,
+            operatorId: input.auditOperatorId,
+            actionType: input.auditActionType,
+            from: toDate(input.auditFrom),
+            to: toDate(input.auditTo),
+          });
         const payload = result.items.map(item => ({
           id: item.id,
           appointmentId: item.appointmentId,
@@ -1149,7 +1234,9 @@ export const systemRouter = router({
       }
 
       const clean = stripDataUrl(input.imageBase64);
-      const contentType = resolveHospitalImageContentType(input.contentType || clean.contentType);
+      const contentType = resolveHospitalImageContentType(
+        input.contentType || clean.contentType
+      );
       if (!HOSPITAL_IMAGE_MIME_TYPES.has(contentType)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -1177,7 +1264,10 @@ export const systemRouter = router({
         });
       }
 
-      const extension = resolveHospitalImageExtension(input.fileName, contentType);
+      const extension = resolveHospitalImageExtension(
+        input.fileName,
+        contentType
+      );
       const storageKey = `hospitals/${input.hospitalId}/${Date.now()}-${randomUUID()}.${extension}`;
       const { url } = await storagePut(storageKey, imageBuffer, contentType);
       await doctorsRepo.setHospitalImageUrl(input.hospitalId, url);
@@ -1229,7 +1319,10 @@ export const systemRouter = router({
           continue;
         }
         try {
-          latestKnowledgeTraceBySessionId.set(flag.sessionId, JSON.parse(flag.flagValue));
+          latestKnowledgeTraceBySessionId.set(
+            flag.sessionId,
+            JSON.parse(flag.flagValue)
+          );
         } catch {
           latestKnowledgeTraceBySessionId.set(flag.sessionId, null);
         }
@@ -1237,14 +1330,17 @@ export const systemRouter = router({
 
       return events.map(event => ({
         ...event,
-        knowledgeTrace: latestKnowledgeTraceBySessionId.get(event.sessionId) ?? null,
+        knowledgeTrace:
+          latestKnowledgeTraceBySessionId.get(event.sessionId) ?? null,
       }));
     }),
 
   adminAppointmentDetail: adminOrOpsProcedure
     .input(adminAppointmentDetailInputSchema)
     .query(async ({ input }) => {
-      const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
+      const appointment = await appointmentsRepo.getAppointmentById(
+        input.appointmentId
+      );
       if (!appointment) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -1252,21 +1348,29 @@ export const systemRouter = router({
         });
       }
 
-      const triageSession = await aiRepo.getAiChatSessionById(appointment.triageSessionId);
+      const triageSession = await aiRepo.getAiChatSessionById(
+        appointment.triageSessionId
+      );
       const activeTokens = await appointmentsRepo.listActiveAppointmentTokens({
         appointmentId: appointment.id,
       });
-      const statusEvents = await appointmentsRepo.listStatusEventsByAppointment({
-        appointmentId: appointment.id,
-        limit: 100,
-      });
-      const webhookEvents = await appointmentsRepo.listStripeWebhookEventsForAppointment({
-        appointmentId: appointment.id,
-        stripeSessionId: appointment.stripeSessionId,
-        limit: 100,
-      });
+      const statusEvents = await appointmentsRepo.listStatusEventsByAppointment(
+        {
+          appointmentId: appointment.id,
+          limit: 100,
+        }
+      );
+      const webhookEvents =
+        await appointmentsRepo.listStripeWebhookEventsForAppointment({
+          appointmentId: appointment.id,
+          stripeSessionId: appointment.stripeSessionId,
+          limit: 100,
+        });
       const doctor = await doctorsRepo.getDoctorById(appointment.doctorId);
-      const recentMessagesDesc = await visitRepo.getRecentMessages(appointment.id, 30);
+      const recentMessagesDesc = await visitRepo.getRecentMessages(
+        appointment.id,
+        30
+      );
       const recentMessagesAsc = [...recentMessagesDesc].reverse();
 
       return {
@@ -1357,7 +1461,9 @@ export const systemRouter = router({
     .input(adminAppointmentActionInputSchema)
     .mutation(async ({ input, ctx }) => {
       const actorRole = resolveActorRole(ctx.user?.role);
-      const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
+      const appointment = await appointmentsRepo.getAppointmentById(
+        input.appointmentId
+      );
       if (!appointment) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -1396,7 +1502,9 @@ export const systemRouter = router({
     .input(adminAppointmentActionInputSchema)
     .mutation(async ({ input, ctx }) => {
       const actorRole = resolveActorRole(ctx.user?.role);
-      const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
+      const appointment = await appointmentsRepo.getAppointmentById(
+        input.appointmentId
+      );
       if (!appointment) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -1444,7 +1552,9 @@ export const systemRouter = router({
     .input(adminAppointmentActionInputSchema)
     .mutation(async ({ input, ctx }) => {
       const actorRole = resolveActorRole(ctx.user?.role);
-      const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
+      const appointment = await appointmentsRepo.getAppointmentById(
+        input.appointmentId
+      );
       if (!appointment) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -1493,7 +1603,9 @@ export const systemRouter = router({
   adminNotifyDoctorFollowup: adminOrOpsProcedure
     .input(adminNotifyDoctorFollowupInputSchema)
     .mutation(async ({ input }) => {
-      const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
+      const appointment = await appointmentsRepo.getAppointmentById(
+        input.appointmentId
+      );
       if (!appointment) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -1502,7 +1614,10 @@ export const systemRouter = router({
       }
 
       const doctor = await doctorsRepo.getDoctorById(appointment.doctorId);
-      const recentMessages = await visitRepo.getRecentMessages(appointment.id, 20);
+      const recentMessages = await visitRepo.getRecentMessages(
+        appointment.id,
+        20
+      );
       const latestPatientMessage = recentMessages
         .filter(message => message.senderType === "patient")
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
@@ -1530,7 +1645,9 @@ export const systemRouter = router({
     .input(adminAppointmentStatusUpdateSchema)
     .mutation(async ({ input, ctx }) => {
       const actorRole = resolveActorRole(ctx.user?.role);
-      const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
+      const appointment = await appointmentsRepo.getAppointmentById(
+        input.appointmentId
+      );
       if (!appointment) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -1555,7 +1672,10 @@ export const systemRouter = router({
 
       if (!transitioned.ok) {
         throw new TRPCError({
-          code: transitioned.reason === "not_found" ? "NOT_FOUND" : "PRECONDITION_FAILED",
+          code:
+            transitioned.reason === "not_found"
+              ? "NOT_FOUND"
+              : "PRECONDITION_FAILED",
           message: `Status transition failed: ${transitioned.reason}`,
         });
       }
@@ -1569,7 +1689,9 @@ export const systemRouter = router({
     .input(adminAppointmentScheduleUpdateSchema)
     .mutation(async ({ input, ctx }) => {
       const actorRole = resolveActorRole(ctx.user?.role);
-      const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
+      const appointment = await appointmentsRepo.getAppointmentById(
+        input.appointmentId
+      );
       if (!appointment) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -1610,7 +1732,9 @@ export const systemRouter = router({
   adminGetVisitSummary: adminOrOpsProcedure
     .input(adminAppointmentDetailInputSchema)
     .query(async ({ input }) => {
-      const summary = await adminRepo.getVisitSummaryByAppointmentId(input.appointmentId);
+      const summary = await adminRepo.getVisitSummaryByAppointmentId(
+        input.appointmentId
+      );
       if (!summary) {
         return null;
       }
@@ -1631,7 +1755,9 @@ export const systemRouter = router({
   adminGenerateVisitSummary: adminProcedure
     .input(adminSummaryInputSchema)
     .mutation(async ({ input, ctx }) => {
-      const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
+      const appointment = await appointmentsRepo.getAppointmentById(
+        input.appointmentId
+      );
       if (!appointment) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -1639,7 +1765,9 @@ export const systemRouter = router({
         });
       }
 
-      const existing = await adminRepo.getVisitSummaryByAppointmentId(appointment.id);
+      const existing = await adminRepo.getVisitSummaryByAppointmentId(
+        appointment.id
+      );
       if (existing && !input.forceRegenerate) {
         return {
           appointmentId: appointment.id,
@@ -1653,8 +1781,13 @@ export const systemRouter = router({
         } as const;
       }
 
-      const triageSession = await aiRepo.getAiChatSessionById(appointment.triageSessionId);
-      const recentMessagesDesc = await visitRepo.getRecentMessages(appointment.id, 120);
+      const triageSession = await aiRepo.getAiChatSessionById(
+        appointment.triageSessionId
+      );
+      const recentMessagesDesc = await visitRepo.getRecentMessages(
+        appointment.id,
+        120
+      );
       const recentMessagesAsc = [...recentMessagesDesc].reverse();
 
       const generated = await generateBilingualVisitSummary({
@@ -1691,10 +1824,14 @@ export const systemRouter = router({
   adminExportVisitSummaryPdf: adminProcedure
     .input(adminSummaryPdfInputSchema)
     .mutation(async ({ input, ctx }) => {
-      let summary = await adminRepo.getVisitSummaryByAppointmentId(input.appointmentId);
+      let summary = await adminRepo.getVisitSummaryByAppointmentId(
+        input.appointmentId
+      );
 
       if (!summary) {
-        const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
+        const appointment = await appointmentsRepo.getAppointmentById(
+          input.appointmentId
+        );
         if (!appointment) {
           throw new TRPCError({
             code: "NOT_FOUND",
@@ -1702,8 +1839,13 @@ export const systemRouter = router({
           });
         }
 
-        const triageSession = await aiRepo.getAiChatSessionById(appointment.triageSessionId);
-        const recentMessagesDesc = await visitRepo.getRecentMessages(appointment.id, 120);
+        const triageSession = await aiRepo.getAiChatSessionById(
+          appointment.triageSessionId
+        );
+        const recentMessagesDesc = await visitRepo.getRecentMessages(
+          appointment.id,
+          120
+        );
         const recentMessagesAsc = [...recentMessagesDesc].reverse();
 
         const generated = await generateBilingualVisitSummary({
@@ -1775,7 +1917,9 @@ export const systemRouter = router({
   adminUpsertRetentionPolicy: adminProcedure
     .input(retentionPolicyUpsertSchema)
     .mutation(async ({ input, ctx }) => {
-      let updated: Awaited<ReturnType<typeof adminRepo.upsertRetentionPolicy>> | null = null;
+      let updated: Awaited<
+        ReturnType<typeof adminRepo.upsertRetentionPolicy>
+      > | null = null;
       try {
         updated = await adminRepo.upsertRetentionPolicy({
           tier: input.tier,

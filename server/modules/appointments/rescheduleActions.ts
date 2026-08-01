@@ -43,7 +43,9 @@ export async function rescheduleAppointmentByToken(input: {
     expiresAt: nextAccessTokenExpiresAt,
   });
 
-  const updated = await appointmentsRepo.getAppointmentById(input.appointmentId);
+  const updated = await appointmentsRepo.getAppointmentById(
+    input.appointmentId
+  );
   if (!updated) {
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",

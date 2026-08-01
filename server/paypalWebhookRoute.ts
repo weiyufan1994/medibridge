@@ -1,6 +1,10 @@
 import type { Request, Response } from "express";
 import crypto from "crypto";
-import { captureOrFinalizePaypalSession, parsePaypalWebhookEvent, verifyPaypalWebhookSignature } from "./modules/payments/providers/paypalAdapter";
+import {
+  captureOrFinalizePaypalSession,
+  parsePaypalWebhookEvent,
+  verifyPaypalWebhookSignature,
+} from "./modules/payments/providers/paypalAdapter";
 import { settleStripePaymentBySessionId } from "./modules/payments/settlement";
 import { getDb } from "./db";
 import * as appointmentsRepo from "./modules/appointments/repo";
@@ -9,7 +13,11 @@ import { APPOINTMENT_INVALID_TRANSITION_ERROR } from "./modules/appointments/sta
 import { incrementMetric } from "./_core/metrics";
 import { isDuplicateDbError } from "./_core/dbCompat";
 
-function sendJson(res: Response, status: number, payload: Record<string, unknown>) {
+function sendJson(
+  res: Response,
+  status: number,
+  payload: Record<string, unknown>
+) {
   res.status(status).setHeader("content-type", "application/json");
   res.send(JSON.stringify(payload));
 }
@@ -39,7 +47,10 @@ async function recordPaypalWebhookFailure(input: {
       dbExecutor: db,
     });
   } catch (error) {
-    console.warn("[PayPalWebhook] failed to persist webhook failure audit:", error);
+    console.warn(
+      "[PayPalWebhook] failed to persist webhook failure audit:",
+      error
+    );
   }
 }
 
@@ -57,12 +68,14 @@ function extractAppointmentIdFromPaypalEvent(event: {
   }
 
   const purchaseUnits =
-    typeof resource.purchase_units === "object" && Array.isArray((resource as { purchase_units?: unknown }).purchase_units)
+    typeof resource.purchase_units === "object" &&
+    Array.isArray((resource as { purchase_units?: unknown }).purchase_units)
       ? ((resource as { purchase_units?: unknown[] }).purchase_units ?? [])
       : [];
   const firstUnit = purchaseUnits.length > 0 ? purchaseUnits[0] : null;
   const firstUnitReferenceId =
-    firstUnit && typeof (firstUnit as Record<string, unknown>).reference_id === "string"
+    firstUnit &&
+    typeof (firstUnit as Record<string, unknown>).reference_id === "string"
       ? ((firstUnit as Record<string, unknown>).reference_id as string).trim()
       : "";
   if (firstUnitReferenceId.length > 0) {
@@ -74,20 +87,31 @@ function extractAppointmentIdFromPaypalEvent(event: {
   }
 
   const customId =
-    typeof resource.custom_id === "string" && resource.custom_id.trim().length > 0
+    typeof resource.custom_id === "string" &&
+    resource.custom_id.trim().length > 0
       ? resource.custom_id.trim()
       : null;
   const maybeNumeric = customId ? Number(customId) : Number.NaN;
-  return Number.isInteger(maybeNumeric) && maybeNumeric > 0 ? maybeNumeric : null;
+  return Number.isInteger(maybeNumeric) && maybeNumeric > 0
+    ? maybeNumeric
+    : null;
 }
 
 function classifyWebhookError(error: unknown): string {
   const message =
-    error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
-  if (message.includes("paypal signature") || message.includes("paypal-transmission")) {
+    error instanceof Error
+      ? error.message.toLowerCase()
+      : String(error).toLowerCase();
+  if (
+    message.includes("paypal signature") ||
+    message.includes("paypal-transmission")
+  ) {
     return "signature_verification_failed";
   }
-  if (message.includes("missing session id") || message.includes("no provider session id")) {
+  if (
+    message.includes("missing session id") ||
+    message.includes("no provider session id")
+  ) {
     return "missing_session_id";
   }
   if (message.includes("malformed paypal webhook payload")) {
@@ -144,20 +168,16 @@ export async function handlePaypalWebhook(req: Request, res: Response) {
       eventType === "CHECKOUT.ORDER.COMPLETED";
 
     const sessionId =
-      typeof event.resource?.id === "string"
-        ? event.resource.id.trim()
-        : null;
+      typeof event.resource?.id === "string" ? event.resource.id.trim() : null;
 
-    const appointmentIdFromMetadata = extractAppointmentIdFromPaypalEvent(event);
+    const appointmentIdFromMetadata =
+      extractAppointmentIdFromPaypalEvent(event);
 
     if (requiresSessionId && !sessionId) {
       await recordPaypalWebhookFailure({
         type: "webhook_error_missing_session_id",
         sessionId: null,
-        payloadHash: crypto
-          .createHash("sha256")
-          .update(rawBody)
-          .digest("hex"),
+        payloadHash: crypto.createHash("sha256").update(rawBody).digest("hex"),
         error: "required session id missing from PayPal webhook",
       });
       return sendJson(res, 400, {
@@ -172,12 +192,16 @@ export async function handlePaypalWebhook(req: Request, res: Response) {
     }
 
     let duplicatedEvent = false;
-    const payloadHash = crypto.createHash("sha256").update(rawBody).digest("hex");
+    const payloadHash = crypto
+      .createHash("sha256")
+      .update(rawBody)
+      .digest("hex");
     let appointmentIdFromLookup: number | null = appointmentIdFromMetadata;
 
     await db.transaction(async tx => {
       if (sessionId) {
-        const appointment = await appointmentsRepo.getAppointmentByStripeSessionId(sessionId, tx);
+        const appointment =
+          await appointmentsRepo.getAppointmentByStripeSessionId(sessionId, tx);
         appointmentIdFromLookup = appointment?.id ?? appointmentIdFromLookup;
       }
 
@@ -218,18 +242,23 @@ export async function handlePaypalWebhook(req: Request, res: Response) {
       }
 
       if (isExpiredOrFailedEvent(eventType) && sessionId) {
-        const failed = await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
-          stripeSessionId: sessionId,
-          allowedFrom: ["pending_payment"],
-          toStatus: "canceled",
-          toPaymentStatus: "failed",
-          operatorType: "webhook",
-          reason: "payment_failed",
-          payloadJson: { eventType },
-          dbExecutor: tx,
-        });
+        const failed =
+          await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
+            stripeSessionId: sessionId,
+            allowedFrom: ["pending_payment"],
+            toStatus: "canceled",
+            toPaymentStatus: "failed",
+            operatorType: "webhook",
+            reason: "payment_failed",
+            payloadJson: { eventType },
+            dbExecutor: tx,
+          });
         if (failed.ok) {
-          const appointment = await appointmentsRepo.getAppointmentByStripeSessionId(sessionId, tx);
+          const appointment =
+            await appointmentsRepo.getAppointmentByStripeSessionId(
+              sessionId,
+              tx
+            );
           if (appointment) {
             await schedulingRepo.releaseHeldSlotByAppointmentId({
               appointmentId: appointment.id,
@@ -243,26 +272,32 @@ export async function handlePaypalWebhook(req: Request, res: Response) {
       if (isRefundEvent(eventType) && sessionId) {
         const targetAppointment =
           appointmentIdFromLookup ??
-          (await appointmentsRepo.getAppointmentByStripeSessionId(sessionId, tx))?.id ??
+          (
+            await appointmentsRepo.getAppointmentByStripeSessionId(
+              sessionId,
+              tx
+            )
+          )?.id ??
           null;
         if (!targetAppointment) {
           return;
         }
 
-        const transitioned = await appointmentsRepo.tryTransitionAppointmentById({
-          appointmentId: targetAppointment,
-          allowedFrom: ["paid", "active", "ended", "completed"],
-          toStatus: "refunded",
-          toPaymentStatus: "refunded",
-          operatorType: "webhook",
-          reason: "payment_refunded",
-          payloadJson: {
-            stripeSessionId: sessionId ?? null,
-            eventId: event.id,
-            eventType,
-          },
-          dbExecutor: tx,
-        });
+        const transitioned =
+          await appointmentsRepo.tryTransitionAppointmentById({
+            appointmentId: targetAppointment,
+            allowedFrom: ["paid", "active", "ended", "completed"],
+            toStatus: "refunded",
+            toPaymentStatus: "refunded",
+            operatorType: "webhook",
+            reason: "payment_refunded",
+            payloadJson: {
+              stripeSessionId: sessionId ?? null,
+              eventId: event.id,
+              eventType,
+            },
+            dbExecutor: tx,
+          });
 
         if (!transitioned.ok && transitioned.reason === "illegal_transition") {
           throw new Error(APPOINTMENT_INVALID_TRANSITION_ERROR);
@@ -291,7 +326,9 @@ export async function handlePaypalWebhook(req: Request, res: Response) {
       ? req.body
       : Buffer.from(typeof req.body === "string" ? req.body : "", "utf8");
     const payloadHash =
-      rawBody.length > 0 ? crypto.createHash("sha256").update(rawBody).digest("hex") : null;
+      rawBody.length > 0
+        ? crypto.createHash("sha256").update(rawBody).digest("hex")
+        : null;
     await recordPaypalWebhookFailure({
       type: classifyWebhookError(error),
       sessionId: null,

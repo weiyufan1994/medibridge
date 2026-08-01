@@ -9,7 +9,14 @@ type DepartmentRow = typeof departments.$inferSelect;
 
 type PublicLocalizedHospital = Omit<
   HospitalRow,
-  "name" | "nameEn" | "city" | "cityEn" | "level" | "levelEn" | "address" | "addressEn"
+  | "name"
+  | "nameEn"
+  | "city"
+  | "cityEn"
+  | "level"
+  | "levelEn"
+  | "address"
+  | "addressEn"
 > & {
   name: LocalizedText;
   city: LocalizedText;
@@ -31,9 +38,20 @@ function toLocalizedText(
   };
 }
 
-function toPublicLocalizedHospital(hospital: HospitalRow): PublicLocalizedHospital {
-  const { name, nameEn, city, cityEn, level, levelEn, address, addressEn, ...rest } =
-    hospital;
+function toPublicLocalizedHospital(
+  hospital: HospitalRow
+): PublicLocalizedHospital {
+  const {
+    name,
+    nameEn,
+    city,
+    cityEn,
+    level,
+    levelEn,
+    address,
+    addressEn,
+    ...rest
+  } = hospital;
 
   return {
     ...rest,
@@ -75,7 +93,9 @@ export async function getAllHospitals(input: GetHospitalsInput) {
   return rows.map(toPublicLocalizedHospital);
 }
 
-export async function getDepartmentsByHospital(input: GetHospitalDepartmentsInput) {
+export async function getDepartmentsByHospital(
+  input: GetHospitalDepartmentsInput
+) {
   const db = await getDb();
   if (!db) {
     throw new Error("Database not available");

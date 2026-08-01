@@ -28,21 +28,22 @@ export function ReferralPaymentScreen({
   const [, setLocation] = useLocation();
   const copy = getReferralCopy(lang);
   const orderQuery = trpc.referrals.getOrderDetail.useQuery({ orderId });
-  const createPaymentSessionMutation = trpc.referrals.createPaymentSession.useMutation({
-    onSuccess: result => {
-      if (typeof window !== "undefined") {
-        window.location.href = getReferralCheckoutRedirectHref({
-          orderId: result.orderId,
-          checkoutSessionUrl: result.checkoutSessionUrl,
-        });
-      }
-    },
-    onError: error => {
-      toast.error(
-        getReferralUserErrorMessage(error, copy.payment.paymentFailed)
-      );
-    },
-  });
+  const createPaymentSessionMutation =
+    trpc.referrals.createPaymentSession.useMutation({
+      onSuccess: result => {
+        if (typeof window !== "undefined") {
+          window.location.href = getReferralCheckoutRedirectHref({
+            orderId: result.orderId,
+            checkoutSessionUrl: result.checkoutSessionUrl,
+          });
+        }
+      },
+      onError: error => {
+        toast.error(
+          getReferralUserErrorMessage(error, copy.payment.paymentFailed)
+        );
+      },
+    });
 
   if (orderQuery.isLoading) {
     return (
@@ -74,9 +75,7 @@ export function ReferralPaymentScreen({
     status: detail.order.status,
     paymentStatus: detail.order.paymentStatus,
   });
-  const paymentActionLabel = paymentAction
-    ? copy.payment[paymentAction]
-    : null;
+  const paymentActionLabel = paymentAction ? copy.payment[paymentAction] : null;
 
   return (
     <div className="space-y-6">
@@ -95,9 +94,7 @@ export function ReferralPaymentScreen({
             <p className="mt-2 text-base font-semibold text-slate-900">
               {hospitalName}
             </p>
-            <p className="mt-1 text-sm text-slate-500">
-              {departmentName}
-            </p>
+            <p className="mt-1 text-sm text-slate-500">{departmentName}</p>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -145,7 +142,9 @@ export function ReferralPaymentScreen({
             </p>
           </div>
 
-          <p className="text-sm leading-6 text-slate-600">{copy.payment.payHelp}</p>
+          <p className="text-sm leading-6 text-slate-600">
+            {copy.payment.payHelp}
+          </p>
 
           {paymentAction ? (
             <div className="rounded-2xl border border-teal-200 bg-teal-50 p-4 text-sm leading-6 text-teal-950">

@@ -47,9 +47,7 @@ export function VisitRoomInvalidState(input: {
   return <VisitRoomCenteredNotice {...input} />;
 }
 
-export function VisitRoomLoadingState(input: {
-  title: string;
-}) {
+export function VisitRoomLoadingState(input: { title: string }) {
   return (
     <AppLayout title={input.title} isVisitRoom>
       <div className="mx-auto flex min-h-[60vh] max-w-3xl items-center justify-center py-4">

@@ -114,19 +114,22 @@ export function ReferralSelectionScreen({
                     {contact.languages.length > 0 ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1">
                         <Languages className="h-3.5 w-3.5" />
-                        {copy.selection.contactLanguages}: {contact.languages.join(", ")}
+                        {copy.selection.contactLanguages}:{" "}
+                        {contact.languages.join(", ")}
                       </span>
                     ) : null}
                     {contact.specialtyTags.length > 0 ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1">
                         <Tags className="h-3.5 w-3.5" />
-                        {copy.selection.contactSpecialties}: {contact.specialtyTags.join(", ")}
+                        {copy.selection.contactSpecialties}:{" "}
+                        {contact.specialtyTags.join(", ")}
                       </span>
                     ) : null}
                     {contact.avgResponseTimeMinutes ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1">
                         <Clock3 className="h-3.5 w-3.5" />
-                        {copy.selection.responseTime}: {contact.avgResponseTimeMinutes} min
+                        {copy.selection.responseTime}:{" "}
+                        {contact.avgResponseTimeMinutes} min
                       </span>
                     ) : null}
                     {typeof contact.successRate === "number" ? (
@@ -143,8 +146,7 @@ export function ReferralSelectionScreen({
                     setLocation(
                       buildReferralConfirmationHref({
                         triageSessionId,
-                        rankedHospitalIndex:
-                          rankedHospitalIndex ?? undefined,
+                        rankedHospitalIndex: rankedHospitalIndex ?? undefined,
                         hospitalId: hospitalId ?? undefined,
                         contactId: contact.id,
                       })
@@ -178,8 +180,7 @@ export function ReferralSelectionScreen({
                 setLocation(
                   buildReferralConfirmationHref({
                     triageSessionId,
-                    rankedHospitalIndex:
-                      rankedHospitalIndex ?? undefined,
+                    rankedHospitalIndex: rankedHospitalIndex ?? undefined,
                     hospitalId: hospitalId ?? undefined,
                   })
                 )

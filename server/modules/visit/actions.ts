@@ -15,10 +15,14 @@ import type {
 import { markInSessionIfTransitioned } from "./status";
 import { translateVisitMessage } from "./translation";
 
-type VisitMessageRow = Awaited<ReturnType<typeof visitRepo.getRecentMessages>>[number];
+type VisitMessageRow = Awaited<
+  ReturnType<typeof visitRepo.getRecentMessages>
+>[number];
 
 function encodeCursor(createdAt: Date, id: number) {
-  return Buffer.from(`${createdAt.toISOString()}|${id}`, "utf8").toString("base64url");
+  return Buffer.from(`${createdAt.toISOString()}|${id}`, "utf8").toString(
+    "base64url"
+  );
 }
 
 function decodeCursor(cursor: string) {
@@ -28,7 +32,11 @@ function decodeCursor(cursor: string) {
       .split("|");
     const createdAt = new Date(createdAtIso);
     const id = Number(idValue);
-    if (!createdAtIso || Number.isNaN(createdAt.getTime()) || !Number.isInteger(id)) {
+    if (
+      !createdAtIso ||
+      Number.isNaN(createdAt.getTime()) ||
+      !Number.isInteger(id)
+    ) {
       return null;
     }
     return {
@@ -66,7 +74,9 @@ function toMessageSendResult(message: {
   };
 }
 
-function readInsertedMessage(input: Awaited<ReturnType<typeof visitRepo.createMessage>>) {
+function readInsertedMessage(
+  input: Awaited<ReturnType<typeof visitRepo.createMessage>>
+) {
   const insertedId = Number(
     (input as { id?: number })?.id ??
       (input as { insertId?: number })?.insertId ??
@@ -97,7 +107,10 @@ function toMessageSenderType(value: unknown): "patient" | "doctor" | "system" {
   });
 }
 
-export async function roomGetMessagesByToken(input: RoomGetMessagesInput, req?: Request) {
+export async function roomGetMessagesByToken(
+  input: RoomGetMessagesInput,
+  req?: Request
+) {
   const validated = await validateAppointmentAccessToken({
     token: input.token,
     action: "read_history",
@@ -116,7 +129,8 @@ export async function roomGetMessagesByToken(input: RoomGetMessagesInput, req?: 
   }
 
   const cursor =
-    typeof input.beforeCursor === "string" && input.beforeCursor.trim().length > 0
+    typeof input.beforeCursor === "string" &&
+    input.beforeCursor.trim().length > 0
       ? decodeCursor(input.beforeCursor)
       : null;
 
@@ -140,12 +154,17 @@ export async function roomGetMessagesByToken(input: RoomGetMessagesInput, req?: 
     role: validated.role,
     messages: normalized,
     nextCursor:
-      hasMore && oldestDesc ? encodeCursor(oldestDesc.createdAt, oldestDesc.id) : null,
+      hasMore && oldestDesc
+        ? encodeCursor(oldestDesc.createdAt, oldestDesc.id)
+        : null,
     hasMore,
   };
 }
 
-export async function getMessagesByToken(input: GetMessagesInput, req?: Request) {
+export async function getMessagesByToken(
+  input: GetMessagesInput,
+  req?: Request
+) {
   const { appointment } = await appointmentCore.validateAppointmentToken(
     input.appointmentId,
     input.token,
@@ -154,7 +173,8 @@ export async function getMessagesByToken(input: GetMessagesInput, req?: Request)
   );
 
   const cursor =
-    typeof input.beforeCursor === "string" && input.beforeCursor.trim().length > 0
+    typeof input.beforeCursor === "string" &&
+    input.beforeCursor.trim().length > 0
       ? decodeCursor(input.beforeCursor)
       : null;
 
@@ -176,7 +196,9 @@ export async function getMessagesByToken(input: GetMessagesInput, req?: Request)
   return {
     messages: normalized,
     nextCursor:
-      hasMore && oldestDesc ? encodeCursor(oldestDesc.createdAt, oldestDesc.id) : null,
+      hasMore && oldestDesc
+        ? encodeCursor(oldestDesc.createdAt, oldestDesc.id)
+        : null,
     hasMore,
   };
 }
@@ -213,7 +235,8 @@ export async function sendMessageByToken(
 
   const createdAt = new Date();
   const senderType = role === "doctor" ? "doctor" : "patient";
-  const messageUserId = role === "patient" ? (appointment.userId ?? null) : null;
+  const messageUserId =
+    role === "patient" ? (appointment.userId ?? null) : null;
   const insertOnce = (userId: number | null) =>
     visitRepo.createMessage({
       appointmentId: appointment.id,
@@ -288,7 +311,10 @@ export async function sendMessageByToken(
   });
 }
 
-export async function pollNewMessagesByToken(input: PollMessagesInput, req?: Request) {
+export async function pollNewMessagesByToken(
+  input: PollMessagesInput,
+  req?: Request
+) {
   const { appointment } = await appointmentCore.validateAppointmentToken(
     input.appointmentId,
     input.token,

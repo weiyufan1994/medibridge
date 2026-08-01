@@ -26,7 +26,8 @@ export const DISCLAIMER_DIALOG_TEXT_CLASS =
 export const DISCLAIMER_INLINE_NOTICE_CLASS =
   "rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-500";
 
-export const DISCLAIMER_INLINE_NOTICE_ICON_CLASS = "mt-0.5 h-3.5 w-3.5 text-teal-500";
+export const DISCLAIMER_INLINE_NOTICE_ICON_CLASS =
+  "mt-0.5 h-3.5 w-3.5 text-teal-500";
 
 export const DISCLAIMER_WARNING_NOTICE_CLASS =
   "rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-700";
@@ -45,6 +46,8 @@ export const WARNING_ALERT_DIALOG_ICON_TEAL = "bg-teal-50 text-teal-600";
 
 export const WARNING_ALERT_DIALOG_TITLE_CLASS = "text-left";
 
-export const WARNING_ALERT_DIALOG_DESCRIPTION_CLASS = "text-left text-slate-600";
+export const WARNING_ALERT_DIALOG_DESCRIPTION_CLASS =
+  "text-left text-slate-600";
 
-export const WARNING_ALERT_DIALOG_FOOTER_CLASS = "mt-6 flex-row justify-end gap-3";
+export const WARNING_ALERT_DIALOG_FOOTER_CLASS =
+  "mt-6 flex-row justify-end gap-3";

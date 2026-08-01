@@ -89,7 +89,11 @@ export function computeAdminRisks(
   const paymentStatus = String(detail.appointment.paymentStatus ?? "");
   const createdAt = toDate(detail.appointment.createdAt);
 
-  if (status === "pending_payment" && paymentStatus === "pending" && createdAt) {
+  if (
+    status === "pending_payment" &&
+    paymentStatus === "pending" &&
+    createdAt
+  ) {
     const ageMs = now.getTime() - createdAt.getTime();
     if (ageMs > 30 * 60 * 1000) {
       risks.push({
@@ -110,11 +114,11 @@ export function computeAdminRisks(
     return diffMs > 0 && diffMs <= 2 * 60 * 60 * 1000;
   });
   if (soonExpiring) {
-      risks.push({
-        code: "TOKEN_EXPIRING_SOON",
-        level: "warning",
-        message: getAdminRiskMessage("TOKEN_EXPIRING_SOON", lang),
-      });
+    risks.push({
+      code: "TOKEN_EXPIRING_SOON",
+      level: "warning",
+      message: getAdminRiskMessage("TOKEN_EXPIRING_SOON", lang),
+    });
   }
 
   const exhaustedToken = tokens.some(token => {
@@ -123,28 +127,28 @@ export function computeAdminRisks(
     return maxUses > 0 && useCount >= maxUses;
   });
   if (exhaustedToken) {
-      risks.push({
-        code: "TOKEN_USAGE_EXHAUSTED",
-        level: "critical",
-        message: getAdminRiskMessage("TOKEN_USAGE_EXHAUSTED", lang),
-      });
+    risks.push({
+      code: "TOKEN_USAGE_EXHAUSTED",
+      level: "critical",
+      message: getAdminRiskMessage("TOKEN_USAGE_EXHAUSTED", lang),
+    });
   }
 
   if (hasWebhookFailure(detail.webhookEvents)) {
-      risks.push({
-        code: "WEBHOOK_FAILURE",
-        level: "critical",
-        message: getAdminRiskMessage("WEBHOOK_FAILURE", lang),
-      });
+    risks.push({
+      code: "WEBHOOK_FAILURE",
+      level: "critical",
+      message: getAdminRiskMessage("WEBHOOK_FAILURE", lang),
+    });
   }
 
   const hasMessages = (detail.recentMessages?.length ?? 0) > 0;
   if (paymentStatus === "paid" && status === "paid" && hasMessages) {
-      risks.push({
-        code: "PAID_BUT_NOT_ACTIVE",
-        level: "warning",
-        message: getAdminRiskMessage("PAID_BUT_NOT_ACTIVE", lang),
-      });
+    risks.push({
+      code: "PAID_BUT_NOT_ACTIVE",
+      level: "warning",
+      message: getAdminRiskMessage("PAID_BUT_NOT_ACTIVE", lang),
+    });
   }
 
   if (paymentStatus === "paid" && (status === "paid" || status === "active")) {
@@ -175,17 +179,17 @@ export function computeAdminRisks(
       const waitingMs = now.getTime() - latestPatientAt.getTime();
       const doctorRepliedAfterLatestPatient =
         latestDoctorAt && latestDoctorAt.getTime() >= latestPatientAt.getTime();
-    if (!doctorRepliedAfterLatestPatient && waitingMs >= 15 * 60 * 1000) {
-      const isCritical = waitingMs >= 60 * 60 * 1000;
-      const waitingMinutes = Math.floor(waitingMs / 60_000);
-      risks.push({
-        code: "DOCTOR_REPLY_SLA_OVERDUE",
-        level: isCritical ? "critical" : "warning",
-        message: getAdminRiskMessage("DOCTOR_REPLY_SLA_OVERDUE", lang, {
-          waitingMinutes,
-        }),
-      });
-    }
+      if (!doctorRepliedAfterLatestPatient && waitingMs >= 15 * 60 * 1000) {
+        const isCritical = waitingMs >= 60 * 60 * 1000;
+        const waitingMinutes = Math.floor(waitingMs / 60_000);
+        risks.push({
+          code: "DOCTOR_REPLY_SLA_OVERDUE",
+          level: isCritical ? "critical" : "warning",
+          message: getAdminRiskMessage("DOCTOR_REPLY_SLA_OVERDUE", lang, {
+            waitingMinutes,
+          }),
+        });
+      }
     }
   }
 
@@ -240,7 +244,10 @@ export function computeAdminSuggestions(
   }
 
   if (paymentStatus === "paid" && (status === "paid" || status === "active")) {
-    const resendCopy = getAdminSuggestionCopy("suggest_resend_access_link", lang);
+    const resendCopy = getAdminSuggestionCopy(
+      "suggest_resend_access_link",
+      lang
+    );
     suggestions.push({
       key: "suggest_resend_access_link",
       title: resendCopy.title,
@@ -248,7 +255,10 @@ export function computeAdminSuggestions(
       action: "resend_access_link",
       priority: 80,
     });
-    const issueCopy = getAdminSuggestionCopy("suggest_issue_access_links", lang);
+    const issueCopy = getAdminSuggestionCopy(
+      "suggest_issue_access_links",
+      lang
+    );
     suggestions.push({
       key: "suggest_issue_access_links",
       title: issueCopy.title,

@@ -27,11 +27,13 @@ export const HOME_COPY = {
       "A MediBridge coordinator helps contact the hospital, assist with registration, and arrange an online consultation time.",
     howItWorks: "How It Works",
     step1Title: "Describe Your Condition",
-    step1Description: "Chat with our AI assistant about your symptoms and medical history",
+    step1Description:
+      "Chat with our AI assistant about your symptoms and medical history",
     step2Title: "Get Recommendations",
     step2Description: "Review ranked hospitals and choose where to continue",
     step3Title: "Coordinate the Referral",
-    step3Description: "Choose a MediBridge coordinator and track registration and scheduling",
+    step3Description:
+      "Choose a MediBridge coordinator and track registration and scheduling",
     tryAsking: "Try asking about:",
     tag1: "Heart Problems",
     tag2: "Cancer Screening",

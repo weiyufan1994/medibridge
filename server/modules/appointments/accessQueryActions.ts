@@ -14,7 +14,10 @@ type MedicalSummaryLocalizationInput = {
   planRecommendations: string;
 };
 
-const triageContentTranslationCache = new Map<string, TriageLocalizationCacheValue>();
+const triageContentTranslationCache = new Map<
+  string,
+  TriageLocalizationCacheValue
+>();
 const medicalSummaryTranslationCache = new Map<
   string,
   MedicalSummaryLocalizationInput
@@ -37,7 +40,10 @@ function readAssistantText(content: unknown): string {
   }
   return content
     .map(item =>
-      item && typeof item === "object" && "type" in item && (item as { type?: string }).type === "text"
+      item &&
+      typeof item === "object" &&
+      "type" in item &&
+      (item as { type?: string }).type === "text"
         ? String((item as { text?: unknown }).text ?? "")
         : ""
     )
@@ -50,7 +56,9 @@ function normalizeSummary(summary: string | null | undefined): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-function normalizeIntake<TIntake extends TriageIntakeRecord | null>(intake: TIntake): TIntake {
+function normalizeIntake<TIntake extends TriageIntakeRecord | null>(
+  intake: TIntake
+): TIntake {
   if (!intake) {
     return intake;
   }
@@ -64,7 +72,10 @@ function normalizeIntake<TIntake extends TriageIntakeRecord | null>(intake: TInt
   return normalized as TIntake;
 }
 
-function needsTranslationForTargetLanguage(value: string, targetLang: "en" | "zh") {
+function needsTranslationForTargetLanguage(
+  value: string,
+  targetLang: "en" | "zh"
+) {
   const normalized = value.trim();
   if (!normalized) {
     return false;
@@ -130,9 +141,9 @@ function setTranslationCache<T>(cache: Map<string, T>, key: string, value: T) {
   }
 }
 
-function normalizeMedicalSummaryContent<TSummary extends MedicalSummaryLocalizationInput>(
-  summary: TSummary
-): TSummary {
+function normalizeMedicalSummaryContent<
+  TSummary extends MedicalSummaryLocalizationInput,
+>(summary: TSummary): TSummary {
   const normalized = {
     ...summary,
   } as TSummary;
@@ -164,7 +175,9 @@ function parseLocalizedMedicalSummary(
 
   return {
     chiefComplaint:
-      typeof parsed.chiefComplaint === "string" ? parsed.chiefComplaint.trim() : "",
+      typeof parsed.chiefComplaint === "string"
+        ? parsed.chiefComplaint.trim()
+        : "",
     historyOfPresentIllness:
       typeof parsed.historyOfPresentIllness === "string"
         ? parsed.historyOfPresentIllness.trim()
@@ -335,8 +348,8 @@ export async function localizeTriageContent<
           role: "system",
           content:
             input.targetLang === "en"
-              ? "Translate the medical triage payload into natural English. Return strict JSON only: {\"summary\": string|null, \"intake\": object}. Keep intake keys unchanged and only translate values."
-              : "将医疗分诊信息翻译成自然中文。只返回严格 JSON：{\"summary\": string|null, \"intake\": object}。保留 intake 的键名不变，只翻译值。",
+              ? 'Translate the medical triage payload into natural English. Return strict JSON only: {"summary": string|null, "intake": object}. Keep intake keys unchanged and only translate values.'
+              : '将医疗分诊信息翻译成自然中文。只返回严格 JSON：{"summary": string|null, "intake": object}。保留 intake 的键名不变，只翻译值。',
         },
         {
           role: "user",
@@ -350,7 +363,9 @@ export async function localizeTriageContent<
       responseFormat: { type: "text" },
     });
 
-    const translatedRaw = readAssistantText(response.choices?.[0]?.message?.content).trim();
+    const translatedRaw = readAssistantText(
+      response.choices?.[0]?.message?.content
+    ).trim();
     if (!translatedRaw) {
       return {
         summary: resolveLocalizedSummary({
@@ -375,10 +390,14 @@ export async function localizeTriageContent<
         ? parsed.summary.trim()
         : null;
     const localizedIntake = parseTranslatedIntake(parsed.intake);
-    const mergedIntake = mergeLocalizedIntake(normalizedIntake, localizedIntake, {
-      targetLang: input.targetLang,
-      englishFallbackMode,
-    });
+    const mergedIntake = mergeLocalizedIntake(
+      normalizedIntake,
+      localizedIntake,
+      {
+        targetLang: input.targetLang,
+        englishFallbackMode,
+      }
+    );
 
     setTranslationCache(triageContentTranslationCache, cacheKey, {
       summary: localizedSummary,
@@ -413,10 +432,7 @@ export async function localizeTriageContent<
 
 export async function localizeMedicalSummaryContent<
   TSummary extends MedicalSummaryLocalizationInput,
->(input: {
-  summary: TSummary;
-  targetLang: "en" | "zh";
-}): Promise<TSummary> {
+>(input: { summary: TSummary; targetLang: "en" | "zh" }): Promise<TSummary> {
   const normalizedSummary = normalizeMedicalSummaryContent(input.summary);
 
   if (
@@ -454,7 +470,9 @@ export async function localizeMedicalSummaryContent<
       responseFormat: { type: "text" },
     });
 
-    const translatedRaw = readAssistantText(response.choices?.[0]?.message?.content).trim();
+    const translatedRaw = readAssistantText(
+      response.choices?.[0]?.message?.content
+    ).trim();
     if (!translatedRaw) {
       return mergeLocalizedMedicalSummary({
         current: normalizedSummary,
@@ -513,9 +531,9 @@ export function parseIntakeFromNotes<T>(
       return null;
     }
 
-    const hasAnyField = Object.values(result.data as Record<string, unknown>).some(
-      value => typeof value === "string" && value.trim().length > 0
-    );
+    const hasAnyField = Object.values(
+      result.data as Record<string, unknown>
+    ).some(value => typeof value === "string" && value.trim().length > 0);
     return hasAnyField ? result.data : null;
   } catch {
     return null;

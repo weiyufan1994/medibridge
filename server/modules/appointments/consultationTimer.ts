@@ -29,7 +29,9 @@ function toFinitePositiveInteger(value: unknown): number | null {
   return rounded > 0 ? rounded : null;
 }
 
-function parseNotesObject(notes: string | null | undefined): Record<string, unknown> | null {
+function parseNotesObject(
+  notes: string | null | undefined
+): Record<string, unknown> | null {
   const normalized = notes?.trim();
   if (!normalized) {
     return null;
@@ -112,7 +114,4 @@ export function applyConsultationFreeExtensionToNotes(input: {
   };
 }
 
-export {
-  DEFAULT_CONSULTATION_DURATION_MINUTES,
-  FREE_EXTENSION_MINUTES,
-};
+export { DEFAULT_CONSULTATION_DURATION_MINUTES, FREE_EXTENSION_MINUTES };

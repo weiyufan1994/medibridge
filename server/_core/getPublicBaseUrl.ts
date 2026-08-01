@@ -21,10 +21,13 @@ export function getPublicBaseUrl(req?: Request): string {
   }
 
   if (req) {
-    const forwardedProto = readForwardedHeader(req.headers["x-forwarded-proto"]);
+    const forwardedProto = readForwardedHeader(
+      req.headers["x-forwarded-proto"]
+    );
     const forwardedHost = readForwardedHeader(req.headers["x-forwarded-host"]);
     const protocol = forwardedProto || req.protocol || "http";
-    const host = forwardedHost || req.get("host") || req.headers.host || "localhost:3000";
+    const host =
+      forwardedHost || req.get("host") || req.headers.host || "localhost:3000";
     return normalizeBaseUrl(`${protocol}://${host}`);
   }
 

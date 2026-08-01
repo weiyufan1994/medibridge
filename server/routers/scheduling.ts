@@ -1,5 +1,13 @@
-import { adminOrOpsProcedure, protectedProcedure, publicProcedure, router } from "../_core/trpc";
-import { schedulingActions, schedulingSchemas } from "../modules/scheduling/routerApi";
+import {
+  adminOrOpsProcedure,
+  protectedProcedure,
+  publicProcedure,
+  router,
+} from "../_core/trpc";
+import {
+  schedulingActions,
+  schedulingSchemas,
+} from "../modules/scheduling/routerApi";
 
 export const schedulingRouter = router({
   listAvailableSlots: publicProcedure
@@ -54,9 +62,12 @@ export const schedulingRouter = router({
     .mutation(({ input }) => schedulingActions.updateScheduleException(input)),
 
   deleteScheduleException: adminOrOpsProcedure
-    .input(schedulingSchemas.deleteScheduleExceptionInputSchema.extend({
-      doctorId: schedulingSchemas.listScheduleExceptionsInputSchema.shape.doctorId,
-    }))
+    .input(
+      schedulingSchemas.deleteScheduleExceptionInputSchema.extend({
+        doctorId:
+          schedulingSchemas.listScheduleExceptionsInputSchema.shape.doctorId,
+      })
+    )
     .mutation(({ input }) =>
       schedulingActions.deleteScheduleException({
         id: input.id,
@@ -68,9 +79,11 @@ export const schedulingRouter = router({
     .input(schedulingSchemas.createManualSlotInputSchema)
     .output(schedulingSchemas.slotOutputSchema)
     .mutation(({ input }) =>
-      schedulingActions.createManualSlots({
-        slots: [input],
-      }).then(rows => rows[0]!)
+      schedulingActions
+        .createManualSlots({
+          slots: [input],
+        })
+        .then(rows => rows[0]!)
     ),
 
   bulkCreateManualSlots: adminOrOpsProcedure

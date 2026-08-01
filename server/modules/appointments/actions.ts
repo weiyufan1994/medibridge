@@ -21,7 +21,10 @@ export {
   resendDoctorAccessLinkInDevById,
   resendPatientAccessLinkById,
 } from "./accessLinkActions";
-export { cancelAppointmentByPatientById, startAppointmentByDoctorUser } from "./statusActions";
+export {
+  cancelAppointmentByPatientById,
+  startAppointmentByDoctorUser,
+} from "./statusActions";
 export {
   completeAppointmentByTokenFlow,
   generateMedicalSummaryDraftByTokenFlow,

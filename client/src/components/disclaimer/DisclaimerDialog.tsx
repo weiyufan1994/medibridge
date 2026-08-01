@@ -48,7 +48,9 @@ type DisclaimerDialogBaseProps = {
   titleAlign?: "left" | "center";
 };
 
-export function DisclaimerDialog(props: DisclaimerDialogBaseProps & DisclaimerDialogActionLabel) {
+export function DisclaimerDialog(
+  props: DisclaimerDialogBaseProps & DisclaimerDialogActionLabel
+) {
   const {
     open,
     onOpenChange,
@@ -63,7 +65,8 @@ export function DisclaimerDialog(props: DisclaimerDialogBaseProps & DisclaimerDi
     titleAlign = "left",
   } = props;
 
-  const titleAlignClass = titleAlign === "center" ? "sm:text-left" : "text-left";
+  const titleAlignClass =
+    titleAlign === "center" ? "sm:text-left" : "text-left";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -72,17 +75,25 @@ export function DisclaimerDialog(props: DisclaimerDialogBaseProps & DisclaimerDi
           <div
             className={`${DISCLAIMER_DIALOG_ICON_CLASS} ${icon === "info" ? DISCLAIMER_DIALOG_ICON_TEAL : DISCLAIMER_DIALOG_ICON_AMBER}`}
           >
-            {icon === "info" ? <Info className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
+            {icon === "info" ? (
+              <Info className="h-5 w-5" />
+            ) : (
+              <AlertTriangle className="h-5 w-5" />
+            )}
           </div>
         </div>
         <div className={DISCLAIMER_DIALOG_BODY_CLASS}>
           <DialogHeader className={`gap-2 ${titleAlignClass}`}>
-            <DialogTitle className={DISCLAIMER_DIALOG_TITLE_CLASS}>{title}</DialogTitle>
+            <DialogTitle className={DISCLAIMER_DIALOG_TITLE_CLASS}>
+              {title}
+            </DialogTitle>
             <DialogDescription className={DISCLAIMER_DIALOG_DESCRIPTION_CLASS}>
               {description}
             </DialogDescription>
           </DialogHeader>
-          {children ? <div className={DISCLAIMER_DIALOG_TEXT_CLASS}>{children}</div> : null}
+          {children ? (
+            <div className={DISCLAIMER_DIALOG_TEXT_CLASS}>{children}</div>
+          ) : null}
         </div>
         <DialogFooter className={DISCLAIMER_DIALOG_FOOTER_CLASS}>
           <Button

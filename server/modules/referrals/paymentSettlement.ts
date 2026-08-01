@@ -1,6 +1,4 @@
-import {
-  calculateReferralFulfillmentDeadline,
-} from "./fulfillmentPolicy";
+import { calculateReferralFulfillmentDeadline } from "./fulfillmentPolicy";
 import * as referralRepo from "./repo";
 import {
   notifyInternalPaidReferralOrder,
@@ -23,8 +21,7 @@ export async function settleReferralPaymentTransition(input: {
     reason: input.reason,
     paidAt,
     fulfillmentDeadlineAt: calculateReferralFulfillmentDeadline(paidAt),
-    paymentProviderTransactionId:
-      input.paymentProviderTransactionId ?? null,
+    paymentProviderTransactionId: input.paymentProviderTransactionId ?? null,
     dbExecutor: input.dbExecutor,
   });
 
@@ -45,8 +42,7 @@ export async function settleReferralPaymentTransition(input: {
     actionType: "payment_success",
     actionPayload: {
       paymentSessionId: input.paymentSessionId,
-      paymentProviderTransactionId:
-        input.paymentProviderTransactionId ?? null,
+      paymentProviderTransactionId: input.paymentProviderTransactionId ?? null,
     },
     dbExecutor: input.dbExecutor,
   });
@@ -104,8 +100,7 @@ export async function publishReferralPaymentSettlement(orderId: number) {
     orderId,
     hospitalName: hospital.name.zh || hospital.name.en,
     contactName: bundle.contact?.name ?? null,
-    manualFulfillmentRequired:
-      bundle.order.manualFulfillmentRequired === 1,
+    manualFulfillmentRequired: bundle.order.manualFulfillmentRequired === 1,
   });
 
   return bundle.order;

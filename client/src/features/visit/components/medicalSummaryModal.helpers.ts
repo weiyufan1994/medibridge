@@ -31,7 +31,10 @@ export function resolveGeneratingMessage(input: {
   if (input.remainingSeconds === null) {
     return input.fallbackText;
   }
-  return input.countdownTemplate.replace("{{time}}", formatCountdown(input.remainingSeconds));
+  return input.countdownTemplate.replace(
+    "{{time}}",
+    formatCountdown(input.remainingSeconds)
+  );
 }
 
 export function isDraftFormComplete(form: MedicalSummaryDraftForm) {

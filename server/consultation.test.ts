@@ -40,7 +40,9 @@ function createTestContext(): TrpcContext {
 describe("consultation.getHistory", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(aiRepo.getLatestSessionFlagByType).mockResolvedValue(null as never);
+    vi.mocked(aiRepo.getLatestSessionFlagByType).mockResolvedValue(
+      null as never
+    );
   });
 
   it("returns session history with first user message titles", async () => {

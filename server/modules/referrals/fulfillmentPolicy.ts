@@ -16,11 +16,15 @@ const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
 const MILLISECONDS_PER_DAY = 24 * MILLISECONDS_PER_HOUR;
 
 function toShanghaiCalendarDate(value: Date): Date {
-  return new Date(value.getTime() + SHANGHAI_UTC_OFFSET_HOURS * MILLISECONDS_PER_HOUR);
+  return new Date(
+    value.getTime() + SHANGHAI_UTC_OFFSET_HOURS * MILLISECONDS_PER_HOUR
+  );
 }
 
 function fromShanghaiCalendarDate(value: Date): Date {
-  return new Date(value.getTime() - SHANGHAI_UTC_OFFSET_HOURS * MILLISECONDS_PER_HOUR);
+  return new Date(
+    value.getTime() - SHANGHAI_UTC_OFFSET_HOURS * MILLISECONDS_PER_HOUR
+  );
 }
 
 function isWeekend(value: Date): boolean {
@@ -49,7 +53,9 @@ export function calculateReferralFulfillmentDeadline(
   return fromShanghaiCalendarDate(calendarDate);
 }
 
-export function isReferralSlaRefundEligible(status: ReferralOrderStatus): boolean {
+export function isReferralSlaRefundEligible(
+  status: ReferralOrderStatus
+): boolean {
   return SLA_ELIGIBLE_STATUSES.has(status);
 }
 

@@ -41,7 +41,9 @@ function toFallbackSummary(input: {
 
   const zh = [
     `问诊单 #${input.appointment.id}`,
-    input.triageSummary ? `分诊摘要：${truncateText(input.triageSummary, 180)}` : "",
+    input.triageSummary
+      ? `分诊摘要：${truncateText(input.triageSummary, 180)}`
+      : "",
     bullet ? `会话摘录：${bullet}` : "",
     `状态：${input.appointment.status} / 支付：${input.appointment.paymentStatus}`,
   ]
@@ -50,7 +52,9 @@ function toFallbackSummary(input: {
 
   const en = [
     `Consultation #${input.appointment.id}`,
-    input.triageSummary ? `Triage summary: ${truncateText(input.triageSummary, 180)}` : "",
+    input.triageSummary
+      ? `Triage summary: ${truncateText(input.triageSummary, 180)}`
+      : "",
     bullet ? `Chat highlights: ${bullet}` : "",
     `Status: ${input.appointment.status} / Payment: ${input.appointment.paymentStatus}`,
   ]
@@ -64,14 +68,19 @@ function toFallbackSummary(input: {
   };
 }
 
-function tryParseBilingualSummary(raw: string): { summaryZh: string; summaryEn: string } | null {
+function tryParseBilingualSummary(
+  raw: string
+): { summaryZh: string; summaryEn: string } | null {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== "object") {
       return null;
     }
     const obj = parsed as Record<string, unknown>;
-    if (typeof obj.summaryZh !== "string" || typeof obj.summaryEn !== "string") {
+    if (
+      typeof obj.summaryZh !== "string" ||
+      typeof obj.summaryEn !== "string"
+    ) {
       return null;
     }
 
@@ -157,7 +166,7 @@ export async function generateBilingualVisitSummary(input: {
               : "Triage summary: (none)",
             "Conversation transcript:",
             transcript,
-            "Output JSON schema: {\"summaryZh\": string, \"summaryEn\": string}",
+            'Output JSON schema: {"summaryZh": string, "summaryEn": string}',
             "Each summary should include: chief complaint, timeline, key findings, actions completed, and follow-up recommendations.",
           ].join("\n"),
         },

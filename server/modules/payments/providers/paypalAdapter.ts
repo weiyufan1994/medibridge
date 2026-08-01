@@ -19,7 +19,9 @@ type CacheToken = {
 let cachedToken: CacheToken | null = null;
 
 function buildPayPalApiBase() {
-  return (process.env.PAYPAL_API_BASE_URL ?? "https://api-m.sandbox.paypal.com").trim();
+  return (
+    process.env.PAYPAL_API_BASE_URL ?? "https://api-m.sandbox.paypal.com"
+  ).trim();
 }
 
 function buildAuthHeader() {
@@ -123,7 +125,9 @@ export async function createPaypalCheckoutSession(input: {
   }
 
   const links = Array.isArray(response.data?.links) ? response.data.links : [];
-  const approveLink = links.find((item: Record<string, unknown>) => item.rel === "approve");
+  const approveLink = links.find(
+    (item: Record<string, unknown>) => item.rel === "approve"
+  );
   const approvalUrl =
     typeof approveLink?.href === "string"
       ? approveLink.href
@@ -150,25 +154,34 @@ export function parsePaypalWebhookEvent(rawBody: Buffer): PayPalWebhookEvent {
   return payload;
 }
 
-export function extractSessionIdFromWebhookEvent(event: PayPalWebhookEvent): string | null {
+export function extractSessionIdFromWebhookEvent(
+  event: PayPalWebhookEvent
+): string | null {
   if (typeof event.resource?.id === "string") {
     const id = event.resource.id.trim();
     if (id.length > 0) return id;
   }
   const purchaseUnits =
-    typeof event.resource?.purchase_units === "object" && Array.isArray((event.resource as { purchase_units?: unknown }).purchase_units)
-      ? ((event.resource as { purchase_units?: unknown[] }).purchase_units ?? [])
+    typeof event.resource?.purchase_units === "object" &&
+    Array.isArray(
+      (event.resource as { purchase_units?: unknown }).purchase_units
+    )
+      ? ((event.resource as { purchase_units?: unknown[] }).purchase_units ??
+        [])
       : [];
   if (purchaseUnits.length > 0) {
     const unit = purchaseUnits[0] as Record<string, unknown>;
-    const reference = typeof unit.reference_id === "string" ? unit.reference_id.trim() : "";
+    const reference =
+      typeof unit.reference_id === "string" ? unit.reference_id.trim() : "";
     if (reference.length > 0) return reference;
   }
 
   return null;
 }
 
-export function extractSessionIdFromParamsFromRedirect(query: URLSearchParams): string | null {
+export function extractSessionIdFromParamsFromRedirect(
+  query: URLSearchParams
+): string | null {
   return query.get("token")?.trim() || null;
 }
 
@@ -212,7 +225,13 @@ export async function verifyPaypalWebhookSignature(input: {
         ? input.headers["paypal-auth-algo"]?.[0]
         : undefined;
 
-  if (!signature || !transmissionId || !transmissionTime || !certUrl || !authAlgo) {
+  if (
+    !signature ||
+    !transmissionId ||
+    !transmissionTime ||
+    !certUrl ||
+    !authAlgo
+  ) {
     throw new Error("Missing PayPal webhook headers");
   }
 
@@ -237,7 +256,9 @@ export async function verifyPaypalWebhookSignature(input: {
     }
   );
 
-  const status = String(verification.data?.verification_status || "").toLowerCase();
+  const status = String(
+    verification.data?.verification_status || ""
+  ).toLowerCase();
   if (status !== "success") {
     throw new Error("PayPal webhook signature verification failed");
   }
@@ -317,7 +338,8 @@ export async function refundPaypalPayment(input: {
   return {
     provider: PAYPAL_PROVIDER,
     providerRefundId: refundId,
-    status: status === "completed" ? ("succeeded" as const) : ("pending" as const),
+    status:
+      status === "completed" ? ("succeeded" as const) : ("pending" as const),
   };
 }
 

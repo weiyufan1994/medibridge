@@ -5,6 +5,7 @@
 维护 `data/hospitals/` 下的医生 Excel 数据，并为后续导入数据库提供稳定输入。
 
 当前仓库的真实进度来源不是 `data/scraping_progress/*`，而是：
+
 - 科室索引：`data/departments/all_departments.json`
 - 已完成判断：`data/hospitals/{医院}/*.xlsx`
 - 运行日志：`data/departments/progress.json`
@@ -18,6 +19,7 @@ python3 scripts/track_progress.py
 ```
 
 这个脚本会：
+
 - 读取 `data/departments/all_departments.json`
 - 扫描 `data/hospitals/**/*.xlsx`
 - 输出总体进度、按医院统计，以及下一个未完成科室
@@ -25,11 +27,13 @@ python3 scripts/track_progress.py
 ### 2. 抓取单个科室
 
 抓取输入以 `track_progress.py` 输出为准：
+
 - 医院名称
 - 科室名称
 - 科室 URL
 
 抓取要求：
+
 1. 进入科室页面并滚动到底，确保医生列表完整加载。
 2. 提取医生列表并逐个进入详情页。
 3. 跳过无个人简介的医生。
@@ -83,6 +87,7 @@ tracker.save_progress(department, "captcha", "遇到验证码，已保存部分�
 ```
 
 允许状态：
+
 - `success`
 - `failed`
 - `captcha`
@@ -105,6 +110,7 @@ git push origin main
 ## 导入前检查
 
 新增或更新 Excel 后，至少先确认：
+
 - `python3 scripts/track_progress.py` 能正确识别新文件
 - 文件命名符合 `{科室}_医生详细信息_{YYYYMMDD}.xlsx`
 - 表头仍兼容 `scripts/import-doctors.mjs` 里的字段映射

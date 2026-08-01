@@ -122,7 +122,10 @@ export const APPOINTMENT_PACKAGE_CATALOG: AppointmentPackageDefinition[] = [
   },
 ];
 
-export const DEFAULT_PACKAGE_BY_TYPE: Record<AppointmentType, AppointmentPackageId> = {
+export const DEFAULT_PACKAGE_BY_TYPE: Record<
+  AppointmentType,
+  AppointmentPackageId
+> = {
   online_chat: "chat_standard_60m",
   video_call: "video_standard_60m",
   in_person: "inperson_standard_45m",
@@ -132,8 +135,11 @@ export function resolveAppointmentPackage(input: {
   appointmentType: AppointmentType;
   packageId?: AppointmentPackageId;
 }): AppointmentPackageDefinition {
-  const packageId = input.packageId ?? DEFAULT_PACKAGE_BY_TYPE[input.appointmentType];
-  const selected = APPOINTMENT_PACKAGE_CATALOG.find(item => item.id === packageId);
+  const packageId =
+    input.packageId ?? DEFAULT_PACKAGE_BY_TYPE[input.appointmentType];
+  const selected = APPOINTMENT_PACKAGE_CATALOG.find(
+    item => item.id === packageId
+  );
   if (!selected) {
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -154,7 +160,9 @@ export function listAppointmentPackages(input: {
   appointmentType?: AppointmentType;
 }) {
   const rows = APPOINTMENT_PACKAGE_CATALOG.filter(item =>
-    input.appointmentType ? item.appointmentType === input.appointmentType : true
+    input.appointmentType
+      ? item.appointmentType === input.appointmentType
+      : true
   );
   return rows.map(item => ({
     ...item,

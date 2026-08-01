@@ -120,7 +120,8 @@ function resolveLocalizedReferenceText(input: {
 }
 
 function buildReferenceDataFromSeed(): HospitalReferenceData {
-  const { specialtyRows, generalRows, stemRows } = loadHospitalReferenceSeedData();
+  const { specialtyRows, generalRows, stemRows } =
+    loadHospitalReferenceSeedData();
   const hospitalsById = new Map<number, HospitalReferenceRecord>();
   const hospitalIdByNormalizedName = new Map<string, number>();
   let nextHospitalId = 1;
@@ -419,83 +420,97 @@ async function buildSpecialtyHospitalList(input: {
 
   const hospitals: TriageRoutingHospital[] =
     specialtyRows.length > 0
-      ? specialtyRows.map(row => {
-          const referenceHospital = referenceData.hospitalsById.get(
-            row.hospitalReferenceId
-          );
-          if (!referenceHospital) {
-            return null;
-          }
-          const general = referenceData.generalByHospitalId.get(
-            row.hospitalReferenceId
-          );
-          const stem = referenceData.stemByHospitalId.get(row.hospitalReferenceId);
-          const base: TriageRoutingHospital = {
-            hospitalName: resolveLocalizedReferenceText({
-              lang: input.lang,
-              zh: referenceHospital.name,
-              en: referenceHospital.nameEn,
-            }),
-            city: resolveLocalizedReferenceText({
-              lang: input.lang,
-              zh: referenceHospital.city,
-              en: referenceHospital.cityEn,
-            }) || null,
-            specialtyRank: row.specialtyRank,
-            specialtyScore: row.specialtyScore,
-            generalGrade: general?.generalGrade ?? null,
-            stemRank: stem?.stemRank ?? null,
-            matchedHospitalId: referenceHospital.localHospitalId,
-            matchedDepartmentId: null,
-            reason: "",
-          };
+      ? specialtyRows
+          .map(row => {
+            const referenceHospital = referenceData.hospitalsById.get(
+              row.hospitalReferenceId
+            );
+            if (!referenceHospital) {
+              return null;
+            }
+            const general = referenceData.generalByHospitalId.get(
+              row.hospitalReferenceId
+            );
+            const stem = referenceData.stemByHospitalId.get(
+              row.hospitalReferenceId
+            );
+            const base: TriageRoutingHospital = {
+              hospitalName: resolveLocalizedReferenceText({
+                lang: input.lang,
+                zh: referenceHospital.name,
+                en: referenceHospital.nameEn,
+              }),
+              city:
+                resolveLocalizedReferenceText({
+                  lang: input.lang,
+                  zh: referenceHospital.city,
+                  en: referenceHospital.cityEn,
+                }) || null,
+              specialtyRank: row.specialtyRank,
+              specialtyScore: row.specialtyScore,
+              generalGrade: general?.generalGrade ?? null,
+              stemRank: stem?.stemRank ?? null,
+              matchedHospitalId: referenceHospital.localHospitalId,
+              matchedDepartmentId: null,
+              reason: "",
+            };
 
-          return {
-            ...base,
-            reason: buildHospitalReason({
-              lang: input.lang,
-              specialtyName: input.specialtyName,
-              hospital: base,
-            }),
-          };
-        }).filter((hospital): hospital is TriageRoutingHospital => Boolean(hospital))
-      : Array.from(referenceData.generalByHospitalId.values()).map(row => {
-          const referenceHospital = referenceData.hospitalsById.get(
-            row.hospitalReferenceId
-          );
-          if (!referenceHospital) {
-            return null;
-          }
-          const stem = referenceData.stemByHospitalId.get(row.hospitalReferenceId);
-          const base: TriageRoutingHospital = {
-            hospitalName: resolveLocalizedReferenceText({
-              lang: input.lang,
-              zh: referenceHospital.name,
-              en: referenceHospital.nameEn,
-            }),
-            city: resolveLocalizedReferenceText({
-              lang: input.lang,
-              zh: referenceHospital.city,
-              en: referenceHospital.cityEn,
-            }) || null,
-            specialtyRank: null,
-            specialtyScore: null,
-            generalGrade: row.generalGrade,
-            stemRank: stem?.stemRank ?? null,
-            matchedHospitalId: referenceHospital.localHospitalId,
-            matchedDepartmentId: null,
-            reason: "",
-          };
+            return {
+              ...base,
+              reason: buildHospitalReason({
+                lang: input.lang,
+                specialtyName: input.specialtyName,
+                hospital: base,
+              }),
+            };
+          })
+          .filter((hospital): hospital is TriageRoutingHospital =>
+            Boolean(hospital)
+          )
+      : Array.from(referenceData.generalByHospitalId.values())
+          .map(row => {
+            const referenceHospital = referenceData.hospitalsById.get(
+              row.hospitalReferenceId
+            );
+            if (!referenceHospital) {
+              return null;
+            }
+            const stem = referenceData.stemByHospitalId.get(
+              row.hospitalReferenceId
+            );
+            const base: TriageRoutingHospital = {
+              hospitalName: resolveLocalizedReferenceText({
+                lang: input.lang,
+                zh: referenceHospital.name,
+                en: referenceHospital.nameEn,
+              }),
+              city:
+                resolveLocalizedReferenceText({
+                  lang: input.lang,
+                  zh: referenceHospital.city,
+                  en: referenceHospital.cityEn,
+                }) || null,
+              specialtyRank: null,
+              specialtyScore: null,
+              generalGrade: row.generalGrade,
+              stemRank: stem?.stemRank ?? null,
+              matchedHospitalId: referenceHospital.localHospitalId,
+              matchedDepartmentId: null,
+              reason: "",
+            };
 
-          return {
-            ...base,
-            reason: buildHospitalReason({
-              lang: input.lang,
-              specialtyName: null,
-              hospital: base,
-            }),
-          };
-        }).filter((hospital): hospital is TriageRoutingHospital => Boolean(hospital));
+            return {
+              ...base,
+              reason: buildHospitalReason({
+                lang: input.lang,
+                specialtyName: null,
+                hospital: base,
+              }),
+            };
+          })
+          .filter((hospital): hospital is TriageRoutingHospital =>
+            Boolean(hospital)
+          );
 
   return hospitals.sort(compareHospitals).slice(0, MAX_HOSPITAL_RESULTS);
 }
@@ -539,7 +554,9 @@ async function enhanceWithLocalRecords(input: {
       (hospital.matchedHospitalId
         ? (hospitalById.get(hospital.matchedHospitalId) ?? null)
         : null) ??
-      hospitalByNormalizedName.get(normalizeLookupText(hospital.hospitalName)) ??
+      hospitalByNormalizedName.get(
+        normalizeLookupText(hospital.hospitalName)
+      ) ??
       null;
 
     if (!matchedHospital) {
@@ -550,12 +567,12 @@ async function enhanceWithLocalRecords(input: {
       ...hospital,
       hospitalName:
         input.lang === "en"
-          ? matchedHospital.nameEn ?? hospital.hospitalName
-          : matchedHospital.name ?? hospital.hospitalName,
+          ? (matchedHospital.nameEn ?? hospital.hospitalName)
+          : (matchedHospital.name ?? hospital.hospitalName),
       city:
         input.lang === "en"
-          ? matchedHospital.cityEn ?? matchedHospital.city ?? hospital.city
-          : matchedHospital.city ?? hospital.city,
+          ? (matchedHospital.cityEn ?? matchedHospital.city ?? hospital.city)
+          : (matchedHospital.city ?? hospital.city),
       matchedHospitalId: matchedHospital.id,
     };
   });

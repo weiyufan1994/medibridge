@@ -74,7 +74,9 @@ export function PatientSummaryModal({
   const descriptionId = useId();
   const locale = getDisplayLocale(resolved);
   const timeDisplay = formatAppointmentTimes(scheduledAt, "-", locale);
-  const displayDoctor = doctorName?.trim().length ? doctorName : copy.fallbackDoctor;
+  const displayDoctor = doctorName?.trim().length
+    ? doctorName
+    : copy.fallbackDoctor;
 
   const sections = summary
     ? [
@@ -96,7 +98,10 @@ export function PatientSummaryModal({
       >
         <header className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4 md:px-7">
           <div className="space-y-1">
-            <DialogTitle id={titleId} className="text-lg font-semibold text-slate-900">
+            <DialogTitle
+              id={titleId}
+              className="text-lg font-semibold text-slate-900"
+            >
               {copy.title}
             </DialogTitle>
             <p className="text-sm text-slate-500">{copy.subtitle}</p>
@@ -123,7 +128,11 @@ export function PatientSummaryModal({
             className="mx-auto w-full max-w-[794px] rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] md:p-9"
           >
             {isLoading ? (
-              <p role="status" aria-live="polite" className="text-sm text-slate-600">
+              <p
+                role="status"
+                aria-live="polite"
+                className="text-sm text-slate-600"
+              >
                 {copy.loadingText}
               </p>
             ) : null}
@@ -144,7 +153,9 @@ export function PatientSummaryModal({
                     <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
                       {copy.doctorLabel}
                     </p>
-                    <p className="mt-1 text-base font-semibold text-slate-900">{displayDoctor}</p>
+                    <p className="mt-1 text-base font-semibold text-slate-900">
+                      {displayDoctor}
+                    </p>
                   </div>
                   <div className="md:text-right">
                     <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
@@ -157,7 +168,8 @@ export function PatientSummaryModal({
                       {copy.chinaTimeLabel}: {timeDisplay.doctorTime}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
-                      {copy.issuedAtLabel}: {summary ? toDateText(summary.updatedAt, locale) : "-"}
+                      {copy.issuedAtLabel}:{" "}
+                      {summary ? toDateText(summary.updatedAt, locale) : "-"}
                     </p>
                   </div>
                 </section>
@@ -166,7 +178,9 @@ export function PatientSummaryModal({
                   <section className="mt-6 space-y-5">
                     {sections.map(section => (
                       <div key={section.label}>
-                        <h3 className="text-sm font-semibold text-teal-700">{section.label}</h3>
+                        <h3 className="text-sm font-semibold text-teal-700">
+                          {section.label}
+                        </h3>
                         <p className="mt-2 whitespace-pre-wrap text-[15px] leading-7 text-slate-700">
                           {section.value || "-"}
                         </p>

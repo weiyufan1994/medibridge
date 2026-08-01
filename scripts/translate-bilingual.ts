@@ -63,7 +63,10 @@ const HOSPITAL_LEVEL_TRANSLATIONS: Record<string, string> = {
 const createTranslationDb = (pool: Pool) => drizzle(pool);
 type TranslationDb = ReturnType<typeof createTranslationDb>;
 
-const parsePositiveInt = (value: string | number | undefined, fallback: number) => {
+const parsePositiveInt = (
+  value: string | number | undefined,
+  fallback: number
+) => {
   const parsed =
     typeof value === "number" ? value : Number.parseInt(String(value), 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -119,10 +122,14 @@ const pickEnglish = (
   return null;
 };
 
-const isFilled = (value: string | null | undefined) => Boolean(value && !hasCjk(value));
+const isFilled = (value: string | null | undefined) =>
+  Boolean(value && !hasCjk(value));
 
 const missingTranslatedFields = (
-  fields: Array<{ source: string | null | undefined; translated: string | null | undefined }>
+  fields: Array<{
+    source: string | null | undefined;
+    translated: string | null | undefined;
+  }>
 ) =>
   fields.reduce((count, field) => {
     if (!field.source) return count;
@@ -226,7 +233,9 @@ const parseArgs = () => {
       DEFAULT_API_CALL_LOG_INTERVAL
     ),
     translationModel:
-      config.model?.trim() || process.env.TRANSLATION_LLM_MODEL?.trim() || undefined,
+      config.model?.trim() ||
+      process.env.TRANSLATION_LLM_MODEL?.trim() ||
+      undefined,
   };
 };
 
@@ -316,12 +325,16 @@ const getErrorMessage = (error: unknown) =>
 
 const recordFailure = (stats: EntityRunStats, error: unknown) => {
   stats.failed += 1;
-  const message = getErrorMessage(error).trim().slice(0, 280) || "Unknown error";
+  const message =
+    getErrorMessage(error).trim().slice(0, 280) || "Unknown error";
   stats.errorCounts.set(message, (stats.errorCounts.get(message) ?? 0) + 1);
 };
 
 const logApiCall = (stats: EntityRunStats) => {
-  if (stats.apiCallsLogInterval > 0 && stats.llmCalls % stats.apiCallsLogInterval === 0) {
+  if (
+    stats.apiCallsLogInterval > 0 &&
+    stats.llmCalls % stats.apiCallsLogInterval === 0
+  ) {
     const avgRowsPerCall =
       stats.llmCalls === 0
         ? 0
@@ -471,7 +484,9 @@ const translateHospital = async (input: {
     },
   });
 
-  const parsed = JSON.parse(readMessageText(response.choices[0].message.content));
+  const parsed = JSON.parse(
+    readMessageText(response.choices[0].message.content)
+  );
   return parsed as {
     nameEn: string | null;
     cityEn: string | null;
@@ -535,8 +550,12 @@ const parseHospitalBatchResponse = (text: string) => {
     }
 
     const item = rawItem as Record<string, unknown>;
-    const sourceHash = typeof item.sourceHash === "string" ? item.sourceHash.trim() : "";
-    const id = typeof item.id === "number" ? item.id : Number.parseInt(String(item.id), 10);
+    const sourceHash =
+      typeof item.sourceHash === "string" ? item.sourceHash.trim() : "";
+    const id =
+      typeof item.id === "number"
+        ? item.id
+        : Number.parseInt(String(item.id), 10);
     if (!sourceHash || !Number.isFinite(id) || id <= 0) {
       invalidEntries += 1;
       continue;
@@ -614,7 +633,9 @@ const translateHospitalBatch = async (input: HospitalBatchInput[]) => {
     max_tokens: 4096,
   });
 
-  return parseHospitalBatchResponse(readMessageText(response.choices[0].message.content));
+  return parseHospitalBatchResponse(
+    readMessageText(response.choices[0].message.content)
+  );
 };
 
 const translateDepartment = async (input: {
@@ -654,7 +675,9 @@ const translateDepartment = async (input: {
     },
   });
 
-  const parsed = JSON.parse(readMessageText(response.choices[0].message.content));
+  const parsed = JSON.parse(
+    readMessageText(response.choices[0].message.content)
+  );
   return parsed as {
     nameEn: string | null;
     descriptionEn: string | null;
@@ -672,9 +695,11 @@ const translateDepartmentNameOnly = async (name: string) => {
       },
       {
         role: "user",
-        content: `Translate this department name into English.\n\n${JSON.stringify({
-          name,
-        })}`,
+        content: `Translate this department name into English.\n\n${JSON.stringify(
+          {
+            name,
+          }
+        )}`,
       },
     ],
     response_format: {
@@ -694,14 +719,18 @@ const translateDepartmentNameOnly = async (name: string) => {
     },
   });
 
-  const parsed = JSON.parse(readMessageText(response.choices[0].message.content));
+  const parsed = JSON.parse(
+    readMessageText(response.choices[0].message.content)
+  );
   return sanitizeTranslatedText(parsed.nameEn);
 };
 
 const departmentTranslationIsComplete = (
   row: Pick<DepartmentRow, "description">,
   translated: Pick<DepartmentBatchTranslation, "nameEn" | "descriptionEn">
-) => isFilled(translated.nameEn) && (!row.description || isFilled(translated.descriptionEn));
+) =>
+  isFilled(translated.nameEn) &&
+  (!row.description || isFilled(translated.descriptionEn));
 
 type DepartmentBatchInput = {
   id: number;
@@ -737,8 +766,12 @@ const parseDepartmentBatchResponse = (text: string) => {
       continue;
     }
     const item = rawItem as Record<string, unknown>;
-    const sourceHash = typeof item.sourceHash === "string" ? item.sourceHash.trim() : "";
-    const id = typeof item.id === "number" ? item.id : Number.parseInt(String(item.id), 10);
+    const sourceHash =
+      typeof item.sourceHash === "string" ? item.sourceHash.trim() : "";
+    const id =
+      typeof item.id === "number"
+        ? item.id
+        : Number.parseInt(String(item.id), 10);
     if (!sourceHash || !Number.isFinite(id) || id <= 0) {
       invalidEntries += 1;
       continue;
@@ -802,7 +835,9 @@ const translateDepartmentBatch = async (input: DepartmentBatchInput[]) => {
     max_tokens: 2048,
   });
 
-  return parseDepartmentBatchResponse(readMessageText(response.choices[0].message.content));
+  return parseDepartmentBatchResponse(
+    readMessageText(response.choices[0].message.content)
+  );
 };
 
 const translateDoctor = async (
@@ -892,7 +927,9 @@ const translateDoctorFieldText = async (
     max_tokens: 512,
   });
 
-  return sanitizeTranslatedText(readMessageText(response.choices[0].message.content));
+  return sanitizeTranslatedText(
+    readMessageText(response.choices[0].message.content)
+  );
 };
 
 const doctorTranslationIsComplete = (
@@ -913,8 +950,10 @@ const doctorTranslationIsComplete = (
   (!source.sourceTitle || isFilled(translated.titleEn)) &&
   (!source.sourceSpecialty || isFilled(translated.specialtyEn)) &&
   (!source.sourceExpertise || isFilled(translated.expertiseEn)) &&
-  (!source.sourceOnlineConsultation || isFilled(translated.onlineConsultationEn)) &&
-  (!source.sourceAppointmentAvailable || isFilled(translated.appointmentAvailableEn)) &&
+  (!source.sourceOnlineConsultation ||
+    isFilled(translated.onlineConsultationEn)) &&
+  (!source.sourceAppointmentAvailable ||
+    isFilled(translated.appointmentAvailableEn)) &&
   (!source.sourceSatisfactionRate || isFilled(translated.satisfactionRateEn)) &&
   (!source.sourceAttitudeScore || isFilled(translated.attitudeScoreEn));
 
@@ -964,8 +1003,12 @@ const parseDoctorBatchResponse = (text: string) => {
       continue;
     }
     const item = rawItem as Record<string, unknown>;
-    const sourceHash = typeof item.sourceHash === "string" ? item.sourceHash.trim() : "";
-    const id = typeof item.id === "number" ? item.id : Number.parseInt(String(item.id), 10);
+    const sourceHash =
+      typeof item.sourceHash === "string" ? item.sourceHash.trim() : "";
+    const id =
+      typeof item.id === "number"
+        ? item.id
+        : Number.parseInt(String(item.id), 10);
     if (!sourceHash || !Number.isFinite(id) || id <= 0) {
       invalidEntries += 1;
       continue;
@@ -979,7 +1022,9 @@ const parseDoctorBatchResponse = (text: string) => {
       specialtyEn: sanitizeTranslatedText(item.specialtyEn),
       expertiseEn: sanitizeTranslatedText(item.expertiseEn),
       onlineConsultationEn: sanitizeTranslatedText(item.onlineConsultationEn),
-      appointmentAvailableEn: sanitizeTranslatedText(item.appointmentAvailableEn),
+      appointmentAvailableEn: sanitizeTranslatedText(
+        item.appointmentAvailableEn
+      ),
       satisfactionRateEn: sanitizeTranslatedText(item.satisfactionRateEn),
       attitudeScoreEn: sanitizeTranslatedText(item.attitudeScoreEn),
     });
@@ -1052,7 +1097,9 @@ const translateDoctorBatch = async (input: DoctorBatchInput[]) => {
     max_tokens: 4096,
   });
 
-  return parseDoctorBatchResponse(readMessageText(response.choices[0].message.content));
+  return parseDoctorBatchResponse(
+    readMessageText(response.choices[0].message.content)
+  );
 };
 
 const createWorkerPool = async <T>(
@@ -1080,7 +1127,11 @@ const splitToChunks = <T>(items: T[], chunkSize: number): T[][] => {
   return chunks;
 };
 
-const markHospitalFailed = async (db: TranslationDb, id: number, error: unknown) => {
+const markHospitalFailed = async (
+  db: TranslationDb,
+  id: number,
+  error: unknown
+) => {
   await db
     .update(hospitals)
     .set({
@@ -1090,7 +1141,11 @@ const markHospitalFailed = async (db: TranslationDb, id: number, error: unknown)
     .where(eq(hospitals.id, id));
 };
 
-const markDepartmentFailed = async (db: TranslationDb, id: number, error: unknown) => {
+const markDepartmentFailed = async (
+  db: TranslationDb,
+  id: number,
+  error: unknown
+) => {
   await db
     .update(departments)
     .set({
@@ -1100,7 +1155,11 @@ const markDepartmentFailed = async (db: TranslationDb, id: number, error: unknow
     .where(eq(departments.id, id));
 };
 
-const markDoctorFailed = async (db: TranslationDb, id: number, error: unknown) => {
+const markDoctorFailed = async (
+  db: TranslationDb,
+  id: number,
+  error: unknown
+) => {
   await db
     .update(doctors)
     .set({
@@ -1120,7 +1179,10 @@ const applyHospitalTranslation = async (
   const cityEn = pickEnglish(row.cityEn, translated.cityEn);
   const levelEn = pickEnglish(row.levelEn, translated.levelEn);
   const addressEn = pickEnglish(row.addressEn, translated.addressEn);
-  const descriptionEn = pickEnglish(row.descriptionEn, translated.descriptionEn);
+  const descriptionEn = pickEnglish(
+    row.descriptionEn,
+    translated.descriptionEn
+  );
   const isComplete = hospitalTranslationIsComplete(row, {
     nameEn,
     cityEn,
@@ -1158,7 +1220,10 @@ const applyDepartmentTranslation = async (
   stats: EntityRunStats
 ) => {
   const nameEn = pickEnglish(row.nameEn, translated.nameEn);
-  const descriptionEn = pickEnglish(row.descriptionEn, translated.descriptionEn);
+  const descriptionEn = pickEnglish(
+    row.descriptionEn,
+    translated.descriptionEn
+  );
   const isComplete = departmentTranslationIsComplete(row, {
     nameEn,
     descriptionEn,
@@ -1232,7 +1297,11 @@ const DOCTOR_TRANSLATION_FIELDS: Array<{
     inputKey: "specialty",
     translatedKey: "specialtyEn",
   },
-  { sourceKey: "sourceExpertise", inputKey: "expertise", translatedKey: "expertiseEn" },
+  {
+    sourceKey: "sourceExpertise",
+    inputKey: "expertise",
+    translatedKey: "expertiseEn",
+  },
   {
     sourceKey: "sourceOnlineConsultation",
     inputKey: "onlineConsultation",
@@ -1255,7 +1324,9 @@ const DOCTOR_TRANSLATION_FIELDS: Array<{
   },
 ];
 
-const doctorTranslationKeys = DOCTOR_TRANSLATION_FIELDS.map(field => field.translatedKey);
+const doctorTranslationKeys = DOCTOR_TRANSLATION_FIELDS.map(
+  field => field.translatedKey
+);
 
 const emptyDoctorTranslationSnapshot = (): DoctorTranslationSnapshot => ({
   nameEn: null,
@@ -1330,7 +1401,10 @@ const applyDoctorTranslation = async (
     row.satisfactionRateEn,
     translated.satisfactionRateEn
   );
-  const attitudeScoreEn = pickEnglish(row.attitudeScoreEn, translated.attitudeScoreEn);
+  const attitudeScoreEn = pickEnglish(
+    row.attitudeScoreEn,
+    translated.attitudeScoreEn
+  );
   const snapshot = {
     nameEn,
     titleEn,
@@ -1410,11 +1484,13 @@ const completeHospitalTranslation = async (
     nameEn: pickEnglish(current.nameEn, fallback.nameEn),
     cityEn: pickEnglish(
       current.cityEn,
-      fallback.cityEn ?? (row.city ? HOSPITAL_CITY_TRANSLATIONS[row.city] ?? null : null)
+      fallback.cityEn ??
+        (row.city ? (HOSPITAL_CITY_TRANSLATIONS[row.city] ?? null) : null)
     ),
     levelEn: pickEnglish(
       current.levelEn,
-      fallback.levelEn ?? (row.level ? HOSPITAL_LEVEL_TRANSLATIONS[row.level] ?? null : null)
+      fallback.levelEn ??
+        (row.level ? (HOSPITAL_LEVEL_TRANSLATIONS[row.level] ?? null) : null)
     ),
     addressEn: pickEnglish(current.addressEn, fallback.addressEn),
     descriptionEn: pickEnglish(current.descriptionEn, fallback.descriptionEn),
@@ -1489,8 +1565,14 @@ const completeDoctorTranslation = async (
       row.appointmentAvailableEn,
       translated.appointmentAvailableEn
     ),
-    satisfactionRateEn: pickEnglish(row.satisfactionRateEn, translated.satisfactionRateEn),
-    attitudeScoreEn: pickEnglish(row.attitudeScoreEn, translated.attitudeScoreEn),
+    satisfactionRateEn: pickEnglish(
+      row.satisfactionRateEn,
+      translated.satisfactionRateEn
+    ),
+    attitudeScoreEn: pickEnglish(
+      row.attitudeScoreEn,
+      translated.attitudeScoreEn
+    ),
   };
 
   const missingFields = getMissingDoctorFields(source, current);
@@ -1540,7 +1622,9 @@ const completeDoctorTranslation = async (
 
   const remainingFields = getMissingDoctorFields(source, merged);
   if (remainingFields.length > 0) {
-    throw new Error(`Incomplete doctor translation after field retries: ${remainingFields.join(", ")}`);
+    throw new Error(
+      `Incomplete doctor translation after field retries: ${remainingFields.join(", ")}`
+    );
   }
 
   return merged;
@@ -1617,7 +1701,8 @@ const translateHospitals = async (
           description: row.description,
         });
 
-        const isDone = row.translationStatus === "done" && row.sourceHash === sourceHash;
+        const isDone =
+          row.translationStatus === "done" && row.sourceHash === sourceHash;
         if (isDone) {
           stats.skippedUpToDate += 1;
           continue;
@@ -1711,7 +1796,12 @@ const translateHospitals = async (
                   descriptionEn: sanitizeTranslatedText(fallback.descriptionEn),
                 };
                 cache.set(sourceHash, fallbackTranslated);
-                await applyHospitalTranslation(db, row, fallbackTranslated, stats);
+                await applyHospitalTranslation(
+                  db,
+                  row,
+                  fallbackTranslated,
+                  stats
+                );
               } catch (fallbackError) {
                 recordFailure(stats, fallbackError);
                 await markHospitalFailed(db, row.id, fallbackError);
@@ -1726,8 +1816,14 @@ const translateHospitals = async (
           const currentMissingFields = missingTranslatedFields([
             { source: completionCandidate.name, translated: translated.nameEn },
             { source: completionCandidate.city, translated: translated.cityEn },
-            { source: completionCandidate.level, translated: translated.levelEn },
-            { source: completionCandidate.address, translated: translated.addressEn },
+            {
+              source: completionCandidate.level,
+              translated: translated.levelEn,
+            },
+            {
+              source: completionCandidate.address,
+              translated: translated.addressEn,
+            },
             {
               source: completionCandidate.description,
               translated: translated.descriptionEn,
@@ -1786,7 +1882,12 @@ const translateHospitals = async (
                 descriptionEn: sanitizeTranslatedText(fallback.descriptionEn),
               };
               cache.set(sourceHash, fallbackTranslated);
-              await applyHospitalTranslation(db, row, fallbackTranslated, stats);
+              await applyHospitalTranslation(
+                db,
+                row,
+                fallbackTranslated,
+                stats
+              );
             } catch (fallbackError) {
               recordFailure(stats, fallbackError);
               await markHospitalFailed(db, row.id, fallbackError);
@@ -1850,7 +1951,8 @@ const translateDepartments = async (
           description: row.description,
         });
 
-        const isDone = row.translationStatus === "done" && row.sourceHash === sourceHash;
+        const isDone =
+          row.translationStatus === "done" && row.sourceHash === sourceHash;
         if (isDone) {
           stats.skippedUpToDate += 1;
           continue;
@@ -1935,7 +2037,12 @@ const translateDepartments = async (
                   descriptionEn: sanitizeTranslatedText(fallback.descriptionEn),
                 };
                 cache.set(sourceHash, fallbackTranslated);
-                await applyDepartmentTranslation(db, row, fallbackTranslated, stats);
+                await applyDepartmentTranslation(
+                  db,
+                  row,
+                  fallbackTranslated,
+                  stats
+                );
               } catch (fallbackError) {
                 recordFailure(stats, fallbackError);
                 await markDepartmentFailed(db, row.id, fallbackError);
@@ -2001,7 +2108,12 @@ const translateDepartments = async (
                 descriptionEn: sanitizeTranslatedText(fallback.descriptionEn),
               };
               cache.set(sourceHash, fallbackTranslated);
-              await applyDepartmentTranslation(db, row, fallbackTranslated, stats);
+              await applyDepartmentTranslation(
+                db,
+                row,
+                fallbackTranslated,
+                stats
+              );
             } catch (fallbackError) {
               recordFailure(stats, fallbackError);
               await markDepartmentFailed(db, row.id, fallbackError);
@@ -2030,12 +2142,7 @@ const translateDoctors = async (
     const rows = await db
       .select()
       .from(doctors)
-      .where(
-        and(
-          gt(doctors.id, cursor),
-          doctorNeedsTranslationCondition
-        )
-      )
+      .where(and(gt(doctors.id, cursor), doctorNeedsTranslationCondition))
       .orderBy(asc(doctors.id))
       .limit(config.batchSize);
 
@@ -2062,9 +2169,15 @@ const translateDoctors = async (
         const sourceTitle = normalizeSourceText(row.title);
         const sourceSpecialty = normalizeSourceText(row.specialty);
         const sourceExpertise = normalizeSourceText(row.expertise);
-        const sourceOnlineConsultation = normalizeSourceText(row.onlineConsultation);
-        const sourceAppointmentAvailable = normalizeSourceText(row.appointmentAvailable);
-        const sourceSatisfactionRate = normalizeSourceText(row.satisfactionRate);
+        const sourceOnlineConsultation = normalizeSourceText(
+          row.onlineConsultation
+        );
+        const sourceAppointmentAvailable = normalizeSourceText(
+          row.appointmentAvailable
+        );
+        const sourceSatisfactionRate = normalizeSourceText(
+          row.satisfactionRate
+        );
         const sourceAttitudeScore = normalizeSourceText(row.attitudeScore);
 
         const sourceHash = computeSourceHash({
@@ -2078,7 +2191,8 @@ const translateDoctors = async (
           attitudeScore: sourceAttitudeScore,
         });
 
-        const isDone = row.translationStatus === "done" && row.sourceHash === sourceHash;
+        const isDone =
+          row.translationStatus === "done" && row.sourceHash === sourceHash;
         if (isDone) {
           stats.skippedUpToDate += 1;
           continue;
@@ -2100,16 +2214,22 @@ const translateDoctors = async (
 
         const cached = config.cacheEnabled ? cache.get(sourceHash) : undefined;
         if (cached) {
-          await applyDoctorTranslation(db, row, cached, {
-            sourceName: sourceName || row.name,
-            sourceTitle,
-            sourceSpecialty,
-            sourceExpertise,
-            sourceOnlineConsultation,
-            sourceAppointmentAvailable,
-            sourceSatisfactionRate,
-            sourceAttitudeScore,
-          }, stats);
+          await applyDoctorTranslation(
+            db,
+            row,
+            cached,
+            {
+              sourceName: sourceName || row.name,
+              sourceTitle,
+              sourceSpecialty,
+              sourceExpertise,
+              sourceOnlineConsultation,
+              sourceAppointmentAvailable,
+              sourceSatisfactionRate,
+              sourceAttitudeScore,
+            },
+            stats
+          );
           stats.batchedApplied += 1;
           stats.cacheHits += 1;
           continue;
@@ -2196,7 +2316,13 @@ const translateDoctors = async (
                   ...fallback,
                 };
                 cache.set(sourceHash, fallbackTranslated);
-                await applyDoctorTranslation(db, row, fallbackTranslated, source, stats);
+                await applyDoctorTranslation(
+                  db,
+                  row,
+                  fallbackTranslated,
+                  source,
+                  stats
+                );
               } catch (fallbackError) {
                 const enrichedError = new Error(
                   `[doctors:missing-batch-row] ${getErrorMessage(fallbackError)}`
@@ -2214,10 +2340,19 @@ const translateDoctors = async (
           let finalTranslated: DoctorBatchTranslation = translated;
           const completionCandidate = group[0];
           const currentMissingFields = missingTranslatedFields([
-            { source: source.sourceName ?? completionCandidate.name, translated: translated.nameEn },
+            {
+              source: source.sourceName ?? completionCandidate.name,
+              translated: translated.nameEn,
+            },
             { source: source.sourceTitle, translated: translated.titleEn },
-            { source: source.sourceSpecialty, translated: translated.specialtyEn },
-            { source: source.sourceExpertise, translated: translated.expertiseEn },
+            {
+              source: source.sourceSpecialty,
+              translated: translated.specialtyEn,
+            },
+            {
+              source: source.sourceExpertise,
+              translated: translated.expertiseEn,
+            },
             {
               source: source.sourceOnlineConsultation,
               translated: translated.onlineConsultationEn,
@@ -2251,7 +2386,13 @@ const translateDoctors = async (
 
           cache.set(sourceHash, finalTranslated);
           for (const row of group) {
-            await applyDoctorTranslation(db, row, finalTranslated, source, stats);
+            await applyDoctorTranslation(
+              db,
+              row,
+              finalTranslated,
+              source,
+              stats
+            );
             stats.batchedApplied += 1;
           }
         }
@@ -2291,7 +2432,13 @@ const translateDoctors = async (
                 ...fallback,
               };
               cache.set(sourceHash, fallbackTranslated);
-              await applyDoctorTranslation(db, row, fallbackTranslated, source, stats);
+              await applyDoctorTranslation(
+                db,
+                row,
+                fallbackTranslated,
+                source,
+                stats
+              );
             } catch (fallbackError) {
               const enrichedError = new Error(
                 `[doctors:batch-fallback] ${getErrorMessage(fallbackError)}`
@@ -2322,7 +2469,9 @@ const run = async () => {
 
   try {
     if (translationModelOverride) {
-      console.log(`[Config] Translation model override: ${translationModelOverride}`);
+      console.log(
+        `[Config] Translation model override: ${translationModelOverride}`
+      );
     }
     await reconcileInconsistentDoneRows(pool, config.entities);
 
@@ -2338,8 +2487,14 @@ const run = async () => {
 
     printRunSummary(runStats);
 
-    const failedTotal = runStats.reduce((total, stats) => total + stats.failed, 0);
-    const pendingTotal = runStats.reduce((total, stats) => total + stats.pending, 0);
+    const failedTotal = runStats.reduce(
+      (total, stats) => total + stats.failed,
+      0
+    );
+    const pendingTotal = runStats.reduce(
+      (total, stats) => total + stats.pending,
+      0
+    );
     if (failedTotal > 0) {
       console.error(
         `\n❌ Translation finished with ${failedTotal} failed records. Check summary above for failure reasons.`
@@ -2350,7 +2505,9 @@ const run = async () => {
         `\n⚠️ Translation finished with ${pendingTotal} pending records (incomplete English fields). Placeholder text may still appear until these records are completed.`
       );
     } else {
-      console.log("\n✅ Translation finished with all processed records complete.");
+      console.log(
+        "\n✅ Translation finished with all processed records complete."
+      );
     }
   } finally {
     await pool.end();

@@ -30,7 +30,10 @@ const mapRowToHit = (row: {
   score: row.score,
 });
 
-export async function keywordSearch(terms: string[], limit = MAX_KEYWORD_CANDIDATES) {
+export async function keywordSearch(
+  terms: string[],
+  limit = MAX_KEYWORD_CANDIDATES
+) {
   const db = await getDb();
   if (!db || terms.length === 0) {
     return [] as KnowledgeHit[];
@@ -53,21 +56,26 @@ export async function keywordSearch(terms: string[], limit = MAX_KEYWORD_CANDIDA
       sql`${triageKnowledgeChunks.documentId} = ${triageKnowledgeDocuments.id}`
     )
     .where(
-      and(
-        eqActive(),
-        conditions.length > 0 ? or(...conditions) : undefined
-      )
+      and(eqActive(), conditions.length > 0 ? or(...conditions) : undefined)
     )
-    .orderBy(asc(triageKnowledgeChunks.chunkIndex), desc(triageKnowledgeChunks.id))
+    .orderBy(
+      asc(triageKnowledgeChunks.chunkIndex),
+      desc(triageKnowledgeChunks.id)
+    )
     .limit(limit);
 
   return rows.map(mapRowToHit);
 }
 
 const vectorLiteral = (vector: number[]) =>
-  sql.raw(`'[${vector.map(value => Number(value).toFixed(8)).join(",")}]'::vector`);
+  sql.raw(
+    `'[${vector.map(value => Number(value).toFixed(8)).join(",")}]'::vector`
+  );
 
-export async function semanticSearch(queryEmbedding: number[], limit = MAX_KEYWORD_CANDIDATES) {
+export async function semanticSearch(
+  queryEmbedding: number[],
+  limit = MAX_KEYWORD_CANDIDATES
+) {
   const db = await getDb();
   if (!db || queryEmbedding.length === 0) {
     return [] as KnowledgeHit[];
@@ -86,10 +94,7 @@ export async function semanticSearch(queryEmbedding: number[], limit = MAX_KEYWO
       sql`${triageKnowledgeChunks.documentId} = ${triageKnowledgeDocuments.id}`
     )
     .where(
-      and(
-        eqActive(),
-        sql`${triageKnowledgeChunks.embeddingVector} is not null`
-      )
+      and(eqActive(), sql`${triageKnowledgeChunks.embeddingVector} is not null`)
     )
     .orderBy(desc(similarity))
     .limit(limit);

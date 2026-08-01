@@ -40,7 +40,10 @@ function hasConsultationStarted(scheduledAt: Date | null, now: Date) {
   return now.getTime() >= scheduledAt.getTime();
 }
 
-function getDevAppointmentAccessLink(appointmentId: number, token: string): string {
+function getDevAppointmentAccessLink(
+  appointmentId: number,
+  token: string
+): string {
   return `http://localhost:3000/visit/${appointmentId}?t=${encodeURIComponent(token)}`;
 }
 
@@ -252,7 +255,9 @@ export async function resendPatientAccessLink(input: {
   await sendMagicLinkEmail(appointment.email, link);
   if (process.env.NODE_ENV === "development") {
     console.log("DEV ACCESS LINK:");
-    console.log(getDevAppointmentAccessLink(appointment.id, issued.patient.token));
+    console.log(
+      getDevAppointmentAccessLink(appointment.id, issued.patient.token)
+    );
   }
 
   return {

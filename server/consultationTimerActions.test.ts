@@ -29,8 +29,12 @@ describe("consultation timer actions", () => {
         notes: JSON.stringify({ packageDurationMinutes: 30 }),
       },
     } as never);
-    vi.mocked(appointmentsRepo.updateAppointmentNotesIfMatch).mockResolvedValue(1 as never);
-    vi.mocked(appointmentsRepo.insertStatusEvent).mockResolvedValue(undefined as never);
+    vi.mocked(appointmentsRepo.updateAppointmentNotesIfMatch).mockResolvedValue(
+      1 as never
+    );
+    vi.mocked(appointmentsRepo.insertStatusEvent).mockResolvedValue(
+      undefined as never
+    );
 
     const result = await extendConsultationByDoctorTokenFlow({
       appointmentId: 99,
@@ -44,7 +48,9 @@ describe("consultation timer actions", () => {
       extensionMinutes: 5,
       totalDurationMinutes: 35,
     });
-    expect(appointmentsRepo.updateAppointmentNotesIfMatch).toHaveBeenCalledTimes(1);
+    expect(
+      appointmentsRepo.updateAppointmentNotesIfMatch
+    ).toHaveBeenCalledTimes(1);
     expect(appointmentsRepo.insertStatusEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         appointmentId: 99,

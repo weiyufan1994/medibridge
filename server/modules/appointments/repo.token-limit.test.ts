@@ -29,9 +29,13 @@ function buildFakeDb() {
           orderBy: vi.fn(async () => {
             // Second select: active rows ordered desc by createdAt/id.
             const active = tokenRows
-              .filter(row => row.revokedAt === null && row.expiresAt.getTime() > Date.now())
+              .filter(
+                row =>
+                  row.revokedAt === null && row.expiresAt.getTime() > Date.now()
+              )
               .sort((a, b) => {
-                const byCreatedAt = b.createdAt.getTime() - a.createdAt.getTime();
+                const byCreatedAt =
+                  b.createdAt.getTime() - a.createdAt.getTime();
                 if (byCreatedAt !== 0) {
                   return byCreatedAt;
                 }
@@ -46,26 +50,28 @@ function buildFakeDb() {
       })),
     })),
     insert: vi.fn(() => ({
-      values: vi.fn(async (values: {
-        appointmentId: number;
-        role: "patient" | "doctor";
-        tokenHash: string;
-        expiresAt: Date;
-        revokedAt: Date | null;
-      }) => {
-        const now = new Date(1_700_000_000_000 + clock * 1000);
-        clock += 1;
-        tokenRows.push({
-          id: tokenIdSeq++,
-          appointmentId: values.appointmentId,
-          role: values.role,
-          tokenHash: values.tokenHash,
-          expiresAt: values.expiresAt,
-          revokedAt: values.revokedAt,
-          createdAt: now,
-          updatedAt: now,
-        });
-      }),
+      values: vi.fn(
+        async (values: {
+          appointmentId: number;
+          role: "patient" | "doctor";
+          tokenHash: string;
+          expiresAt: Date;
+          revokedAt: Date | null;
+        }) => {
+          const now = new Date(1_700_000_000_000 + clock * 1000);
+          clock += 1;
+          tokenRows.push({
+            id: tokenIdSeq++,
+            appointmentId: values.appointmentId,
+            role: values.role,
+            tokenHash: values.tokenHash,
+            expiresAt: values.expiresAt,
+            revokedAt: values.revokedAt,
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
+      ),
     })),
     update: vi.fn(() => ({
       set: vi.fn((setValues: { revokedAt: Date; updatedAt: Date }) => ({
@@ -113,10 +119,16 @@ describe("appointment token limit", () => {
     }
 
     const active = tokenRows.filter(
-      row => row.appointmentId === 101 && row.role === "patient" && row.revokedAt === null
+      row =>
+        row.appointmentId === 101 &&
+        row.role === "patient" &&
+        row.revokedAt === null
     );
     const revoked = tokenRows.filter(
-      row => row.appointmentId === 101 && row.role === "patient" && row.revokedAt !== null
+      row =>
+        row.appointmentId === 101 &&
+        row.role === "patient" &&
+        row.revokedAt !== null
     );
 
     expect(active).toHaveLength(5);

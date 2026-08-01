@@ -25,5 +25,8 @@ export function canJoinRoom(context: ChatPolicyContext): boolean {
 }
 
 export function canSendMessage(context: ChatPolicyContext): boolean {
-  return canJoinRoom(context) && (context.status === "paid" || context.status === "active");
+  return (
+    canJoinRoom(context) &&
+    (context.status === "paid" || context.status === "active")
+  );
 }

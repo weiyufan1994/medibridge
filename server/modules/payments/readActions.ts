@@ -1,6 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import * as appointmentsRepo from "../appointments/repo";
-import { type AppointmentStatus, type PaymentStatus } from "../appointments/stateMachine";
+import {
+  type AppointmentStatus,
+  type PaymentStatus,
+} from "../appointments/stateMachine";
 
 const RESEND_ALLOWED_STATUS: AppointmentStatus[] = ["paid", "active"];
 
@@ -93,7 +96,9 @@ export async function getPaymentStatusByAppointmentForUser(input: {
   userId: number;
   userEmail?: string | null;
 }) {
-  const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
+  const appointment = await appointmentsRepo.getAppointmentById(
+    input.appointmentId
+  );
   if (!appointment) {
     throw new TRPCError({
       code: "NOT_FOUND",
@@ -104,7 +109,8 @@ export async function getPaymentStatusByAppointmentForUser(input: {
   const normalizedEmail = input.userEmail?.toLowerCase().trim();
   const isOwner =
     appointment.userId === input.userId ||
-    (Boolean(normalizedEmail) && appointment.email.toLowerCase() === normalizedEmail);
+    (Boolean(normalizedEmail) &&
+      appointment.email.toLowerCase() === normalizedEmail);
 
   if (!isOwner) {
     throw new TRPCError({

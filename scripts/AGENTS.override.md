@@ -1,4 +1,5 @@
 ## Scripts rules
+
 - Assume scripts here may mutate real or production-like data.
 - Default to audit-only thinking first.
 - Do not run import, translate, repair, cleanup, admin, vectorize, or backfill scripts without explicit approval.

@@ -17,8 +17,8 @@ type JournalFile = {
 function listMigrationTags() {
   return fs
     .readdirSync(path.resolve("drizzle"))
-    .filter((name) => name.endsWith(".sql"))
-    .map((name) => path.basename(name, ".sql"))
+    .filter(name => name.endsWith(".sql"))
+    .map(name => path.basename(name, ".sql"))
     .sort();
 }
 
@@ -29,15 +29,16 @@ function main() {
   const entries = journal.entries ?? [];
 
   const migrationTags = listMigrationTags();
-  const existingTags = new Set(entries.map((entry) => entry.tag));
-  const missingTags = migrationTags.filter((tag) => !existingTags.has(tag));
+  const existingTags = new Set(entries.map(entry => entry.tag));
+  const missingTags = migrationTags.filter(tag => !existingTags.has(tag));
 
   if (missingTags.length === 0) {
     console.log("[journal-sync] already in sync, no action needed.");
     return;
   }
 
-  const version = entries.length > 0 ? entries[entries.length - 1]?.version ?? "5" : "5";
+  const version =
+    entries.length > 0 ? (entries[entries.length - 1]?.version ?? "5") : "5";
   let now = Date.now();
 
   for (const tag of missingTags) {
@@ -59,7 +60,9 @@ function main() {
     journalPath,
     `${JSON.stringify({ ...journal, entries: sortedEntries }, null, 2)}\n`
   );
-  console.log(`[journal-sync] appended missing tags: ${missingTags.join(", ")}`);
+  console.log(
+    `[journal-sync] appended missing tags: ${missingTags.join(", ")}`
+  );
 }
 
 main();

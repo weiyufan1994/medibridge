@@ -21,7 +21,10 @@ async function resolveDbExecutor(dbExecutor?: DbExecutor) {
   return db;
 }
 
-export async function getActiveBindingByUserId(userId: number, dbExecutor?: DbExecutor) {
+export async function getActiveBindingByUserId(
+  userId: number,
+  dbExecutor?: DbExecutor
+) {
   const db = await resolveDbExecutor(dbExecutor);
   const rows = await db
     .select()
@@ -37,7 +40,10 @@ export async function getActiveBindingByUserId(userId: number, dbExecutor?: DbEx
   return rows[0] ?? null;
 }
 
-export async function getActiveBindingByDoctorId(doctorId: number, dbExecutor?: DbExecutor) {
+export async function getActiveBindingByDoctorId(
+  doctorId: number,
+  dbExecutor?: DbExecutor
+) {
   const db = await resolveDbExecutor(dbExecutor);
   const rows = await db
     .select()
@@ -53,13 +59,19 @@ export async function getActiveBindingByDoctorId(doctorId: number, dbExecutor?: 
   return rows[0] ?? null;
 }
 
-export async function getLatestInviteByDoctorId(doctorId: number, dbExecutor?: DbExecutor) {
+export async function getLatestInviteByDoctorId(
+  doctorId: number,
+  dbExecutor?: DbExecutor
+) {
   const db = await resolveDbExecutor(dbExecutor);
   const rows = await db
     .select()
     .from(doctorAccountInvites)
     .where(eq(doctorAccountInvites.doctorId, doctorId))
-    .orderBy(desc(doctorAccountInvites.createdAt), desc(doctorAccountInvites.id))
+    .orderBy(
+      desc(doctorAccountInvites.createdAt),
+      desc(doctorAccountInvites.id)
+    )
     .limit(1);
 
   return rows[0] ?? null;
@@ -75,7 +87,10 @@ export async function getInviteById(inviteId: number, dbExecutor?: DbExecutor) {
   return rows[0] ?? null;
 }
 
-export async function getInviteByTokenHash(tokenHash: string, dbExecutor?: DbExecutor) {
+export async function getInviteByTokenHash(
+  tokenHash: string,
+  dbExecutor?: DbExecutor
+) {
   const db = await resolveDbExecutor(dbExecutor);
   const rows = await db
     .select()
@@ -102,7 +117,10 @@ export async function getLatestOpenInviteByDoctorAndEmail(
         gt(doctorAccountInvites.expiresAt, now)
       )
     )
-    .orderBy(desc(doctorAccountInvites.createdAt), desc(doctorAccountInvites.id))
+    .orderBy(
+      desc(doctorAccountInvites.createdAt),
+      desc(doctorAccountInvites.id)
+    )
     .limit(1);
   return rows[0] ?? null;
 }
@@ -137,10 +155,7 @@ export async function expireInviteIfNeeded(
   invite: DoctorAccountInvite,
   dbExecutor?: DbExecutor
 ) {
-  if (
-    invite.status !== "pending" &&
-    invite.status !== "sent"
-  ) {
+  if (invite.status !== "pending" && invite.status !== "sent") {
     return invite;
   }
   if (invite.expiresAt.getTime() > Date.now()) {
@@ -149,7 +164,10 @@ export async function expireInviteIfNeeded(
   return updateInviteById(invite.id, { status: "expired" }, dbExecutor);
 }
 
-export async function cancelInviteById(inviteId: number, dbExecutor?: DbExecutor) {
+export async function cancelInviteById(
+  inviteId: number,
+  dbExecutor?: DbExecutor
+) {
   const db = await resolveDbExecutor(dbExecutor);
   const result = await db
     .update(doctorAccountInvites)
@@ -278,7 +296,9 @@ export async function getDoctorAccountStatusByDoctorId(
 
   return {
     activeBinding,
-    latestInvite: latestInvite ? await expireInviteIfNeeded(latestInvite, dbExecutor) : null,
+    latestInvite: latestInvite
+      ? await expireInviteIfNeeded(latestInvite, dbExecutor)
+      : null,
   };
 }
 

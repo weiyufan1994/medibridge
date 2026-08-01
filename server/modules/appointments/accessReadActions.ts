@@ -30,10 +30,17 @@ export async function getAppointmentAccessByToken<
     input.req
   );
 
-  const triageSession = await aiRepo.getAiChatSessionById(appointment.triageSessionId);
-  const medicalSummary = await appointmentsRepo.getMedicalSummaryByAppointmentId(appointment.id);
-  const canReadMedicalSummary = role === "doctor" || Boolean(medicalSummary?.signedBy);
-  const parsedIntake = parseIntakeFromNotes(appointment.notes, input.parseIntake);
+  const triageSession = await aiRepo.getAiChatSessionById(
+    appointment.triageSessionId
+  );
+  const medicalSummary =
+    await appointmentsRepo.getMedicalSummaryByAppointmentId(appointment.id);
+  const canReadMedicalSummary =
+    role === "doctor" || Boolean(medicalSummary?.signedBy);
+  const parsedIntake = parseIntakeFromNotes(
+    appointment.notes,
+    input.parseIntake
+  );
   const localizedTriage = await localizeTriageContent({
     summary: triageSession?.summary ?? null,
     intake: parsedIntake,
@@ -72,17 +79,16 @@ export async function getAppointmentAccessByToken<
     },
     triageSummary: localizedTriage.summary,
     intake: localizedTriage.intake,
-    medicalSummary: canReadMedicalSummary &&
-      medicalSummary &&
-      localizedMedicalSummarySections
-      ? {
-          ...localizedMedicalSummarySections,
-          source: medicalSummary.source,
-          signedBy: medicalSummary.signedBy ?? null,
-          createdAt: medicalSummary.createdAt,
-          updatedAt: medicalSummary.updatedAt,
-        }
-      : null,
+    medicalSummary:
+      canReadMedicalSummary && medicalSummary && localizedMedicalSummarySections
+        ? {
+            ...localizedMedicalSummarySections,
+            source: medicalSummary.source,
+            signedBy: medicalSummary.signedBy ?? null,
+            createdAt: medicalSummary.createdAt,
+            updatedAt: medicalSummary.updatedAt,
+          }
+        : null,
     consultationDurationMinutes: timer.baseDurationMinutes,
     consultationExtensionMinutes: timer.extensionMinutes,
     consultationTotalMinutes: timer.totalDurationMinutes,

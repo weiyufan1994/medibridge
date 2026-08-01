@@ -9,10 +9,7 @@ type EmailContent = {
   html: string;
 };
 
-const PATIENT_EVENT_DETAIL: Record<
-  string,
-  { zh: string; en: string }
-> = {
+const PATIENT_EVENT_DETAIL: Record<string, { zh: string; en: string }> = {
   payment_success: {
     zh: "已收到服务费，订单已进入平台待接单队列。",
     en: "Payment was received and your order is now waiting for a platform coordinator.",
@@ -61,15 +58,16 @@ function buildPatientEmail(input: {
   const orderHref = getOrderHref(input.orderId);
   const isChinese = input.language === "zh";
   const detail =
-    PATIENT_EVENT_DETAIL[input.event]?.[input.language] ??
-    input.detail.trim();
+    PATIENT_EVENT_DETAIL[input.event]?.[input.language] ?? input.detail.trim();
   const subject = isChinese
     ? `MediBridge 转诊订单 #${input.orderId} 更新`
     : `MediBridge referral order #${input.orderId} update`;
   const intro = isChinese
     ? `您的转诊订单 #${input.orderId} 有新的进展。`
     : `Your referral order #${input.orderId} has a new update.`;
-  const linkText = isChinese ? "登录查看订单详情" : "Sign in to view order details";
+  const linkText = isChinese
+    ? "登录查看订单详情"
+    : "Sign in to view order details";
   const text = [intro, detail, orderHref ? `${linkText}: ${orderHref}` : null]
     .filter((value): value is string => Boolean(value))
     .join("\n\n");
@@ -91,10 +89,7 @@ function buildOpsEmail(input: {
 }): EmailContent {
   const orderHref = getOrderHref(input.orderId);
   const subject = `${input.title} #${input.orderId}`;
-  const text = [
-    input.detail,
-    orderHref ? `Open order: ${orderHref}` : null,
-  ]
+  const text = [input.detail, orderHref ? `Open order: ${orderHref}` : null]
     .filter((value): value is string => Boolean(value))
     .join("\n\n");
   const html = [
@@ -242,8 +237,7 @@ export async function notifyPatientReferralUpdate(input: {
 
   const language: ReferralLanguage =
     bundle.order.agreementLang === "en" ? "en" : "zh";
-  const emailDetail =
-    input.detailByLanguage?.[language] ?? input.detail;
+  const emailDetail = input.detailByLanguage?.[language] ?? input.detail;
   const email = buildPatientEmail({
     orderId: input.orderId,
     event: input.event,

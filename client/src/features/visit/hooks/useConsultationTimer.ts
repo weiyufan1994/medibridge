@@ -51,7 +51,10 @@ export function computeConsultationTimerState(
   const totalDurationSeconds = baseDurationSeconds + extensionSeconds;
 
   const elapsedSeconds = scheduledAt
-    ? Math.max(0, Math.floor((input.now.getTime() - scheduledAt.getTime()) / 1000))
+    ? Math.max(
+        0,
+        Math.floor((input.now.getTime() - scheduledAt.getTime()) / 1000)
+      )
     : 0;
   const rawRemainingSeconds = totalDurationSeconds - elapsedSeconds;
   const remainingSeconds = Math.max(0, rawRemainingSeconds);
@@ -82,7 +85,10 @@ export function useConsultationTimer(
 ): ConsultationTimerSnapshot {
   const state = useMemo(() => computeConsultationTimerState(input), [input]);
   const previousStatusRef = useRef<ConsultationTimerStatus>(state.status);
-  const didJustExpire = didTransitionToExpired(previousStatusRef.current, state.status);
+  const didJustExpire = didTransitionToExpired(
+    previousStatusRef.current,
+    state.status
+  );
 
   useEffect(() => {
     previousStatusRef.current = state.status;

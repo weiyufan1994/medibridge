@@ -24,7 +24,10 @@ vi.mock("./modules/payments/settlement", () => ({
 
 import { getDb } from "./db";
 import * as appointmentsRepo from "./modules/appointments/repo";
-import { parsePaypalWebhookEvent, verifyPaypalWebhookSignature } from "./modules/payments/providers/paypalAdapter";
+import {
+  parsePaypalWebhookEvent,
+  verifyPaypalWebhookSignature,
+} from "./modules/payments/providers/paypalAdapter";
 import { clearMetricsForTests, getMetricsSnapshot } from "./_core/metrics";
 import { settleStripePaymentBySessionId } from "./modules/payments/settlement";
 import { handlePaypalWebhook } from "./paypalWebhookRoute";
@@ -68,7 +71,9 @@ describe("paypalWebhookRoute", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearMetricsForTests();
-    vi.mocked(verifyPaypalWebhookSignature).mockResolvedValue(undefined as never);
+    vi.mocked(verifyPaypalWebhookSignature).mockResolvedValue(
+      undefined as never
+    );
     vi.mocked(getDb).mockResolvedValue({
       transaction: async (fn: (tx: object) => Promise<void>) => {
         await fn({});
@@ -84,7 +89,9 @@ describe("paypalWebhookRoute", () => {
         id: "pp_order_1",
       },
     } as never);
-    vi.mocked(appointmentsRepo.insertStripeWebhookEvent).mockResolvedValue(undefined as never);
+    vi.mocked(appointmentsRepo.insertStripeWebhookEvent).mockResolvedValue(
+      undefined as never
+    );
     vi.mocked(settleStripePaymentBySessionId).mockResolvedValue({
       alreadySettled: false,
       appointment: {
@@ -106,7 +113,9 @@ describe("paypalWebhookRoute", () => {
         eventId: "evt_pp_complete_1",
       })
     );
-    expect(appointmentsRepo.tryTransitionAppointmentByStripeSessionId).not.toHaveBeenCalled();
+    expect(
+      appointmentsRepo.tryTransitionAppointmentByStripeSessionId
+    ).not.toHaveBeenCalled();
     expect(resPayload.status).toBe(200);
     expect(resPayload.body).toMatchObject({ ok: true });
     expect(getMetricsSnapshot()).toEqual(

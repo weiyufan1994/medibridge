@@ -39,7 +39,10 @@ import * as appointmentsRepo from "./modules/appointments/repo";
 import * as schedulingRepo from "./modules/scheduling/repo";
 import { sendMagicLinkEmail } from "./_core/mailer";
 import { issueAppointmentAccessLinks } from "./modules/appointments/tokenService";
-import { paymentsRouter, settleStripePaymentBySessionId } from "./routers/payments";
+import {
+  paymentsRouter,
+  settleStripePaymentBySessionId,
+} from "./routers/payments";
 import {
   clearTokenValidationStateForTests,
   validateAppointmentAccessToken,
@@ -71,7 +74,9 @@ describe("payments router", () => {
   });
 
   it("getCheckoutResult returns checkout summary by stripe session id without token", async () => {
-    vi.mocked(appointmentsRepo.getCheckoutResultByStripeSessionId).mockResolvedValue({
+    vi.mocked(
+      appointmentsRepo.getCheckoutResultByStripeSessionId
+    ).mockResolvedValue({
       id: 321,
       paymentStatus: "paid",
       status: "paid",
@@ -85,9 +90,9 @@ describe("payments router", () => {
       stripeSessionId: "cs_test_12345678",
     });
 
-    expect(appointmentsRepo.getCheckoutResultByStripeSessionId).toHaveBeenCalledWith(
-      "cs_test_12345678"
-    );
+    expect(
+      appointmentsRepo.getCheckoutResultByStripeSessionId
+    ).toHaveBeenCalledWith("cs_test_12345678");
     expect(result).toMatchObject({
       appointmentId: 321,
       paymentStatus: "paid",
@@ -99,9 +104,9 @@ describe("payments router", () => {
   });
 
   it("getCheckoutResult throws NOT_FOUND when stripe session does not exist", async () => {
-    vi.mocked(appointmentsRepo.getCheckoutResultByStripeSessionId).mockResolvedValue(
-      null as never
-    );
+    vi.mocked(
+      appointmentsRepo.getCheckoutResultByStripeSessionId
+    ).mockResolvedValue(null as never);
 
     const caller = paymentsRouter.createCaller(createTestContext());
     await expect(
@@ -116,7 +121,9 @@ describe("payments router", () => {
     vi.mocked(appointmentsRepo.tryMarkPaidByStripeSessionId)
       .mockResolvedValueOnce(1 as never)
       .mockResolvedValue(0 as never);
-    vi.mocked(appointmentsRepo.getAppointmentByStripeSessionId).mockResolvedValue({
+    vi.mocked(
+      appointmentsRepo.getAppointmentByStripeSessionId
+    ).mockResolvedValue({
       id: 9527,
       status: "paid",
       paymentStatus: "paid",
@@ -154,7 +161,9 @@ describe("payments router", () => {
     expect(repeated.every(entry => entry.patientLink === null)).toBe(true);
     expect(repeated.every(entry => entry.doctorLink === null)).toBe(true);
 
-    expect(appointmentsRepo.tryMarkPaidByStripeSessionId).toHaveBeenCalledTimes(6);
+    expect(appointmentsRepo.tryMarkPaidByStripeSessionId).toHaveBeenCalledTimes(
+      6
+    );
     expect(issueAppointmentAccessLinks).toHaveBeenCalledTimes(1);
     expect(issueAppointmentAccessLinks).toHaveBeenCalledWith({
       appointmentId: 9527,
@@ -164,8 +173,12 @@ describe("payments router", () => {
   });
 
   it("E2E path: payment -> webhook settlement -> issue links -> join room", async () => {
-    vi.mocked(appointmentsRepo.tryMarkPaidByStripeSessionId).mockResolvedValue(1 as never);
-    vi.mocked(appointmentsRepo.getAppointmentByStripeSessionId).mockResolvedValue({
+    vi.mocked(appointmentsRepo.tryMarkPaidByStripeSessionId).mockResolvedValue(
+      1 as never
+    );
+    vi.mocked(
+      appointmentsRepo.getAppointmentByStripeSessionId
+    ).mockResolvedValue({
       id: 7001,
       status: "paid",
       paymentStatus: "paid",
@@ -231,8 +244,12 @@ describe("payments router", () => {
       createdAt: new Date("2026-03-03T09:00:00.000Z"),
       updatedAt: new Date("2026-03-03T09:50:00.000Z"),
     } as never);
-    vi.mocked(appointmentsRepo.updateTokenUsageIfAllowed).mockResolvedValue(1 as never);
-    vi.mocked(appointmentsRepo.saveTokenFirstSeen).mockResolvedValue(undefined as never);
+    vi.mocked(appointmentsRepo.updateTokenUsageIfAllowed).mockResolvedValue(
+      1 as never
+    );
+    vi.mocked(appointmentsRepo.saveTokenFirstSeen).mockResolvedValue(
+      undefined as never
+    );
 
     const access = await validateAppointmentAccessToken({
       token: "patient-room-token",
@@ -250,8 +267,12 @@ describe("payments router", () => {
   });
 
   it("settleStripePaymentBySessionId throws when claim fails and appointment is not paid", async () => {
-    vi.mocked(appointmentsRepo.tryMarkPaidByStripeSessionId).mockResolvedValue(0 as never);
-    vi.mocked(appointmentsRepo.getAppointmentByStripeSessionId).mockResolvedValue({
+    vi.mocked(appointmentsRepo.tryMarkPaidByStripeSessionId).mockResolvedValue(
+      0 as never
+    );
+    vi.mocked(
+      appointmentsRepo.getAppointmentByStripeSessionId
+    ).mockResolvedValue({
       id: 123,
       status: "pending_payment",
       paymentStatus: "failed",
@@ -274,10 +295,12 @@ describe("payments router", () => {
   });
 
   it("settleStripePaymentBySessionId rejects stale stripe session after payment re-init", async () => {
-    vi.mocked(appointmentsRepo.tryMarkPaidByStripeSessionId).mockResolvedValue(0 as never);
-    vi.mocked(appointmentsRepo.getAppointmentByStripeSessionId).mockResolvedValue(
-      null as never
+    vi.mocked(appointmentsRepo.tryMarkPaidByStripeSessionId).mockResolvedValue(
+      0 as never
     );
+    vi.mocked(
+      appointmentsRepo.getAppointmentByStripeSessionId
+    ).mockResolvedValue(null as never);
 
     await expect(
       settleStripePaymentBySessionId({
@@ -315,7 +338,10 @@ describe("payments router", () => {
     expect(result.paymentStatus).toBe("pending");
     expect(result.checkoutSessionUrl).toContain("mockPaid=1");
     expect(appointmentsRepo.revokeAppointmentTokens).toHaveBeenCalledWith(
-      expect.objectContaining({ appointmentId: 66, reason: "payment_reinitiated" })
+      expect.objectContaining({
+        appointmentId: 66,
+        reason: "payment_reinitiated",
+      })
     );
   });
 
@@ -324,8 +350,12 @@ describe("payments router", () => {
       id: 88,
       stripeSessionId: "cs_test_booking_88",
     } as never);
-    vi.mocked(appointmentsRepo.tryMarkPaidByStripeSessionId).mockResolvedValue(1 as never);
-    vi.mocked(appointmentsRepo.getAppointmentByStripeSessionId).mockResolvedValue({
+    vi.mocked(appointmentsRepo.tryMarkPaidByStripeSessionId).mockResolvedValue(
+      1 as never
+    );
+    vi.mocked(
+      appointmentsRepo.getAppointmentByStripeSessionId
+    ).mockResolvedValue({
       id: 88,
       status: "paid",
       paymentStatus: "paid",

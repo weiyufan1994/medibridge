@@ -26,7 +26,8 @@ function assertAuthenticatedEmail(email: string | null | undefined) {
   if (!normalized) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
-      message: "Please log in with the invited email before claiming the workbench invite",
+      message:
+        "Please log in with the invited email before claiming the workbench invite",
     });
   }
   return normalized;
@@ -42,7 +43,11 @@ function assertBinding<T>(value: T | null, message: string) {
   return value;
 }
 
-function serializeBinding(binding: NonNullable<Awaited<ReturnType<typeof repo.getActiveBindingByUserId>>>) {
+function serializeBinding(
+  binding: NonNullable<
+    Awaited<ReturnType<typeof repo.getActiveBindingByUserId>>
+  >
+) {
   return {
     doctorId: binding.doctorId,
     userId: binding.userId,
@@ -53,7 +58,9 @@ function serializeBinding(binding: NonNullable<Awaited<ReturnType<typeof repo.ge
   };
 }
 
-function serializeInvite(invite: NonNullable<Awaited<ReturnType<typeof repo.getInviteById>>>) {
+function serializeInvite(
+  invite: NonNullable<Awaited<ReturnType<typeof repo.getInviteById>>>
+) {
   return {
     id: invite.id,
     doctorId: invite.doctorId,
@@ -76,8 +83,12 @@ export async function getDoctorAccountStatus(doctorId: number) {
   const status = await repo.getDoctorAccountStatusByDoctorId(doctorId);
   return {
     doctorId,
-    activeBinding: status.activeBinding ? serializeBinding(status.activeBinding) : null,
-    latestInvite: status.latestInvite ? serializeInvite(status.latestInvite) : null,
+    activeBinding: status.activeBinding
+      ? serializeBinding(status.activeBinding)
+      : null,
+    latestInvite: status.latestInvite
+      ? serializeInvite(status.latestInvite)
+      : null,
   };
 }
 
@@ -163,7 +174,10 @@ export async function resendDoctorInvite(input: {
   actorUserId: number;
   req?: Request;
 }) {
-  const invite = assertBinding(await repo.getInviteById(input.inviteId), "Invite not found");
+  const invite = assertBinding(
+    await repo.getInviteById(input.inviteId),
+    "Invite not found"
+  );
   if (!["pending", "sent"].includes(invite.status)) {
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -179,9 +193,7 @@ export async function resendDoctorInvite(input: {
   });
 }
 
-export async function cancelDoctorInvite(input: {
-  inviteId: number;
-}) {
+export async function cancelDoctorInvite(input: { inviteId: number }) {
   const affected = await repo.cancelInviteById(input.inviteId);
   if (affected !== 1) {
     throw new TRPCError({
@@ -242,11 +254,14 @@ export async function claimDoctorInvite(input: {
   if (currentInvite.email !== normalizedEmail) {
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: "Please sign in with the invited email before claiming this workbench invite",
+      message:
+        "Please sign in with the invited email before claiming this workbench invite",
     });
   }
 
-  const doctorActiveBinding = await repo.getActiveBindingByDoctorId(currentInvite.doctorId);
+  const doctorActiveBinding = await repo.getActiveBindingByDoctorId(
+    currentInvite.doctorId
+  );
   if (doctorActiveBinding && doctorActiveBinding.userId !== input.userId) {
     throw new TRPCError({
       code: "CONFLICT",
@@ -255,7 +270,10 @@ export async function claimDoctorInvite(input: {
   }
 
   const userActiveBinding = await repo.getActiveBindingByUserId(input.userId);
-  if (userActiveBinding && userActiveBinding.doctorId !== currentInvite.doctorId) {
+  if (
+    userActiveBinding &&
+    userActiveBinding.doctorId !== currentInvite.doctorId
+  ) {
     throw new TRPCError({
       code: "CONFLICT",
       message: "This account is already bound to another doctor",
@@ -269,14 +287,12 @@ export async function claimDoctorInvite(input: {
 
   const acceptedAt = new Date();
   const binding = await db.transaction(async tx => {
-    await repo.markInviteAccepted(
-      {
-        inviteId: currentInvite.id,
-        claimedByUserId: input.userId,
-        acceptedAt,
-        dbExecutor: tx,
-      }
-    );
+    await repo.markInviteAccepted({
+      inviteId: currentInvite.id,
+      claimedByUserId: input.userId,
+      acceptedAt,
+      dbExecutor: tx,
+    });
 
     if (userActiveBinding) {
       return repo.updateBindingById(
@@ -308,7 +324,10 @@ export async function claimDoctorInvite(input: {
     );
   });
 
-  const activeBinding = assertBinding(binding, "Failed to activate doctor workbench binding");
+  const activeBinding = assertBinding(
+    binding,
+    "Failed to activate doctor workbench binding"
+  );
 
   return {
     success: true as const,

@@ -13,9 +13,11 @@ const RETRY_DELAYS_MS = [
   6 * 60 * 60_000,
 ] as const;
 
-function readPayload(
-  payload: Record<string, unknown>
-): { subject: string; text: string; html: string } {
+function readPayload(payload: Record<string, unknown>): {
+  subject: string;
+  text: string;
+  html: string;
+} {
   const subject = typeof payload.subject === "string" ? payload.subject : "";
   const text = typeof payload.text === "string" ? payload.text : "";
   const html = typeof payload.html === "string" ? payload.html : "";
@@ -64,7 +66,9 @@ async function deliverNotification(notificationId: number, now: Date) {
       notificationId: notification.id,
       error: message,
       terminal,
-      nextAttemptAt: new Date(now.getTime() + getRetryDelay(notification.attemptCount)),
+      nextAttemptAt: new Date(
+        now.getTime() + getRetryDelay(notification.attemptCount)
+      ),
     });
   }
 }

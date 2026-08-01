@@ -5,8 +5,10 @@ const visitCopyByLang = {
     pageTitle: "Visit Room",
     invalidToken: "Missing or invalid token.",
     appointmentNotFound: "Appointment not found.",
-    appointmentNotAllowed: "This appointment is not available for visit room access.",
-    appointmentNotStarted: "Consultation has not started yet. Please enter at the scheduled time.",
+    appointmentNotAllowed:
+      "This appointment is not available for visit room access.",
+    appointmentNotStarted:
+      "Consultation has not started yet. Please enter at the scheduled time.",
     noMessages: "No messages yet. Start your consultation below.",
     sendFailed: "Failed to send message. Please retry.",
     composerPlaceholder: "Type your message and describe your concern...",
@@ -56,7 +58,8 @@ const visitCopyByLang = {
     extendFiveMins: "Extend 5 Mins",
     extendingTimer: "Extending...",
     endVisitDraftSummary: "End Visit & Draft Summary",
-    timerExtendAlreadyUsed: "This consultation has already used the free 5-minute extension.",
+    timerExtendAlreadyUsed:
+      "This consultation has already used the free 5-minute extension.",
     timerExtendFailed: "Failed to extend consultation time. Please retry.",
     consultationEndedSuccess: "Medical summary signed. Room is now read-only.",
     consultationEndFailed: "Failed to end consultation.",
@@ -81,14 +84,16 @@ const visitCopyByLang = {
     medicalSummaryRegenerate: "Regenerate AI Draft",
     medicalSummarySign: "Sign & Send to Patient",
     medicalSummaryGenerating: "Generating AI draft...",
-    medicalSummaryGeneratingWithCountdown: "Generating AI draft... ({{time}} left)",
+    medicalSummaryGeneratingWithCountdown:
+      "Generating AI draft... ({{time}} left)",
     medicalSummarySigning: "Signing & sending...",
     medicalSummaryDraftFailed: "Failed to generate medical summary draft.",
     medicalSummaryDraftTimeout:
       "AI draft was not generated within 2 minutes. Please complete manually and sign.",
     medicalSummaryDraftTimeoutHint:
       "You can continue writing this summary manually and sign/send to the patient.",
-    medicalSummaryRequiredFields: "Please complete all required sections before signing.",
+    medicalSummaryRequiredFields:
+      "Please complete all required sections before signing.",
     medicalSummarySignFailed: "Failed to sign medical summary.",
     roomClosedReturnTitle: "Consultation ended",
     roomClosedReturnDesc:
@@ -101,7 +106,8 @@ const visitCopyByLang = {
     loadEarlierMessages: "Load earlier messages",
     loadingEarlierMessages: "Loading earlier messages...",
     loading: "Loading...",
-    attachmentSelected: "Attachment selected: {{fileName}} (upload will be enabled soon)",
+    attachmentSelected:
+      "Attachment selected: {{fileName}} (upload will be enabled soon)",
   },
   zh: {
     pageTitle: "线上会诊室",
@@ -153,7 +159,8 @@ const visitCopyByLang = {
     timeExceededTitle: "问诊时间已到",
     timeExceededDesc:
       "基础问诊时间已用尽。您可以直接结束并生成病历，或者为了完善医嘱免费延长 5 分钟。",
-    timeExceededDescNoExtension: "基础问诊时间已用尽，且已使用过免费延长时长。请直接结束会诊并生成病历。",
+    timeExceededDescNoExtension:
+      "基础问诊时间已用尽，且已使用过免费延长时长。请直接结束会诊并生成病历。",
     extendFiveMins: "免费延长 5 分钟",
     extendingTimer: "延长中...",
     endVisitDraftSummary: "结束会诊并生成病历",
@@ -171,7 +178,8 @@ const visitCopyByLang = {
     ending: "结束中...",
     confirmEnd: "生成摘要",
     reviewMedicalSummaryTitle: "审核诊疗小结",
-    medicalSummaryAIDisclaimer: "该草稿由 AI 基于问诊记录生成，请在签发前审核并编辑。",
+    medicalSummaryAIDisclaimer:
+      "该草稿由 AI 基于问诊记录生成，请在签发前审核并编辑。",
     medicalSummaryChiefComplaint: "主诉",
     medicalSummaryHpi: "现病史",
     medicalSummaryPmh: "既往史",
@@ -181,15 +189,19 @@ const visitCopyByLang = {
     medicalSummaryRegenerate: "重新生成 AI 草稿",
     medicalSummarySign: "签发并发送给患者",
     medicalSummaryGenerating: "正在生成 AI 草稿...",
-    medicalSummaryGeneratingWithCountdown: "正在生成 AI 草稿...（剩余 {{time}}）",
+    medicalSummaryGeneratingWithCountdown:
+      "正在生成 AI 草稿...（剩余 {{time}}）",
     medicalSummarySigning: "签发中...",
     medicalSummaryDraftFailed: "生成病历草稿失败。",
-    medicalSummaryDraftTimeout: "2 分钟内未成功生成 AI 草稿。请手动补充后签发。",
-    medicalSummaryDraftTimeoutHint: "你可以继续手动填写该小结，然后签发并发送给患者。",
+    medicalSummaryDraftTimeout:
+      "2 分钟内未成功生成 AI 草稿。请手动补充后签发。",
+    medicalSummaryDraftTimeoutHint:
+      "你可以继续手动填写该小结，然后签发并发送给患者。",
     medicalSummaryRequiredFields: "请先完整填写所有必填内容后再签发。",
     medicalSummarySignFailed: "签发病历失败。",
     roomClosedReturnTitle: "会诊已结束",
-    roomClosedReturnDesc: "医生已结束会诊，正在整理并签发医疗摘要。请先返回预约列表查看后续状态。",
+    roomClosedReturnDesc:
+      "医生已结束会诊，正在整理并签发医疗摘要。请先返回预约列表查看后续状态。",
     roomClosedReturnAction: "返回预约列表",
     aiTriageSummaryTitle: "AI 分诊摘要",
     aiTriageSummaryEmpty: "暂无分诊摘要。",

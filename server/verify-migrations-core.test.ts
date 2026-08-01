@@ -20,7 +20,9 @@ describe("validateRequiredArtifacts", () => {
   it("fails when doctor account tables are missing", () => {
     expect(() =>
       validateRequiredArtifacts({
-        tableNames: REQUIRED_TABLES.filter(name => name !== "doctor_user_bindings"),
+        tableNames: REQUIRED_TABLES.filter(
+          name => name !== "doctor_user_bindings"
+        ),
         indexNames: REQUIRED_INDEXES,
         columns: REQUIRED_COLUMNS,
       })
@@ -56,7 +58,8 @@ describe("validateRequiredArtifacts", () => {
         indexNames: REQUIRED_INDEXES,
         columns: REQUIRED_COLUMNS.filter(
           column =>
-            column.tableName !== "appointments" || column.columnName !== "slotId"
+            column.tableName !== "appointments" ||
+            column.columnName !== "slotId"
         ),
       })
     ).toThrow("Missing required columns: appointments.slotId");

@@ -1,6 +1,8 @@
 import { appointments } from "../../../drizzle/schema";
 
-export function toPublicAppointment(appointment: typeof appointments.$inferSelect) {
+export function toPublicAppointment(
+  appointment: typeof appointments.$inferSelect
+) {
   return {
     id: appointment.id,
     slotId: appointment.slotId,
@@ -21,7 +23,9 @@ export function toPublicAppointment(appointment: typeof appointments.$inferSelec
   };
 }
 
-export function toMyAppointmentItem(appointment: typeof appointments.$inferSelect) {
+export function toMyAppointmentItem(
+  appointment: typeof appointments.$inferSelect
+) {
   return {
     id: appointment.id,
     slotId: appointment.slotId,
@@ -42,7 +46,11 @@ export function classifyMyAppointments(items: MyAppointmentItem[]) {
   const past: MyAppointmentItem[] = [];
 
   for (const item of items) {
-    if (item.status === "pending_payment" || item.status === "paid" || item.status === "active") {
+    if (
+      item.status === "pending_payment" ||
+      item.status === "paid" ||
+      item.status === "active"
+    ) {
       upcoming.push(item);
       continue;
     }
@@ -52,7 +60,11 @@ export function classifyMyAppointments(items: MyAppointmentItem[]) {
       continue;
     }
 
-    if (item.status === "expired" || item.status === "refunded" || item.status === "canceled") {
+    if (
+      item.status === "expired" ||
+      item.status === "refunded" ||
+      item.status === "canceled"
+    ) {
       past.push(item);
       continue;
     }

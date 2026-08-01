@@ -69,7 +69,9 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
 
   const trimmedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
   const canRequestOtp =
-    trimmedEmail.length > 3 && !requestOtpMutation.isPending && !verifyOtpMutation.isPending;
+    trimmedEmail.length > 3 &&
+    !requestOtpMutation.isPending &&
+    !verifyOtpMutation.isPending;
   const canVerifyOtp =
     step === "otp" &&
     code.length === 6 &&
@@ -106,9 +108,7 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent
-        className="sm:max-w-md bg-white rounded-2xl shadow-xl p-8 border-slate-100 gap-0"
-      >
+      <DialogContent className="sm:max-w-md bg-white rounded-2xl shadow-xl p-8 border-slate-100 gap-0">
         <DialogHeader className="text-center">
           <div className="w-12 h-12 bg-teal-50 rounded-full flex items-center justify-center text-teal-600 mx-auto mb-4">
             <Stethoscope className="w-6 h-6" aria-hidden="true" />
@@ -144,7 +144,9 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
                     void handleRequestOtp();
                   }
                 }}
-                disabled={requestOtpMutation.isPending || verifyOtpMutation.isPending}
+                disabled={
+                  requestOtpMutation.isPending || verifyOtpMutation.isPending
+                }
                 className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl px-4 py-3 h-auto focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition-all"
               />
               <Button
@@ -200,7 +202,9 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
                 type="button"
                 variant="ghost"
                 className="w-full text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl"
-                disabled={requestOtpMutation.isPending || verifyOtpMutation.isPending}
+                disabled={
+                  requestOtpMutation.isPending || verifyOtpMutation.isPending
+                }
                 onClick={() => {
                   setCode("");
                   setStep("email");

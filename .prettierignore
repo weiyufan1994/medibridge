@@ -10,6 +10,17 @@ build/
 # Generated files
 *.tsbuildinfo
 coverage/
+.artifacts/
+
+# Database metadata and archived migration history are tool-managed
+drizzle/meta/
+drizzle/archive/mysql/
+
+# Legacy scraper progress is retained as generated operational state
+data/scraping_progress/
+
+# Dependency patches are maintained as patch artifacts
+patches/
 
 # Package files
 package-lock.json

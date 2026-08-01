@@ -37,7 +37,9 @@ export function TriageSummarySidebar({
         <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
           {doctorWorkbenchTitle}
         </p>
-        <h3 className="mt-1 text-sm font-semibold text-slate-900">{triageSidebarTitle}</h3>
+        <h3 className="mt-1 text-sm font-semibold text-slate-900">
+          {triageSidebarTitle}
+        </h3>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -59,7 +61,9 @@ export function TriageSummarySidebar({
 
               {triageSummary ? (
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <p className="font-medium text-slate-500">{triageRecommendationTitle}</p>
+                  <p className="font-medium text-slate-500">
+                    {triageRecommendationTitle}
+                  </p>
                   <p className="mt-1 whitespace-pre-wrap break-words leading-relaxed text-slate-800">
                     {triageSummary}
                   </p>

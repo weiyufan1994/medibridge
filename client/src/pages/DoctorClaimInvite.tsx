@@ -33,19 +33,30 @@ export default function DoctorClaimInvitePage() {
         utils.doctorAccounts.getMyBinding.invalidate(),
       ]);
       toast.success(
-        tr("医生工作台已开通，可以进入工作台。", "Doctor workbench has been activated.")
+        tr(
+          "医生工作台已开通，可以进入工作台。",
+          "Doctor workbench has been activated."
+        )
       );
       if (typeof window !== "undefined") {
         window.location.href = "/doctor/workbench";
       }
     },
     onError: error => {
-      toast.error(error.message || tr("认领邀请失败。", "Failed to claim doctor invite."));
+      toast.error(
+        error.message || tr("认领邀请失败。", "Failed to claim doctor invite.")
+      );
     },
   });
 
   useEffect(() => {
-    if (loading || !isAuthenticated || !token || claimMutation.isPending || claimMutation.isSuccess) {
+    if (
+      loading ||
+      !isAuthenticated ||
+      !token ||
+      claimMutation.isPending ||
+      claimMutation.isSuccess
+    ) {
       return;
     }
     void claimMutation.mutateAsync({ token });
@@ -70,7 +81,10 @@ export default function DoctorClaimInvitePage() {
               <CardTitle>{tr("邀请链接无效", "Invalid Invite Link")}</CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-slate-600">
-              {tr("缺少邀请 token，请重新打开管理员发送的邀请邮件。", "The invite token is missing. Re-open the invite email from your admin.")}
+              {tr(
+                "缺少邀请 token，请重新打开管理员发送的邀请邮件。",
+                "The invite token is missing. Re-open the invite email from your admin."
+              )}
             </CardContent>
           </Card>
         </div>
@@ -96,7 +110,9 @@ export default function DoctorClaimInvitePage() {
                   "Please sign in with the invited email, then the workbench claim will complete automatically."
                 )}
               </p>
-              <Button onClick={openLoginModal}>{tr("登录并继续", "Sign In and Continue")}</Button>
+              <Button onClick={openLoginModal}>
+                {tr("登录并继续", "Sign In and Continue")}
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -120,15 +136,22 @@ export default function DoctorClaimInvitePage() {
             </p>
             {claimMutation.error ? (
               <>
-                <p className="text-destructive">{claimMutation.error.message}</p>
+                <p className="text-destructive">
+                  {claimMutation.error.message}
+                </p>
                 <Link href="/doctor/workbench">
-                  <Button variant="outline">{tr("返回工作台", "Back to Workbench")}</Button>
+                  <Button variant="outline">
+                    {tr("返回工作台", "Back to Workbench")}
+                  </Button>
                 </Link>
               </>
             ) : (
               <div className="flex items-center gap-2 text-slate-500">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                {tr("正在校验邀请并激活医生身份...", "Validating invite and activating doctor identity...")}
+                {tr(
+                  "正在校验邀请并激活医生身份...",
+                  "Validating invite and activating doctor identity..."
+                )}
               </div>
             )}
           </CardContent>

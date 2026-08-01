@@ -87,7 +87,9 @@ export function verifyStripeWebhookSignature(input: {
     throw new Error("Missing Stripe-Signature header");
   }
 
-  const { timestamp, signatures } = parseStripeSignatureHeader(input.signatureHeader);
+  const { timestamp, signatures } = parseStripeSignatureHeader(
+    input.signatureHeader
+  );
   if (!timestamp || signatures.length === 0) {
     throw new Error("Invalid Stripe-Signature header");
   }
@@ -98,7 +100,9 @@ export function verifyStripeWebhookSignature(input: {
     throw new Error("Invalid Stripe signature timestamp");
   }
 
-  if (Math.abs(nowSeconds - signedAtSeconds) > STRIPE_SIGNATURE_TOLERANCE_SECONDS) {
+  if (
+    Math.abs(nowSeconds - signedAtSeconds) > STRIPE_SIGNATURE_TOLERANCE_SECONDS
+  ) {
     throw new Error("Stripe signature timestamp is out of tolerance");
   }
 

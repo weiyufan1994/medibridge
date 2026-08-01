@@ -1,18 +1,21 @@
 # AGENTS.md
 
 ## Role
+
 - Act as a cautious maintainer of Medibridge.
 - Prefer the smallest correct change that solves the task.
 - Stay inside the requested scope. Do not expand into adjacent refactors unless a blocker makes it necessary.
 - If the task is unclear or spans multiple layers, audit first, then plan, then edit.
 
 ## Must-read before structural work
+
 - Read `.context/architecture.md` before changing boundaries, file placement, or import paths.
 - If the task touches bilingual behavior, locale resolution, fallback, or copy organization, also read:
   - `docs/implementation/bilingual-design.md`
   - `docs/plans/i18n-layering-guidelines.md`
 
 ## Repository map
+
 - `client/` = React + Vite SPA
 - `client/src/pages/` = route entry / orchestration only
 - `client/src/features/` = reusable feature logic and feature-scoped UI
@@ -34,6 +37,7 @@
   - `patches/`
 
 ## Architecture rules
+
 - Preserve the architecture contract in `.context/architecture.md`.
 - Keep `server/routers/*` thin. They should compose module `routerApi.ts` files and avoid embedding business logic.
 - Put business logic in `server/modules/*`.
@@ -42,7 +46,9 @@
 - Keep import boundaries intact. Do not bypass the current boundary rules to “make it work”.
 
 ## Plan-first triggers
+
 Create a short written plan before editing when any of the following is true:
+
 - the task likely changes more than 5 files
 - the task spans client + server
 - the task spans server + database
@@ -52,12 +58,14 @@ Create a short written plan before editing when any of the following is true:
 - public API shapes, shared types, or persistence formats may change
 
 For plan-first tasks:
+
 - identify the smallest safe slice
 - state affected layers and risks
 - separate refactor work from behavior changes
 - prefer phased changes over one large patch
 
 ## Scope control
+
 - Do not rename directories or move modules unless the task explicitly asks for it.
 - Do not add dependencies without approval.
 - Do not change lockfiles unless dependency changes are required.
@@ -67,7 +75,9 @@ For plan-first tasks:
 - Do not silently change defaults, fallbacks, or response semantics.
 
 ## Commands
+
 Safe first-pass verification commands:
+
 - `pnpm check`
 - `pnpm lint:imports`
 - `pnpm check:i18n:inline`
@@ -75,16 +85,19 @@ Safe first-pass verification commands:
 - `pnpm test:router-boundary`
 
 Use these only when relevant to the task:
+
 - `pnpm build`
 - `pnpm db:verify:migrations`
 
 Require explicit human approval before running:
+
 - any schema-changing or migration-writing command
 - any import / translate / vectorize / cleanup / admin / repair / backfill command
 - any command that can mutate production-like data
 - any deploy or release packaging command
 
 ## Frontend rules
+
 - No new inline production copy in pages, components, or hooks when a `copy.ts`, resource object, or shared i18n helper should own that text.
 - Keep route-derived state deterministic and testable.
 - Locale-sensitive cache/query keys must include locale explicitly.
@@ -92,6 +105,7 @@ Require explicit human approval before running:
 - Keep fallback and loading behavior explicit.
 
 ## Server rules
+
 - Preserve auth/session/cookie/context behavior in `server/_core/*`.
 - Keep API edges validated with Zod or existing schema patterns.
 - Preserve auditability and permission checks.
@@ -100,6 +114,7 @@ Require explicit human approval before running:
 - Keep routers thin and push domain behavior into modules.
 
 ## Database and data rules
+
 - Treat schema work as high-risk.
 - Prefer additive migrations first.
 - Never make destructive schema or data changes without explicit approval and a rollback note.
@@ -109,6 +124,7 @@ Require explicit human approval before running:
 - If modifying scripts under `scripts/`, prefer dry-run capability or clearly scoped filters.
 
 ## Generated / managed files
+
 - Never hand-edit:
   - `dist/**`
   - `drizzle/meta/**`
@@ -121,6 +137,7 @@ Require explicit human approval before running:
   - `drizzle/archive/mysql/**`
 
 ## i18n and content rules
+
 - Source language is currently Chinese-centric in parts of the system; keep language behavior explicit.
 - UI copy and DB-backed multilingual content must be treated separately.
 - Preserve placeholders, tags, markdown, and structured tokens exactly.
@@ -132,6 +149,7 @@ Require explicit human approval before running:
 - Medical wording, dates, units, dosage, and named entities must keep semantic meaning through normalization or translation changes.
 
 ## Testing expectations
+
 - For every code change, run the smallest relevant tests first.
 - Minimum expectation for touched code:
   - relevant Vitest tests
@@ -142,7 +160,9 @@ Require explicit human approval before running:
 - State clearly what you did not run and why.
 
 ## Output format for every task
+
 Always end with:
+
 - what changed
 - files changed
 - commands run
@@ -151,7 +171,9 @@ Always end with:
 - follow-up work that should stay separate
 
 ## Done means
+
 A task is complete only when:
+
 - the requested behavior is implemented, or the blocker is explained clearly
 - no obvious scope creep was introduced
 - boundaries and safety constraints remain intact
@@ -159,7 +181,9 @@ A task is complete only when:
 - defaults, fallbacks, and contract changes remain explicit
 
 ## Review checklist
+
 Before considering the task done, flag:
+
 - hidden scope expansion
 - router/business-logic boundary violations
 - new inline production copy

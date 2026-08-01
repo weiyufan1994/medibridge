@@ -41,7 +41,10 @@ vi.mock("./modules/referrals/refunds", () => ({
   finalizeReferralRefund: vi.fn(),
 }));
 
-import { parseStripeWebhookEvent, verifyStripeWebhookSignature } from "./modules/payments/stripe";
+import {
+  parseStripeWebhookEvent,
+  verifyStripeWebhookSignature,
+} from "./modules/payments/stripe";
 import { getDb } from "./db";
 import * as appointmentsRepo from "./modules/appointments/repo";
 import * as referralRepo from "./modules/referrals/repo";
@@ -88,17 +91,19 @@ describe("stripeWebhookRoute", () => {
         await fn({});
       },
     } as never);
-    vi.mocked(appointmentsRepo.insertStripeWebhookEvent).mockResolvedValue(undefined as never);
+    vi.mocked(appointmentsRepo.insertStripeWebhookEvent).mockResolvedValue(
+      undefined as never
+    );
     vi.mocked(appointmentsRepo.tryTransitionAppointmentById).mockResolvedValue({
       ok: true,
       reason: "updated",
     } as never);
-    vi.mocked(referralRepo.getReferralOrderByPaymentSessionId).mockResolvedValue(
-      null as never
-    );
-    vi.mocked(referralRepo.getReferralOrderByProviderReference).mockResolvedValue(
-      null as never
-    );
+    vi.mocked(
+      referralRepo.getReferralOrderByPaymentSessionId
+    ).mockResolvedValue(null as never);
+    vi.mocked(
+      referralRepo.getReferralOrderByProviderReference
+    ).mockResolvedValue(null as never);
     vi.mocked(referralRepo.markOrderPaymentFailed).mockResolvedValue({
       ok: true,
       reason: "updated",
@@ -220,7 +225,9 @@ describe("stripeWebhookRoute", () => {
         },
       },
     } as never);
-    vi.mocked(referralRepo.getReferralOrderByPaymentSessionId).mockResolvedValue({
+    vi.mocked(
+      referralRepo.getReferralOrderByPaymentSessionId
+    ).mockResolvedValue({
       id: 701,
     } as never);
     vi.mocked(appointmentsRepo.insertStripeWebhookEvent).mockRejectedValue({

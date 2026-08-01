@@ -64,7 +64,10 @@ function collectInlineI18nMatches() {
     });
   }
 
-  matches.sort((left, right) => right.count - left.count || left.path.localeCompare(right.path));
+  matches.sort(
+    (left, right) =>
+      right.count - left.count || left.path.localeCompare(right.path)
+  );
 
   return {
     totalFiles: files.length,
@@ -76,7 +79,9 @@ function collectInlineI18nMatches() {
 const result = collectInlineI18nMatches();
 
 console.log(`Scanned ${result.totalFiles} client files.`);
-console.log(`Found ${result.totalMatches} inline i18n branch matches outside copy.ts files.`);
+console.log(
+  `Found ${result.totalMatches} inline i18n branch matches outside copy.ts files.`
+);
 
 if (result.matches.length > 0) {
   console.log("\nTop files:");

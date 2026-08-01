@@ -193,7 +193,9 @@ async function translateHospitalBatch(
     max_tokens: 4096,
   });
 
-  const parsed = JSON.parse(readMessageText(response.choices[0].message.content)) as
+  const parsed = JSON.parse(
+    readMessageText(response.choices[0].message.content)
+  ) as
     | {
         items?: Array<{
           id: number;
@@ -268,7 +270,9 @@ async function translateHospitalSingle(input: {
     max_tokens: 512,
   });
 
-  const parsed = JSON.parse(readMessageText(response.choices[0].message.content)) as {
+  const parsed = JSON.parse(
+    readMessageText(response.choices[0].message.content)
+  ) as {
     nameEn?: string | null;
     cityEn?: string | null;
     name?: string | null;
@@ -329,7 +333,9 @@ async function translateSpecialtyBatch(
     max_tokens: 2048,
   });
 
-  const parsed = JSON.parse(readMessageText(response.choices[0].message.content)) as
+  const parsed = JSON.parse(
+    readMessageText(response.choices[0].message.content)
+  ) as
     | {
         items?: Array<{
           id: number;
@@ -395,7 +401,9 @@ async function translateSpecialtySingle(input: { name: string }) {
     max_tokens: 256,
   });
 
-  const parsed = JSON.parse(readMessageText(response.choices[0].message.content)) as {
+  const parsed = JSON.parse(
+    readMessageText(response.choices[0].message.content)
+  ) as {
     nameEn?: string | null;
     name?: string | null;
   };
@@ -406,8 +414,14 @@ async function translateSpecialtySingle(input: { name: string }) {
 }
 
 async function main() {
-  const batchSize = Number.parseInt(process.env.TRIAGE_REF_TRANSLATE_BATCH_SIZE || "", 10);
-  const effectiveBatchSize = Number.isFinite(batchSize) && batchSize > 0 ? batchSize : DEFAULT_BATCH_SIZE;
+  const batchSize = Number.parseInt(
+    process.env.TRIAGE_REF_TRANSLATE_BATCH_SIZE || "",
+    10
+  );
+  const effectiveBatchSize =
+    Number.isFinite(batchSize) && batchSize > 0
+      ? batchSize
+      : DEFAULT_BATCH_SIZE;
 
   const pool = new Pool({
     connectionString: requireDatabaseUrl(),
@@ -415,13 +429,22 @@ async function main() {
   });
   const db = drizzle(pool);
 
-  const [referenceHospitals, localHospitals, referenceSpecialties] = await Promise.all([
-    db.select().from(hospitalReferenceHospitals).orderBy(asc(hospitalReferenceHospitals.id)),
-    db.select().from(hospitals),
-    db.select().from(hospitalReferenceSpecialties).orderBy(asc(hospitalReferenceSpecialties.id)),
-  ]);
+  const [referenceHospitals, localHospitals, referenceSpecialties] =
+    await Promise.all([
+      db
+        .select()
+        .from(hospitalReferenceHospitals)
+        .orderBy(asc(hospitalReferenceHospitals.id)),
+      db.select().from(hospitals),
+      db
+        .select()
+        .from(hospitalReferenceSpecialties)
+        .orderBy(asc(hospitalReferenceSpecialties.id)),
+    ]);
 
-  const localHospitalById = new Map(localHospitals.map(row => [row.id, row] as const));
+  const localHospitalById = new Map(
+    localHospitals.map(row => [row.id, row] as const)
+  );
 
   let hospitalUpdated = 0;
   let specialtyUpdated = 0;
@@ -431,28 +454,39 @@ async function main() {
 
   for (const row of referenceHospitals) {
     const local = row.localHospitalId
-      ? (localHospitalById.get(row.localHospitalId) as LocalHospitalRow | undefined)
+      ? (localHospitalById.get(row.localHospitalId) as
+          | LocalHospitalRow
+          | undefined)
       : undefined;
     const localNameEn = local?.nameEn ?? null;
     const localCityEn = local?.cityEn ?? null;
-    const mappedCityEn = row.city ? (KNOWN_CITY_EN_BY_ZH[row.city] ?? null) : null;
+    const mappedCityEn = row.city
+      ? (KNOWN_CITY_EN_BY_ZH[row.city] ?? null)
+      : null;
     const nextNameEn = pickEnglish(row.nameEn, localNameEn);
     const nextCityEn = pickEnglish(row.cityEn, localCityEn ?? mappedCityEn);
 
     if (nextNameEn !== row.nameEn || nextCityEn !== row.cityEn) {
       hospitalPrefillCandidates.push(row);
-    } else if (!pickEnglish(row.nameEn, null) || (row.city && !pickEnglish(row.cityEn, null))) {
+    } else if (
+      !pickEnglish(row.nameEn, null) ||
+      (row.city && !pickEnglish(row.cityEn, null))
+    ) {
       hospitalLlmCandidates.push(row);
     }
   }
 
   for (const row of hospitalPrefillCandidates) {
     const local = row.localHospitalId
-      ? (localHospitalById.get(row.localHospitalId) as LocalHospitalRow | undefined)
+      ? (localHospitalById.get(row.localHospitalId) as
+          | LocalHospitalRow
+          | undefined)
       : undefined;
     const localNameEn = local?.nameEn ?? null;
     const localCityEn = local?.cityEn ?? null;
-    const mappedCityEn = row.city ? (KNOWN_CITY_EN_BY_ZH[row.city] ?? null) : null;
+    const mappedCityEn = row.city
+      ? (KNOWN_CITY_EN_BY_ZH[row.city] ?? null)
+      : null;
     const nextNameEn = pickEnglish(row.nameEn, localNameEn);
     const nextCityEn = pickEnglish(row.cityEn, localCityEn ?? mappedCityEn);
 
@@ -471,12 +505,18 @@ async function main() {
     `[Hospitals] prefilled from local/static sources: ${hospitalPrefillCandidates.length}, remaining for LLM: ${hospitalLlmCandidates.length}`
   );
 
-  const hospitalChunks = splitToChunks(hospitalLlmCandidates, effectiveBatchSize);
+  const hospitalChunks = splitToChunks(
+    hospitalLlmCandidates,
+    effectiveBatchSize
+  );
   for (const [chunkIndex, chunk] of hospitalChunks.entries()) {
     console.log(
       `[Hospitals] translating batch ${chunkIndex + 1}/${hospitalChunks.length} (${chunk.length} rows)`
     );
-    let translatedById: Map<number, { nameEn: string | null; cityEn: string | null }>;
+    let translatedById: Map<
+      number,
+      { nameEn: string | null; cityEn: string | null }
+    >;
     try {
       translatedById = await translateHospitalBatch(
         chunk.map(row => ({
@@ -505,7 +545,8 @@ async function main() {
       const nextNameEn = pickEnglish(row.nameEn, translated?.nameEn ?? null);
       const nextCityEn = pickEnglish(
         row.cityEn,
-        translated?.cityEn ?? (row.city ? KNOWN_CITY_EN_BY_ZH[row.city] ?? null : null)
+        translated?.cityEn ??
+          (row.city ? (KNOWN_CITY_EN_BY_ZH[row.city] ?? null) : null)
       );
 
       if (nextNameEn === row.nameEn && nextCityEn === row.cityEn) {
@@ -538,7 +579,10 @@ async function main() {
   }
 
   for (const row of specialtyDirectFill) {
-    const nextNameEn = pickEnglish(row.nameEn, KNOWN_SPECIALTY_NAME_EN_BY_ZH[row.name] ?? null);
+    const nextNameEn = pickEnglish(
+      row.nameEn,
+      KNOWN_SPECIALTY_NAME_EN_BY_ZH[row.name] ?? null
+    );
     await db
       .update(hospitalReferenceSpecialties)
       .set({
@@ -553,7 +597,10 @@ async function main() {
     `[Specialties] prefilled from known mappings: ${specialtyDirectFill.length}, remaining for LLM: ${specialtyLlmCandidates.length}`
   );
 
-  const specialtyChunks = splitToChunks(specialtyLlmCandidates, effectiveBatchSize);
+  const specialtyChunks = splitToChunks(
+    specialtyLlmCandidates,
+    effectiveBatchSize
+  );
   for (const [chunkIndex, chunk] of specialtyChunks.entries()) {
     console.log(
       `[Specialties] translating batch ${chunkIndex + 1}/${specialtyChunks.length} (${chunk.length} rows)`

@@ -12,9 +12,7 @@ export const visitRouter = router({
   getMessagesByToken: publicProcedure
     .input(visitSchemas.getMessagesInputSchema)
     .output(visitSchemas.getMessagesOutputSchema)
-    .query(({ input, ctx }) =>
-      visitActions.getMessagesByToken(input, ctx.req)
-    ),
+    .query(({ input, ctx }) => visitActions.getMessagesByToken(input, ctx.req)),
 
   sendMessageByToken: publicProcedure
     .input(visitSchemas.sendMessageInputSchema)

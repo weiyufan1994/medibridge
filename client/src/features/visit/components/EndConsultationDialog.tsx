@@ -61,11 +61,17 @@ export function EndConsultationDialog({
       </AlertDialogTrigger>
       <AlertDialogContent className={WARNING_ALERT_DIALOG_CONTENT_CLASS}>
         <AlertDialogHeader className="gap-3 text-left">
-          <div className={`${WARNING_ALERT_DIALOG_ICON_CLASS} ${WARNING_ALERT_DIALOG_ICON_TEAL}`}>
+          <div
+            className={`${WARNING_ALERT_DIALOG_ICON_CLASS} ${WARNING_ALERT_DIALOG_ICON_TEAL}`}
+          >
             <FileText className="h-5 w-5" aria-hidden="true" />
           </div>
-          <AlertDialogTitle className={WARNING_ALERT_DIALOG_TITLE_CLASS}>{endConsultationTitle}</AlertDialogTitle>
-          <AlertDialogDescription className={WARNING_ALERT_DIALOG_DESCRIPTION_CLASS}>
+          <AlertDialogTitle className={WARNING_ALERT_DIALOG_TITLE_CLASS}>
+            {endConsultationTitle}
+          </AlertDialogTitle>
+          <AlertDialogDescription
+            className={WARNING_ALERT_DIALOG_DESCRIPTION_CLASS}
+          >
             {endConsultationDesc}
           </AlertDialogDescription>
         </AlertDialogHeader>

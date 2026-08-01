@@ -23,13 +23,18 @@ export function ReferralPaymentSuccessScreen({
 }: ReferralPaymentSuccessScreenProps) {
   const [, setLocation] = useLocation();
   const copy = getReferralCopy(lang);
-  const confirmMutation = trpc.referrals.confirmReturnedPaymentSession.useMutation();
+  const confirmMutation =
+    trpc.referrals.confirmReturnedPaymentSession.useMutation();
 
   useEffect(() => {
     if (!paymentSessionId) {
       return;
     }
-    if (confirmMutation.isPending || confirmMutation.data || confirmMutation.error) {
+    if (
+      confirmMutation.isPending ||
+      confirmMutation.data ||
+      confirmMutation.error
+    ) {
       return;
     }
 
@@ -77,7 +82,9 @@ export function ReferralPaymentSuccessScreen({
           <CardTitle>{copy.payment.successTitle}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm text-muted-foreground">
-          <p>{confirmMutation.error.message || copy.payment.paymentReturnedError}</p>
+          <p>
+            {confirmMutation.error.message || copy.payment.paymentReturnedError}
+          </p>
           <div className="flex flex-wrap gap-3">
             <Button
               variant="outline"

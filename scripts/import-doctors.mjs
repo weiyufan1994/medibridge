@@ -12,7 +12,7 @@ import { Pool } from "pg";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const normalizeValue = (value) => {
+const normalizeValue = value => {
   if (value === undefined || value === null) return null;
   if (typeof value === "string") {
     const trimmed = value.trim();
@@ -21,7 +21,7 @@ const normalizeValue = (value) => {
   return value;
 };
 
-const computeSourceHash = (payload) => {
+const computeSourceHash = payload => {
   const normalized = Object.fromEntries(
     Object.entries(payload).map(([key, val]) => [key, normalizeValue(val)])
   );
@@ -35,12 +35,30 @@ await pool.query("SET TIME ZONE 'UTC'");
 const db = drizzle(pool);
 
 const hospitalMapping = {
-  "复旦大学附属华山医院": { name: "复旦大学附属华山医院", nameEn: "Huashan Hospital Affiliated to Fudan University" },
-  "复旦大学附属中山医院": { name: "复旦大学附属中山医院", nameEn: "Zhongshan Hospital Affiliated to Fudan University" },
-  "上海交通大学医学院附属瑞金医院": { name: "上海交通大学医学院附属瑞金医院", nameEn: "Ruijin Hospital Affiliated to Shanghai Jiao Tong University" },
-  "复旦大学附属肿瘤医院": { name: "复旦大学附属肿瘤医院", nameEn: "Fudan University Shanghai Cancer Center" },
-  "上海市第六人民医院": { name: "上海市第六人民医院", nameEn: "Shanghai Sixth People's Hospital" },
-  "上海市第九人民医院": { name: "上海市第九人民医院", nameEn: "Shanghai Ninth People's Hospital" },
+  复旦大学附属华山医院: {
+    name: "复旦大学附属华山医院",
+    nameEn: "Huashan Hospital Affiliated to Fudan University",
+  },
+  复旦大学附属中山医院: {
+    name: "复旦大学附属中山医院",
+    nameEn: "Zhongshan Hospital Affiliated to Fudan University",
+  },
+  上海交通大学医学院附属瑞金医院: {
+    name: "上海交通大学医学院附属瑞金医院",
+    nameEn: "Ruijin Hospital Affiliated to Shanghai Jiao Tong University",
+  },
+  复旦大学附属肿瘤医院: {
+    name: "复旦大学附属肿瘤医院",
+    nameEn: "Fudan University Shanghai Cancer Center",
+  },
+  上海市第六人民医院: {
+    name: "上海市第六人民医院",
+    nameEn: "Shanghai Sixth People's Hospital",
+  },
+  上海市第九人民医院: {
+    name: "上海市第九人民医院",
+    nameEn: "Shanghai Ninth People's Hospital",
+  },
 };
 
 const columnMappings = {
@@ -58,7 +76,14 @@ const columnMappings = {
   recommendationScore: ["病友推荐度", "推荐度", "recommendation"],
   onlineConsultation: ["在线问诊", "online", "问诊"],
   appointmentAvailable: ["预约挂号", "appointment", "挂号"],
-  sourceDoctorId: ["doctor id", "doctor_id", "doctorid", "医生id", "doctorid", "医生id"],
+  sourceDoctorId: [
+    "doctor id",
+    "doctor_id",
+    "doctorid",
+    "医生id",
+    "doctorid",
+    "医生id",
+  ],
   profileUrl: [
     "url",
     "主页链接",
@@ -86,7 +111,7 @@ const columnMappings = {
 };
 
 function findColumnIndex(headerRow, fieldMappings) {
-  const normalize = (value) =>
+  const normalize = value =>
     String(value || "")
       .toLowerCase()
       .replace(/[\s_]+/g, "")
@@ -115,9 +140,14 @@ function getColumnMapping(worksheet) {
       values[colNumber - 1] = cell.value;
     });
 
-    const hasExpectedHeaders = values.some((v) => {
+    const hasExpectedHeaders = values.some(v => {
       const str = String(v || "").trim();
-      return str.includes("姓名") || str.includes("医院") || str.includes("科室") || str.includes("专家");
+      return (
+        str.includes("姓名") ||
+        str.includes("医院") ||
+        str.includes("科室") ||
+        str.includes("专家")
+      );
     });
 
     if (hasExpectedHeaders) {
@@ -195,7 +225,10 @@ function parseDepartmentFromFileName(fileName) {
   if (!legacyStyle?.[1]) return "";
 
   const normalized = legacyStyle[1].trim();
-  const parts = normalized.split("_").map((x) => x.trim()).filter(Boolean);
+  const parts = normalized
+    .split("_")
+    .map(x => x.trim())
+    .filter(Boolean);
   return parts.length > 1 ? parts[parts.length - 1] : normalized;
 }
 
@@ -224,7 +257,10 @@ async function importDoctors() {
   console.log("Starting doctor data import...");
 
   const hospitalsDir = join(__dirname, "../data/hospitals");
-  const deptIndexPath = join(__dirname, "../data/departments/all_departments.json");
+  const deptIndexPath = join(
+    __dirname,
+    "../data/departments/all_departments.json"
+  );
   const deptUrlMap = loadDeptUrlMap(deptIndexPath);
   const xlsxFiles = getAllXlsxFiles(hospitalsDir);
 
@@ -266,7 +302,7 @@ async function importDoctors() {
         worksheet.eachRow((row, rowNumber) => {
           if (rowNumber <= headerRowNum) return;
 
-          const getCellValue = (field) => {
+          const getCellValue = field => {
             const idx = mapping[field];
             if (idx === undefined || idx < 0) return "";
             const cell = row.getCell(idx + 1);
@@ -276,7 +312,10 @@ async function importDoctors() {
           const rowData = {
             hospital: hospitalFromFolder || getCellValue("hospital") || "",
             department:
-              getCellValue("department") || sheetDepartment || departmentFromFile || "",
+              getCellValue("department") ||
+              sheetDepartment ||
+              departmentFromFile ||
+              "",
             name: getCellValue("name"),
             title: getCellValue("title"),
             specialty: getCellValue("specialty"),
@@ -319,7 +358,8 @@ async function importDoctors() {
 
       const hospitalGroups = {};
       for (const row of rows) {
-        let hospitalName = row.hospital || hospitalFromFolder || fileName.split(".")[0];
+        let hospitalName =
+          row.hospital || hospitalFromFolder || fileName.split(".")[0];
 
         for (const knownName of Object.keys(hospitalMapping)) {
           if (
@@ -339,8 +379,13 @@ async function importDoctors() {
         hospitalGroups[hospitalName].push(row);
       }
 
-      for (const [hospitalName, doctorsList] of Object.entries(hospitalGroups)) {
-        const hospitalInfo = hospitalMapping[hospitalName] || { name: hospitalName, nameEn: null };
+      for (const [hospitalName, doctorsList] of Object.entries(
+        hospitalGroups
+      )) {
+        const hospitalInfo = hospitalMapping[hospitalName] || {
+          name: hospitalName,
+          nameEn: null,
+        };
 
         const hospitalSourceHash = computeSourceHash({
           name: hospitalInfo.name,
@@ -398,7 +443,8 @@ async function importDoctors() {
         }
 
         for (const [deptName, deptDoctors] of Object.entries(deptGroups)) {
-          const deptUrl = deptUrlMap.get(`${hospitalInfo.name}||${deptName}`) || null;
+          const deptUrl =
+            deptUrlMap.get(`${hospitalInfo.name}||${deptName}`) || null;
 
           const departmentSourceHash = computeSourceHash({
             name: deptName,
@@ -408,7 +454,12 @@ async function importDoctors() {
           const existingDept = await db
             .select()
             .from(departments)
-            .where(and(eq(departments.hospitalId, hospitalId), eq(departments.name, deptName)))
+            .where(
+              and(
+                eq(departments.hospitalId, hospitalId),
+                eq(departments.name, deptName)
+              )
+            )
             .limit(1);
 
           let deptId;
@@ -417,7 +468,10 @@ async function importDoctors() {
             deptId = existingDept[0].id;
 
             if (!existingDept[0].url && deptUrl) {
-              await db.update(departments).set({ url: deptUrl }).where(eq(departments.id, deptId));
+              await db
+                .update(departments)
+                .set({ url: deptUrl })
+                .where(eq(departments.id, deptId));
             }
 
             if (existingDept[0].sourceHash !== departmentSourceHash) {

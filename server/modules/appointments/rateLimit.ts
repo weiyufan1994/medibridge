@@ -8,7 +8,9 @@ type AttemptBucket = {
 const byIp = new Map<string, AttemptBucket>();
 
 function getWindowMs(): number {
-  const raw = Number(process.env.APPOINTMENT_TOKEN_FAIL_WINDOW_MS ?? DEFAULT_WINDOW_MS);
+  const raw = Number(
+    process.env.APPOINTMENT_TOKEN_FAIL_WINDOW_MS ?? DEFAULT_WINDOW_MS
+  );
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_WINDOW_MS;
 }
 
@@ -25,7 +27,9 @@ function prune(bucket: AttemptBucket, nowMs: number, windowMs: number): void {
   }
 }
 
-export function checkIpFailureRateLimit(ip: string | null | undefined): boolean {
+export function checkIpFailureRateLimit(
+  ip: string | null | undefined
+): boolean {
   if (!ip) {
     return false;
   }

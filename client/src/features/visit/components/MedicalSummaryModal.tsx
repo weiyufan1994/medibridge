@@ -1,4 +1,11 @@
-import { type ChangeEvent, useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { LoaderCircle, RefreshCcw, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
@@ -86,7 +93,8 @@ export function MedicalSummaryModal({
   const draftPollTimerRef = useRef<number | null>(null);
   const draftPollResolveRef = useRef<(() => void) | null>(null);
 
-  const generateDraftMutation = trpc.appointments.generateMedicalSummaryDraft.useMutation();
+  const generateDraftMutation =
+    trpc.appointments.generateMedicalSummaryDraft.useMutation();
   const signMutation = trpc.appointments.signMedicalSummary.useMutation();
   const utils = trpc.useUtils();
 
@@ -245,7 +253,11 @@ export function MedicalSummaryModal({
   }, [isDraftGenerating]);
 
   useEffect(() => {
-    if (!isDraftGenerating || remainingSeconds === null || remainingSeconds > 0) {
+    if (
+      !isDraftGenerating ||
+      remainingSeconds === null ||
+      remainingSeconds > 0
+    ) {
       return;
     }
 
@@ -341,7 +353,10 @@ export function MedicalSummaryModal({
   const disableSign = isSigning || (isDraftGenerating && !draftTimedOut);
 
   return (
-    <Dialog open={open} onOpenChange={nextOpen => !disableClose && onOpenChange(nextOpen)}>
+    <Dialog
+      open={open}
+      onOpenChange={nextOpen => !disableClose && onOpenChange(nextOpen)}
+    >
       <DialogContent
         showCloseButton={false}
         aria-labelledby={titleId}
@@ -349,7 +364,10 @@ export function MedicalSummaryModal({
         className="max-w-4xl w-full bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] p-0 border-0 gap-0"
       >
         <header className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <DialogTitle id={titleId} className="text-xl font-semibold text-slate-900">
+          <DialogTitle
+            id={titleId}
+            className="text-xl font-semibold text-slate-900"
+          >
             {copy.title}
           </DialogTitle>
           <Button
@@ -389,18 +407,28 @@ export function MedicalSummaryModal({
             </p>
           ) : null}
           {statusMessage ? (
-            <p role="status" aria-live="polite" className="text-sm text-slate-600">
+            <p
+              role="status"
+              aria-live="polite"
+              className="text-sm text-slate-600"
+            >
               {statusMessage}
             </p>
           ) : null}
           {errorMessage ? (
-            <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <p
+              role="alert"
+              className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+            >
               {errorMessage}
             </p>
           ) : null}
 
           <section className="space-y-2">
-            <label htmlFor="medical-summary-chief-complaint" className="text-sm font-medium text-slate-800">
+            <label
+              htmlFor="medical-summary-chief-complaint"
+              className="text-sm font-medium text-slate-800"
+            >
               {copy.chiefComplaintLabel}
             </label>
             <Textarea
@@ -413,7 +441,10 @@ export function MedicalSummaryModal({
           </section>
 
           <section className="space-y-2">
-            <label htmlFor="medical-summary-hpi" className="text-sm font-medium text-slate-800">
+            <label
+              htmlFor="medical-summary-hpi"
+              className="text-sm font-medium text-slate-800"
+            >
               {copy.hpiLabel}
             </label>
             <Textarea
@@ -426,7 +457,10 @@ export function MedicalSummaryModal({
           </section>
 
           <section className="space-y-2">
-            <label htmlFor="medical-summary-pmh" className="text-sm font-medium text-slate-800">
+            <label
+              htmlFor="medical-summary-pmh"
+              className="text-sm font-medium text-slate-800"
+            >
               {copy.pmhLabel}
             </label>
             <Textarea
@@ -439,7 +473,10 @@ export function MedicalSummaryModal({
           </section>
 
           <section className="space-y-2">
-            <label htmlFor="medical-summary-assessment" className="text-sm font-medium text-slate-800">
+            <label
+              htmlFor="medical-summary-assessment"
+              className="text-sm font-medium text-slate-800"
+            >
               {copy.assessmentLabel}
             </label>
             <Textarea
@@ -452,7 +489,10 @@ export function MedicalSummaryModal({
           </section>
 
           <section className="space-y-2">
-            <label htmlFor="medical-summary-plan" className="text-sm font-medium text-slate-800">
+            <label
+              htmlFor="medical-summary-plan"
+              className="text-sm font-medium text-slate-800"
+            >
               {copy.planLabel}
             </label>
             <Textarea

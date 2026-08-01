@@ -24,8 +24,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     help: false,
   };
 
-  const next = (idx: number): string | undefined =>
-    normalizedArgv[idx + 1];
+  const next = (idx: number): string | undefined => normalizedArgv[idx + 1];
 
   for (let i = 0; i < normalizedArgv.length; i += 1) {
     const current = normalizedArgv[i];
@@ -109,7 +108,9 @@ function parseRole(raw: string): Role {
     return normalized;
   }
 
-  throw new Error(`Invalid --role value: ${raw}. Allowed values are free|pro|admin`);
+  throw new Error(
+    `Invalid --role value: ${raw}. Allowed values are free|pro|admin`
+  );
 }
 
 function printUsage(): void {
@@ -134,7 +135,10 @@ function dedupe<T>(items: T[]): T[] {
   return [...new Set(items)];
 }
 
-async function findUserByEmail(db: Awaited<ReturnType<typeof getDb>>, email: string) {
+async function findUserByEmail(
+  db: Awaited<ReturnType<typeof getDb>>,
+  email: string
+) {
   const result = await db
     .select()
     .from(users)
@@ -192,8 +196,7 @@ async function main() {
     }
 
     const nextRole = options.role;
-    const willChange =
-      row.role !== nextRole || row.isGuest === 1;
+    const willChange = row.role !== nextRole || row.isGuest === 1;
     const targetRole = nextRole;
     const targetIsGuest = 0;
 
@@ -275,17 +278,21 @@ async function main() {
   );
 }
 
-main().catch(error => {
-  console.error("[admin-user] failed", error);
-  process.exit(1);
-}).finally(async () => {
-  const db = await getDb();
-  const client = (db as { $client?: { end?: (...args: unknown[]) => unknown } } | null)?.$client;
-  const end = client?.end;
-  if (typeof end === "function") {
-    const result = end.call(client);
-    if (result && typeof (result as Promise<unknown>).then === "function") {
-      await result.catch(() => undefined);
+main()
+  .catch(error => {
+    console.error("[admin-user] failed", error);
+    process.exit(1);
+  })
+  .finally(async () => {
+    const db = await getDb();
+    const client = (
+      db as { $client?: { end?: (...args: unknown[]) => unknown } } | null
+    )?.$client;
+    const end = client?.end;
+    if (typeof end === "function") {
+      const result = end.call(client);
+      if (result && typeof (result as Promise<unknown>).then === "function") {
+        await result.catch(() => undefined);
+      }
     }
-  }
-});
+  });

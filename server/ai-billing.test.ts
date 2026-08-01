@@ -104,7 +104,9 @@ describe("ai billing guard on createSession", () => {
   });
 
   it("blocks free user when today's free session quota is exhausted", async () => {
-    vi.mocked(aiRepo.countAiChatSessionsByUserBetween).mockResolvedValue(1 as never);
+    vi.mocked(aiRepo.countAiChatSessionsByUserBetween).mockResolvedValue(
+      1 as never
+    );
 
     const caller = aiRouter.createCaller(
       createTestContext({

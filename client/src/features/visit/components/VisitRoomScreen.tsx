@@ -64,7 +64,8 @@ export function VisitRoomScreen() {
   const { validInput, accessInput } = useVisitRoomAccess(resolved);
   const [, setLocation] = useLocation();
   const utils = trpc.useUtils();
-  const completeAppointmentMutation = trpc.appointments.completeAppointment.useMutation();
+  const completeAppointmentMutation =
+    trpc.appointments.completeAppointment.useMutation();
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const { appointmentQuery, doctorQuery } = useVisitRoomData({
@@ -111,9 +112,13 @@ export function VisitRoomScreen() {
     consultationTotalMinutes: 30,
   };
   const baseDurationMinutes =
-    roomTimer?.baseDurationMinutes ?? appointmentForPresentation.consultationDurationMinutes ?? 30;
+    roomTimer?.baseDurationMinutes ??
+    appointmentForPresentation.consultationDurationMinutes ??
+    30;
   const extensionMinutes =
-    roomTimer?.extensionMinutes ?? appointmentForPresentation.consultationExtensionMinutes ?? 0;
+    roomTimer?.extensionMinutes ??
+    appointmentForPresentation.consultationExtensionMinutes ??
+    0;
   const consultationTimer = useConsultationTimer({
     now,
     scheduledAt: appointmentForPresentation.scheduledAt,
@@ -121,7 +126,8 @@ export function VisitRoomScreen() {
     extensionMinutes,
   });
   const isWarningActive =
-    consultationTimer.status === "warning" && consultationTimer.remainingSeconds > 0;
+    consultationTimer.status === "warning" &&
+    consultationTimer.remainingSeconds > 0;
 
   const presentation = useVisitRoomPresentation({
     resolved,
@@ -223,7 +229,8 @@ export function VisitRoomScreen() {
     onSelectAttachment: (file: File) => {
       toast.info(t.attachmentSelected.replace("{{fileName}}", file.name));
     },
-    showRoomClosedPrompt: !presentation.isDoctorView && presentation.roomClosedByStatus,
+    showRoomClosedPrompt:
+      !presentation.isDoctorView && presentation.roomClosedByStatus,
     roomClosedPromptTitle: t.roomClosedReturnTitle,
     roomClosedPromptDesc: t.roomClosedReturnDesc,
     roomClosedPromptActionText: t.roomClosedReturnAction,
@@ -264,12 +271,11 @@ export function VisitRoomScreen() {
     requestTimerExtension(5);
   };
   const canExtendTimer = extensionMinutes < 5;
-  const endConsultationText =
-    isSummaryStage
-      ? t.continueSummary
-      : consultationTimer.status === "expired"
-        ? t.generateSummaryNow
-        : t.endConsultation;
+  const endConsultationText = isSummaryStage
+    ? t.continueSummary
+    : consultationTimer.status === "expired"
+      ? t.generateSummaryNow
+      : t.endConsultation;
 
   return (
     <AppLayout title={pageTitle} isVisitRoom>
@@ -296,7 +302,9 @@ export function VisitRoomScreen() {
                 onExtendTimer={onExtendTimer}
                 timeExceededTitle={t.timeExceededTitle}
                 timeExceededDesc={
-                  canExtendTimer ? t.timeExceededDesc : t.timeExceededDescNoExtension
+                  canExtendTimer
+                    ? t.timeExceededDesc
+                    : t.timeExceededDescNoExtension
                 }
                 extendFiveMinsText={t.extendFiveMins}
                 extendingText={t.extendingTimer}

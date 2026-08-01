@@ -1,8 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import {
-  triageRiskEvents,
-  triageSessionFlags,
-} from "../../../drizzle/schema";
+import { triageRiskEvents, triageSessionFlags } from "../../../drizzle/schema";
 import { getDb } from "../../db";
 import type { TriageRiskScanResult } from "./types";
 
@@ -22,7 +19,8 @@ export async function recordRiskEvents(input: {
       messageId: input.messageId ?? null,
       riskCode,
       severity: input.scanResult.highestSeverity ?? "high",
-      recommendedAction: input.scanResult.recommendedAction ?? "seek_urgent_care",
+      recommendedAction:
+        input.scanResult.recommendedAction ?? "seek_urgent_care",
       triggerSource: input.scanResult.triggerSource,
       rawExcerpt: input.scanResult.rawExcerpt,
     }))
@@ -46,7 +44,10 @@ export async function setSessionFlag(input: {
   });
 }
 
-export async function clearSessionFlagsByType(sessionId: number, flagType: string) {
+export async function clearSessionFlagsByType(
+  sessionId: number,
+  flagType: string
+) {
   const db = await getDb();
   if (!db) {
     return;

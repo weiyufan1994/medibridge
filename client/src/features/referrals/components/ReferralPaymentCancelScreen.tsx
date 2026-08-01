@@ -53,10 +53,7 @@ export function ReferralPaymentCancelScreen({
           <CardTitle>{copy.navigation.backToOrder}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
-          <Button
-            variant="outline"
-            onClick={() => setLocation("/dashboard")}
-          >
+          <Button variant="outline" onClick={() => setLocation("/dashboard")}>
             {copy.navigation.backToDashboard}
           </Button>
           {orderId ? (

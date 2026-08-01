@@ -10,7 +10,9 @@ interface LanguageContextValue {
   reportInput: (text: string) => void;
 }
 
-const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
+const LanguageContext = createContext<LanguageContextValue | undefined>(
+  undefined
+);
 
 function readStoredLanguageMode(): LanguageMode | null {
   try {

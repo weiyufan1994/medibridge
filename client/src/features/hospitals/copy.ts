@@ -84,7 +84,8 @@ const hospitalsCopyByLang = {
       breadcrumbDepartmentsFallback: "科室",
       breadcrumbDoctorsFallback: "医生",
       selectHospitalTitle: "选择合作医院",
-      selectHospitalIntro: "支持搜索医院名称、等级与城市，快速找到顶尖医疗机构。",
+      selectHospitalIntro:
+        "支持搜索医院名称、等级与城市，快速找到顶尖医疗机构。",
       selectHospitalDescription: (count: number) =>
         `可从上海 ${count} 家重点医院中选择`,
       selectDepartmentTitle: "选择科室",

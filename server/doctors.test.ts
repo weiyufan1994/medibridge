@@ -54,7 +54,8 @@ const mockDoctors = [
     specialty: "口腔颌面外科",
     specialtyEn: "Oral and Maxillofacial Surgery",
     expertise: "颌面骨折、下颌损伤、口腔颌面创伤",
-    expertiseEn: "Jaw fractures, mandibular trauma, oral and maxillofacial surgery",
+    expertiseEn:
+      "Jaw fractures, mandibular trauma, oral and maxillofacial surgery",
     description: "",
     experience: "18年",
     recommendationScore: 99,
@@ -125,7 +126,7 @@ const mockRecommendationCandidates = [
   },
 ];
 
-const toLocalizedHospital = (hospital: typeof mockHospitals[number]) => ({
+const toLocalizedHospital = (hospital: (typeof mockHospitals)[number]) => ({
   ...hospital,
   name: {
     zh: hospital.name,
@@ -145,7 +146,9 @@ const toLocalizedHospital = (hospital: typeof mockHospitals[number]) => ({
   },
 });
 
-const toLocalizedDepartment = (department: typeof mockDepartments[number]) => ({
+const toLocalizedDepartment = (
+  department: (typeof mockDepartments)[number]
+) => ({
   ...department,
   name: {
     zh: department.name,
@@ -161,19 +164,22 @@ vi.mock("./modules/doctors/repo", () => {
     if (!candidateDoctorIds || candidateDoctorIds.length === 0) {
       return results;
     }
-    return results.filter(result => candidateDoctorIds.includes(result.doctor.id));
+    return results.filter(result =>
+      candidateDoctorIds.includes(result.doctor.id)
+    );
   };
 
   return {
-    searchDoctors: vi.fn(async (
-      _keywords: string[],
-      _limit?: number,
-      options?: { candidateDoctorIds?: number[] }
-    ) =>
-      filterByCandidateDoctorIds(
-        mockRecommendationCandidates,
-        options?.candidateDoctorIds
-      )
+    searchDoctors: vi.fn(
+      async (
+        _keywords: string[],
+        _limit?: number,
+        options?: { candidateDoctorIds?: number[] }
+      ) =>
+        filterByCandidateDoctorIds(
+          mockRecommendationCandidates,
+          options?.candidateDoctorIds
+        )
     ),
     getDoctorById: vi.fn(async (id: number) => {
       if (id === 999999) return null;
@@ -184,39 +190,41 @@ vi.mock("./modules/doctors/repo", () => {
       };
     }),
     getDoctorsByDepartment: vi.fn(async () => []),
-    searchDoctorsByEmbedding: vi.fn(async (
-      _embedding: number[],
-      _limit?: number,
-      options?: { candidateDoctorIds?: number[] }
-    ) =>
-      filterByCandidateDoctorIds(
-        [
-          {
-            doctor: mockDoctors[3],
-            hospital: mockHospitals[0],
-            department: mockDepartments[3],
-          },
-          {
-            doctor: mockDoctors[0],
-            hospital: mockHospitals[0],
-            department: mockDepartments[0],
-          },
-        ],
-        options?.candidateDoctorIds
-      )
+    searchDoctorsByEmbedding: vi.fn(
+      async (
+        _embedding: number[],
+        _limit?: number,
+        options?: { candidateDoctorIds?: number[] }
+      ) =>
+        filterByCandidateDoctorIds(
+          [
+            {
+              doctor: mockDoctors[3],
+              hospital: mockHospitals[0],
+              department: mockDepartments[3],
+            },
+            {
+              doctor: mockDoctors[0],
+              hospital: mockHospitals[0],
+              department: mockDepartments[0],
+            },
+          ],
+          options?.candidateDoctorIds
+        )
     ),
-    listRecommendationCandidates: vi.fn(async () => mockRecommendationCandidates),
+    listRecommendationCandidates: vi.fn(
+      async () => mockRecommendationCandidates
+    ),
     listDoctorSpecialtyTagsByDoctorIds: vi.fn(async () => new Map()),
   };
 });
 
 vi.mock("./modules/hospitals/actions", () => ({
   getAllHospitals: vi.fn(async () => mockHospitals.map(toLocalizedHospital)),
-  getDepartmentsByHospital: vi.fn(
-    async (input: { hospitalId: number }) =>
-      mockDepartments
-        .filter(item => item.hospitalId === input.hospitalId)
-        .map(toLocalizedDepartment)
+  getDepartmentsByHospital: vi.fn(async (input: { hospitalId: number }) =>
+    mockDepartments
+      .filter(item => item.hospitalId === input.hospitalId)
+      .map(toLocalizedDepartment)
   ),
 }));
 
@@ -253,12 +261,12 @@ describe("doctors router", () => {
 
     const result = await caller.doctors.search({
       keywords: ["心脏", "外科"],
-      limit: 5
+      limit: 5,
     });
 
     expect(result).toBeDefined();
     expect(Array.isArray(result)).toBe(true);
-    
+
     if (result.length > 0) {
       const firstResult = result[0];
       expect(firstResult).toHaveProperty("doctor");
@@ -276,12 +284,12 @@ describe("doctors router", () => {
     // First search for a doctor
     const searchResult = await caller.doctors.search({
       keywords: ["医生"],
-      limit: 1
+      limit: 1,
     });
 
     if (searchResult.length > 0) {
       const doctorId = searchResult[0].doctor.id;
-      
+
       const result = await caller.doctors.getById({ id: doctorId });
 
       expect(result).toBeDefined();
@@ -327,14 +335,20 @@ describe("doctors router", () => {
     expect(result[0]?.department.name.zh).toBe("骨科");
     expect(result[0]?.doctor.name.zh).toBe("张医生");
 
-    const orthoIndex = result.findIndex(item => item.department.name.zh === "骨科");
+    const orthoIndex = result.findIndex(
+      item => item.department.name.zh === "骨科"
+    );
     const reproductiveIndex = result.findIndex(
       item => item.department.name.zh === "辅助生殖科"
     );
-    const oralIndex = result.findIndex(item => item.department.name.zh === "口腔黏膜科");
+    const oralIndex = result.findIndex(
+      item => item.department.name.zh === "口腔黏膜科"
+    );
 
     expect(orthoIndex).toBeGreaterThanOrEqual(0);
-    expect(reproductiveIndex === -1 || orthoIndex < reproductiveIndex).toBe(true);
+    expect(reproductiveIndex === -1 || orthoIndex < reproductiveIndex).toBe(
+      true
+    );
     expect(oralIndex === -1 || orthoIndex < oralIndex).toBe(true);
   });
 
@@ -450,7 +464,9 @@ describe("doctors router", () => {
     expect(
       vi
         .mocked(doctorsRepo.searchDoctors)
-        .mock.calls.some(([, , options]) => options?.candidateDoctorIds === undefined)
+        .mock.calls.some(
+          ([, , options]) => options?.candidateDoctorIds === undefined
+        )
     ).toBe(true);
   });
 
@@ -482,7 +498,7 @@ describe("hospitals router", () => {
     expect(result).toBeDefined();
     expect(Array.isArray(result)).toBe(true);
     expect(result.length).toBeGreaterThan(0);
-    
+
     const firstHospital = result[0];
     expect(firstHospital).toHaveProperty("id");
     expect(firstHospital).toHaveProperty("name");
@@ -498,15 +514,18 @@ describe("hospitals router", () => {
 
     // First get a hospital
     const hospitals = await caller.hospitals.getAll({ lang: "zh" });
-    
+
     if (hospitals.length > 0) {
       const hospitalId = hospitals[0].id;
-      
-      const result = await caller.hospitals.getDepartments({ hospitalId, lang: "zh" });
+
+      const result = await caller.hospitals.getDepartments({
+        hospitalId,
+        lang: "zh",
+      });
 
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
-      
+
       if (result.length > 0) {
         const firstDept = result[0];
         expect(firstDept).toHaveProperty("id");
@@ -530,7 +549,9 @@ describe("hospitals router", () => {
       lang: "zh",
     });
     expect(
-      hospitalSchemas.getHospitalDepartmentsInputSchema.parse({ hospitalId: 10 })
+      hospitalSchemas.getHospitalDepartmentsInputSchema.parse({
+        hospitalId: 10,
+      })
     ).toEqual({
       hospitalId: 10,
       lang: "zh",
@@ -563,9 +584,11 @@ describe("hospitals router", () => {
     const caller = appRouter.createCaller(ctx);
 
     await caller.hospitals.getAll({ lang: "en" });
-    expect(vi.mocked(hospitalActions.getAllHospitals)).toHaveBeenLastCalledWith({
-      lang: "en",
-    });
+    expect(vi.mocked(hospitalActions.getAllHospitals)).toHaveBeenLastCalledWith(
+      {
+        lang: "en",
+      }
+    );
 
     await caller.hospitals.getDepartments({ hospitalId: 10, lang: "en" });
     expect(

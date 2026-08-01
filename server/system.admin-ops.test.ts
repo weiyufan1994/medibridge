@@ -132,7 +132,9 @@ describe("system admin ops", () => {
       status: "ended",
       paymentStatus: "paid",
     } as never);
-    vi.mocked(adminRepo.getVisitSummaryByAppointmentId).mockResolvedValue(null as never);
+    vi.mocked(adminRepo.getVisitSummaryByAppointmentId).mockResolvedValue(
+      null as never
+    );
     vi.mocked(aiRepo.getAiChatSessionById).mockResolvedValue({
       id: 88,
       summary: "triage",
@@ -249,9 +251,15 @@ describe("system admin ops", () => {
       summary: "triage summary",
       summaryGeneratedAt: new Date("2026-03-01T09:10:00.000Z"),
     } as never);
-    vi.mocked(appointmentsRepo.listActiveAppointmentTokens).mockResolvedValue([] as never);
-    vi.mocked(appointmentsRepo.listStatusEventsByAppointment).mockResolvedValue([] as never);
-    vi.mocked(appointmentsRepo.listStripeWebhookEventsForAppointment).mockResolvedValue([] as never);
+    vi.mocked(appointmentsRepo.listActiveAppointmentTokens).mockResolvedValue(
+      [] as never
+    );
+    vi.mocked(appointmentsRepo.listStatusEventsByAppointment).mockResolvedValue(
+      [] as never
+    );
+    vi.mocked(
+      appointmentsRepo.listStripeWebhookEventsForAppointment
+    ).mockResolvedValue([] as never);
     vi.mocked(visitRepo.getRecentMessages).mockResolvedValue([] as never);
     vi.mocked(doctorsRepo.getDoctorById).mockResolvedValue({
       doctor: {

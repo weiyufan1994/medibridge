@@ -87,11 +87,14 @@ function getHint(
   t: ReturnType<typeof getDashboardAppointmentCopy>
 ) {
   if (item.status === "pending_payment") return t.hintPendingPayment;
-  if (item.status === "paid" && isScheduledInFuture(item)) return t.hintNotStarted;
+  if (item.status === "paid" && isScheduledInFuture(item))
+    return t.hintNotStarted;
   if (item.status === "paid") return t.hintPaid;
-  if (item.status === "active" && isScheduledInFuture(item)) return t.hintNotStarted;
+  if (item.status === "active" && isScheduledInFuture(item))
+    return t.hintNotStarted;
   if (item.status === "active") return t.hintActive;
-  if (item.status === "ended" || item.status === "completed") return t.hintEnded;
+  if (item.status === "ended" || item.status === "completed")
+    return t.hintEnded;
   return t.hintInactive;
 }
 
@@ -217,11 +220,18 @@ function AppointmentCard(props: {
   const doctorName = getAppointmentSurfaceText({
     lang: props.resolved,
     value: doctorQuery.data?.doctor?.name,
-    fallback: props.t.doctorFallback.replace("{{id}}", String(props.item.doctorId)),
+    fallback: props.t.doctorFallback.replace(
+      "{{id}}",
+      String(props.item.doctorId)
+    ),
   });
   const doctorImage = doctorQuery.data?.doctor?.imageUrl;
   const locale = getDisplayLocale(props.resolved);
-  const timeDisplay = formatAppointmentTimes(props.item.scheduledAt, "-", locale);
+  const timeDisplay = formatAppointmentTimes(
+    props.item.scheduledAt,
+    "-",
+    locale
+  );
   const isScheduleLocked = !canEnterVisitRoomNow(props.item);
   const actionLabel = getUpcomingActionLabel(props.item, props.t);
 
@@ -231,7 +241,9 @@ function AppointmentCard(props: {
         <div className="flex items-center gap-3">
           <DoctorAvatar doctorName={doctorName} imageUrl={doctorImage} />
           <div>
-            <p className="text-base font-semibold text-slate-900">{doctorName}</p>
+            <p className="text-base font-semibold text-slate-900">
+              {doctorName}
+            </p>
             <p className="text-sm text-slate-500">
               {toAppointmentTypeLabel(props.item.appointmentType, props.t)}
             </p>
@@ -248,7 +260,9 @@ function AppointmentCard(props: {
             <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
               {props.t.localTimeLabel}
             </p>
-            <p className="mt-1 text-sm font-semibold text-slate-900">{timeDisplay.localTime}</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">
+              {timeDisplay.localTime}
+            </p>
           </div>
           <div className="flex justify-center">
             <ArrowRight className="h-4 w-4 text-slate-400" />
@@ -257,7 +271,9 @@ function AppointmentCard(props: {
             <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
               {props.t.chinaTimeLabel}
             </p>
-            <p className="mt-1 text-sm font-semibold text-slate-900">{timeDisplay.doctorTime}</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">
+              {timeDisplay.doctorTime}
+            </p>
           </div>
         </div>
       </div>
@@ -364,7 +380,9 @@ function AppointmentList(props: {
 
 export function MyAppointments() {
   const [activeTab, setActiveTab] = React.useState<AppointmentTab>("upcoming");
-  const [actingAppointmentId, setActingAppointmentId] = React.useState<number | null>(null);
+  const [actingAppointmentId, setActingAppointmentId] = React.useState<
+    number | null
+  >(null);
   const [summaryModalOpen, setSummaryModalOpen] = React.useState(false);
   const [summaryAccess, setSummaryAccess] = React.useState<{
     appointmentId: number;
@@ -376,7 +394,8 @@ export function MyAppointments() {
   const query = trpc.appointments.listMyAppointments.useQuery();
   const resendMutation = trpc.appointments.resendLink.useMutation();
   const openRoomMutation = trpc.appointments.openMyRoom.useMutation();
-  const retryPaymentMutation = trpc.payments.createCheckoutSessionForAppointment.useMutation();
+  const retryPaymentMutation =
+    trpc.payments.createCheckoutSessionForAppointment.useMutation();
 
   const summaryQueryInput = React.useMemo(
     () => ({
@@ -387,10 +406,13 @@ export function MyAppointments() {
     [resolved, summaryAccess]
   );
 
-  const summaryDetailQuery = trpc.appointments.getByToken.useQuery(summaryQueryInput, {
-    enabled: Boolean(summaryAccess && summaryModalOpen),
-    retry: 1,
-  });
+  const summaryDetailQuery = trpc.appointments.getByToken.useQuery(
+    summaryQueryInput,
+    {
+      enabled: Boolean(summaryAccess && summaryModalOpen),
+      retry: 1,
+    }
+  );
   const summaryDoctorQuery = trpc.doctors.getById.useQuery(
     { id: summaryDetailQuery.data?.doctorId ?? 0 },
     {
@@ -433,7 +455,9 @@ export function MyAppointments() {
         return;
       }
 
-      const result = await resendMutation.mutateAsync({ appointmentId: item.id });
+      const result = await resendMutation.mutateAsync({
+        appointmentId: item.id,
+      });
       if (result.devLink && typeof window !== "undefined") {
         const nextUrl = new URL(result.devLink);
         window.location.href = `${nextUrl.pathname}${nextUrl.search}`;
@@ -547,7 +571,9 @@ export function MyAppointments() {
     allItems.filter(item => UPCOMING_STATUSES.has(item.status))
   );
   const pastVisitItems = sortByScheduledAtDesc(
-    allItems.filter(item => item.status === "ended" || item.status === "completed")
+    allItems.filter(
+      item => item.status === "ended" || item.status === "completed"
+    )
   );
 
   const summaryDoctorId = summaryDetailQuery.data?.doctorId ?? null;
@@ -568,7 +594,11 @@ export function MyAppointments() {
           <CardTitle className="text-slate-900">{t.title}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="gap-4">
+          <Tabs
+            value={activeTab}
+            onValueChange={handleTabChange}
+            className="gap-4"
+          >
             <TabsList
               aria-label={t.title}
               className="h-11 rounded-xl bg-slate-100 p-1"
@@ -628,12 +658,17 @@ export function MyAppointments() {
         summary={
           summaryDetailQuery.data?.medicalSummary
             ? {
-                chiefComplaint: summaryDetailQuery.data.medicalSummary.chiefComplaint,
+                chiefComplaint:
+                  summaryDetailQuery.data.medicalSummary.chiefComplaint,
                 historyOfPresentIllness:
-                  summaryDetailQuery.data.medicalSummary.historyOfPresentIllness,
-                pastMedicalHistory: summaryDetailQuery.data.medicalSummary.pastMedicalHistory,
-                assessmentDiagnosis: summaryDetailQuery.data.medicalSummary.assessmentDiagnosis,
-                planRecommendations: summaryDetailQuery.data.medicalSummary.planRecommendations,
+                  summaryDetailQuery.data.medicalSummary
+                    .historyOfPresentIllness,
+                pastMedicalHistory:
+                  summaryDetailQuery.data.medicalSummary.pastMedicalHistory,
+                assessmentDiagnosis:
+                  summaryDetailQuery.data.medicalSummary.assessmentDiagnosis,
+                planRecommendations:
+                  summaryDetailQuery.data.medicalSummary.planRecommendations,
                 updatedAt: summaryDetailQuery.data.medicalSummary.updatedAt,
               }
             : null

@@ -19,10 +19,7 @@ import { DoctorWorkbenchAppointmentSheet } from "@/features/doctorWorkbench/comp
 import { MedicalSummaryModal } from "@/features/visit/components/MedicalSummaryModal";
 import { getVisitCopy } from "@/features/visit/copy";
 import { useLanguage } from "@/contexts/LanguageContext";
-import {
-  getDisplayLocale,
-  getLocalizedText,
-} from "@/lib/i18n";
+import { getDisplayLocale, getLocalizedText } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
 import type { LocalizedText } from "@shared/types";
 import { toast } from "sonner";
@@ -90,7 +87,11 @@ function appointmentTypeLabel(type: string, lang: "zh" | "en") {
 function parseDoctorToken(doctorLink: string) {
   try {
     const url = new URL(doctorLink);
-    return url.searchParams.get("t")?.trim() || url.searchParams.get("token")?.trim() || null;
+    return (
+      url.searchParams.get("t")?.trim() ||
+      url.searchParams.get("token")?.trim() ||
+      null
+    );
   } catch {
     return null;
   }
@@ -132,7 +133,9 @@ export default function DoctorWorkbenchPage() {
     [lang]
   );
 
-  const [selectedAppointmentId, setSelectedAppointmentId] = useState<number | null>(null);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<
+    number | null
+  >(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [summaryContext, setSummaryContext] = useState<{
     appointmentId: number;
@@ -144,16 +147,24 @@ export default function DoctorWorkbenchPage() {
     enabled: isAuthenticated,
   });
   const boundDoctorId = myBindingQuery.data?.activeBinding?.doctorId ?? null;
-  const effectiveDoctorId = isCompatRoute && compatDoctorId ? compatDoctorId : boundDoctorId;
-  const bindingMismatch =
-    Boolean(isCompatRoute && compatDoctorId && boundDoctorId && compatDoctorId !== boundDoctorId);
+  const effectiveDoctorId =
+    isCompatRoute && compatDoctorId ? compatDoctorId : boundDoctorId;
+  const bindingMismatch = Boolean(
+    isCompatRoute &&
+      compatDoctorId &&
+      boundDoctorId &&
+      compatDoctorId !== boundDoctorId
+  );
 
   const doctorQuery = trpc.doctors.getById.useQuery(
     { id: effectiveDoctorId ?? 0 },
     { enabled: typeof effectiveDoctorId === "number" && effectiveDoctorId > 0 }
   );
   const workbenchQuery = trpc.appointments.listDoctorWorkbench.useQuery(
-    { doctorId: isCompatRoute && compatDoctorId ? compatDoctorId : undefined, limit: 30 },
+    {
+      doctorId: isCompatRoute && compatDoctorId ? compatDoctorId : undefined,
+      limit: 30,
+    },
     {
       enabled:
         isAuthenticated &&
@@ -172,35 +183,37 @@ export default function DoctorWorkbenchPage() {
         effectiveDoctorId > 0,
     }
   );
-  const detailQuery = trpc.appointments.getDoctorWorkbenchAppointmentDetail.useQuery(
-    {
-      appointmentId: selectedAppointmentId ?? 0,
-      doctorId: isCompatRoute && compatDoctorId ? compatDoctorId : undefined,
-      lang,
-    },
-    {
-      enabled:
-        isAuthenticated &&
-        !bindingMismatch &&
-        typeof selectedAppointmentId === "number" &&
-        selectedAppointmentId > 0,
-    }
-  );
+  const detailQuery =
+    trpc.appointments.getDoctorWorkbenchAppointmentDetail.useQuery(
+      {
+        appointmentId: selectedAppointmentId ?? 0,
+        doctorId: isCompatRoute && compatDoctorId ? compatDoctorId : undefined,
+        lang,
+      },
+      {
+        enabled:
+          isAuthenticated &&
+          !bindingMismatch &&
+          typeof selectedAppointmentId === "number" &&
+          selectedAppointmentId > 0,
+      }
+    );
 
   const issueLinksMutation = trpc.appointments.issueAccessLinks.useMutation();
-  const startAppointmentMutation = trpc.appointments.startDoctorWorkbenchAppointment.useMutation({
-    onSuccess: async () => {
-      await Promise.all([
-        workbenchQuery.refetch(),
-        detailQuery.refetch(),
-      ]);
-      toast.success(tr("已开始接诊。", "Consultation started."));
-    },
-    onError: error => {
-      toast.error(error.message || tr("开始接诊失败。", "Failed to start consultation."));
-    },
-  });
-  const completeAppointmentMutation = trpc.appointments.completeAppointment.useMutation();
+  const startAppointmentMutation =
+    trpc.appointments.startDoctorWorkbenchAppointment.useMutation({
+      onSuccess: async () => {
+        await Promise.all([workbenchQuery.refetch(), detailQuery.refetch()]);
+        toast.success(tr("已开始接诊。", "Consultation started."));
+      },
+      onError: error => {
+        toast.error(
+          error.message || tr("开始接诊失败。", "Failed to start consultation.")
+        );
+      },
+    });
+  const completeAppointmentMutation =
+    trpc.appointments.completeAppointment.useMutation();
 
   const doctorName = useMemo(() => {
     const doctor = doctorQuery.data?.doctor;
@@ -212,10 +225,11 @@ export default function DoctorWorkbenchPage() {
   }, [doctorQuery.data?.doctor, lang, tr]);
 
   const allAppointments = useMemo(
-    () => [
-      ...(workbenchQuery.data?.upcoming ?? []),
-      ...(workbenchQuery.data?.recent ?? []),
-    ] as WorkbenchItem[],
+    () =>
+      [
+        ...(workbenchQuery.data?.upcoming ?? []),
+        ...(workbenchQuery.data?.recent ?? []),
+      ] as WorkbenchItem[],
     [workbenchQuery.data?.recent, workbenchQuery.data?.upcoming]
   );
 
@@ -238,7 +252,9 @@ export default function DoctorWorkbenchPage() {
       const issued = await issueLinksMutation.mutateAsync({ appointmentId });
       const token = parseDoctorToken(issued.doctorLink);
       if (!token) {
-        throw new Error(tr("无法解析医生房间 token。", "Failed to parse doctor room token."));
+        throw new Error(
+          tr("无法解析医生房间 token。", "Failed to parse doctor room token.")
+        );
       }
       return {
         token,
@@ -253,7 +269,8 @@ export default function DoctorWorkbenchPage() {
       try {
         await startAppointmentMutation.mutateAsync({
           appointmentId,
-          doctorId: isCompatRoute && compatDoctorId ? compatDoctorId : undefined,
+          doctorId:
+            isCompatRoute && compatDoctorId ? compatDoctorId : undefined,
         });
       } catch {
         // Mutation handles toast messaging.
@@ -315,12 +332,21 @@ export default function DoctorWorkbenchPage() {
         toast.error(
           normalizeErrorMessage(
             error,
-            tr("无法打开病历摘要流程。", "Unable to open medical summary workflow.")
+            tr(
+              "无法打开病历摘要流程。",
+              "Unable to open medical summary workflow."
+            )
           )
         );
       }
     },
-    [allAppointments, completeAppointmentMutation, ensureDoctorAccessToken, refreshWorkbenchData, tr]
+    [
+      allAppointments,
+      completeAppointmentMutation,
+      ensureDoctorAccessToken,
+      refreshWorkbenchData,
+      tr,
+    ]
   );
 
   const summaryModalCopy = useMemo(
@@ -366,8 +392,15 @@ export default function DoctorWorkbenchPage() {
               <CardTitle>{tr("需要先登录", "Login Required")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-slate-600">
-              <p>{tr("医生工作台当前要求已登录后访问。", "The doctor workbench currently requires authentication.")}</p>
-              <Button onClick={openLoginModal}>{tr("登录后继续", "Sign In to Continue")}</Button>
+              <p>
+                {tr(
+                  "医生工作台当前要求已登录后访问。",
+                  "The doctor workbench currently requires authentication."
+                )}
+              </p>
+              <Button onClick={openLoginModal}>
+                {tr("登录后继续", "Sign In to Continue")}
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -381,7 +414,9 @@ export default function DoctorWorkbenchPage() {
         <div className="mx-auto flex min-h-[60vh] max-w-3xl items-center justify-center px-4">
           <Card className="w-full max-w-xl">
             <CardHeader>
-              <CardTitle>{tr("工作台访问被拒绝", "Workbench Access Denied")}</CardTitle>
+              <CardTitle>
+                {tr("工作台访问被拒绝", "Workbench Access Denied")}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-slate-600">
               <p>
@@ -406,7 +441,9 @@ export default function DoctorWorkbenchPage() {
         <div className="mx-auto flex min-h-[60vh] max-w-3xl items-center justify-center px-4">
           <Card className="w-full max-w-xl">
             <CardHeader>
-              <CardTitle>{tr("尚未开通工作台", "Workbench Not Enabled")}</CardTitle>
+              <CardTitle>
+                {tr("尚未开通工作台", "Workbench Not Enabled")}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-slate-600">
               <p>
@@ -417,8 +454,14 @@ export default function DoctorWorkbenchPage() {
               </p>
               <p className="text-xs text-slate-500">
                 {user?.email
-                  ? tr(`当前登录邮箱：${user.email}`, `Signed in as: ${user.email}`)
-                  : tr("当前账号没有绑定邮箱。", "The current account does not have a bound email.")}
+                  ? tr(
+                      `当前登录邮箱：${user.email}`,
+                      `Signed in as: ${user.email}`
+                    )
+                  : tr(
+                      "当前账号没有绑定邮箱。",
+                      "The current account does not have a bound email."
+                    )}
               </p>
             </CardContent>
           </Card>
@@ -433,7 +476,9 @@ export default function DoctorWorkbenchPage() {
       rightElements={
         effectiveDoctorId ? (
           <Link href={`/doctor/${effectiveDoctorId}`}>
-            <Button variant="outline">{tr("返回医生主页", "Back to Doctor Page")}</Button>
+            <Button variant="outline">
+              {tr("返回医生主页", "Back to Doctor Page")}
+            </Button>
           </Link>
         ) : undefined
       }
@@ -467,10 +512,17 @@ export default function DoctorWorkbenchPage() {
                 </p>
                 {doctorQuery.data?.doctor ? (
                   <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                    <Badge variant="outline" className="border-slate-300 bg-white text-slate-700">
-                      {tr("科室", "Department")} #{doctorQuery.data.doctor.departmentId}
+                    <Badge
+                      variant="outline"
+                      className="border-slate-300 bg-white text-slate-700"
+                    >
+                      {tr("科室", "Department")} #
+                      {doctorQuery.data.doctor.departmentId}
                     </Badge>
-                    <Badge variant="outline" className="border-slate-300 bg-white text-slate-700">
+                    <Badge
+                      variant="outline"
+                      className="border-slate-300 bg-white text-slate-700"
+                    >
                       ID #{doctorQuery.data.doctor.id}
                     </Badge>
                   </div>
@@ -481,7 +533,9 @@ export default function DoctorWorkbenchPage() {
             <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
               <Card className="border-slate-200/80 shadow-sm">
                 <CardContent className="p-5">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">{tr("未来预约", "Upcoming Visits")}</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">
+                    {tr("未来预约", "Upcoming Visits")}
+                  </p>
                   <p className="mt-2 text-3xl font-semibold text-slate-900">
                     {workbenchQuery.data?.upcoming.length ?? 0}
                   </p>
@@ -489,7 +543,9 @@ export default function DoctorWorkbenchPage() {
               </Card>
               <Card className="border-slate-200/80 shadow-sm">
                 <CardContent className="p-5">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">{tr("未来 Slots", "Future Slots")}</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">
+                    {tr("未来 Slots", "Future Slots")}
+                  </p>
                   <p className="mt-2 text-3xl font-semibold text-slate-900">
                     {slotsQuery.data?.length ?? 0}
                   </p>
@@ -497,11 +553,14 @@ export default function DoctorWorkbenchPage() {
               </Card>
               <Card className="border-slate-200/80 shadow-sm">
                 <CardContent className="p-5">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">{tr("已签摘要", "Signed Summaries")}</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">
+                    {tr("已签摘要", "Signed Summaries")}
+                  </p>
                   <p className="mt-2 text-3xl font-semibold text-slate-900">
                     {
-                      allAppointments.filter(item =>
-                        item.status === "completed" || item.status === "ended"
+                      allAppointments.filter(
+                        item =>
+                          item.status === "completed" || item.status === "ended"
                       ).length
                     }
                   </p>
@@ -513,7 +572,9 @@ export default function DoctorWorkbenchPage() {
           <section className="grid gap-6 xl:grid-cols-[1.1fr,0.9fr]">
             <Card className="border-slate-200/80 shadow-sm">
               <CardHeader>
-                <CardTitle>{tr("待接诊与近期预约", "Upcoming and Recent Appointments")}</CardTitle>
+                <CardTitle>
+                  {tr("待接诊与近期预约", "Upcoming and Recent Appointments")}
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {workbenchQuery.isLoading ? (
@@ -522,22 +583,36 @@ export default function DoctorWorkbenchPage() {
                     {tr("正在加载预约...", "Loading appointments...")}
                   </div>
                 ) : workbenchQuery.error ? (
-                  <p className="text-sm text-destructive">{workbenchQuery.error.message}</p>
+                  <p className="text-sm text-destructive">
+                    {workbenchQuery.error.message}
+                  </p>
                 ) : (
                   <>
                     {allAppointments.map(item => (
-                      <div key={item.id} className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm">
+                      <div
+                        key={item.id}
+                        className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm"
+                      >
                         <div className="flex flex-wrap items-start justify-between gap-4">
                           <div className="min-w-0 flex-1 space-y-2">
                             <div className="flex flex-wrap items-center gap-2">
                               <Badge className="border-0 bg-slate-900 text-white">
-                                {appointmentTypeLabel(item.appointmentType, lang)}
+                                {appointmentTypeLabel(
+                                  item.appointmentType,
+                                  lang
+                                )}
                               </Badge>
-                              <Badge variant="outline" className="border-slate-300 bg-white text-slate-700">
+                              <Badge
+                                variant="outline"
+                                className="border-slate-300 bg-white text-slate-700"
+                              >
                                 {statusLabel(item.status, lang)}
                               </Badge>
                               {item.packageId ? (
-                                <Badge variant="outline" className="border-slate-300 bg-white text-slate-700">
+                                <Badge
+                                  variant="outline"
+                                  className="border-slate-300 bg-white text-slate-700"
+                                >
                                   {item.packageId}
                                 </Badge>
                               ) : null}
@@ -546,10 +621,12 @@ export default function DoctorWorkbenchPage() {
                               {formatDateTime(item.scheduledAt, locale)}
                             </p>
                             <p className="text-xs text-slate-500">
-                              {maskEmail(item.patientEmail)} · {item.paymentStatus}
+                              {maskEmail(item.patientEmail)} ·{" "}
+                              {item.paymentStatus}
                             </p>
                             <p className="line-clamp-2 text-sm text-slate-700">
-                              {item.chiefComplaint || tr("主诉待补充", "Chief complaint pending")}
+                              {item.chiefComplaint ||
+                                tr("主诉待补充", "Chief complaint pending")}
                             </p>
                           </div>
                           <div className="flex shrink-0 flex-wrap gap-2">
@@ -566,7 +643,10 @@ export default function DoctorWorkbenchPage() {
                               type="button"
                               variant="outline"
                               size="sm"
-                              disabled={item.status !== "paid" || startAppointmentMutation.isPending}
+                              disabled={
+                                item.status !== "paid" ||
+                                startAppointmentMutation.isPending
+                              }
                               onClick={() => void startConsultation(item.id)}
                             >
                               <Sparkles className="mr-1.5 h-4 w-4" />
@@ -576,7 +656,12 @@ export default function DoctorWorkbenchPage() {
                               type="button"
                               size="sm"
                               disabled={
-                                !["paid", "active", "ended", "completed"].includes(item.status) ||
+                                ![
+                                  "paid",
+                                  "active",
+                                  "ended",
+                                  "completed",
+                                ].includes(item.status) ||
                                 issueLinksMutation.isPending
                               }
                               onClick={() => void openDoctorRoom(item.id)}
@@ -589,7 +674,12 @@ export default function DoctorWorkbenchPage() {
                       </div>
                     ))}
                     {allAppointments.length === 0 ? (
-                      <p className="text-sm text-slate-500">{tr("当前没有可显示的预约。", "No appointments to show.")}</p>
+                      <p className="text-sm text-slate-500">
+                        {tr(
+                          "当前没有可显示的预约。",
+                          "No appointments to show."
+                        )}
+                      </p>
                     ) : null}
                   </>
                 )}
@@ -598,7 +688,9 @@ export default function DoctorWorkbenchPage() {
 
             <Card className="border-slate-200/80 shadow-sm">
               <CardHeader>
-                <CardTitle>{tr("未来可售 Slots", "Future Sellable Slots")}</CardTitle>
+                <CardTitle>
+                  {tr("未来可售 Slots", "Future Sellable Slots")}
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {slotsQuery.isLoading ? (
@@ -607,11 +699,16 @@ export default function DoctorWorkbenchPage() {
                     {tr("正在加载 slots...", "Loading slots...")}
                   </div>
                 ) : slotsQuery.error ? (
-                  <p className="text-sm text-destructive">{slotsQuery.error.message}</p>
+                  <p className="text-sm text-destructive">
+                    {slotsQuery.error.message}
+                  </p>
                 ) : (
                   <>
                     {(slotsQuery.data ?? []).map(slot => (
-                      <div key={slot.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <div
+                        key={slot.id}
+                        className="rounded-2xl border border-slate-200 bg-white p-4"
+                      >
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div className="space-y-1">
                             <p className="flex items-center gap-2 text-sm font-medium text-slate-900">
@@ -620,7 +717,8 @@ export default function DoctorWorkbenchPage() {
                             </p>
                             <p className="flex items-center gap-2 text-xs text-slate-500">
                               <Clock3 className="h-3.5 w-3.5" />
-                              {slot.slotDurationMinutes} min · {slot.appointmentType} · {slot.status}
+                              {slot.slotDurationMinutes} min ·{" "}
+                              {slot.appointmentType} · {slot.status}
                             </p>
                           </div>
                           <ChevronRight className="h-4 w-4 text-slate-400" />
@@ -628,7 +726,9 @@ export default function DoctorWorkbenchPage() {
                       </div>
                     ))}
                     {(slotsQuery.data?.length ?? 0) === 0 ? (
-                      <p className="text-sm text-slate-500">{tr("当前没有未来 slots。", "No future slots yet.")}</p>
+                      <p className="text-sm text-slate-500">
+                        {tr("当前没有未来 slots。", "No future slots yet.")}
+                      </p>
                     ) : null}
                   </>
                 )}
@@ -657,7 +757,9 @@ export default function DoctorWorkbenchPage() {
         }}
         isStarting={startAppointmentMutation.isPending}
         isOpeningRoom={issueLinksMutation.isPending}
-        isCompleting={completeAppointmentMutation.isPending || issueLinksMutation.isPending}
+        isCompleting={
+          completeAppointmentMutation.isPending || issueLinksMutation.isPending
+        }
       />
 
       {summaryContext ? (

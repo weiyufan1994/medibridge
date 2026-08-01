@@ -38,7 +38,7 @@ async function repairMigrationHistory() {
     connectionString: databaseUrl,
   });
   try {
-    await pool.query('create schema if not exists drizzle');
+    await pool.query("create schema if not exists drizzle");
     await pool.query(`
       create table if not exists drizzle."__drizzle_migrations" (
         id integer primary key,
@@ -47,7 +47,11 @@ async function repairMigrationHistory() {
       )
     `);
 
-    const existingRows = await pool.query<{ id: number; hash: string; created_at: string }>(
+    const existingRows = await pool.query<{
+      id: number;
+      hash: string;
+      created_at: string;
+    }>(
       'select id, hash, created_at from drizzle."__drizzle_migrations" order by id'
     );
     const existingById = new Map(

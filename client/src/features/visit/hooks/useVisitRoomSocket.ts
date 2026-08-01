@@ -173,7 +173,10 @@ export function useVisitRoomSocket({
         handlersRef.current.onReconnectingChange(true);
         const delayMs =
           RECONNECT_DELAYS_MS[
-            Math.min(reconnectAttemptRef.current, RECONNECT_DELAYS_MS.length - 1)
+            Math.min(
+              reconnectAttemptRef.current,
+              RECONNECT_DELAYS_MS.length - 1
+            )
           ];
         reconnectAttemptRef.current += 1;
         clearReconnectTimer();

@@ -7,31 +7,34 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
 
 export default function MockCheckoutPage() {
-  const [, params] = useRoute<{ bookingId: string }>("/mock-checkout/:bookingId");
+  const [, params] = useRoute<{ bookingId: string }>(
+    "/mock-checkout/:bookingId"
+  );
   const bookingId = Number(params?.bookingId ?? NaN);
   const validBookingId = Number.isInteger(bookingId) && bookingId > 0;
   const utils = trpc.useUtils();
 
-  const simulatePaymentMutation = trpc.payments.confirmMockCheckoutByAppointment.useMutation({
-    onSuccess: async result => {
-      if (result.stripeSessionId) {
-        await utils.payments.getCheckoutResult.invalidate({
-          stripeSessionId: result.stripeSessionId,
-        });
-      }
-      if (result.devPatientLink && typeof window !== "undefined") {
-        const nextUrl = new URL(result.devPatientLink);
-        window.location.href = `${nextUrl.pathname}${nextUrl.search}`;
-        return;
-      }
-      if (result.stripeSessionId && typeof window !== "undefined") {
-        window.location.href = `/payment/success?session_id=${encodeURIComponent(result.stripeSessionId)}`;
-      }
-    },
-    onError: error => {
-      toast.error(error.message || "Failed to simulate payment.");
-    },
-  });
+  const simulatePaymentMutation =
+    trpc.payments.confirmMockCheckoutByAppointment.useMutation({
+      onSuccess: async result => {
+        if (result.stripeSessionId) {
+          await utils.payments.getCheckoutResult.invalidate({
+            stripeSessionId: result.stripeSessionId,
+          });
+        }
+        if (result.devPatientLink && typeof window !== "undefined") {
+          const nextUrl = new URL(result.devPatientLink);
+          window.location.href = `${nextUrl.pathname}${nextUrl.search}`;
+          return;
+        }
+        if (result.stripeSessionId && typeof window !== "undefined") {
+          window.location.href = `/payment/success?session_id=${encodeURIComponent(result.stripeSessionId)}`;
+        }
+      },
+      onError: error => {
+        toast.error(error.message || "Failed to simulate payment.");
+      },
+    });
 
   if (!validBookingId) {
     return (
@@ -56,7 +59,10 @@ export default function MockCheckoutPage() {
           </CardHeader>
           <CardContent className="space-y-4 text-sm text-muted-foreground">
             <p>Booking ID: {bookingId}</p>
-            <p>This page simulates a full payment step during development testing.</p>
+            <p>
+              This page simulates a full payment step during development
+              testing.
+            </p>
             <Button
               onClick={() =>
                 void simulatePaymentMutation.mutateAsync({

@@ -1,7 +1,10 @@
 const DEVICE_ID_STORAGE_KEY = "deviceId";
 
 function generateDeviceId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
 

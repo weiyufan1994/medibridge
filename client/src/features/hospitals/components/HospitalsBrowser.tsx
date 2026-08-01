@@ -102,7 +102,7 @@ export function HospitalsBrowser({
       return [];
     }
 
-    return hospitals.filter((hospital) => {
+    return hospitals.filter(hospital => {
       const hospitalName = getHospitalBrowseText({
         lang: resolved,
         value: hospital.name,
@@ -116,7 +116,9 @@ export function HospitalsBrowser({
         value: hospital.level,
       });
 
-      if (!matchesHospitalCityFilter({ city: hospital.city, filter: cityFilter })) {
+      if (
+        !matchesHospitalCityFilter({ city: hospital.city, filter: cityFilter })
+      ) {
         return false;
       }
 
@@ -134,7 +136,9 @@ export function HospitalsBrowser({
   const isDoctorsView = viewMode === "doctors";
 
   return (
-    <div className={isDoctorsView ? "min-h-screen bg-slate-50 w-full" : "w-full"}>
+    <div
+      className={isDoctorsView ? "min-h-screen bg-slate-50 w-full" : "w-full"}
+    >
       <nav
         aria-label={copy.browser.navigationAria}
         className="flex items-center gap-2 mb-6 text-sm text-slate-500"
@@ -156,13 +160,15 @@ export function HospitalsBrowser({
                 viewMode === "departments" ? "text-slate-900 font-semibold" : ""
               }`}
             >
-              {selectedHospitalName || copy.browser.breadcrumbDepartmentsFallback}
+              {selectedHospitalName ||
+                copy.browser.breadcrumbDepartmentsFallback}
             </button>
             {viewMode === "doctors" && (
               <>
                 <ChevronRight className="w-4 h-4" />
                 <span className="text-foreground font-medium">
-                  {selectedDepartmentName || copy.browser.breadcrumbDoctorsFallback}
+                  {selectedDepartmentName ||
+                    copy.browser.breadcrumbDoctorsFallback}
                 </span>
               </>
             )}
@@ -190,7 +196,7 @@ export function HospitalsBrowser({
                 id="hospital-search"
                 placeholder={copy.browser.searchHospitalsPlaceholder}
                 value={searchQuery}
-                onChange={(e) => onSearchQueryChange(e.target.value)}
+                onChange={e => onSearchQueryChange(e.target.value)}
                 className="pl-9 h-11 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus-visible:ring-1 focus-visible:ring-teal-500 focus-visible:ring-offset-0"
               />
             </div>
@@ -200,7 +206,7 @@ export function HospitalsBrowser({
             <select
               id="city-filter"
               value={cityFilter}
-              onChange={(e) => setCityFilter(e.target.value)}
+              onChange={e => setCityFilter(e.target.value)}
               className="h-11 rounded-md border border-slate-200 bg-white px-3 text-slate-700 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-teal-500 min-w-44"
             >
               <option value="all">{copy.browser.allCities}</option>
@@ -219,7 +225,7 @@ export function HospitalsBrowser({
             </p>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
-            {filteredHospitals.map((hospital) => {
+            {filteredHospitals.map(hospital => {
               const hospitalName = getHospitalBrowseText({
                 lang: resolved,
                 value: hospital.name,
@@ -249,7 +255,10 @@ export function HospitalsBrowser({
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <Hospital className="w-8 h-8 text-slate-400" aria-hidden="true" />
+                      <Hospital
+                        className="w-8 h-8 text-slate-400"
+                        aria-hidden="true"
+                      />
                     )}
                   </div>
                   <div className="min-w-0 flex-1 flex flex-col">
@@ -257,10 +266,16 @@ export function HospitalsBrowser({
                       {hospitalName}
                     </h3>
                     <div className="flex flex-wrap gap-2 mt-2">
-                      {hospital.level && <Badge variant="outline">{hospitalLevel}</Badge>}
-                      {hospital.city && <Badge variant="secondary">{hospitalCity}</Badge>}
+                      {hospital.level && (
+                        <Badge variant="outline">{hospitalLevel}</Badge>
+                      )}
+                      {hospital.city && (
+                        <Badge variant="secondary">{hospitalCity}</Badge>
+                      )}
                     </div>
-                    <p className="text-sm text-slate-500 line-clamp-2 mt-2">{description}</p>
+                    <p className="text-sm text-slate-500 line-clamp-2 mt-2">
+                      {description}
+                    </p>
                     <div className="mt-auto pt-4">
                       <Button
                         type="button"
@@ -268,7 +283,10 @@ export function HospitalsBrowser({
                         className="bg-teal-600 hover:bg-teal-700 text-white font-medium px-4 py-2 rounded-lg transition-colors"
                       >
                         {copy.browser.viewDoctors}
-                        <ArrowRight className="w-4 h-4 ml-1.5" aria-hidden="true" />
+                        <ArrowRight
+                          className="w-4 h-4 ml-1.5"
+                          aria-hidden="true"
+                        />
                       </Button>
                     </div>
                   </div>
@@ -295,7 +313,10 @@ export function HospitalsBrowser({
                 {selectedHospitalName}
               </h2>
               {selectedHospitalLevel ? (
-                <Badge variant="outline" className="border-slate-300 text-slate-600">
+                <Badge
+                  variant="outline"
+                  className="border-slate-300 text-slate-600"
+                >
                   {selectedHospitalLevel}
                 </Badge>
               ) : null}
@@ -324,7 +345,7 @@ export function HospitalsBrowser({
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-8">
-            {departments?.map((dept) => {
+            {departments?.map(dept => {
               const departmentName = getHospitalBrowseText({
                 lang: resolved,
                 value: dept.name,
@@ -373,7 +394,7 @@ export function HospitalsBrowser({
               id="doctor-search"
               placeholder={copy.browser.searchPlaceholder}
               value={searchQuery}
-              onChange={(e) => onSearchQueryChange(e.target.value)}
+              onChange={e => onSearchQueryChange(e.target.value)}
               className="pl-10 pr-4 py-3 rounded-xl shadow-sm border-slate-200 focus:border-teal-500 focus-visible:ring-1 focus-visible:ring-teal-500 focus-visible:ring-offset-0"
             />
           </div>
@@ -411,16 +432,22 @@ export function HospitalsBrowser({
                   </div>
                   <div className="flex-1 flex flex-col gap-1 min-w-0">
                     <div className="flex items-center gap-3">
-                      <h4 className="text-xl font-bold text-slate-900">{doctorName}</h4>
+                      <h4 className="text-xl font-bold text-slate-900">
+                        {doctorName}
+                      </h4>
                       {doctor.recommendationScore && (
                         <span className="bg-amber-50 text-amber-600 px-2 py-0.5 rounded text-sm font-medium">
                           ★ {doctor.recommendationScore}
                         </span>
                       )}
                     </div>
-                    <p className="text-teal-700 font-medium text-sm">{doctorTitle}</p>
+                    <p className="text-teal-700 font-medium text-sm">
+                      {doctorTitle}
+                    </p>
                     <p className="line-clamp-2 text-sm text-slate-500 mt-2">
-                      <span className="font-medium text-slate-600">{copy.browser.expertiseLabel}</span>
+                      <span className="font-medium text-slate-600">
+                        {copy.browser.expertiseLabel}
+                      </span>
                       {doctorExpertise}
                     </p>
                   </div>

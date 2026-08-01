@@ -57,9 +57,9 @@ export type TrpcBookingMock = {
       ) => MockQueryState<BookingWorklistQueryResult>;
     };
     getDetail: {
-      useQuery: (
-        input: { appointment_id: number }
-      ) => MockQueryState<BookingDetailQueryResult>;
+      useQuery: (input: {
+        appointment_id: number;
+      }) => MockQueryState<BookingDetailQueryResult>;
     };
   };
 };

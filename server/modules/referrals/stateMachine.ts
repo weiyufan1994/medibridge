@@ -12,11 +12,7 @@ const ALLOWED_STATUS_TRANSITIONS: Record<
   ReferralOrderStatus[]
 > = {
   pending_payment: ["paid_pending_assignment", "cancelled"],
-  paid_pending_assignment: [
-    "assigned",
-    "refund_pending_review",
-    "cancelled",
-  ],
+  paid_pending_assignment: ["assigned", "refund_pending_review", "cancelled"],
   assigned: ["contacting", "refund_pending_review", "cancelled"],
   contacting: ["booking_in_progress", "refund_pending_review", "cancelled"],
   booking_in_progress: [
@@ -83,10 +79,7 @@ export function ensureValidReferralStatePair(input: {
   paymentStatus: ReferralPaymentStatus;
 }) {
   if (
-    !isAllowedPaymentStatusForReferralOrder(
-      input.status,
-      input.paymentStatus
-    )
+    !isAllowedPaymentStatusForReferralOrder(input.status, input.paymentStatus)
   ) {
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
@@ -115,9 +108,13 @@ export function ensureValidReferralTransition(input: {
 }
 
 export function isReferralTerminalStatus(status: ReferralOrderStatus) {
-  return status === "completed" || status === "refunded" || status === "cancelled";
+  return (
+    status === "completed" || status === "refunded" || status === "cancelled"
+  );
 }
 
-export function canReferralOrderReenterFulfillment(status: ReferralOrderStatus) {
+export function canReferralOrderReenterFulfillment(
+  status: ReferralOrderStatus
+) {
   return !["refunded", "cancelled", "completed"].includes(status);
 }

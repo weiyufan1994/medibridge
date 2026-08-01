@@ -35,14 +35,17 @@ describe("doctor account actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getDb).mockResolvedValue({
-      transaction: async (callback: (tx: unknown) => Promise<unknown>) => callback({}),
+      transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback({}),
     } as never);
   });
 
   it("inviteDoctorAccount creates and emails a claim invite", async () => {
     vi.mocked(repo.getActiveBindingByDoctorId).mockResolvedValue(null);
     vi.mocked(repo.getLatestOpenInviteByDoctorAndEmail).mockResolvedValue(null);
-    vi.mocked(repo.clearPendingBindingsByDoctorId).mockResolvedValue(0 as never);
+    vi.mocked(repo.clearPendingBindingsByDoctorId).mockResolvedValue(
+      0 as never
+    );
     vi.mocked(repo.createInvite).mockResolvedValue({
       id: 7,
       doctorId: 11,
@@ -89,7 +92,9 @@ describe("doctor account actions", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     } as never);
-    vi.mocked(repo.expireInviteIfNeeded).mockImplementation(async invite => invite as never);
+    vi.mocked(repo.expireInviteIfNeeded).mockImplementation(
+      async invite => invite as never
+    );
     vi.mocked(repo.getActiveBindingByDoctorId).mockResolvedValue(null);
     vi.mocked(repo.getActiveBindingByUserId).mockResolvedValue(null);
     vi.mocked(repo.markInviteAccepted).mockResolvedValue({

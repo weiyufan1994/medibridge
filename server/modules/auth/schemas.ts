@@ -9,7 +9,10 @@ export const emailInputSchema = z.object({
 });
 
 export const verifyOtpInputSchema = emailInputSchema.extend({
-  code: z.string().trim().regex(/^\d{6}$/),
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/),
   deviceId: z.string().trim().min(8).max(128),
 });
 

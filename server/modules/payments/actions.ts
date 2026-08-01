@@ -18,7 +18,9 @@ export async function createCheckoutSessionForAppointmentAction(input: {
   operatorId: number | null;
   baseUrl?: string;
 }) {
-  const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
+  const appointment = await appointmentsRepo.getAppointmentById(
+    input.appointmentId
+  );
   if (!appointment) {
     throw new TRPCError({
       code: "NOT_FOUND",
@@ -70,7 +72,9 @@ export async function confirmMockCheckoutByAppointmentAction(input: {
 }) {
   assertMockCheckoutEnabled();
 
-  const appointment = await appointmentsRepo.getAppointmentById(input.appointmentId);
+  const appointment = await appointmentsRepo.getAppointmentById(
+    input.appointmentId
+  );
   if (!appointment) {
     throw new TRPCError({
       code: "NOT_FOUND",
@@ -102,5 +106,8 @@ export async function confirmMockCheckoutByAppointmentAction(input: {
   };
 }
 
-export { getCheckoutResultByStripeSession, getPaymentStatusByAppointmentForUser } from "./readActions";
+export {
+  getCheckoutResultByStripeSession,
+  getPaymentStatusByAppointmentForUser,
+} from "./readActions";
 export { reinitiateCheckoutForAppointment, settleStripePaymentBySessionId };

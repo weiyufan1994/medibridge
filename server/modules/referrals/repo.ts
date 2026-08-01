@@ -1,14 +1,4 @@
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  inArray,
-  isNull,
-  lte,
-  or,
-  sql,
-} from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import {
   departments,
   hospitals,
@@ -36,13 +26,8 @@ import {
   isAllowedReferralStatusTransition,
 } from "./stateMachine";
 
-type BaseDb = NonNullable<
-  Awaited<ReturnType<typeof getDb>>
->;
-export type ReferralRepoExecutor = Pick<
-  BaseDb,
-  "select" | "insert" | "update"
->;
+type BaseDb = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+export type ReferralRepoExecutor = Pick<BaseDb, "select" | "insert" | "update">;
 type DbExecutor = ReferralRepoExecutor;
 
 async function resolveDbExecutor(dbExecutor?: DbExecutor) {
@@ -161,10 +146,7 @@ export async function createReferralOrder(input: {
     .insert(referralOrders)
     .values(input.values)
     .onConflictDoNothing({
-      target: [
-        referralOrders.patientUserId,
-        referralOrders.clientRequestId,
-      ],
+      target: [referralOrders.patientUserId, referralOrders.clientRequestId],
     })
     .returning({ id: referralOrders.id });
 
@@ -263,7 +245,10 @@ export async function getReferralOrderBundleById(orderId: number) {
     .from(referralOrders)
     .leftJoin(hospitals, eq(referralOrders.hospitalId, hospitals.id))
     .leftJoin(departments, eq(referralOrders.departmentId, departments.id))
-    .leftJoin(referralContacts, eq(referralOrders.contactId, referralContacts.id))
+    .leftJoin(
+      referralContacts,
+      eq(referralOrders.contactId, referralContacts.id)
+    )
     .leftJoin(users, eq(referralOrders.patientUserId, users.id))
     .where(eq(referralOrders.id, orderId))
     .limit(1);
@@ -351,8 +336,7 @@ export async function tryTransitionOrderById(input: {
   }
 
   const currentStatus = current.status as ReferralOrderStatus;
-  const currentPaymentStatus =
-    current.paymentStatus as ReferralPaymentStatus;
+  const currentPaymentStatus = current.paymentStatus as ReferralPaymentStatus;
   const allowedFromState = input.allowedFrom.includes(currentStatus);
   const allowedTransition = isAllowedReferralStatusTransition(
     currentStatus,
@@ -458,10 +442,12 @@ export async function tryMarkOrderPaidByPaymentSessionId(input: {
 }) {
   return tryTransitionOrderById({
     orderId:
-      (await readOrderStateByPaymentSessionId({
-        paymentSessionId: input.paymentSessionId,
-        dbExecutor: input.dbExecutor,
-      }))?.id ?? 0,
+      (
+        await readOrderStateByPaymentSessionId({
+          paymentSessionId: input.paymentSessionId,
+          dbExecutor: input.dbExecutor,
+        })
+      )?.id ?? 0,
     allowedFrom: ["pending_payment"],
     toStatus: "paid_pending_assignment",
     toPaymentStatus: "paid",
@@ -741,7 +727,10 @@ export async function listMineReferralOrders(input: {
     .from(referralOrders)
     .leftJoin(hospitals, eq(referralOrders.hospitalId, hospitals.id))
     .leftJoin(departments, eq(referralOrders.departmentId, departments.id))
-    .leftJoin(referralContacts, eq(referralOrders.contactId, referralContacts.id))
+    .leftJoin(
+      referralContacts,
+      eq(referralOrders.contactId, referralContacts.id)
+    )
     .leftJoin(
       refundRequests,
       and(
@@ -771,7 +760,10 @@ export async function listReferralOrdersForAdmin(input: {
   if (input.status) {
     filters.push(eq(referralOrders.status, input.status));
   }
-  if (typeof input.assignedToUserId === "number" && input.assignedToUserId > 0) {
+  if (
+    typeof input.assignedToUserId === "number" &&
+    input.assignedToUserId > 0
+  ) {
     filters.push(eq(referralOrders.assignedAgentId, input.assignedToUserId));
   }
   if (typeof input.hospitalId === "number" && input.hospitalId > 0) {
@@ -793,7 +785,10 @@ export async function listReferralOrdersForAdmin(input: {
     .from(referralOrders)
     .leftJoin(hospitals, eq(referralOrders.hospitalId, hospitals.id))
     .leftJoin(departments, eq(referralOrders.departmentId, departments.id))
-    .leftJoin(referralContacts, eq(referralOrders.contactId, referralContacts.id))
+    .leftJoin(
+      referralContacts,
+      eq(referralOrders.contactId, referralContacts.id)
+    )
     .leftJoin(users, eq(referralOrders.patientUserId, users.id))
     .where(whereClause)
     .orderBy(direction(referralOrders.updatedAt), desc(referralOrders.id))
@@ -817,7 +812,10 @@ export async function listReferralOrdersForAdmin(input: {
 
 export async function listHospitalsForReferralCatalog() {
   const db = await resolveDbExecutor();
-  return db.select().from(hospitals).orderBy(asc(hospitals.name), asc(hospitals.id));
+  return db
+    .select()
+    .from(hospitals)
+    .orderBy(asc(hospitals.name), asc(hospitals.id));
 }
 
 export async function listDepartmentsByHospitalId(hospitalId: number) {
@@ -853,7 +851,9 @@ function sanitizeInsertReferralContact(input: UpsertReferralContactValues) {
   return {
     ...input,
     languages: Array.isArray(input.languages) ? input.languages : [],
-    specialtyTags: Array.isArray(input.specialtyTags) ? input.specialtyTags : [],
+    specialtyTags: Array.isArray(input.specialtyTags)
+      ? input.specialtyTags
+      : [],
     updatedAt: new Date(),
   };
 }

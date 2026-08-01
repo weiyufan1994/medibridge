@@ -118,7 +118,10 @@ export function validateRequiredArtifacts(input: {
   }
 
   const availableColumns = new Set(
-    Array.from(input.columns, column => `${column.tableName}.${column.columnName}`)
+    Array.from(
+      input.columns,
+      column => `${column.tableName}.${column.columnName}`
+    )
   );
   const missingColumns = REQUIRED_COLUMNS.filter(
     column => !availableColumns.has(`${column.tableName}.${column.columnName}`)

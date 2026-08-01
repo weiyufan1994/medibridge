@@ -29,7 +29,10 @@ vi.mock("./providers/paypalAdapter", () => ({
   captureOrFinalizePaypalSession: vi.fn(),
 }));
 
-import { createPaymentCheckoutSession, resolvePaymentProvider } from "./providerManager";
+import {
+  createPaymentCheckoutSession,
+  resolvePaymentProvider,
+} from "./providerManager";
 import { paypalAdapter } from "./providers/paypalAdapter";
 
 describe("providerManager", () => {
@@ -67,6 +70,8 @@ describe("providerManager", () => {
 
   it("throws when PAYMENT_PROVIDER is unsupported", () => {
     process.env.PAYMENT_PROVIDER = "square";
-    expect(() => resolvePaymentProvider()).toThrow("Unsupported PAYMENT_PROVIDER");
+    expect(() => resolvePaymentProvider()).toThrow(
+      "Unsupported PAYMENT_PROVIDER"
+    );
   });
 });

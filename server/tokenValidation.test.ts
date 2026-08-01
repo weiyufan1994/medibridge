@@ -81,8 +81,12 @@ describe("token validation", () => {
     vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue(
       paidAppointment() as never
     );
-    vi.mocked(appointmentsRepo.updateTokenUsageIfAllowed).mockResolvedValue(1 as never);
-    vi.mocked(appointmentsRepo.saveTokenFirstSeen).mockResolvedValue(undefined as never);
+    vi.mocked(appointmentsRepo.updateTokenUsageIfAllowed).mockResolvedValue(
+      1 as never
+    );
+    vi.mocked(appointmentsRepo.saveTokenFirstSeen).mockResolvedValue(
+      undefined as never
+    );
 
     const result = await validateAppointmentAccessToken({
       token: "token-1234567890abcdef",
@@ -117,7 +121,10 @@ describe("token validation", () => {
     } as never);
 
     await expect(
-      validateAppointmentAccessToken({ token: "token-1234567890abcdef", req: makeReq() })
+      validateAppointmentAccessToken({
+        token: "token-1234567890abcdef",
+        req: makeReq(),
+      })
     ).rejects.toMatchObject<Partial<TRPCError>>({
       code: "UNAUTHORIZED",
       message: "TOKEN_EXPIRED",
@@ -145,7 +152,10 @@ describe("token validation", () => {
     } as never);
 
     await expect(
-      validateAppointmentAccessToken({ token: "token-1234567890abcdef", req: makeReq() })
+      validateAppointmentAccessToken({
+        token: "token-1234567890abcdef",
+        req: makeReq(),
+      })
     ).rejects.toMatchObject<Partial<TRPCError>>({
       code: "UNAUTHORIZED",
       message: "TOKEN_REVOKED",
@@ -167,14 +177,22 @@ describe("token validation", () => {
     vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue(
       paidAppointment() as never
     );
-    vi.mocked(appointmentsRepo.updateTokenUsageIfAllowed).mockImplementation(async () => {
-      updateCalls += 1;
-      return updateCalls === 1 ? 1 : 0;
-    });
+    vi.mocked(appointmentsRepo.updateTokenUsageIfAllowed).mockImplementation(
+      async () => {
+        updateCalls += 1;
+        return updateCalls === 1 ? 1 : 0;
+      }
+    );
 
     const [a, b] = await Promise.allSettled([
-      validateAppointmentAccessToken({ token: "token-1234567890abcdef", req: makeReq() }),
-      validateAppointmentAccessToken({ token: "token-1234567890abcdef", req: makeReq() }),
+      validateAppointmentAccessToken({
+        token: "token-1234567890abcdef",
+        req: makeReq(),
+      }),
+      validateAppointmentAccessToken({
+        token: "token-1234567890abcdef",
+        req: makeReq(),
+      }),
     ]);
 
     const fulfilled = [a, b].filter(item => item.status === "fulfilled");
@@ -187,10 +205,15 @@ describe("token validation", () => {
   });
 
   it("non-existing token returns TOKEN_INVALID", async () => {
-    vi.mocked(appointmentsRepo.getAppointmentTokenByHash).mockResolvedValue(null as never);
+    vi.mocked(appointmentsRepo.getAppointmentTokenByHash).mockResolvedValue(
+      null as never
+    );
 
     await expect(
-      validateAppointmentAccessToken({ token: "token-1234567890abcdef", req: makeReq() })
+      validateAppointmentAccessToken({
+        token: "token-1234567890abcdef",
+        req: makeReq(),
+      })
     ).rejects.toMatchObject<Partial<TRPCError>>({
       code: "UNAUTHORIZED",
       message: "TOKEN_INVALID",
@@ -215,7 +238,10 @@ describe("token validation", () => {
     } as never);
 
     await expect(
-      validateAppointmentAccessToken({ token: "token-1234567890abcdef", req: makeReq() })
+      validateAppointmentAccessToken({
+        token: "token-1234567890abcdef",
+        req: makeReq(),
+      })
     ).rejects.toMatchObject<Partial<TRPCError>>({
       code: "FORBIDDEN",
       message: "APPOINTMENT_NOT_ALLOWED",
@@ -274,8 +300,12 @@ describe("token validation", () => {
     vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue(
       paidAppointment() as never
     );
-    vi.mocked(appointmentsRepo.updateTokenUsageIfAllowed).mockResolvedValue(1 as never);
-    vi.mocked(appointmentsRepo.saveTokenFirstSeen).mockResolvedValue(undefined as never);
+    vi.mocked(appointmentsRepo.updateTokenUsageIfAllowed).mockResolvedValue(
+      1 as never
+    );
+    vi.mocked(appointmentsRepo.saveTokenFirstSeen).mockResolvedValue(
+      undefined as never
+    );
 
     await expect(
       validateAppointmentAccessToken({
@@ -317,7 +347,9 @@ describe("token validation", () => {
     vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue(
       paidAppointment() as never
     );
-    vi.mocked(appointmentsRepo.saveTokenFirstSeen).mockResolvedValue(undefined as never);
+    vi.mocked(appointmentsRepo.saveTokenFirstSeen).mockResolvedValue(
+      undefined as never
+    );
 
     await expect(
       validateAppointmentAccessToken({
@@ -349,7 +381,9 @@ describe("token validation", () => {
     vi.mocked(appointmentsRepo.getAppointmentById).mockResolvedValue(
       paidAppointment() as never
     );
-    vi.mocked(appointmentsRepo.saveTokenFirstSeen).mockResolvedValue(undefined as never);
+    vi.mocked(appointmentsRepo.saveTokenFirstSeen).mockResolvedValue(
+      undefined as never
+    );
 
     await expect(
       validateAppointmentAccessToken({
@@ -379,8 +413,12 @@ describe("token validation", () => {
       ...paidAppointment(),
       status: "active",
     } as never);
-    vi.mocked(appointmentsRepo.updateTokenUsageIfAllowed).mockResolvedValue(1 as never);
-    vi.mocked(appointmentsRepo.saveTokenFirstSeen).mockResolvedValue(undefined as never);
+    vi.mocked(appointmentsRepo.updateTokenUsageIfAllowed).mockResolvedValue(
+      1 as never
+    );
+    vi.mocked(appointmentsRepo.saveTokenFirstSeen).mockResolvedValue(
+      undefined as never
+    );
 
     await expect(
       validateAppointmentAccessToken({
@@ -442,8 +480,12 @@ describe("token validation", () => {
         ...paidAppointment(),
         scheduledAt: new Date(Date.now() + 60 * 60 * 1000),
       } as never);
-      vi.mocked(appointmentsRepo.updateTokenUsageIfAllowed).mockResolvedValue(1 as never);
-      vi.mocked(appointmentsRepo.saveTokenFirstSeen).mockResolvedValue(undefined as never);
+      vi.mocked(appointmentsRepo.updateTokenUsageIfAllowed).mockResolvedValue(
+        1 as never
+      );
+      vi.mocked(appointmentsRepo.saveTokenFirstSeen).mockResolvedValue(
+        undefined as never
+      );
 
       await expect(
         validateAppointmentAccessToken({
@@ -469,16 +511,27 @@ describe("token validation", () => {
 
   it("IP failure rate limit returns TOO_MANY_REQUESTS", async () => {
     process.env.APPOINTMENT_TOKEN_FAIL_MAX_PER_IP = "2";
-    vi.mocked(appointmentsRepo.getAppointmentTokenByHash).mockResolvedValue(null as never);
+    vi.mocked(appointmentsRepo.getAppointmentTokenByHash).mockResolvedValue(
+      null as never
+    );
 
     await expect(
-      validateAppointmentAccessToken({ token: "token-1234567890abcdef", req: makeReq() })
+      validateAppointmentAccessToken({
+        token: "token-1234567890abcdef",
+        req: makeReq(),
+      })
     ).rejects.toMatchObject({ message: "TOKEN_INVALID" });
     await expect(
-      validateAppointmentAccessToken({ token: "token-1234567890abcdef", req: makeReq() })
+      validateAppointmentAccessToken({
+        token: "token-1234567890abcdef",
+        req: makeReq(),
+      })
     ).rejects.toMatchObject({ message: "TOKEN_INVALID" });
     await expect(
-      validateAppointmentAccessToken({ token: "token-1234567890abcdef", req: makeReq() })
+      validateAppointmentAccessToken({
+        token: "token-1234567890abcdef",
+        req: makeReq(),
+      })
     ).rejects.toMatchObject<Partial<TRPCError>>({
       code: "TOO_MANY_REQUESTS",
       message: "RATE_LIMITED",

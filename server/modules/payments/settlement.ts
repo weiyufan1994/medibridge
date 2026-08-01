@@ -16,7 +16,8 @@ export async function settleStripePaymentBySessionId(input: {
   const claimRows = await appointmentsRepo.tryMarkPaidByStripeSessionId({
     stripeSessionId: input.stripeSessionId,
     operatorType: input.source === "webhook" ? "webhook" : "system",
-    reason: input.source === "webhook" ? "stripe_webhook_paid" : "mock_payment_paid",
+    reason:
+      input.source === "webhook" ? "stripe_webhook_paid" : "mock_payment_paid",
     payloadJson: {
       stripeSessionId: input.stripeSessionId,
       eventId: input.eventId ?? null,
@@ -102,7 +103,10 @@ export async function settleStripePaymentBySessionId(input: {
         },
         dbExecutor: input.dbExecutor,
       });
-      console.error("[payments] failed to send payment success link email:", reason);
+      console.error(
+        "[payments] failed to send payment success link email:",
+        reason
+      );
     }
   }
 

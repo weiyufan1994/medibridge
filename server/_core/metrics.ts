@@ -2,7 +2,10 @@ type CounterMap = Map<string, number>;
 
 const counters: CounterMap = new Map();
 
-export function incrementMetric(name: string, tags?: Record<string, string | number | boolean>) {
+export function incrementMetric(
+  name: string,
+  tags?: Record<string, string | number | boolean>
+) {
   const key = buildMetricKey(name, tags);
   const current = counters.get(key) ?? 0;
   counters.set(key, current + 1);

@@ -26,8 +26,9 @@ function parseMockStripeSessionIdFromLocation(): string {
     return "";
   }
   return (
-    new URLSearchParams(window.location.search).get("mockStripeSessionId")?.trim() ||
-    ""
+    new URLSearchParams(window.location.search)
+      .get("mockStripeSessionId")
+      ?.trim() || ""
   );
 }
 
@@ -38,7 +39,8 @@ export default function AppointmentAccessPage() {
   const appointmentId = Number(params?.id ?? NaN);
   const token = parseTokenFromLocation();
   const mockStripeSessionId = parseMockStripeSessionIdFromLocation();
-  const validAppointmentId = Number.isInteger(appointmentId) && appointmentId > 0;
+  const validAppointmentId =
+    Number.isInteger(appointmentId) && appointmentId > 0;
   const validInput = validAppointmentId && token.length >= 16;
 
   const queryInput = useMemo(
@@ -53,16 +55,17 @@ export default function AppointmentAccessPage() {
     enabled: validInput,
     retry: 0,
   });
-  const confirmMockCheckoutMutation = trpc.payments.confirmMockCheckout.useMutation({
-    onSuccess: result => {
-      if (result.devPatientLink && typeof window !== "undefined") {
-        window.location.href = result.devPatientLink;
-      }
-    },
-    onError: error => {
-      toast.error(error.message || "Failed to confirm mock payment.");
-    },
-  });
+  const confirmMockCheckoutMutation =
+    trpc.payments.confirmMockCheckout.useMutation({
+      onSuccess: result => {
+        if (result.devPatientLink && typeof window !== "undefined") {
+          window.location.href = result.devPatientLink;
+        }
+      },
+      onError: error => {
+        toast.error(error.message || "Failed to confirm mock payment.");
+      },
+    });
 
   const [newScheduledAt, setNewScheduledAt] = useState("");
   const [isJoining, setIsJoining] = useState(false);
@@ -118,7 +121,9 @@ export default function AppointmentAccessPage() {
         window.location.href = result.joinUrl;
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to get join URL.");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to get join URL."
+      );
     } finally {
       setIsJoining(false);
     }
@@ -131,18 +136,17 @@ export default function AppointmentAccessPage() {
     if (!mockStripeSessionId) {
       return;
     }
-    if (confirmMockCheckoutMutation.isPending || confirmMockCheckoutMutation.isSuccess) {
+    if (
+      confirmMockCheckoutMutation.isPending ||
+      confirmMockCheckoutMutation.isSuccess
+    ) {
       return;
     }
 
     void confirmMockCheckoutMutation.mutateAsync({
       stripeSessionId: mockStripeSessionId,
     });
-  }, [
-    validAppointmentId,
-    mockStripeSessionId,
-    confirmMockCheckoutMutation,
-  ]);
+  }, [validAppointmentId, mockStripeSessionId, confirmMockCheckoutMutation]);
 
   if (!validInput) {
     return (
@@ -190,7 +194,9 @@ export default function AppointmentAccessPage() {
               <CardTitle>Link unavailable</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm text-slate-600">
-              <p>{appointmentQuery.error?.message || "Appointment not found."}</p>
+              <p>
+                {appointmentQuery.error?.message || "Appointment not found."}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -230,7 +236,8 @@ export default function AppointmentAccessPage() {
             <Input
               type="datetime-local"
               value={
-                newScheduledAt || toLocalDateTimeInputValue(appointment.scheduledAt)
+                newScheduledAt ||
+                toLocalDateTimeInputValue(appointment.scheduledAt)
               }
               onChange={event => setNewScheduledAt(event.target.value)}
             />
@@ -249,7 +256,9 @@ export default function AppointmentAccessPage() {
                 }}
                 disabled={rescheduleMutation.isPending}
               >
-                {rescheduleMutation.isPending ? "Rescheduling..." : "Reschedule"}
+                {rescheduleMutation.isPending
+                  ? "Rescheduling..."
+                  : "Reschedule"}
               </Button>
               <Button
                 variant="outline"

@@ -1,4 +1,13 @@
-import { aliasedTable, and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
+import {
+  aliasedTable,
+  and,
+  desc,
+  eq,
+  gte,
+  inArray,
+  lt,
+  sql,
+} from "drizzle-orm";
 import {
   aiChatMessages,
   aiChatSessions,
@@ -120,9 +129,7 @@ export async function listFirstUserMessagesBySessionIds(sessionIds: number[]) {
       )
     );
 
-  return new Map(
-    rows.map(row => [row.sessionId, row.content] as const)
-  );
+  return new Map(rows.map(row => [row.sessionId, row.content] as const));
 }
 
 export async function listAiChatSessionsForAdmin(input: {
@@ -250,7 +257,10 @@ export async function setAiChatSessionSummaryIfEmpty(
       updatedAt: new Date(),
     })
     .where(
-      and(eq(aiChatSessions.id, sessionId), sql`${aiChatSessions.summary} is null`)
+      and(
+        eq(aiChatSessions.id, sessionId),
+        sql`${aiChatSessions.summary} is null`
+      )
     );
 }
 

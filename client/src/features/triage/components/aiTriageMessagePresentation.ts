@@ -10,7 +10,8 @@ export const getMessageContainerClass = (role: TriageDisplayRole): string =>
     ? "w-fit max-w-[90%] md:max-w-[80%] self-end"
     : "w-fit max-w-[90%] md:max-w-[80%] self-start";
 
-export const getTriageResultContainerClass = (): string => "flex justify-center";
+export const getTriageResultContainerClass = (): string =>
+  "flex justify-center";
 
 export const getAssistantMessageSignature = (
   message: TriageDisplayMessage,

@@ -2,9 +2,8 @@ import * as appointmentsRepo from "../appointments/repo";
 
 export async function markInSessionIfTransitioned(appointmentId: number) {
   try {
-    const fromStatus = await appointmentsRepo.markAppointmentInSessionIfNeeded(
-      appointmentId
-    );
+    const fromStatus =
+      await appointmentsRepo.markAppointmentInSessionIfNeeded(appointmentId);
     if (!fromStatus) {
       return;
     }
@@ -22,4 +21,3 @@ export async function markInSessionIfTransitioned(appointmentId: number) {
     }
   }
 }
-

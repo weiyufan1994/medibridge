@@ -13,7 +13,9 @@ function normalizeRole(role: string | null | undefined) {
   return "admin";
 }
 
-function serializeRule<T extends { isActive: number; createdByRole: string }>(value: T) {
+function serializeRule<T extends { isActive: number; createdByRole: string }>(
+  value: T
+) {
   return {
     ...value,
     isActive: toBooleanFlag(value.isActive),
@@ -109,8 +111,15 @@ export async function updateScheduleRule(input: {
       appointmentTypeScope: input.appointmentTypeScope,
       validFrom: input.validFrom,
       validTo: input.validTo,
-      isActive: typeof input.isActive === "boolean" ? (input.isActive ? 1 : 0) : undefined,
-      createdByRole: input.actorRole ? normalizeRole(input.actorRole) : undefined,
+      isActive:
+        typeof input.isActive === "boolean"
+          ? input.isActive
+            ? 1
+            : 0
+          : undefined,
+      createdByRole: input.actorRole
+        ? normalizeRole(input.actorRole)
+        : undefined,
       createdByUserId: input.actorUserId ?? undefined,
     }),
     "Schedule rule not found"
@@ -120,7 +129,10 @@ export async function updateScheduleRule(input: {
 }
 
 export async function deleteScheduleRule(id: number) {
-  const rule = assertRecord(await schedulingRepo.getScheduleRuleById(id), "Schedule rule not found");
+  const rule = assertRecord(
+    await schedulingRepo.getScheduleRuleById(id),
+    "Schedule rule not found"
+  );
   const deleted = await schedulingRepo.deleteScheduleRule(id);
   if (!deleted) {
     throw new TRPCError({
@@ -186,7 +198,10 @@ export async function updateScheduleException(input: {
   return updated;
 }
 
-export async function deleteScheduleException(input: { id: number; doctorId?: number }) {
+export async function deleteScheduleException(input: {
+  id: number;
+  doctorId?: number;
+}) {
   const deleted = await schedulingRepo.deleteScheduleException(input.id);
   if (!deleted) {
     throw new TRPCError({
@@ -242,10 +257,11 @@ export async function regenerateDoctorSlots(input: { doctorId: number }) {
   const windowEnd = addDays(windowStart, SLOT_GENERATION_WINDOW_DAYS);
 
   await db.transaction(async tx => {
-    const { rules, exceptions } = await schedulingRepo.getRulesAndExceptionsForDoctor({
-      doctorId: input.doctorId,
-      dbExecutor: tx,
-    });
+    const { rules, exceptions } =
+      await schedulingRepo.getRulesAndExceptionsForDoctor({
+        doctorId: input.doctorId,
+        dbExecutor: tx,
+      });
     const generated = buildGeneratedSlots({
       rules,
       exceptions,
@@ -278,7 +294,10 @@ export async function blockSlot(slotId: number) {
 }
 
 export async function unblockSlot(slotId: number) {
-  return assertRecord(await schedulingRepo.unblockSlot(slotId), "Slot not found");
+  return assertRecord(
+    await schedulingRepo.unblockSlot(slotId),
+    "Slot not found"
+  );
 }
 
 export async function listDoctorUpcomingSlots(input: {

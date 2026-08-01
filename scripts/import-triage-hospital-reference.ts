@@ -44,7 +44,8 @@ async function main() {
   });
   const db = drizzle(pool);
 
-  const { specialtyRows, generalRows, stemRows } = loadHospitalReferenceSeedData();
+  const { specialtyRows, generalRows, stemRows } =
+    loadHospitalReferenceSeedData();
   const allLocalHospitals = await db
     .select({
       id: hospitals.id,
@@ -84,7 +85,8 @@ async function main() {
       continue;
     }
 
-    const localHospital = localHospitalByNormalizedName.get(normalizedName) ?? null;
+    const localHospital =
+      localHospitalByNormalizedName.get(normalizedName) ?? null;
     hospitalSeeds.set(normalizedName, {
       name: hospitalName,
       nameEn: localHospital?.nameEn ?? null,
@@ -193,7 +195,10 @@ async function main() {
     await tx
       .delete(hospitalReferenceStemRankings)
       .where(
-        eq(hospitalReferenceStemRankings.sourceYear, TRIAGE_HOSPITAL_REFERENCE_YEAR)
+        eq(
+          hospitalReferenceStemRankings.sourceYear,
+          TRIAGE_HOSPITAL_REFERENCE_YEAR
+        )
       );
 
     if (specialtyRows.length > 0) {
@@ -267,14 +272,19 @@ async function main() {
     }
   });
 
-  const [hospitalCount, specialtyCount, specialtyRankingCount, generalRankingCount, stemRankingCount] =
-    await Promise.all([
-      db.select().from(hospitalReferenceHospitals),
-      db.select().from(hospitalReferenceSpecialties),
-      db.select().from(hospitalReferenceSpecialtyRankings),
-      db.select().from(hospitalReferenceGeneralRankings),
-      db.select().from(hospitalReferenceStemRankings),
-    ]);
+  const [
+    hospitalCount,
+    specialtyCount,
+    specialtyRankingCount,
+    generalRankingCount,
+    stemRankingCount,
+  ] = await Promise.all([
+    db.select().from(hospitalReferenceHospitals),
+    db.select().from(hospitalReferenceSpecialties),
+    db.select().from(hospitalReferenceSpecialtyRankings),
+    db.select().from(hospitalReferenceGeneralRankings),
+    db.select().from(hospitalReferenceStemRankings),
+  ]);
 
   console.log("Import completed:", {
     hospitals: hospitalCount.length,

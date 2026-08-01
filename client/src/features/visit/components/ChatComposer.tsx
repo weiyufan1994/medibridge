@@ -38,7 +38,9 @@ export function ChatComposer({
     textarea.style.height = `${Math.min(textarea.scrollHeight, 180)}px`;
   }, [value]);
 
-  const readOnlyWrapperClass = readOnlyMode ? "bg-slate-100 opacity-60 cursor-not-allowed" : "";
+  const readOnlyWrapperClass = readOnlyMode
+    ? "bg-slate-100 opacity-60 cursor-not-allowed"
+    : "";
   const outerClass =
     tone === "embedded"
       ? `bg-transparent ${readOnlyWrapperClass}`
@@ -110,9 +112,7 @@ export function ChatComposer({
           )}
         </Button>
       </div>
-      <p className={hintClass}>
-        {hint}
-      </p>
+      <p className={hintClass}>{hint}</p>
     </div>
   );
 }

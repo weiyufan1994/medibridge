@@ -26,7 +26,9 @@ function createRule(partial?: Partial<DoctorScheduleRule>): DoctorScheduleRule {
   };
 }
 
-function createException(partial?: Partial<DoctorScheduleException>): DoctorScheduleException {
+function createException(
+  partial?: Partial<DoctorScheduleException>
+): DoctorScheduleException {
   return {
     id: 1,
     doctorId: 11,

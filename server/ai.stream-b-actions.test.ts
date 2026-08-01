@@ -91,10 +91,9 @@ describe("ai.sendMessageAction stream b", () => {
     expect(vi.mocked(triageKnowledge.runRetrieval)).not.toHaveBeenCalled();
     expect(vi.mocked(processTriageChat)).not.toHaveBeenCalled();
     expect(vi.mocked(triageSafety.recordRiskEvents)).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(triageSafety.clearSessionFlagsByType)).toHaveBeenCalledWith(
-      10,
-      "triage_result_v1"
-    );
+    expect(
+      vi.mocked(triageSafety.clearSessionFlagsByType)
+    ).toHaveBeenCalledWith(10, "triage_result_v1");
     expect(vi.mocked(triageSafety.setSessionFlag)).toHaveBeenCalledWith(
       expect.objectContaining({
         sessionId: 10,
@@ -221,10 +220,9 @@ describe("ai.sendMessageAction stream b", () => {
         chronicConditions: "无",
       }
     );
-    expect(vi.mocked(triageSafety.clearSessionFlagsByType)).toHaveBeenCalledWith(
-      10,
-      "triage_result_v1"
-    );
+    expect(
+      vi.mocked(triageSafety.clearSessionFlagsByType)
+    ).toHaveBeenCalledWith(10, "triage_result_v1");
     expect(vi.mocked(triageSafety.setSessionFlag)).toHaveBeenCalledWith(
       expect.objectContaining({
         sessionId: 10,

@@ -46,9 +46,11 @@ export const createScheduleRuleInputSchema = z.object({
   isActive: z.boolean().optional().default(true),
 });
 
-export const updateScheduleRuleInputSchema = createScheduleRuleInputSchema.partial().extend({
-  id: z.number().int().positive(),
-});
+export const updateScheduleRuleInputSchema = createScheduleRuleInputSchema
+  .partial()
+  .extend({
+    id: z.number().int().positive(),
+  });
 
 export const deleteScheduleRuleInputSchema = z.object({
   id: z.number().int().positive(),
@@ -87,9 +89,8 @@ export const createScheduleExceptionInputSchema = z.object({
   reason: z.string().trim().min(1).max(200).optional(),
 });
 
-export const updateScheduleExceptionInputSchema = createScheduleExceptionInputSchema
-  .partial()
-  .extend({
+export const updateScheduleExceptionInputSchema =
+  createScheduleExceptionInputSchema.partial().extend({
     id: z.number().int().positive(),
   });
 
@@ -114,16 +115,18 @@ export const listScheduleExceptionsInputSchema = z.object({
   dateLocal: isoDateSchema.optional(),
 });
 
-export const listScheduleExceptionsOutputSchema = z.array(scheduleExceptionOutputSchema);
+export const listScheduleExceptionsOutputSchema = z.array(
+  scheduleExceptionOutputSchema
+);
 
 export const createManualSlotInputSchema = z.object({
   doctorId: z.number().int().positive(),
   appointmentType: z.enum(APPOINTMENT_TYPE_VALUES),
   slotDurationMinutes: z.number().int().positive(),
   timezone: z.string().trim().min(1).max(64),
-  startAt: z.union([z.string().datetime(), z.date()]).transform(value =>
-    value instanceof Date ? value : new Date(value)
-  ),
+  startAt: z
+    .union([z.string().datetime(), z.date()])
+    .transform(value => (value instanceof Date ? value : new Date(value))),
   source: z.literal("manual").optional().default("manual"),
 });
 

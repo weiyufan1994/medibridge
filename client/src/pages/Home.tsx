@@ -89,49 +89,69 @@ export default function Home() {
               <div className="mb-6 inline-flex rounded-xl bg-teal-50 p-3 text-teal-600">
                 <CheckCircle2 className="h-6 w-6" />
               </div>
-              <h3 className="mb-3 text-xl font-bold text-slate-900">{t.feature1Title}</h3>
-              <p className="leading-relaxed text-slate-600">{t.feature1Description}</p>
+              <h3 className="mb-3 text-xl font-bold text-slate-900">
+                {t.feature1Title}
+              </h3>
+              <p className="leading-relaxed text-slate-600">
+                {t.feature1Description}
+              </p>
             </div>
 
             <div className="rounded-2xl border border-slate-200/80 bg-white p-8 text-left shadow-sm transition-shadow hover:shadow-md">
               <div className="mb-6 inline-flex rounded-xl bg-teal-50 p-3 text-teal-600">
                 <Hospital className="h-6 w-6" />
               </div>
-              <h3 className="mb-3 text-xl font-bold text-slate-900">{t.feature2Title}</h3>
-              <p className="leading-relaxed text-slate-600">{t.feature2Description}</p>
+              <h3 className="mb-3 text-xl font-bold text-slate-900">
+                {t.feature2Title}
+              </h3>
+              <p className="leading-relaxed text-slate-600">
+                {t.feature2Description}
+              </p>
             </div>
 
             <div className="rounded-2xl border border-slate-200/80 bg-white p-8 text-left shadow-sm transition-shadow hover:shadow-md">
               <div className="mb-6 inline-flex rounded-xl bg-teal-50 p-3 text-teal-600">
                 <Stethoscope className="h-6 w-6" />
               </div>
-              <h3 className="mb-3 text-xl font-bold text-slate-900">{t.feature3Title}</h3>
-              <p className="leading-relaxed text-slate-600">{t.feature3Description}</p>
+              <h3 className="mb-3 text-xl font-bold text-slate-900">
+                {t.feature3Title}
+              </h3>
+              <p className="leading-relaxed text-slate-600">
+                {t.feature3Description}
+              </p>
             </div>
           </div>
 
           <div className="mt-16 rounded-2xl border border-slate-200/80 bg-white p-8 shadow-sm">
-            <h3 className="mb-8 text-center text-2xl font-bold text-slate-900">{t.howItWorks}</h3>
+            <h3 className="mb-8 text-center text-2xl font-bold text-slate-900">
+              {t.howItWorks}
+            </h3>
             <div className="grid gap-8 md:grid-cols-3">
               <div className="text-center">
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-teal-600 text-xl font-bold text-white">
                   1
                 </div>
-                <h4 className="mb-2 font-semibold text-slate-900">{t.step1Title}</h4>
+                <h4 className="mb-2 font-semibold text-slate-900">
+                  {t.step1Title}
+                </h4>
                 <p className="text-sm text-slate-600">{t.step1Description}</p>
               </div>
               <div className="text-center">
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-teal-600 text-xl font-bold text-white">
                   2
                 </div>
-                <h4 className="mb-2 font-semibold text-slate-900">{t.step2Title}</h4>
+                <h4 className="mb-2 font-semibold text-slate-900">
+                  {t.step2Title}
+                </h4>
                 <p className="text-sm text-slate-600">{t.step2Description}</p>
               </div>
               <div className="text-center">
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-teal-600 text-xl font-bold text-white">
                   3
                 </div>
-                <h4 className="mb-2 font-semibold text-slate-900">{t.step3Title}</h4>
+                <h4 className="mb-2 font-semibold text-slate-900">
+                  {t.step3Title}
+                </h4>
                 <p className="text-sm text-slate-600">{t.step3Description}</p>
               </div>
             </div>

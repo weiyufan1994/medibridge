@@ -8,7 +8,9 @@ import {
   type MedicalSummaryDraftForm,
 } from "@/features/visit/components/medicalSummaryModal.helpers";
 
-function makeForm(overrides?: Partial<MedicalSummaryDraftForm>): MedicalSummaryDraftForm {
+function makeForm(
+  overrides?: Partial<MedicalSummaryDraftForm>
+): MedicalSummaryDraftForm {
   return {
     chiefComplaint: "cough",
     historyOfPresentIllness: "started 3 days ago",
@@ -37,15 +39,15 @@ describe("medicalSummaryModal helpers", () => {
   });
 
   it("shouldAutoLoadInitialDraft only on first open", () => {
-    expect(shouldAutoLoadInitialDraft({ open: true, hasLoadedInitialDraft: false })).toBe(
-      true
-    );
-    expect(shouldAutoLoadInitialDraft({ open: true, hasLoadedInitialDraft: true })).toBe(
-      false
-    );
-    expect(shouldAutoLoadInitialDraft({ open: false, hasLoadedInitialDraft: false })).toBe(
-      false
-    );
+    expect(
+      shouldAutoLoadInitialDraft({ open: true, hasLoadedInitialDraft: false })
+    ).toBe(true);
+    expect(
+      shouldAutoLoadInitialDraft({ open: true, hasLoadedInitialDraft: true })
+    ).toBe(false);
+    expect(
+      shouldAutoLoadInitialDraft({ open: false, hasLoadedInitialDraft: false })
+    ).toBe(false);
   });
 
   it("shouldApplyDraftResponse ignores stale or timed-out responses", () => {

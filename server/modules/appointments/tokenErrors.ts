@@ -23,7 +23,10 @@ export function throwTokenError(error: TokenErrorCode): never {
     throw new TRPCError({ code: "NOT_FOUND", message: error });
   }
 
-  if (error === "APPOINTMENT_NOT_ALLOWED" || error === "APPOINTMENT_NOT_STARTED") {
+  if (
+    error === "APPOINTMENT_NOT_ALLOWED" ||
+    error === "APPOINTMENT_NOT_STARTED"
+  ) {
     throw new TRPCError({ code: "FORBIDDEN", message: error });
   }
 

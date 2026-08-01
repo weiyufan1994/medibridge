@@ -24,7 +24,20 @@ type TagRule = {
 const TAG_RULES: TagRule[] = [
   {
     tag: "musculoskeletal",
-    keywords: ["骨科", "关节", "膝", "膝盖", "膝关节", "半月板", "韧带", "创伤", "骨", "orthop", "joint", "knee"],
+    keywords: [
+      "骨科",
+      "关节",
+      "膝",
+      "膝盖",
+      "膝关节",
+      "半月板",
+      "韧带",
+      "创伤",
+      "骨",
+      "orthop",
+      "joint",
+      "knee",
+    ],
   },
   {
     tag: "trauma_fracture",
@@ -74,41 +87,117 @@ const TAG_RULES: TagRule[] = [
   },
   {
     tag: "neurology",
-    keywords: ["神经", "偏头痛", "头痛", "头晕", "麻木", "脑", "neurolog", "migraine", "stroke"],
+    keywords: [
+      "神经",
+      "偏头痛",
+      "头痛",
+      "头晕",
+      "麻木",
+      "脑",
+      "neurolog",
+      "migraine",
+      "stroke",
+    ],
   },
   {
     tag: "digestive",
-    keywords: ["消化", "胃", "胃肠", "腹痛", "腹泻", "便秘", "gastro", "digestive", "stomach"],
+    keywords: [
+      "消化",
+      "胃",
+      "胃肠",
+      "腹痛",
+      "腹泻",
+      "便秘",
+      "gastro",
+      "digestive",
+      "stomach",
+    ],
   },
   {
     tag: "respiratory",
-    keywords: ["呼吸", "肺", "咳嗽", "哮喘", "呼吸困难", "respirat", "pulmon", "cough", "asthma"],
+    keywords: [
+      "呼吸",
+      "肺",
+      "咳嗽",
+      "哮喘",
+      "呼吸困难",
+      "respirat",
+      "pulmon",
+      "cough",
+      "asthma",
+    ],
   },
   {
     tag: "cardiology",
-    keywords: ["心内", "心血管", "心脏", "胸痛", "心悸", "cardio", "heart", "palpitation"],
+    keywords: [
+      "心内",
+      "心血管",
+      "心脏",
+      "胸痛",
+      "心悸",
+      "cardio",
+      "heart",
+      "palpitation",
+    ],
   },
   {
     tag: "gynecology",
-    keywords: ["妇科", "产科", "卵巢", "子宫", "月经", "gyne", "obstet", "uterus", "ovary"],
+    keywords: [
+      "妇科",
+      "产科",
+      "卵巢",
+      "子宫",
+      "月经",
+      "gyne",
+      "obstet",
+      "uterus",
+      "ovary",
+    ],
   },
   {
     tag: "pediatrics",
-    keywords: ["儿科", "儿童", "小儿", "婴儿", "pediatric", "children", "infant"],
+    keywords: [
+      "儿科",
+      "儿童",
+      "小儿",
+      "婴儿",
+      "pediatric",
+      "children",
+      "infant",
+    ],
   },
   {
     tag: "dermatology",
-    keywords: ["皮肤", "皮疹", "湿疹", "痤疮", "瘙痒", "dermat", "rash", "eczema"],
+    keywords: [
+      "皮肤",
+      "皮疹",
+      "湿疹",
+      "痤疮",
+      "瘙痒",
+      "dermat",
+      "rash",
+      "eczema",
+    ],
   },
   {
     tag: "general_medicine",
-    keywords: ["全科", "综合", "内科", "general", "family medicine", "internal medicine"],
+    keywords: [
+      "全科",
+      "综合",
+      "内科",
+      "general",
+      "family medicine",
+      "internal medicine",
+    ],
   },
 ];
 
 function normalizeText(values: Array<string | null | undefined>) {
   return values
-    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .filter(
+      (value): value is string =>
+        typeof value === "string" && value.trim().length > 0
+    )
     .join(" ")
     .toLowerCase();
 }

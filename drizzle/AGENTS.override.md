@@ -1,4 +1,5 @@
 ## DB-specific rules
+
 - Treat all edits here as schema-sensitive.
 - Prefer additive changes over destructive changes.
 - Do not hand-edit `drizzle/meta/**`.

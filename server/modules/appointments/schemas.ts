@@ -1,6 +1,12 @@
 import { z } from "zod";
-import { APPOINTMENT_STATUS_VALUES, PAYMENT_STATUS_VALUES } from "./stateMachine";
-import { APPOINTMENT_PACKAGE_VALUES, APPOINTMENT_TYPE_VALUES } from "./packageCatalog";
+import {
+  APPOINTMENT_STATUS_VALUES,
+  PAYMENT_STATUS_VALUES,
+} from "./stateMachine";
+import {
+  APPOINTMENT_PACKAGE_VALUES,
+  APPOINTMENT_TYPE_VALUES,
+} from "./packageCatalog";
 
 const localizedTextSchema = z.object({
   zh: z.string(),
@@ -135,9 +141,10 @@ export const completeAppointmentInputSchema = z.object({
 const summarySectionDraftSchema = z.string().trim().max(4000).default("");
 const summarySectionSignSchema = z.string().trim().min(1).max(4000);
 
-export const generateMedicalSummaryDraftInputSchema = accessWithLangInputSchema.extend({
-  forceRegenerate: z.boolean().optional().default(false),
-});
+export const generateMedicalSummaryDraftInputSchema =
+  accessWithLangInputSchema.extend({
+    forceRegenerate: z.boolean().optional().default(false),
+  });
 
 export const medicalSummaryDraftOutputSchema = z.object({
   chiefComplaint: summarySectionDraftSchema,
@@ -350,20 +357,21 @@ export const listDoctorWorkbenchOutputSchema = z.object({
   recent: z.array(doctorWorkbenchAppointmentSchema),
 });
 
-export const doctorWorkbenchAppointmentDetailOutputSchema = appointmentPublicSchema.extend({
-  patient: z.object({
-    email: z.string().email(),
-    sessionId: z.string().nullable(),
-  }),
-  triageSummary: z.string().nullable(),
-  intake: appointmentIntakeSchema.nullable(),
-  medicalSummary: appointmentMedicalSummarySchema.nullable(),
-  packageId: z.string().nullable(),
-  consultationDurationMinutes: z.number().int().positive(),
-  consultationExtensionMinutes: z.number().int().nonnegative(),
-  consultationTotalMinutes: z.number().int().positive(),
-  canStartConsultation: z.boolean(),
-  canOpenRoom: z.boolean(),
-  canCompleteConsultation: z.boolean(),
-  hasSignedMedicalSummary: z.boolean(),
-});
+export const doctorWorkbenchAppointmentDetailOutputSchema =
+  appointmentPublicSchema.extend({
+    patient: z.object({
+      email: z.string().email(),
+      sessionId: z.string().nullable(),
+    }),
+    triageSummary: z.string().nullable(),
+    intake: appointmentIntakeSchema.nullable(),
+    medicalSummary: appointmentMedicalSummarySchema.nullable(),
+    packageId: z.string().nullable(),
+    consultationDurationMinutes: z.number().int().positive(),
+    consultationExtensionMinutes: z.number().int().nonnegative(),
+    consultationTotalMinutes: z.number().int().positive(),
+    canStartConsultation: z.boolean(),
+    canOpenRoom: z.boolean(),
+    canCompleteConsultation: z.boolean(),
+    hasSignedMedicalSummary: z.boolean(),
+  });

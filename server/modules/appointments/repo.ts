@@ -75,7 +75,9 @@ export async function getAppointmentByStripeSessionId(
   return rows[0] ?? null;
 }
 
-export async function getCheckoutResultByStripeSessionId(stripeSessionId: string) {
+export async function getCheckoutResultByStripeSessionId(
+  stripeSessionId: string
+) {
   const db = await getDb();
   if (!db) {
     throw new Error("Database not available");
@@ -245,8 +247,7 @@ export async function getAppointmentTokenCooldownRemainingSeconds(input: {
 
   const rows = await db
     .select({
-      remainingSeconds:
-        sql<number>`greatest(${input.cooldownSeconds} - cast(extract(epoch from (now() - ${appointmentTokens.createdAt})) as integer), 0)`,
+      remainingSeconds: sql<number>`greatest(${input.cooldownSeconds} - cast(extract(epoch from (now() - ${appointmentTokens.createdAt})) as integer), 0)`,
     })
     .from(appointmentTokens)
     .where(
@@ -714,7 +715,9 @@ export async function tryTransitionAppointmentById(input: {
     return { ok: false as const, reason: "not_found" as const };
   }
 
-  const allowedFromState = input.allowedFrom.includes(current.status as AppointmentStatus);
+  const allowedFromState = input.allowedFrom.includes(
+    current.status as AppointmentStatus
+  );
   const allowedTransition = isAllowedStatusTransition(
     current.status as AppointmentStatus,
     input.toStatus
@@ -736,7 +739,11 @@ export async function tryTransitionAppointmentById(input: {
       payloadJson: input.payloadJson,
       dbExecutor: db,
     });
-    return { ok: false as const, reason: "illegal_transition" as const, current };
+    return {
+      ok: false as const,
+      reason: "illegal_transition" as const,
+      current,
+    };
   }
 
   const now = new Date();
@@ -934,7 +941,10 @@ export async function listAppointmentsByUserScope(input: {
 
   const hasEmail = Boolean(input.email && input.email.trim().length > 0);
   const whereClause = hasEmail
-    ? or(eq(appointments.userId, input.userId), eq(appointments.email, input.email!))
+    ? or(
+        eq(appointments.userId, input.userId),
+        eq(appointments.email, input.email!)
+      )
     : eq(appointments.userId, input.userId);
 
   return db
@@ -956,7 +966,10 @@ export async function listAppointmentsByUserOrEmail(input: {
 
   const hasEmail = Boolean(input.email && input.email.trim().length > 0);
   const whereClause = hasEmail
-    ? or(eq(appointments.userId, input.userId), eq(appointments.email, input.email!))
+    ? or(
+        eq(appointments.userId, input.userId),
+        eq(appointments.email, input.email!)
+      )
     : eq(appointments.userId, input.userId);
 
   return db
@@ -992,7 +1005,11 @@ export async function listAppointmentsByDoctor(input: {
     .select()
     .from(appointments)
     .where(eq(appointments.doctorId, input.doctorId))
-    .orderBy(asc(appointments.scheduledAt), desc(appointments.createdAt), desc(appointments.id))
+    .orderBy(
+      asc(appointments.scheduledAt),
+      desc(appointments.createdAt),
+      desc(appointments.id)
+    )
     .limit(input.limit);
 }
 
@@ -1010,7 +1027,13 @@ export async function listAppointmentsForAdmin(input: {
   scheduledAtFrom?: Date | string;
   scheduledAtTo?: Date | string;
   hasRisk?: boolean;
-  sortBy?: "createdAt" | "scheduledAt" | "amount" | "status" | "paymentStatus" | "id";
+  sortBy?:
+    | "createdAt"
+    | "scheduledAt"
+    | "amount"
+    | "status"
+    | "paymentStatus"
+    | "id";
   sortDirection?: "asc" | "desc";
 }) {
   const db = await getDb();
@@ -1018,40 +1041,51 @@ export async function listAppointmentsForAdmin(input: {
     throw new Error("Database not available");
   }
 
-  const page = Number.isInteger(input.page) && input.page! > 0 ? input.page! : 1;
-  const pageSize = Number.isInteger(input.pageSize) && input.pageSize! > 0 ? Math.min(200, input.pageSize!) : 50;
+  const page =
+    Number.isInteger(input.page) && input.page! > 0 ? input.page! : 1;
+  const pageSize =
+    Number.isInteger(input.pageSize) && input.pageSize! > 0
+      ? Math.min(200, input.pageSize!)
+      : 50;
   const offset = (page - 1) * pageSize;
   const now = new Date();
-  const pendingPaymentTimeoutThreshold = new Date(now.getTime() - 30 * 60 * 1000);
+  const pendingPaymentTimeoutThreshold = new Date(
+    now.getTime() - 30 * 60 * 1000
+  );
   const tokenExpiryThreshold = new Date(now.getTime() + 2 * 60 * 60 * 1000);
 
   const createdAtFrom =
     input.createdAtFrom instanceof Date
       ? input.createdAtFrom
-      : typeof input.createdAtFrom === "string" && input.createdAtFrom.trim().length > 0
+      : typeof input.createdAtFrom === "string" &&
+          input.createdAtFrom.trim().length > 0
         ? new Date(input.createdAtFrom)
         : null;
   const createdAtTo =
     input.createdAtTo instanceof Date
       ? input.createdAtTo
-      : typeof input.createdAtTo === "string" && input.createdAtTo.trim().length > 0
+      : typeof input.createdAtTo === "string" &&
+          input.createdAtTo.trim().length > 0
         ? new Date(input.createdAtTo)
         : null;
   const scheduledAtFrom =
     input.scheduledAtFrom instanceof Date
       ? input.scheduledAtFrom
-      : typeof input.scheduledAtFrom === "string" && input.scheduledAtFrom.trim().length > 0
+      : typeof input.scheduledAtFrom === "string" &&
+          input.scheduledAtFrom.trim().length > 0
         ? new Date(input.scheduledAtFrom)
         : null;
   const scheduledAtTo =
     input.scheduledAtTo instanceof Date
       ? input.scheduledAtTo
-      : typeof input.scheduledAtTo === "string" && input.scheduledAtTo.trim().length > 0
+      : typeof input.scheduledAtTo === "string" &&
+          input.scheduledAtTo.trim().length > 0
         ? new Date(input.scheduledAtTo)
         : null;
   const validCreatedAtFrom =
     createdAtFrom instanceof Date && !Number.isNaN(createdAtFrom.getTime());
-  const validCreatedAtTo = createdAtTo instanceof Date && !Number.isNaN(createdAtTo.getTime());
+  const validCreatedAtTo =
+    createdAtTo instanceof Date && !Number.isNaN(createdAtTo.getTime());
   const validScheduledAtFrom =
     scheduledAtFrom instanceof Date && !Number.isNaN(scheduledAtFrom.getTime());
   const validScheduledAtTo =
@@ -1098,7 +1132,11 @@ export async function listAppointmentsForAdmin(input: {
   if (input.emailQuery && input.emailQuery.trim().length > 0) {
     filters.push(like(appointments.email, `%${input.emailQuery.trim()}%`));
   }
-  if (input.doctorId && Number.isInteger(input.doctorId) && input.doctorId > 0) {
+  if (
+    input.doctorId &&
+    Number.isInteger(input.doctorId) &&
+    input.doctorId > 0
+  ) {
     filters.push(eq(appointments.doctorId, input.doctorId));
   }
   if (typeof input.amountMin === "number" && Number.isFinite(input.amountMin)) {
@@ -1214,9 +1252,12 @@ export async function listAppointmentsForAdmin(input: {
     pendingPaymentTimeout: items.filter(item =>
       item.riskCodes.includes("PENDING_PAYMENT_TIMEOUT")
     ).length,
-    webhookFailure: items.filter(item => item.riskCodes.includes("WEBHOOK_FAILURE")).length,
-    tokenExpiringSoon: items.filter(item => item.riskCodes.includes("TOKEN_EXPIRING_SOON"))
-      .length,
+    webhookFailure: items.filter(item =>
+      item.riskCodes.includes("WEBHOOK_FAILURE")
+    ).length,
+    tokenExpiringSoon: items.filter(item =>
+      item.riskCodes.includes("TOKEN_EXPIRING_SOON")
+    ).length,
     tokenUsageExhausted: items.filter(item =>
       item.riskCodes.includes("TOKEN_USAGE_EXHAUSTED")
     ).length,
@@ -1303,7 +1344,12 @@ export async function markAppointmentInSessionIfNeeded(appointmentId: number) {
   const result = await db
     .update(appointments)
     .set({ status: "active", updatedAt: new Date() })
-    .where(and(eq(appointments.id, appointmentId), eq(appointments.status, currentStatus)));
+    .where(
+      and(
+        eq(appointments.id, appointmentId),
+        eq(appointments.status, currentStatus)
+      )
+    );
 
   const affectedRows = extractAffectedRows(result);
   return affectedRows > 0 ? currentStatus : null;
@@ -1337,7 +1383,10 @@ export async function listStatusEventsByAppointment(input: {
     .select()
     .from(appointmentStatusEvents)
     .where(eq(appointmentStatusEvents.appointmentId, input.appointmentId))
-    .orderBy(desc(appointmentStatusEvents.createdAt), desc(appointmentStatusEvents.id))
+    .orderBy(
+      desc(appointmentStatusEvents.createdAt),
+      desc(appointmentStatusEvents.id)
+    )
     .limit(limit);
 }
 
@@ -1394,11 +1443,19 @@ export async function listAppointmentStatusEventsForAdmin(input: {
   }
 
   if (input.actionType && input.actionType.trim().length > 0) {
-    filters.push(like(appointmentStatusEvents.reason, `%${input.actionType.trim()}%`));
+    filters.push(
+      like(appointmentStatusEvents.reason, `%${input.actionType.trim()}%`)
+    );
   }
 
-  const from = input.from instanceof Date && !Number.isNaN(input.from.getTime()) ? input.from : null;
-  const to = input.to instanceof Date && !Number.isNaN(input.to.getTime()) ? input.to : null;
+  const from =
+    input.from instanceof Date && !Number.isNaN(input.from.getTime())
+      ? input.from
+      : null;
+  const to =
+    input.to instanceof Date && !Number.isNaN(input.to.getTime())
+      ? input.to
+      : null;
   if (from) {
     filters.push(gte(appointmentStatusEvents.createdAt, from));
   }
@@ -1413,7 +1470,10 @@ export async function listAppointmentStatusEventsForAdmin(input: {
     .select()
     .from(appointmentStatusEvents)
     .where(whereClause)
-    .orderBy(desc(appointmentStatusEvents.createdAt), desc(appointmentStatusEvents.id))
+    .orderBy(
+      desc(appointmentStatusEvents.createdAt),
+      desc(appointmentStatusEvents.id)
+    )
     .limit(pageSize)
     .offset(offset);
 
@@ -1470,7 +1530,9 @@ export async function listStripeWebhookEventsForAppointment(input: {
   const limit = input.limit ?? 100;
   const filters = [eq(stripeWebhookEvents.appointmentId, input.appointmentId)];
   if (input.stripeSessionId && input.stripeSessionId.trim().length > 0) {
-    filters.push(eq(stripeWebhookEvents.stripeSessionId, input.stripeSessionId.trim()));
+    filters.push(
+      eq(stripeWebhookEvents.stripeSessionId, input.stripeSessionId.trim())
+    );
   }
 
   return db

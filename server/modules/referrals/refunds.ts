@@ -195,8 +195,9 @@ export async function initiateAutomaticReferralRefund(input: {
     throw new Error("Only paid referral orders can be refunded");
   }
 
-  const existingRequest =
-    await referralRepo.getLatestRefundRequestByOrderId(order.id);
+  const existingRequest = await referralRepo.getLatestRefundRequestByOrderId(
+    order.id
+  );
   if (!existingRequest || existingRequest.status === "rejected") {
     const reviewTransition = await referralRepo.tryTransitionOrderById({
       orderId: order.id,

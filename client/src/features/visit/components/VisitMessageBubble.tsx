@@ -72,7 +72,9 @@ export function VisitMessageBubble({
               {lines.secondary}
             </p>
             {lines.secondaryKind === "translation" ? (
-              <p className="mt-1 text-[11px] text-slate-400">{translationBadgeText}</p>
+              <p className="mt-1 text-[11px] text-slate-400">
+                {translationBadgeText}
+              </p>
             ) : null}
           </div>
         ) : null}

@@ -1,4 +1,11 @@
-import { CalendarClock, ClipboardList, FileText, HeartPulse, Sparkles, Stethoscope } from "lucide-react";
+import {
+  CalendarClock,
+  ClipboardList,
+  FileText,
+  HeartPulse,
+  Sparkles,
+  Stethoscope,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -162,7 +169,11 @@ export function DoctorWorkbenchAppointmentSheet({
   isOpeningRoom,
   isCompleting,
 }: Props) {
-  const timeDisplay = formatAppointmentTimes(detail?.scheduledAt ?? null, "-", locale);
+  const timeDisplay = formatAppointmentTimes(
+    detail?.scheduledAt ?? null,
+    "-",
+    locale
+  );
   const summarySections = detail?.medicalSummary
     ? [
         {
@@ -198,10 +209,15 @@ export function DoctorWorkbenchAppointmentSheet({
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="border-0 bg-teal-600 text-white">
-                {detail ? appointmentTypeLabel(detail.appointmentType, tr) : tr("医生工作台", "Doctor Workbench")}
+                {detail
+                  ? appointmentTypeLabel(detail.appointmentType, tr)
+                  : tr("医生工作台", "Doctor Workbench")}
               </Badge>
               {detail ? (
-                <Badge variant="outline" className="border-slate-300 bg-white text-slate-700">
+                <Badge
+                  variant="outline"
+                  className="border-slate-300 bg-white text-slate-700"
+                >
                   {statusLabel(detail.status, tr)}
                 </Badge>
               ) : null}
@@ -240,7 +256,10 @@ export function DoctorWorkbenchAppointmentSheet({
             </div>
           ) : !detail ? (
             <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-500 shadow-sm">
-              {tr("请选择一条预约查看详情。", "Select an appointment to review its details.")}
+              {tr(
+                "请选择一条预约查看详情。",
+                "Select an appointment to review its details."
+              )}
             </div>
           ) : (
             <>
@@ -249,7 +268,9 @@ export function DoctorWorkbenchAppointmentSheet({
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                     {tr("预约时间", "Visit Time")}
                   </p>
-                  <p className="mt-2 text-sm font-medium text-slate-900">{timeDisplay.localTime}</p>
+                  <p className="mt-2 text-sm font-medium text-slate-900">
+                    {timeDisplay.localTime}
+                  </p>
                   <p className="mt-1 text-xs text-slate-500">
                     {tr("医生时间", "Doctor Time")}: {timeDisplay.doctorTime}
                   </p>
@@ -258,7 +279,9 @@ export function DoctorWorkbenchAppointmentSheet({
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                     {tr("套餐与时长", "Package & Duration")}
                   </p>
-                  <p className="mt-2 text-sm font-medium text-slate-900">{renderValue(detail.packageId)}</p>
+                  <p className="mt-2 text-sm font-medium text-slate-900">
+                    {renderValue(detail.packageId)}
+                  </p>
                   <p className="mt-1 text-xs text-slate-500">
                     {detail.consultationTotalMinutes} min
                     {detail.consultationExtensionMinutes > 0
@@ -270,18 +293,24 @@ export function DoctorWorkbenchAppointmentSheet({
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                     {tr("患者邮箱", "Patient Email")}
                   </p>
-                  <p className="mt-2 break-all text-sm font-medium text-slate-900">{detail.patient.email}</p>
+                  <p className="mt-2 break-all text-sm font-medium text-slate-900">
+                    {detail.patient.email}
+                  </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    {tr("Session", "Session")}: {renderValue(detail.patient.sessionId)}
+                    {tr("Session", "Session")}:{" "}
+                    {renderValue(detail.patient.sessionId)}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                     {tr("支付状态", "Payment State")}
                   </p>
-                  <p className="mt-2 text-sm font-medium text-slate-900">{detail.paymentStatus}</p>
+                  <p className="mt-2 text-sm font-medium text-slate-900">
+                    {detail.paymentStatus}
+                  </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    {tr("支付时间", "Paid At")}: {formatDateTime(detail.paidAt, locale)}
+                    {tr("支付时间", "Paid At")}:{" "}
+                    {formatDateTime(detail.paidAt, locale)}
                   </p>
                 </div>
               </section>
@@ -300,46 +329,60 @@ export function DoctorWorkbenchAppointmentSheet({
                         <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
                           {tr("主诉", "Chief Complaint")}
                         </p>
-                        <p className="mt-1 whitespace-pre-wrap">{renderValue(detail.intake?.chiefComplaint)}</p>
+                        <p className="mt-1 whitespace-pre-wrap">
+                          {renderValue(detail.intake?.chiefComplaint)}
+                        </p>
                       </div>
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div>
                           <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
                             {tr("病程", "Duration")}
                           </p>
-                          <p className="mt-1 whitespace-pre-wrap">{renderValue(detail.intake?.duration)}</p>
+                          <p className="mt-1 whitespace-pre-wrap">
+                            {renderValue(detail.intake?.duration)}
+                          </p>
                         </div>
                         <div>
                           <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
                             {tr("年龄段", "Age Group")}
                           </p>
-                          <p className="mt-1 whitespace-pre-wrap">{renderValue(detail.intake?.ageGroup)}</p>
+                          <p className="mt-1 whitespace-pre-wrap">
+                            {renderValue(detail.intake?.ageGroup)}
+                          </p>
                         </div>
                       </div>
                       <div>
                         <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
                           {tr("既往史", "Medical History")}
                         </p>
-                        <p className="mt-1 whitespace-pre-wrap">{renderValue(detail.intake?.medicalHistory)}</p>
+                        <p className="mt-1 whitespace-pre-wrap">
+                          {renderValue(detail.intake?.medicalHistory)}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
                           {tr("当前用药", "Medications")}
                         </p>
-                        <p className="mt-1 whitespace-pre-wrap">{renderValue(detail.intake?.medications)}</p>
+                        <p className="mt-1 whitespace-pre-wrap">
+                          {renderValue(detail.intake?.medications)}
+                        </p>
                       </div>
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div>
                           <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
                             {tr("过敏史", "Allergies")}
                           </p>
-                          <p className="mt-1 whitespace-pre-wrap">{renderValue(detail.intake?.allergies)}</p>
+                          <p className="mt-1 whitespace-pre-wrap">
+                            {renderValue(detail.intake?.allergies)}
+                          </p>
                         </div>
                         <div>
                           <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
                             {tr("其他症状", "Other Symptoms")}
                           </p>
-                          <p className="mt-1 whitespace-pre-wrap">{renderValue(detail.intake?.otherSymptoms)}</p>
+                          <p className="mt-1 whitespace-pre-wrap">
+                            {renderValue(detail.intake?.otherSymptoms)}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -385,13 +428,22 @@ export function DoctorWorkbenchAppointmentSheet({
                       </div>
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <Badge variant="outline" className="border-slate-300 bg-white text-slate-700">
+                      <Badge
+                        variant="outline"
+                        className="border-slate-300 bg-white text-slate-700"
+                      >
                         #{detail.id}
                       </Badge>
-                      <Badge variant="outline" className="border-slate-300 bg-white text-slate-700">
+                      <Badge
+                        variant="outline"
+                        className="border-slate-300 bg-white text-slate-700"
+                      >
                         {tr("Triage", "Triage")} #{detail.triageSessionId}
                       </Badge>
-                      <Badge variant="outline" className="border-slate-300 bg-white text-slate-700">
+                      <Badge
+                        variant="outline"
+                        className="border-slate-300 bg-white text-slate-700"
+                      >
                         {tr("Slot", "Slot")} {detail.slotId ?? "-"}
                       </Badge>
                     </div>
@@ -412,8 +464,15 @@ export function DoctorWorkbenchAppointmentSheet({
                               ? tr("已签发", "Signed")
                               : tr("草稿", "Draft")}
                           </Badge>
-                          <Badge variant="outline" className="border-slate-300 bg-white text-slate-700">
-                            {tr("更新时间", "Updated")}: {formatDateTime(detail.medicalSummary.updatedAt, locale)}
+                          <Badge
+                            variant="outline"
+                            className="border-slate-300 bg-white text-slate-700"
+                          >
+                            {tr("更新时间", "Updated")}:{" "}
+                            {formatDateTime(
+                              detail.medicalSummary.updatedAt,
+                              locale
+                            )}
                           </Badge>
                         </div>
                         <div className="space-y-4">
@@ -471,7 +530,9 @@ export function DoctorWorkbenchAppointmentSheet({
                   disabled={!detail.canOpenRoom || isOpeningRoom}
                   onClick={() => onOpenRoom(detail.id)}
                 >
-                  {isOpeningRoom ? tr("打开中...", "Opening...") : tr("进入房间", "Open Room")}
+                  {isOpeningRoom
+                    ? tr("打开中...", "Opening...")
+                    : tr("进入房间", "Open Room")}
                 </Button>
                 <Button
                   type="button"
