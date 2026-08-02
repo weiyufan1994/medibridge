@@ -105,15 +105,20 @@ Common failures:
 
 ### Referral Stripe Configuration
 
+- `REFERRAL_PAYMENT_MODE=provider|mock`: controls referral checkout behavior.
+  It defaults to `provider`. `mock` is allowed in production, creates no
+  external charge, records new referral payments with provider `mock`, and
+  completes refunds for those mock payments without contacting Stripe or
+  PayPal.
 - `PAYMENT_PROVIDER=stripe`: production provider for the referral service.
 - `STRIPE_SECRET_KEY`: creates Checkout Sessions, verifies returned sessions,
   and submits full refunds.
 - `STRIPE_WEBHOOK_SECRET`: verifies
   `/api/payments/stripe/webhook` signatures.
 - `STRIPE_API_BASE_URL`: optional Stripe-compatible API base override.
-- `VITE_REFERRAL_MOCK_CHECKOUT=1`: enables the development-only referral mock
-  checkout UI; it is disabled in production. Without Stripe credentials,
-  non-production provider calls also use local checkout/refund fallbacks.
+- Without provider credentials, non-production Stripe calls may still use the
+  legacy local checkout/refund fallback. Production mock referral flows must
+  use `REFERRAL_PAYMENT_MODE=mock` explicitly.
 
 ## Account & Access Architecture (Progressive Profiling)
 

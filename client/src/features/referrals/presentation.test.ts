@@ -10,7 +10,6 @@ import {
   getPatientVisibleReferralTimeline,
   getReferralPaymentAction,
   getReferralOrderDetailHelperNotice,
-  shouldUseReferralMockCheckout,
 } from "./presentation";
 
 afterEach(() => {
@@ -71,27 +70,6 @@ describe("getReferralPaymentAction", () => {
 });
 
 describe("referral mock checkout helpers", () => {
-  it("enables mock checkout only for development when the flag is 1", () => {
-    expect(
-      shouldUseReferralMockCheckout({
-        isDevelopment: true,
-        flagValue: "1",
-      })
-    ).toBe(true);
-    expect(
-      shouldUseReferralMockCheckout({
-        isDevelopment: false,
-        flagValue: "1",
-      })
-    ).toBe(false);
-    expect(
-      shouldUseReferralMockCheckout({
-        isDevelopment: true,
-        flagValue: "0",
-      })
-    ).toBe(false);
-  });
-
   it("builds referral mock and return routes", () => {
     expect(buildReferralMockCheckoutHref(42)).toBe(
       "/referrals/mock-checkout/42"

@@ -1,7 +1,9 @@
+import { mockAdapter } from "./providers/mockAdapter";
 import { stripeAdapter } from "./providers/stripeAdapter";
 import { paypalAdapter } from "./providers/paypalAdapter";
 
-export type PaymentProvider = "stripe" | "paypal";
+export type ExternalPaymentProvider = "stripe" | "paypal";
+export type PaymentProvider = ExternalPaymentProvider | "mock";
 
 export type PaymentResource = {
   type: "appointment" | "referral_order";
@@ -15,10 +17,13 @@ export type PaymentCheckoutInput = {
   currency: string;
   successUrl: string;
   cancelUrl: string;
+  mockCheckoutUrl?: string;
 };
 
-export type PaymentCheckoutSession = {
-  provider: PaymentProvider;
+export type PaymentCheckoutSession<
+  TProvider extends PaymentProvider = PaymentProvider,
+> = {
+  provider: TProvider;
   id: string;
   url: string;
 };
@@ -64,7 +69,7 @@ export type PaymentProviderWebhookAdapter = {
   getResourceId?: (event: unknown) => string | null;
 };
 
-function assertPaymentProvider(value: string): PaymentProvider {
+function assertPaymentProvider(value: string): ExternalPaymentProvider {
   if (value === "paypal") {
     return "paypal";
   }
@@ -122,20 +127,35 @@ const ADAPTERS: Record<PaymentProvider, PaymentProviderWebhookAdapter> = {
       return String((event as Record<string, unknown>).event_type || "");
     },
   },
+  mock: mockAdapter,
 };
 
-export function resolvePaymentProvider(): PaymentProvider {
+export function resolvePaymentProvider(): ExternalPaymentProvider {
   return assertPaymentProvider(resolveRawProvider());
 }
 
-export function resolvePaymentAdapter(): PaymentProviderWebhookAdapter {
-  return ADAPTERS[resolvePaymentProvider()];
+export function resolvePaymentAdapter(
+  provider: PaymentProvider = resolvePaymentProvider()
+): PaymentProviderWebhookAdapter {
+  return ADAPTERS[provider];
 }
 
-export async function createPaymentCheckoutSession(
+export function createPaymentCheckoutSession(
   input: PaymentCheckoutInput
+): Promise<PaymentCheckoutSession<ExternalPaymentProvider>>;
+export function createPaymentCheckoutSession(
+  input: PaymentCheckoutInput,
+  provider: ExternalPaymentProvider
+): Promise<PaymentCheckoutSession<ExternalPaymentProvider>>;
+export function createPaymentCheckoutSession(
+  input: PaymentCheckoutInput,
+  provider: "mock"
+): Promise<PaymentCheckoutSession<"mock">>;
+export async function createPaymentCheckoutSession(
+  input: PaymentCheckoutInput,
+  provider: PaymentProvider = resolvePaymentProvider()
 ): Promise<PaymentCheckoutSession> {
-  const adapter = resolvePaymentAdapter();
+  const adapter = resolvePaymentAdapter(provider);
   return await Promise.resolve(adapter.createSession(input));
 }
 

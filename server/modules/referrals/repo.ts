@@ -19,6 +19,7 @@ import { extractAffectedRows } from "../../_core/dbCompat";
 import {
   type ReferralActorType,
   type ReferralOrderStatus,
+  type ReferralPaymentProvider,
   type ReferralPaymentStatus,
 } from "../../../shared/referrals";
 import {
@@ -396,7 +397,7 @@ export async function tryTransitionOrderById(input: {
 export async function markOrderPendingPayment(input: {
   orderId: number;
   paymentSessionId: string;
-  paymentProvider: "stripe" | "paypal";
+  paymentProvider: ReferralPaymentProvider;
   dbExecutor?: DbExecutor;
 }) {
   return tryTransitionOrderById({

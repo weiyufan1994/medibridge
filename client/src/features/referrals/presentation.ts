@@ -8,8 +8,6 @@ import type {
 } from "@shared/referrals";
 import { getReferralPaymentActionForOrder } from "@shared/referrals";
 
-const REFERRAL_MOCK_CHECKOUT_ENABLED_VALUE = "1";
-
 type ReferralOperationLike = {
   actionType: string;
   actionPayload: unknown;
@@ -239,17 +237,6 @@ export function getReferralUserErrorMessage(
   return fallbackMessage;
 }
 
-export function shouldUseReferralMockCheckout(input: {
-  isDevelopment: boolean;
-  flagValue: string | boolean | null | undefined;
-}) {
-  return (
-    input.isDevelopment &&
-    String(input.flagValue ?? "").trim() ===
-      REFERRAL_MOCK_CHECKOUT_ENABLED_VALUE
-  );
-}
-
 function buildHref(
   pathname: string,
   params: Record<string, string | number | null | undefined>
@@ -353,22 +340,6 @@ export function getOrCreateReferralClientRequestId(input: {
     window.sessionStorage.setItem(storageKey, requestId);
   }
   return requestId;
-}
-
-export function isReferralMockCheckoutEnabled() {
-  return shouldUseReferralMockCheckout({
-    isDevelopment: import.meta.env.DEV,
-    flagValue: import.meta.env.VITE_REFERRAL_MOCK_CHECKOUT,
-  });
-}
-
-export function getReferralCheckoutRedirectHref(input: {
-  orderId: number;
-  checkoutSessionUrl: string;
-}) {
-  return isReferralMockCheckoutEnabled()
-    ? buildReferralMockCheckoutHref(input.orderId)
-    : input.checkoutSessionUrl;
 }
 
 export function parsePositiveNumberParam(value: string | null | undefined) {

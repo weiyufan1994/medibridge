@@ -10,7 +10,6 @@ import { getReferralCopy, type ReferralLang } from "@/features/referrals/copy";
 import {
   buildReferralOrderHref,
   formatReferralMoney,
-  getReferralCheckoutRedirectHref,
   getReferralPaymentAction,
   getReferralUserErrorMessage,
   getReferralStatusLabel,
@@ -32,10 +31,7 @@ export function ReferralPaymentScreen({
     trpc.referrals.createPaymentSession.useMutation({
       onSuccess: result => {
         if (typeof window !== "undefined") {
-          window.location.href = getReferralCheckoutRedirectHref({
-            orderId: result.orderId,
-            checkoutSessionUrl: result.checkoutSessionUrl,
-          });
+          window.location.href = result.checkoutSessionUrl;
         }
       },
       onError: error => {

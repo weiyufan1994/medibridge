@@ -27,6 +27,15 @@ export const REFERRAL_PAYMENT_STATUS_VALUES = [
 export type ReferralPaymentStatus =
   (typeof REFERRAL_PAYMENT_STATUS_VALUES)[number];
 
+export const REFERRAL_PAYMENT_PROVIDER_VALUES = [
+  "stripe",
+  "paypal",
+  "mock",
+] as const;
+
+export type ReferralPaymentProvider =
+  (typeof REFERRAL_PAYMENT_PROVIDER_VALUES)[number];
+
 export type ReferralPaymentAction =
   | "payNow"
   | "continuePayment"

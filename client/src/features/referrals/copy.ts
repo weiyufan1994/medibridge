@@ -128,12 +128,10 @@ const referralCopyByLang = {
       paymentReturnedError: "Unable to confirm the payment result right now.",
       mockTitle: "Demo payment screen",
       mockDescription:
-        "Referral mock checkout is enabled for local demos. Use the actions below to simulate the payment result.",
+        "This is a simulated checkout. No external payment provider will be charged.",
       mockOrderLabel: "Referral order",
       mockSuccess: "Simulate payment success",
       mockCancel: "Simulate payment cancel",
-      mockDisabled:
-        "Referral mock checkout is unavailable. Turn on VITE_REFERRAL_MOCK_CHECKOUT=1 in development to use this page.",
     },
     orderDetail: {
       title: "Referral Order",
@@ -478,13 +476,10 @@ const referralCopyByLang = {
       continuePayment: "继续支付",
       paymentReturnedError: "暂时无法确认支付结果。",
       mockTitle: "演示支付页",
-      mockDescription:
-        "当前已启用转诊演示支付模式。你可以使用下面的操作来模拟支付结果。",
+      mockDescription: "这是模拟支付流程，不会向任何外部支付渠道发起扣款。",
       mockOrderLabel: "转诊订单",
       mockSuccess: "模拟支付成功",
       mockCancel: "模拟取消支付",
-      mockDisabled:
-        "当前未启用转诊演示支付模式。请在开发环境下开启 VITE_REFERRAL_MOCK_CHECKOUT=1 后再使用此页面。",
     },
     orderDetail: {
       title: "转诊订单",

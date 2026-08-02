@@ -14,6 +14,7 @@ import { z } from "zod";
 import {
   REFERRAL_ACTOR_TYPE_VALUES,
   REFERRAL_ORDER_STATUS_VALUES,
+  REFERRAL_PAYMENT_PROVIDER_VALUES,
   REFERRAL_PAYMENT_STATUS_VALUES,
   REFERRAL_NOTIFICATION_CHANNEL_VALUES,
   REFERRAL_NOTIFICATION_RECIPIENT_VALUES,
@@ -1054,7 +1055,9 @@ export const referralOrders = pgTable(
     agreementLang: varchar("agreementLang", { length: 8 })
       .notNull()
       .default("zh"),
-    paymentProvider: text("paymentProvider", { enum: ["stripe", "paypal"] })
+    paymentProvider: text("paymentProvider", {
+      enum: REFERRAL_PAYMENT_PROVIDER_VALUES,
+    })
       .notNull()
       .default("stripe"),
     paymentProviderSessionId: varchar("paymentProviderSessionId", {

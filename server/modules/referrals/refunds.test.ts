@@ -116,4 +116,46 @@ describe("referral refunds", () => {
     );
     expect(result.status).toBe("failed");
   });
+
+  it("uses the stored mock provider for a mock payment refund", async () => {
+    const mockOrder = {
+      ...createProcessingOrder(),
+      paymentProvider: "mock",
+      paymentProviderSessionId: `mock_referral_order_session_${"c".repeat(32)}`,
+      paymentProviderTransactionId: "mock_transaction_501",
+    };
+    const refundedMockOrder = {
+      ...mockOrder,
+      status: "refunded",
+      paymentStatus: "refunded",
+    };
+    vi.mocked(referralRepo.getReferralOrderById)
+      .mockResolvedValueOnce(mockOrder as never)
+      .mockResolvedValueOnce(mockOrder as never)
+      .mockResolvedValueOnce(refundedMockOrder as never);
+    vi.mocked(refundPayment).mockResolvedValue({
+      provider: "mock",
+      providerRefundId: "mock_refund_501",
+      status: "succeeded",
+    });
+    vi.mocked(referralRepo.tryTransitionOrderById).mockResolvedValue({
+      ok: true,
+      current: refundedMockOrder,
+    } as never);
+
+    const result = await processReferralRefund({
+      orderId: 501,
+      actor: { type: "system", id: null },
+    });
+
+    expect(refundPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "mock",
+        providerSessionId: mockOrder.paymentProviderSessionId,
+        amount: 19900,
+        currency: "cny",
+      })
+    );
+    expect(result.status).toBe("succeeded");
+  });
 });

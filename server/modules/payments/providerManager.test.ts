@@ -31,6 +31,7 @@ vi.mock("./providers/paypalAdapter", () => ({
 
 import {
   createPaymentCheckoutSession,
+  refundPayment,
   resolvePaymentProvider,
 } from "./providerManager";
 import { paypalAdapter } from "./providers/paypalAdapter";
@@ -73,5 +74,33 @@ describe("providerManager", () => {
     expect(() => resolvePaymentProvider()).toThrow(
       "Unsupported PAYMENT_PROVIDER"
     );
+  });
+
+  it("routes explicit mock checkouts and refunds through the mock adapter", async () => {
+    const checkout = await createPaymentCheckoutSession(
+      {
+        resource: { type: "referral_order", id: 81 },
+        amount: 19900,
+        currency: "cny",
+        successUrl: "https://app.test/referrals/payment/success",
+        cancelUrl: "https://app.test/referrals/payment/cancel",
+        mockCheckoutUrl: "https://app.test/referrals/mock-checkout/81",
+      },
+      "mock"
+    );
+    const refund = await refundPayment({
+      provider: "mock",
+      resource: { type: "referral_order", id: 81 },
+      providerSessionId: checkout.id,
+      amount: 19900,
+      currency: "cny",
+      idempotencyKey: "referral-order-81-full-refund",
+    });
+
+    expect(checkout.provider).toBe("mock");
+    expect(refund).toMatchObject({
+      provider: "mock",
+      status: "succeeded",
+    });
   });
 });

@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import type { Request } from "express";
 import { z } from "zod";
@@ -14,6 +13,7 @@ import { getPublicBaseUrl } from "../../_core/getPublicBaseUrl";
 import {
   createPaymentCheckoutSession,
   resolvePaymentAdapter,
+  type PaymentProvider,
 } from "../payments/providerManager";
 import {
   REFERRAL_SERVICE_AGREEMENT_VERSION,
@@ -49,6 +49,7 @@ import {
   publishReferralPaymentSettlement,
   settleReferralPaymentTransition,
 } from "./paymentSettlement";
+import { resolveReferralPaymentMode } from "./paymentMode";
 import type {
   createOrderDraftInputSchema,
   addInternalNoteInputSchema,
@@ -123,8 +124,6 @@ type NullableLocalDepartment = Awaited<
   ReturnType<typeof referralRepo.getDepartmentById>
 > | null;
 
-const REFERRAL_MOCK_CHECKOUT_ENABLED_VALUE = "1";
-
 function requireUser(user: User | null): CurrentUser {
   if (!user) {
     throw new TRPCError({
@@ -150,18 +149,6 @@ function requireFormalUser(user: User | null): CurrentUser {
 
 function resolveActorTypeFromUser(user: User): ReferralActorType {
   return user.role === "ops" ? "ops" : "admin";
-}
-
-function isReferralMockCheckoutEnabled() {
-  return (
-    process.env.NODE_ENV !== "production" &&
-    process.env.VITE_REFERRAL_MOCK_CHECKOUT?.trim() ===
-      REFERRAL_MOCK_CHECKOUT_ENABLED_VALUE
-  );
-}
-
-function buildMockReferralPaymentSessionId() {
-  return `cs_referral_mock_${crypto.randomBytes(12).toString("hex")}`;
 }
 
 async function getOwnedTriageRecommendation(input: {
@@ -850,22 +837,22 @@ export async function createPaymentSessionAction(input: {
   }
 
   const publicBaseUrl = getPublicBaseUrl(input.req);
-  const checkout = isReferralMockCheckoutEnabled()
-    ? {
-        provider: "stripe" as const,
-        id: buildMockReferralPaymentSessionId(),
-        url: `${publicBaseUrl}/referrals/mock-checkout/${order.id}`,
-      }
-    : await createPaymentCheckoutSession({
-        resource: {
-          type: "referral_order",
-          id: order.id,
-        },
-        amount: order.totalAmount,
-        currency: order.currency,
-        successUrl: `${publicBaseUrl}/referrals/payment/success?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
-        cancelUrl: `${publicBaseUrl}/referrals/payment/cancel?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
-      });
+  const paymentMode = resolveReferralPaymentMode();
+  const checkoutInput = {
+    resource: {
+      type: "referral_order" as const,
+      id: order.id,
+    },
+    amount: order.totalAmount,
+    currency: order.currency,
+    successUrl: `${publicBaseUrl}/referrals/payment/success?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
+    cancelUrl: `${publicBaseUrl}/referrals/payment/cancel?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
+    mockCheckoutUrl: `${publicBaseUrl}/referrals/mock-checkout/${order.id}`,
+  };
+  const checkout =
+    paymentMode === "mock"
+      ? await createPaymentCheckoutSession(checkoutInput, "mock")
+      : await createPaymentCheckoutSession(checkoutInput);
 
   const marked = await referralRepo.markOrderPendingPayment({
     orderId: order.id,
@@ -969,9 +956,17 @@ export async function confirmReturnedPaymentSessionAction(input: {
 
   let paymentProviderTransactionId = order.paymentProviderTransactionId ?? null;
   if (order.paymentStatus !== "paid") {
-    const verification = await resolvePaymentAdapter().captureOrFinalize({
-      providerSessionId: input.paymentSessionId,
-    });
+    const paymentProvider = order.paymentProvider as PaymentProvider;
+    if (paymentProvider === "mock") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message:
+          "Mock payments must be confirmed by the authenticated mock checkout flow.",
+      });
+    }
+    const verification = await resolvePaymentAdapter(
+      paymentProvider
+    ).captureOrFinalize({ providerSessionId: input.paymentSessionId });
     if (verification.paymentStatus !== "paid") {
       throw new TRPCError({
         code: "PRECONDITION_FAILED",
@@ -1001,10 +996,10 @@ export async function confirmMockPaymentAction(
   user: User | null,
   input: { orderId: number }
 ) {
-  if (process.env.NODE_ENV === "production") {
+  if (resolveReferralPaymentMode() !== "mock") {
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: "Mock checkout is disabled in production",
+      message: "Mock checkout is disabled",
     });
   }
 
@@ -1019,9 +1014,20 @@ export async function confirmMockPaymentAction(
       message: "Payment session is missing for referral order",
     });
   }
+  if (order.paymentProvider !== "mock") {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Referral order is not using mock payment",
+    });
+  }
+
+  const verification = await resolvePaymentAdapter("mock").captureOrFinalize({
+    providerSessionId: order.paymentProviderSessionId,
+  });
 
   const settledOrder = await settleReferralOrderPaymentBySessionId({
     paymentSessionId: order.paymentProviderSessionId,
+    paymentProviderTransactionId: verification.providerTransactionId ?? null,
     actorType: "system",
     reason: "mock_payment_confirmed",
   });

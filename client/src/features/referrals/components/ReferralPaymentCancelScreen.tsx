@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getReferralCopy, type ReferralLang } from "@/features/referrals/copy";
 import {
-  getReferralCheckoutRedirectHref,
   buildReferralOrderHref,
   getReferralUserErrorMessage,
 } from "@/features/referrals/presentation";
@@ -24,10 +23,7 @@ export function ReferralPaymentCancelScreen({
   const retryPaymentMutation = trpc.referrals.createPaymentSession.useMutation({
     onSuccess: result => {
       if (typeof window !== "undefined") {
-        window.location.href = getReferralCheckoutRedirectHref({
-          orderId: result.orderId,
-          checkoutSessionUrl: result.checkoutSessionUrl,
-        });
+        window.location.href = result.checkoutSessionUrl;
       }
     },
     onError: error => {

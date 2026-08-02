@@ -65,6 +65,7 @@ import {
 import * as referralRepo from "./modules/referrals/repo";
 import {
   assignOrderContactAction,
+  confirmMockPaymentAction,
   confirmReturnedPaymentSessionAction,
   createOrderDraftAction,
   createPaymentSessionAction,
@@ -246,6 +247,7 @@ function createBundle(
 describe("referral actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.REFERRAL_PAYMENT_MODE = "provider";
     vi.mocked(aiRepo.getAiChatSessionById).mockResolvedValue(
       createSession() as never
     );
@@ -508,13 +510,12 @@ describe("referral actions", () => {
     });
   });
 
-  it("creates a local mock payment session in development when referral mock checkout is enabled", async () => {
+  it("creates a mock payment session in production when REFERRAL_PAYMENT_MODE=mock", async () => {
     const patientUser = { id: 501, role: "free" } as never;
     const originalNodeEnv = process.env.NODE_ENV;
-    const originalMockFlag = process.env.VITE_REFERRAL_MOCK_CHECKOUT;
 
-    process.env.NODE_ENV = "development";
-    process.env.VITE_REFERRAL_MOCK_CHECKOUT = "1";
+    process.env.NODE_ENV = "production";
+    process.env.REFERRAL_PAYMENT_MODE = "mock";
 
     vi.mocked(referralRepo.getReferralOrderById).mockResolvedValue(
       createOrderRow({
@@ -532,6 +533,11 @@ describe("referral actions", () => {
         paymentStatus: "pending",
       },
     } as never);
+    vi.mocked(createPaymentCheckoutSession).mockResolvedValue({
+      provider: "mock",
+      id: `mock_referral_order_session_${"a".repeat(32)}`,
+      url: "https://app.medibridge.test/referrals/mock-checkout/111",
+    });
 
     try {
       const result = await createPaymentSessionAction({
@@ -545,12 +551,19 @@ describe("referral actions", () => {
         } as never,
       });
 
-      expect(createPaymentCheckoutSession).not.toHaveBeenCalled();
+      expect(createPaymentCheckoutSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resource: { type: "referral_order", id: 111 },
+          mockCheckoutUrl:
+            "https://app.medibridge.test/referrals/mock-checkout/111",
+        }),
+        "mock"
+      );
       expect(referralRepo.markOrderPendingPayment).toHaveBeenCalledWith(
         expect.objectContaining({
           orderId: 111,
-          paymentProvider: "stripe",
-          paymentSessionId: expect.stringMatching(/^cs_referral_mock_/),
+          paymentProvider: "mock",
+          paymentSessionId: `mock_referral_order_session_${"a".repeat(32)}`,
         })
       );
       expect(result).toMatchObject({
@@ -560,15 +573,86 @@ describe("referral actions", () => {
         checkoutSessionUrl:
           "https://app.medibridge.test/referrals/mock-checkout/111",
       });
-      expect(result.paymentSessionId).toMatch(/^cs_referral_mock_/);
+      expect(result.paymentSessionId).toBeUndefined();
     } finally {
       process.env.NODE_ENV = originalNodeEnv;
-      if (typeof originalMockFlag === "string") {
-        process.env.VITE_REFERRAL_MOCK_CHECKOUT = originalMockFlag;
-      } else {
-        delete process.env.VITE_REFERRAL_MOCK_CHECKOUT;
-      }
+      process.env.REFERRAL_PAYMENT_MODE = "provider";
     }
+  });
+
+  it("confirms an owned mock payment in production without an external provider", async () => {
+    const mockSessionId = `mock_referral_order_session_${"b".repeat(32)}`;
+    const captureOrFinalize = vi.fn().mockResolvedValue({
+      provider: "mock",
+      providerSessionId: mockSessionId,
+      providerTransactionId: "mock_transaction_123",
+      paymentStatus: "paid",
+    });
+    process.env.REFERRAL_PAYMENT_MODE = "mock";
+    vi.mocked(resolvePaymentAdapter).mockReturnValue({
+      captureOrFinalize,
+    } as never);
+    vi.mocked(referralRepo.getReferralOrderById).mockResolvedValue(
+      createOrderRow({
+        id: 112,
+        paymentProvider: "mock",
+        paymentProviderSessionId: mockSessionId,
+        paymentStatus: "pending",
+      }) as never
+    );
+    vi.mocked(
+      referralRepo.tryMarkOrderPaidByPaymentSessionId
+    ).mockResolvedValue({
+      ok: true,
+      current: { id: 112 },
+    } as never);
+    vi.mocked(referralRepo.getReferralOrderBundleById).mockResolvedValue(
+      createBundle({
+        order: {
+          id: 112,
+          status: "paid_pending_assignment",
+          paymentStatus: "paid",
+          paymentProvider: "mock",
+          paymentProviderSessionId: mockSessionId,
+        },
+      }) as never
+    );
+
+    const result = await confirmMockPaymentAction(
+      { id: 501, role: "free" } as never,
+      { orderId: 112 }
+    );
+
+    expect(resolvePaymentAdapter).toHaveBeenCalledWith("mock");
+    expect(captureOrFinalize).toHaveBeenCalledWith({
+      providerSessionId: mockSessionId,
+    });
+    expect(
+      referralRepo.tryMarkOrderPaidByPaymentSessionId
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentSessionId: mockSessionId,
+        paymentProviderTransactionId: "mock_transaction_123",
+        reason: "mock_payment_confirmed",
+      })
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      orderId: 112,
+      paymentStatus: "paid",
+    });
+  });
+
+  it("rejects mock payment confirmation when provider mode is active", async () => {
+    await expect(
+      confirmMockPaymentAction({ id: 501, role: "free" } as never, {
+        orderId: 112,
+      })
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Mock checkout is disabled",
+    });
+    expect(referralRepo.getReferralOrderById).not.toHaveBeenCalled();
   });
 
   it("allows snapshot/manual-fulfillment orders to create payment sessions when still pending payment", async () => {

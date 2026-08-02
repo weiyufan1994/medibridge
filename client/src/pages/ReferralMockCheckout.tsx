@@ -10,7 +10,6 @@ import {
   buildReferralOrderHref,
   buildReferralPaymentCancelHref,
   buildReferralPaymentSuccessHref,
-  isReferralMockCheckoutEnabled,
   parsePositiveNumberParam,
 } from "@/features/referrals/presentation";
 import { trpc } from "@/lib/trpc";
@@ -24,7 +23,6 @@ export default function ReferralMockCheckoutPage() {
     "/referrals/mock-checkout/:orderId"
   );
   const orderId = parsePositiveNumberParam(params?.orderId);
-  const mockCheckoutEnabled = isReferralMockCheckoutEnabled();
 
   const confirmMockPaymentMutation =
     trpc.referrals.confirmMockPayment.useMutation({
@@ -51,43 +49,6 @@ export default function ReferralMockCheckoutPage() {
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
               {copy.payment.missingOrder}
-            </CardContent>
-          </Card>
-        </div>
-      </AppLayout>
-    );
-  }
-
-  if (!mockCheckoutEnabled) {
-    return (
-      <AppLayout title={copy.payment.mockTitle}>
-        <div className="mx-auto w-full max-w-2xl space-y-4 px-4 py-6 sm:px-6">
-          <Card className="rounded-3xl border-slate-200/80">
-            <CardHeader>
-              <CardTitle className="text-2xl">
-                {copy.payment.mockTitle}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              {copy.payment.mockDisabled}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-3xl border-slate-200/80">
-            <CardContent className="flex flex-wrap gap-3 p-6">
-              <Button
-                variant="outline"
-                className="rounded-xl border-slate-200"
-                onClick={() => setLocation(buildReferralOrderHref(orderId))}
-              >
-                {copy.payment.viewOrder}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setLocation("/dashboard")}
-              >
-                {copy.navigation.backToDashboard}
-              </Button>
             </CardContent>
           </Card>
         </div>
