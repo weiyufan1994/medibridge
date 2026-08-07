@@ -13,6 +13,21 @@ export default defineConfig({
     },
   },
   test: {
+    coverage: {
+      provider: "v8",
+      thresholds: {
+        branches: 61,
+        functions: 41,
+        lines: 28,
+        statements: 28,
+        "server/_core/mapsProxy.ts": {
+          lines: 90,
+        },
+        "server/_core/logger.ts": {
+          lines: 90,
+        },
+      },
+    },
     environment: "node",
     include: [
       "server/**/*.test.ts",
