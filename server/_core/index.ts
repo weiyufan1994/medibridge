@@ -4,6 +4,7 @@ import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
+import { handleMapsScript } from "./mapsProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
@@ -42,6 +43,9 @@ async function startServer() {
   const stopReferralFulfillmentWorker = startReferralFulfillmentWorker();
   const stopReferralNotificationWorker = startReferralNotificationWorker();
   app.set("trust proxy", true);
+  app.get("/api/maps/script", (req, res) => {
+    void handleMapsScript(req, res);
+  });
   app.use("/uploads", express.static(getLocalUploadDir()));
   app.post(
     "/api/payments/stripe/webhook",
