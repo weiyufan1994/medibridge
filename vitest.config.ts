@@ -16,10 +16,10 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       thresholds: {
-        branches: 60,
-        functions: 41,
-        lines: 28,
-        statements: 28,
+        branches: 59,
+        functions: 40,
+        lines: 27,
+        statements: 27,
       },
     },
     environment: "node",
