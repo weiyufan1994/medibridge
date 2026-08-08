@@ -13,6 +13,15 @@ export default defineConfig({
     },
   },
   test: {
+    coverage: {
+      provider: "v8",
+      thresholds: {
+        branches: 59,
+        functions: 40,
+        lines: 27,
+        statements: 27,
+      },
+    },
     environment: "node",
     include: [
       "server/**/*.test.ts",
