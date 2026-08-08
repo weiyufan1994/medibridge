@@ -12,62 +12,6 @@
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
-    "core-business-import:server/_core/systemRouter.ts->../modules/admin/pdf": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "core-business-import:server/_core/systemRouter.ts->../modules/admin/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "core-business-import:server/_core/systemRouter.ts->../modules/admin/visitSummary": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "core-business-import:server/_core/systemRouter.ts->../modules/ai/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "core-business-import:server/_core/systemRouter.ts->../modules/appointments/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "core-business-import:server/_core/systemRouter.ts->../modules/appointments/stateMachine": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "core-business-import:server/_core/systemRouter.ts->../modules/appointments/tokenCache": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "core-business-import:server/_core/systemRouter.ts->../modules/appointments/tokenService": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "core-business-import:server/_core/systemRouter.ts->../modules/doctors/presentation": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "core-business-import:server/_core/systemRouter.ts->../modules/doctors/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "core-business-import:server/_core/systemRouter.ts->../modules/payments/reinitiateCheckout": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "core-business-import:server/_core/systemRouter.ts->../modules/payments/settlement": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "core-business-import:server/_core/systemRouter.ts->../modules/scheduling/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "core-business-import:server/_core/systemRouter.ts->../modules/visit/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
     "frontend-feature-deep-import:client/src/App.tsx->@/features/auth/components/LoginModal": {
       "phase": "5",
       "reason": "Existing dependency to remove in the assigned hardening phase"
@@ -560,10 +504,6 @@
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
-    "router-composition-import:server/routers/index.ts->../_core/systemRouter": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
     "ui-boundary-import:client/src/components/ui/input.tsx->@/hooks/useComposition": {
       "phase": "5",
       "reason": "Existing dependency to remove in the assigned hardening phase"
@@ -705,11 +645,6 @@
     },
     "server/_core/llm.ts": {
       "maxLines": 441,
-      "phase": "4",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
-    "server/_core/systemRouter.ts": {
-      "maxLines": 1994,
       "phase": "4",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },

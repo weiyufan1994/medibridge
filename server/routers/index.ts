@@ -1,4 +1,3 @@
-import { systemRouter } from "../_core/systemRouter";
 import { router } from "../_core/trpc";
 import { appointmentsRouter } from "./appointments";
 import { paymentsRouter } from "./payments";
@@ -12,6 +11,7 @@ import { consultationRouter } from "./consultation";
 import { schedulingRouter } from "./scheduling";
 import { doctorAccountsRouter } from "./doctorAccounts";
 import { referralsRouter } from "./referrals";
+import { systemRouter } from "./system";
 
 export const appRouter = router({
   system: systemRouter,

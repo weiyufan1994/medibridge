@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { clearMetricsForTests, incrementMetric } from "./_core/metrics";
-import { systemRouter } from "./_core/systemRouter";
+import { systemRouter } from "./routers/system";
 
 describe("system.metrics", () => {
   beforeEach(() => {

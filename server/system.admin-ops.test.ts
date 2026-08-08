@@ -43,7 +43,7 @@ import * as doctorsRepo from "./modules/doctors/repo";
 import * as visitRepo from "./modules/visit/repo";
 import * as adminRepo from "./modules/admin/repo";
 import { generateBilingualVisitSummary } from "./modules/admin/visitSummary";
-import { systemRouter } from "./_core/systemRouter";
+import { systemRouter } from "./routers/system";
 
 function createAdminCaller() {
   return systemRouter.createCaller({
