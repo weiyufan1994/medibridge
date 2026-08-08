@@ -1,0 +1,832 @@
+{
+  "dependencyViolations": {
+    "core-business-import:server/_core/context.ts->../modules/auth/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "core-business-import:server/_core/oauth.ts->../modules/auth/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "core-business-import:server/_core/sdk.ts->../modules/auth/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "core-business-import:server/_core/systemRouter.ts->../modules/admin/pdf": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "core-business-import:server/_core/systemRouter.ts->../modules/admin/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "core-business-import:server/_core/systemRouter.ts->../modules/admin/visitSummary": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "core-business-import:server/_core/systemRouter.ts->../modules/ai/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "core-business-import:server/_core/systemRouter.ts->../modules/appointments/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "core-business-import:server/_core/systemRouter.ts->../modules/appointments/stateMachine": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "core-business-import:server/_core/systemRouter.ts->../modules/appointments/tokenCache": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "core-business-import:server/_core/systemRouter.ts->../modules/appointments/tokenService": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "core-business-import:server/_core/systemRouter.ts->../modules/doctors/presentation": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "core-business-import:server/_core/systemRouter.ts->../modules/doctors/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "core-business-import:server/_core/systemRouter.ts->../modules/payments/reinitiateCheckout": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "core-business-import:server/_core/systemRouter.ts->../modules/payments/settlement": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "core-business-import:server/_core/systemRouter.ts->../modules/scheduling/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "core-business-import:server/_core/systemRouter.ts->../modules/visit/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/App.tsx->@/features/auth/components/LoginModal": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/App.tsx->@/features/auth/hooks/useAuth": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/App.tsx->@/features/dashboard/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/components/MyAppointments.tsx->@/features/appointment/presentation": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/components/MyAppointments.tsx->@/features/dashboard/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/components/MyAppointments.tsx->@/features/visit/components/PatientSummaryModal": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/components/layout/TopHeader.tsx->@/features/auth/hooks/useAuth": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/components/layout/TopHeader.tsx->@/features/home/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/features/admin/AdminConsole.tsx->@/features/auth/hooks/useAuth": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/features/admin/AdminConsole.tsx->@/features/booking/components/BookingWorkspace": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/features/admin/AdminConsole.tsx->@/features/booking/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/features/admin/components/ReferralAdminPanel.tsx->@/features/referrals/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/features/admin/components/ReferralAdminPanel.tsx->@/features/referrals/presentation": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/features/admin/components/ReferralCatalogCard.tsx->@/features/referrals/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/features/appointment/copy.ts->@/features/triage/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/features/appointment/hooks/useAppointmentForm.ts->@/features/auth/deviceId": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/features/referrals/components/ReferralConfirmationScreen.tsx->@/features/auth/hooks/useAuth": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/features/triage/components/AITriageChat.tsx->@/features/auth/hooks/useAuth": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/features/triage/components/AITriageChat.tsx->@/features/referrals/presentation": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/main.tsx->@/features/auth/deviceId": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/AITriage.tsx->@/features/triage/components/AITriageChat": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/Admin.tsx->@/features/admin/AdminConsole": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/Dashboard.tsx->@/features/auth/hooks/useAuth": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/Dashboard.tsx->@/features/dashboard/components/PricingModal": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/Dashboard.tsx->@/features/dashboard/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/Dashboard.tsx->@/features/dashboard/presentation": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/Dashboard.tsx->@/features/referrals/components/MyReferralOrders": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/DoctorClaimInvite.tsx->@/features/auth/hooks/useAuth": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/DoctorDetail.tsx->@/features/appointment/components/AppointmentModal": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/DoctorDetail.tsx->@/features/hospitals/components/DoctorDetailContent": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/DoctorDetail.tsx->@/features/hospitals/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/DoctorDetail.tsx->@/features/hospitals/hooks/useDoctorDetail": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/DoctorWorkbench.tsx->@/features/auth/hooks/useAuth": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/DoctorWorkbench.tsx->@/features/doctorWorkbench/components/DoctorWorkbenchAppointmentSheet": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/DoctorWorkbench.tsx->@/features/visit/components/MedicalSummaryModal": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/DoctorWorkbench.tsx->@/features/visit/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/Home.tsx->@/features/home/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/Hospitals.tsx->@/features/hospitals/components/HospitalsBrowser": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/Hospitals.tsx->@/features/hospitals/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/Hospitals.tsx->@/features/hospitals/hooks/useHospitals": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralConfirm.tsx->@/features/referrals/components/ReferralConfirmationScreen": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralConfirm.tsx->@/features/referrals/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralConfirm.tsx->@/features/referrals/presentation": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralMockCheckout.tsx->@/features/referrals/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralMockCheckout.tsx->@/features/referrals/presentation": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralOrderDetail.tsx->@/features/referrals/components/ReferralOrderDetailScreen": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralOrderDetail.tsx->@/features/referrals/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralOrderDetail.tsx->@/features/referrals/presentation": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralPayment.tsx->@/features/referrals/components/ReferralPaymentScreen": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralPayment.tsx->@/features/referrals/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralPayment.tsx->@/features/referrals/presentation": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralPaymentCancel.tsx->@/features/referrals/components/ReferralPaymentCancelScreen": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralPaymentCancel.tsx->@/features/referrals/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralPaymentCancel.tsx->@/features/referrals/presentation": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralPaymentSuccess.tsx->@/features/referrals/components/ReferralPaymentSuccessScreen": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralPaymentSuccess.tsx->@/features/referrals/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralPaymentSuccess.tsx->@/features/referrals/presentation": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralSelect.tsx->@/features/referrals/components/ReferralSelectionScreen": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralSelect.tsx->@/features/referrals/copy": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/ReferralSelect.tsx->@/features/referrals/presentation": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/pages/VisitRoom.tsx->@/features/visit/components/VisitRoomScreen": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "frontend-feature-deep-import:client/src/sandbox/ComponentShowcase.tsx->@/features/triage/components/AIChatBox": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/ai/actions.ts->../auth/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/ai/actions.ts->../triageKnowledge": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/ai/actions.ts->../triageSafety": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/ai/hospitalRouting.test.ts->../doctors/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/ai/hospitalRouting.ts->../doctors/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/appointments/accessLinkActions.ts->../doctorAccounts/actions": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/appointments/accessReadActions.test.ts->../ai/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/appointments/accessReadActions.ts->../ai/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/appointments/autoCloseWorker.ts->../visit/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/appointments/bookingActions.ts->../ai/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/appointments/bookingActions.ts->../scheduling/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/appointments/checkoutActions.ts->../payments/providerManager": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/appointments/checkoutActions.ts->../scheduling/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/appointments/queryActions.ts->../ai/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/appointments/queryActions.ts->../doctorAccounts/actions": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/appointments/statusActions.ts->../doctorAccounts/actions": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/appointments/statusActions.ts->../scheduling/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/appointments/workflowActions.ts->../ai/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/appointments/workflowActions.ts->../visit/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/auth/actions.ts->../appointments/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/auth/actions.ts->../appointments/tokenValidation": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/auth/actions.ts->../doctorAccounts/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/chat/actions.test.ts->../doctors/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/chat/actions.test.ts->../visit/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/chat/actions.ts->../doctors/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/chat/actions.ts->../visit/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/payments/actions.ts->../appointments/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/payments/readActions.ts->../appointments/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/payments/readActions.ts->../appointments/stateMachine": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/payments/reinitiateCheckout.ts->../appointments/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/payments/reinitiateCheckout.ts->../appointments/stateMachine": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/payments/schemas.ts->../appointments/stateMachine": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/payments/settlement.ts->../appointments/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/payments/settlement.ts->../appointments/tokenCache": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/payments/settlement.ts->../appointments/tokenService": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/payments/settlement.ts->../scheduling/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/referrals/actions.ts->../admin/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/referrals/actions.ts->../ai/historyResult": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/referrals/actions.ts->../ai/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/referrals/actions.ts->../payments/providerManager": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/referrals/refunds.test.ts->../payments/providerManager": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/referrals/refunds.ts->../payments/providerManager": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/scheduling/actions.ts->../doctorAccounts/actions": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/scheduling/schemas.ts->../appointments/packageCatalog": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/visit/actions.ts->../appointments/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/visit/actions.ts->../appointments/routerApi": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/visit/actions.ts->../appointments/tokenValidation": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/visit/realtimeGateway.test.ts->../appointments/chatPolicy": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/visit/realtimeGateway.test.ts->../appointments/tokenValidation": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/visit/realtimeGateway.ts->../appointments/chatPolicy": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/visit/realtimeGateway.ts->../appointments/consultationTimer": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/visit/realtimeGateway.ts->../appointments/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/visit/realtimeGateway.ts->../appointments/timerActions": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/visit/realtimeGateway.ts->../appointments/tokenValidation": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cross-deep-import:server/modules/visit/status.ts->../appointments/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "module-cycle:ai,appointments,auth,payments,scheduling,visit": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "router-boundary-import:server/routers/appointments.ts->../_core/getPublicBaseUrl": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "router-boundary-import:server/routers/appointments.ts->../modules/payments/routerApi": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "router-boundary-import:server/routers/consultation.ts->../../drizzle/schema": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "router-boundary-import:server/routers/consultation.ts->../modules/ai/historyResult": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "router-boundary-import:server/routers/consultation.ts->../modules/ai/repo": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "router-composition-import:server/routers/index.ts->../_core/systemRouter": {
+      "phase": "4",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "ui-boundary-import:client/src/components/ui/input.tsx->@/hooks/useComposition": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "ui-boundary-import:client/src/components/ui/sidebar.tsx->@/hooks/useMobile": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    },
+    "ui-boundary-import:client/src/components/ui/textarea.tsx->@/hooks/useComposition": {
+      "phase": "5",
+      "reason": "Existing dependency to remove in the assigned hardening phase"
+    }
+  },
+  "fileBudgets": {
+    "client/src/components/MyAppointments.tsx": {
+      "maxLines": 701,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/components/ui/sidebar.tsx": {
+      "maxLines": 734,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/features/admin/AdminConsole.tsx": {
+      "maxLines": 951,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/features/admin/components/appointment-detail/ActionsSection.tsx": {
+      "maxLines": 527,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/features/admin/components/AppointmentsCard.tsx": {
+      "maxLines": 414,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/features/admin/components/ReferralAdminPanel.tsx": {
+      "maxLines": 2074,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/features/admin/components/ReferralCatalogCard.tsx": {
+      "maxLines": 722,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/features/admin/components/SchedulingManagementCard.tsx": {
+      "maxLines": 846,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/features/admin/copy.ts": {
+      "maxLines": 762,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/features/admin/hooks/useAdminConsole.ts": {
+      "maxLines": 1247,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/features/admin/types.ts": {
+      "maxLines": 480,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/features/appointment/components/AppointmentModal.tsx": {
+      "maxLines": 674,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/features/booking/components/BookingToolbar.tsx": {
+      "maxLines": 726,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/features/doctorWorkbench/components/DoctorWorkbenchAppointmentSheet.tsx": {
+      "maxLines": 554,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/features/hospitals/components/HospitalsBrowser.tsx": {
+      "maxLines": 474,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/features/referrals/copy.ts": {
+      "maxLines": 696,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/features/triage/components/AITriageChat.tsx": {
+      "maxLines": 1287,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/features/triage/copy.ts": {
+      "maxLines": 514,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/features/triage/hooks/useTriageChat.ts": {
+      "maxLines": 623,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/features/visit/components/MedicalSummaryModal.tsx": {
+      "maxLines": 541,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/pages/DoctorWorkbench.tsx": {
+      "maxLines": 786,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "client/src/sandbox/ComponentShowcase.tsx": {
+      "maxLines": 1444,
+      "phase": "5",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "scripts/import-doctors.mjs": {
+      "maxLines": 619,
+      "phase": "6",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "scripts/translate-bilingual.ts": {
+      "maxLines": 2521,
+      "phase": "6",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "scripts/translate-triage-hospital-reference.ts": {
+      "maxLines": 697,
+      "phase": "6",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/_core/llm.ts": {
+      "maxLines": 441,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/_core/systemRouter.ts": {
+      "maxLines": 1994,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/appointments.test.ts": {
+      "maxLines": 1276,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/doctors.test.ts": {
+      "maxLines": 649,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/modules/admin/repo.ts": {
+      "maxLines": 554,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/modules/ai/actions.ts": {
+      "maxLines": 409,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/modules/ai/hospitalRouting.ts": {
+      "maxLines": 670,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/modules/ai/service.ts": {
+      "maxLines": 421,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/modules/ai/triageLogic.ts": {
+      "maxLines": 888,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/modules/appointments/accessQueryActions.ts": {
+      "maxLines": 542,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/modules/appointments/repo.ts": {
+      "maxLines": 1545,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/modules/appointments/workflowActions.ts": {
+      "maxLines": 486,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/modules/chat/actions.ts": {
+      "maxLines": 987,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/modules/doctors/actions.ts": {
+      "maxLines": 879,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/modules/doctors/repo.ts": {
+      "maxLines": 441,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/modules/referrals/actions.ts": {
+      "maxLines": 2104,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/modules/referrals/repo.ts": {
+      "maxLines": 962,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/modules/referrals/schemas.ts": {
+      "maxLines": 480,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/modules/scheduling/repo.ts": {
+      "maxLines": 445,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/modules/visit/realtimeGateway.ts": {
+      "maxLines": 765,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/referrals.actions.test.ts": {
+      "maxLines": 1408,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/stripeWebhookRoute.ts": {
+      "maxLines": 500,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/system.admin-actions.test.ts": {
+      "maxLines": 462,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/tokenValidation.test.ts": {
+      "maxLines": 575,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    },
+    "server/visit.test.ts": {
+      "maxLines": 427,
+      "phase": "4",
+      "reason": "Existing oversized file; edits may not increase this ceiling"
+    }
+  }
+}
