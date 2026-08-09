@@ -1,9 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { adminOrOpsProcedure } from "../../../_core/trpc";
-import { aiRepo } from "../../ai/publicApi";
-import { appointmentsRepo } from "../../appointments/publicApi";
-import { doctorsRepo, toLocalizedTextValue } from "../../doctors/publicApi";
-import { visitRepo } from "../../visit/publicApi";
+import { aiAdminApi } from "../../ai/publicApi";
+import { appointmentsAdminApi } from "../../appointments/publicApi";
+import { doctorsAdminApi, toLocalizedTextValue } from "../../doctors/publicApi";
+import { visitAdminApi } from "../../visit/publicApi";
 import { adminAppointmentDetailInputSchema } from "../schemas";
 import { parseIntakeFromNotes } from "../support";
 
@@ -11,7 +11,7 @@ export const appointmentDetailProcedures = {
   adminAppointmentDetail: adminOrOpsProcedure
     .input(adminAppointmentDetailInputSchema)
     .query(async ({ input }) => {
-      const appointment = await appointmentsRepo.getAppointmentById(
+      const appointment = await appointmentsAdminApi.getAppointmentById(
         input.appointmentId
       );
       if (!appointment) {
@@ -21,26 +21,26 @@ export const appointmentDetailProcedures = {
         });
       }
 
-      const triageSession = await aiRepo.getAiChatSessionById(
+      const triageSession = await aiAdminApi.getAiChatSessionById(
         appointment.triageSessionId
       );
-      const activeTokens = await appointmentsRepo.listActiveAppointmentTokens({
-        appointmentId: appointment.id,
-      });
-      const statusEvents = await appointmentsRepo.listStatusEventsByAppointment(
-        {
+      const activeTokens =
+        await appointmentsAdminApi.listActiveAppointmentTokens({
+          appointmentId: appointment.id,
+        });
+      const statusEvents =
+        await appointmentsAdminApi.listStatusEventsByAppointment({
           appointmentId: appointment.id,
           limit: 100,
-        }
-      );
+        });
       const webhookEvents =
-        await appointmentsRepo.listStripeWebhookEventsForAppointment({
+        await appointmentsAdminApi.listStripeWebhookEventsForAppointment({
           appointmentId: appointment.id,
           stripeSessionId: appointment.stripeSessionId,
           limit: 100,
         });
-      const doctor = await doctorsRepo.getDoctorById(appointment.doctorId);
-      const recentMessagesDesc = await visitRepo.getRecentMessages(
+      const doctor = await doctorsAdminApi.getDoctorById(appointment.doctorId);
+      const recentMessagesDesc = await visitAdminApi.getRecentMessages(
         appointment.id,
         30
       );
