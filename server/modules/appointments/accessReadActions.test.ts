@@ -8,8 +8,10 @@ vi.mock("./accessValidation", () => ({
   validateAppointmentToken: vi.fn(),
 }));
 
-vi.mock("../ai/repo", () => ({
-  getAiChatSessionById: vi.fn(),
+vi.mock("../ai/publicApi", () => ({
+  aiTriageSessionApi: {
+    getById: vi.fn(),
+  },
 }));
 
 vi.mock("./repo", () => ({
@@ -21,7 +23,7 @@ vi.mock("./consultationTimer", () => ({
 }));
 
 import { invokeLLM } from "../../_core/llm";
-import * as aiRepo from "../ai/repo";
+import { aiTriageSessionApi } from "../ai/publicApi";
 import { validateAppointmentToken } from "./accessValidation";
 import { getAppointmentAccessByToken } from "./accessReadActions";
 import { resolveConsultationTimerState } from "./consultationTimer";
@@ -68,7 +70,7 @@ describe("appointment access medical summary localization", () => {
       role: "patient",
       appointment: buildValidatedAppointment(),
     } as never);
-    vi.mocked(aiRepo.getAiChatSessionById).mockResolvedValue(null as never);
+    vi.mocked(aiTriageSessionApi.getById).mockResolvedValue(null);
     vi.mocked(resolveConsultationTimerState).mockReturnValue({
       baseDurationMinutes: 30,
       extensionMinutes: 0,
@@ -186,9 +188,12 @@ describe("appointment access medical summary localization", () => {
         }),
       },
     } as never);
-    vi.mocked(aiRepo.getAiChatSessionById).mockResolvedValue({
+    vi.mocked(aiTriageSessionApi.getById).mockResolvedValue({
+      id: 4,
+      userId: 7,
+      status: "completed",
       summary: "咳嗽 3 天，伴发热。",
-    } as never);
+    });
     vi.mocked(
       appointmentsRepo.getMedicalSummaryByAppointmentId
     ).mockResolvedValue(null as never);

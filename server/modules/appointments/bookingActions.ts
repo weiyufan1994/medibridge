@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import type { Request } from "express";
 import { z } from "zod";
-import * as aiRepo from "../ai/repo";
+import { aiTriageSessionApi as triageSessions } from "../ai/publicApi";
 import * as schedulingRepo from "../scheduling/repo";
 import {
   createAppointmentCheckoutFlow,
@@ -26,7 +26,7 @@ export async function prepareCreateCheckout(input: {
     });
   }
 
-  const triageSession = await aiRepo.getAiChatSessionById(
+  const triageSession = await triageSessions.getById(
     input.createInput.triageSessionId
   );
   if (!triageSession || triageSession.userId !== input.userId) {
@@ -62,10 +62,10 @@ export async function prepareCreateV2Checkout(input: {
         message: "triageSessionId is required for anonymous booking",
       });
     }
-    triageSessionId = await aiRepo.createAiChatSession(input.userId);
+    triageSessionId = await triageSessions.createForUser(input.userId);
   }
 
-  const triageSession = await aiRepo.getAiChatSessionById(triageSessionId);
+  const triageSession = await triageSessions.getById(triageSessionId);
   if (!triageSession) {
     throw new TRPCError({
       code: "FORBIDDEN",
