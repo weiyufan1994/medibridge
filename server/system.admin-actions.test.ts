@@ -19,7 +19,7 @@ vi.mock("./modules/scheduling/repo", () => ({
   releaseHeldSlotByAppointmentId: vi.fn(),
 }));
 
-vi.mock("./modules/payments/reinitiateCheckout", () => ({
+vi.mock("./workflows/appointmentPayments/publicApi", () => ({
   reinitiateCheckoutForAppointment: vi.fn(),
 }));
 
@@ -42,7 +42,7 @@ import * as appointmentsRepo from "./modules/appointments/repo";
 import * as visitRepo from "./modules/visit/repo";
 import * as doctorsRepo from "./modules/doctors/repo";
 import * as schedulingRepo from "./modules/scheduling/repo";
-import { reinitiateCheckoutForAppointment } from "./modules/payments/reinitiateCheckout";
+import { reinitiateCheckoutForAppointment } from "./workflows/appointmentPayments/publicApi";
 import { issueAppointmentAccessLinks } from "./modules/appointments/tokenService";
 import { sendMagicLinkEmail } from "./_core/mailer";
 import { setCachedPatientAccessToken } from "./modules/appointments/tokenCache";

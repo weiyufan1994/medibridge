@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { adminOrOpsProcedure } from "../../../_core/trpc";
 import { appointmentsAdminApi } from "../../appointments/publicApi";
-import { settleStripePaymentBySessionId } from "../../payments/publicApi";
 import { schedulingAdminApi } from "../../scheduling/publicApi";
+import { settleStripePaymentBySessionId } from "../../../workflows/appointmentPayments/publicApi";
 import { adminWebhookReplaySchema } from "../schemas";
 import { buildWebhookReplayEventRow, resolveActorRole } from "../support";
 

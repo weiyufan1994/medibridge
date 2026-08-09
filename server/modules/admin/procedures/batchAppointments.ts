@@ -7,7 +7,7 @@ import {
   issueAppointmentAccessLinks,
   setCachedPatientAccessToken,
 } from "../../appointments/publicApi";
-import { reinitiateCheckoutForAppointment } from "../../payments/publicApi";
+import { reinitiateCheckoutForAppointment } from "../../../workflows/appointmentPayments/publicApi";
 import { adminBatchAppointmentActionSchema } from "../schemas";
 import {
   ADMIN_ALLOWED_TRANSITION_FROM,

@@ -1,19 +1,18 @@
 import { TRPCError } from "@trpc/server";
-import type { Request } from "express";
-import * as appointmentsRepo from "../appointments/repo";
-import { schedulingSlotApi as slots } from "../scheduling/publicApi";
 import { sendMagicLinkEmail } from "../../_core/mailer";
-import { setCachedPatientAccessToken } from "../appointments/tokenCache";
-import { issueAppointmentAccessLinks } from "../appointments/tokenService";
+import {
+  appointmentPaymentApi,
+  type AppointmentPaymentDbExecutor,
+} from "../../modules/appointments/publicApi";
+import { schedulingSlotApi as slots } from "../../modules/scheduling/publicApi";
 
 export async function settleStripePaymentBySessionId(input: {
   stripeSessionId: string;
   source: "webhook" | "mock";
   eventId?: string;
-  req?: Request;
-  dbExecutor?: appointmentsRepo.AppointmentRepoExecutor;
+  dbExecutor?: AppointmentPaymentDbExecutor;
 }) {
-  const claimRows = await appointmentsRepo.tryMarkPaidByStripeSessionId({
+  const claimRows = await appointmentPaymentApi.claimPaidBySessionId({
     stripeSessionId: input.stripeSessionId,
     operatorType: input.source === "webhook" ? "webhook" : "system",
     reason:
@@ -26,7 +25,7 @@ export async function settleStripePaymentBySessionId(input: {
   });
 
   if (claimRows === 0) {
-    const appointment = await appointmentsRepo.getAppointmentByStripeSessionId(
+    const appointment = await appointmentPaymentApi.getBySessionId(
       input.stripeSessionId,
       input.dbExecutor
     );
@@ -53,7 +52,7 @@ export async function settleStripePaymentBySessionId(input: {
     });
   }
 
-  const appointment = await appointmentsRepo.getAppointmentByStripeSessionId(
+  const appointment = await appointmentPaymentApi.getBySessionId(
     input.stripeSessionId,
     input.dbExecutor
   );
@@ -70,14 +69,14 @@ export async function settleStripePaymentBySessionId(input: {
     dbExecutor: input.dbExecutor,
   });
 
-  const issuedLinks = await issueAppointmentAccessLinks({
+  const issuedLinks = await appointmentPaymentApi.issueAccessLinks({
     appointmentId: appointment.id,
     createdBy: input.source === "webhook" ? "stripe_webhook" : "system",
   });
 
   const patientLink = issuedLinks.patientLink;
   const doctorLink = issuedLinks.doctorLink;
-  setCachedPatientAccessToken(
+  appointmentPaymentApi.cachePatientAccessToken(
     appointment.id,
     issuedLinks.patient.token,
     issuedLinks.expiresAt
@@ -90,7 +89,7 @@ export async function settleStripePaymentBySessionId(input: {
         error instanceof Error && error.message.trim().length > 0
           ? error.message
           : "unknown_mailer_error";
-      await appointmentsRepo.insertStatusEvent({
+      await appointmentPaymentApi.recordStatusEvent({
         appointmentId: appointment.id,
         fromStatus: "paid",
         toStatus: "paid",

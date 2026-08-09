@@ -5,7 +5,7 @@ import {
 } from "../modules/appointments/routerApi";
 import { getPublicBaseUrl } from "../_core/getPublicBaseUrl";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
-import { paymentCore } from "../modules/payments/routerApi";
+import { reinitiateCheckoutForAppointment } from "../workflows/appointmentPayments/publicApi";
 export const validateAppointmentToken =
   appointmentCore.validateAppointmentToken;
 
@@ -90,7 +90,7 @@ const appointmentCheckoutProcedures = {
         operatorId: ctx.user?.id ?? null,
         req: ctx.req,
         getBaseUrl: getPublicBaseUrl,
-        reinitiateCheckout: paymentCore.reinitiateCheckoutForAppointment,
+        reinitiateCheckout: reinitiateCheckoutForAppointment,
       })
     ),
   cancel: publicProcedure

@@ -3,7 +3,9 @@ import * as providerManager from "./providerManager";
 export type PaymentProvider = providerManager.PaymentProvider;
 
 export const paymentProviderApi = {
-  createCheckoutSession: providerManager.createPaymentCheckoutSession,
+  get createCheckoutSession() {
+    return providerManager.createPaymentCheckoutSession;
+  },
   async captureOrFinalize(input: {
     provider: PaymentProvider;
     providerSessionId: string;
@@ -12,5 +14,7 @@ export const paymentProviderApi = {
       .resolvePaymentAdapter(input.provider)
       .captureOrFinalize({ providerSessionId: input.providerSessionId });
   },
-  refund: providerManager.refundPayment,
+  get refund() {
+    return providerManager.refundPayment;
+  },
 };

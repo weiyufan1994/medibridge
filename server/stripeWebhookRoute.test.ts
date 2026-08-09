@@ -21,7 +21,7 @@ vi.mock("./modules/scheduling/repo", () => ({
   releaseHeldSlotByAppointmentId: vi.fn(),
 }));
 
-vi.mock("./modules/payments/settlement", () => ({
+vi.mock("./workflows/appointmentPayments/publicApi", () => ({
   settleStripePaymentBySessionId: vi.fn(),
 }));
 

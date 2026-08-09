@@ -5,7 +5,7 @@ import {
   parsePaypalWebhookEvent,
   verifyPaypalWebhookSignature,
 } from "./modules/payments/providers/paypalAdapter";
-import { settleStripePaymentBySessionId } from "./modules/payments/settlement";
+import { settleStripePaymentBySessionId } from "./workflows/appointmentPayments/publicApi";
 import { getDb } from "./db";
 import * as appointmentsRepo from "./modules/appointments/repo";
 import * as schedulingRepo from "./modules/scheduling/repo";
@@ -235,7 +235,6 @@ export async function handlePaypalWebhook(req: Request, res: Response) {
           stripeSessionId: resolvedSessionId,
           source: "webhook",
           eventId: event.id,
-          req,
           dbExecutor: tx,
         });
         return;

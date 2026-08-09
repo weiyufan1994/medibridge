@@ -296,10 +296,6 @@
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
-    "module-cross-deep-import:server/modules/payments/actions.ts->../appointments/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
     "module-cross-deep-import:server/modules/payments/readActions.ts->../appointments/repo": {
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
@@ -308,27 +304,7 @@
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
-    "module-cross-deep-import:server/modules/payments/reinitiateCheckout.ts->../appointments/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/payments/reinitiateCheckout.ts->../appointments/stateMachine": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
     "module-cross-deep-import:server/modules/payments/schemas.ts->../appointments/stateMachine": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/payments/settlement.ts->../appointments/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/payments/settlement.ts->../appointments/tokenCache": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/payments/settlement.ts->../appointments/tokenService": {
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
@@ -397,10 +373,6 @@
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
     "router-boundary-import:server/routers/appointments.ts->../_core/getPublicBaseUrl": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "router-boundary-import:server/routers/appointments.ts->../modules/payments/routerApi": {
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
