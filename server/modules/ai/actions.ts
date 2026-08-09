@@ -8,13 +8,8 @@ import { processTriageChat } from "./service";
 import * as aiRepo from "./repo";
 import type { TrpcContext } from "../../_core/context";
 import * as authRepo from "../auth/repo";
-import {
-  clearSessionFlagsByType,
-  setSessionFlag,
-  recordRiskEvents,
-  scanMessage,
-} from "../triageSafety";
-import { runRetrieval } from "../triageKnowledge";
+import { triageKnowledgeApi as knowledge } from "../triageKnowledge/publicApi";
+import { triageSafetyApi as safety } from "../triageSafety/publicApi";
 import type {
   CreateSessionInput,
   ChatTriageInput,
@@ -268,7 +263,7 @@ export async function sendMessageAction(
   const resolvedLang =
     input.lang === "auto" ? detectTriageLanguage(triageMessages) : input.lang;
   try {
-    const riskScan = scanMessage({
+    const riskScan = safety.scanMessage({
       latestMessage: input.content,
       priorMessages: triageMessages.slice(0, -1),
       lang: resolvedLang,
@@ -284,12 +279,12 @@ export async function sendMessageAction(
         role: "assistant",
         content: localizedReply,
       });
-      await recordRiskEvents({
+      await safety.recordRiskEvents({
         sessionId: session.id,
         messageId: userMessageId,
         scanResult: riskScan,
       });
-      await setSessionFlag({
+      await safety.setSessionFlag({
         sessionId: session.id,
         flagType: "interrupted",
         flagValue: JSON.stringify({
@@ -298,8 +293,8 @@ export async function sendMessageAction(
           assistantMessageId,
         }),
       });
-      await clearSessionFlagsByType(session.id, TRIAGE_RESULT_FLAG_TYPE);
-      await setSessionFlag({
+      await safety.clearSessionFlagsByType(session.id, TRIAGE_RESULT_FLAG_TYPE);
+      await safety.setSessionFlag({
         sessionId: session.id,
         flagType: TRIAGE_RESULT_FLAG_TYPE,
         flagValue: serializeHistoricalTriageResult({
@@ -325,15 +320,17 @@ export async function sendMessageAction(
     console.error("[TriageSafety] scanMessage failed:", error);
   }
 
-  let knowledgeContext: Awaited<ReturnType<typeof runRetrieval>> | undefined;
+  let knowledgeContext:
+    | Awaited<ReturnType<typeof knowledge.runRetrieval>>
+    | undefined;
   try {
     knowledgeContext =
-      (await runRetrieval({
+      (await knowledge.runRetrieval({
         latestMessage: input.content,
         sessionSummary: session.summary,
       })) ?? undefined;
     if (knowledgeContext) {
-      await setSessionFlag({
+      await safety.setSessionFlag({
         sessionId: session.id,
         flagType: "knowledge_trace",
         flagValue: JSON.stringify(knowledgeContext.trace),
@@ -362,8 +359,8 @@ export async function sendMessageAction(
   });
 
   if (triageResult.isComplete) {
-    await clearSessionFlagsByType(session.id, TRIAGE_RESULT_FLAG_TYPE);
-    await setSessionFlag({
+    await safety.clearSessionFlagsByType(session.id, TRIAGE_RESULT_FLAG_TYPE);
+    await safety.setSessionFlag({
       sessionId: session.id,
       flagType: TRIAGE_RESULT_FLAG_TYPE,
       flagValue: serializeHistoricalTriageResult({
