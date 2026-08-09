@@ -9,8 +9,10 @@ vi.mock("./modules/ai/repo", () => ({
   setAiChatSessionSummaryIfEmpty: vi.fn(),
 }));
 
-vi.mock("./modules/auth/repo", () => ({
-  findOrCreateGuestUserByDeviceId: vi.fn(),
+vi.mock("./modules/auth/publicApi", () => ({
+  authGuestIdentityApi: {
+    findOrCreateGuestSessionOwner: vi.fn(),
+  },
 }));
 
 vi.mock("./modules/triageSafety/publicApi", () => ({
