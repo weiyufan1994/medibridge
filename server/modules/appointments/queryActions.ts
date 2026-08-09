@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import * as aiRepo from "../ai/repo";
 import * as appointmentsRepo from "./repo";
-import { resolveBoundDoctorIdForUser } from "../doctorAccounts/actions";
+import { doctorAccountAccessApi as doctorAccess } from "../doctorAccounts/publicApi";
 import {
   getAppointmentByIdOrThrow,
   getSessionEmailFromContext,
@@ -112,7 +112,7 @@ export async function listDoctorWorkbenchAppointments(input: {
   currentUserId: number;
   currentUserRole?: string | null;
 }) {
-  const doctorId = await resolveBoundDoctorIdForUser({
+  const doctorId = await doctorAccess.resolveBoundDoctorIdForUser({
     userId: input.currentUserId,
     allowAdminDoctorId: input.doctorId,
     userRole: input.currentUserRole,
@@ -170,7 +170,7 @@ export async function getDoctorWorkbenchAppointmentDetail(input: {
   currentUserId: number;
   currentUserRole?: string | null;
 }) {
-  const doctorId = await resolveBoundDoctorIdForUser({
+  const doctorId = await doctorAccess.resolveBoundDoctorIdForUser({
     userId: input.currentUserId,
     allowAdminDoctorId: input.doctorId,
     userRole: input.currentUserRole,

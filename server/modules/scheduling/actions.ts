@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { addDays } from "date-fns";
 import { getDb } from "../../db";
-import { resolveBoundDoctorIdForUser } from "../doctorAccounts/actions";
+import { doctorAccountAccessApi as doctorAccess } from "../doctorAccounts/publicApi";
 import { buildGeneratedSlots } from "./slotGeneration";
 import * as schedulingRepo from "./repo";
 import { SLOT_GENERATION_WINDOW_DAYS } from "./constants";
@@ -305,7 +305,7 @@ export async function listDoctorUpcomingSlots(input: {
   currentUserId: number;
   currentUserRole?: string | null;
 }) {
-  const doctorId = await resolveBoundDoctorIdForUser({
+  const doctorId = await doctorAccess.resolveBoundDoctorIdForUser({
     userId: input.currentUserId,
     allowAdminDoctorId: input.doctorId,
     userRole: input.currentUserRole,

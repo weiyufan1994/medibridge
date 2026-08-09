@@ -260,10 +260,6 @@
       "phase": "5",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
-    "module-cross-deep-import:server/modules/appointments/accessLinkActions.ts->../doctorAccounts/actions": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
     "module-cross-deep-import:server/modules/appointments/accessReadActions.test.ts->../ai/repo": {
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
@@ -293,14 +289,6 @@
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
     "module-cross-deep-import:server/modules/appointments/queryActions.ts->../ai/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/appointments/queryActions.ts->../doctorAccounts/actions": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/appointments/statusActions.ts->../doctorAccounts/actions": {
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
@@ -405,10 +393,6 @@
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
     "module-cross-deep-import:server/modules/referrals/refunds.ts->../payments/providerManager": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/scheduling/actions.ts->../doctorAccounts/actions": {
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
