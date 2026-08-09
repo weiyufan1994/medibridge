@@ -13,15 +13,19 @@ vi.mock("./modules/auth/repo", () => ({
   findOrCreateGuestUserByDeviceId: vi.fn(),
 }));
 
-vi.mock("./modules/triageSafety", () => ({
-  scanMessage: vi.fn(),
-  recordRiskEvents: vi.fn(),
-  setSessionFlag: vi.fn(),
-  clearSessionFlagsByType: vi.fn(),
+vi.mock("./modules/triageSafety/publicApi", () => ({
+  triageSafetyApi: {
+    scanMessage: vi.fn(),
+    recordRiskEvents: vi.fn(),
+    setSessionFlag: vi.fn(),
+    clearSessionFlagsByType: vi.fn(),
+  },
 }));
 
-vi.mock("./modules/triageKnowledge", () => ({
-  runRetrieval: vi.fn(),
+vi.mock("./modules/triageKnowledge/publicApi", () => ({
+  triageKnowledgeApi: {
+    runRetrieval: vi.fn(),
+  },
 }));
 
 vi.mock("./modules/ai/service", () => ({
@@ -29,8 +33,8 @@ vi.mock("./modules/ai/service", () => ({
 }));
 
 import * as aiRepo from "./modules/ai/repo";
-import * as triageSafety from "./modules/triageSafety";
-import * as triageKnowledge from "./modules/triageKnowledge";
+import { triageKnowledgeApi } from "./modules/triageKnowledge/publicApi";
+import { triageSafetyApi } from "./modules/triageSafety/publicApi";
 import { processTriageChat } from "./modules/ai/service";
 import { sendMessageAction } from "./modules/ai/actions";
 
@@ -60,7 +64,7 @@ describe("ai.sendMessageAction stream b", () => {
   });
 
   it("interrupts immediately when red flag is matched", async () => {
-    vi.mocked(triageSafety.scanMessage).mockReturnValue({
+    vi.mocked(triageSafetyApi.scanMessage).mockReturnValue({
       matchedRiskCodes: ["CHEST_PAIN_BREATHING"],
       highestSeverity: "critical",
       shouldInterrupt: true,
@@ -88,13 +92,15 @@ describe("ai.sendMessageAction stream b", () => {
       zh: "立即去急诊。",
       en: "Go to the emergency department immediately.",
     });
-    expect(vi.mocked(triageKnowledge.runRetrieval)).not.toHaveBeenCalled();
+    expect(vi.mocked(triageKnowledgeApi.runRetrieval)).not.toHaveBeenCalled();
     expect(vi.mocked(processTriageChat)).not.toHaveBeenCalled();
-    expect(vi.mocked(triageSafety.recordRiskEvents)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(triageSafetyApi.recordRiskEvents)).toHaveBeenCalledTimes(
+      1
+    );
     expect(
-      vi.mocked(triageSafety.clearSessionFlagsByType)
+      vi.mocked(triageSafetyApi.clearSessionFlagsByType)
     ).toHaveBeenCalledWith(10, "triage_result_v1");
-    expect(vi.mocked(triageSafety.setSessionFlag)).toHaveBeenCalledWith(
+    expect(vi.mocked(triageSafetyApi.setSessionFlag)).toHaveBeenCalledWith(
       expect.objectContaining({
         sessionId: 10,
         flagType: "triage_result_v1",
@@ -107,7 +113,7 @@ describe("ai.sendMessageAction stream b", () => {
   });
 
   it("runs retrieval and passes knowledge context when no red flag is matched", async () => {
-    vi.mocked(triageSafety.scanMessage).mockReturnValue({
+    vi.mocked(triageSafetyApi.scanMessage).mockReturnValue({
       matchedRiskCodes: [],
       highestSeverity: null,
       shouldInterrupt: false,
@@ -116,7 +122,7 @@ describe("ai.sendMessageAction stream b", () => {
       triggerSource: "rule",
       rawExcerpt: "皮疹三天",
     });
-    vi.mocked(triageKnowledge.runRetrieval).mockResolvedValue({
+    vi.mocked(triageKnowledgeApi.runRetrieval).mockResolvedValue({
       snippets: [
         {
           title: "皮疹分诊基础卡 / 皮疹分诊基础卡",
@@ -147,7 +153,7 @@ describe("ai.sendMessageAction stream b", () => {
     );
 
     expect(result.isComplete).toBe(false);
-    expect(vi.mocked(triageKnowledge.runRetrieval)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(triageKnowledgeApi.runRetrieval)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(processTriageChat)).toHaveBeenCalledWith(
       [{ role: "user", content: "test" }],
       "zh",
@@ -163,7 +169,7 @@ describe("ai.sendMessageAction stream b", () => {
   });
 
   it("passes structured intake through to the triage service", async () => {
-    vi.mocked(triageSafety.scanMessage).mockReturnValue({
+    vi.mocked(triageSafetyApi.scanMessage).mockReturnValue({
       matchedRiskCodes: [],
       highestSeverity: null,
       shouldInterrupt: false,
@@ -172,7 +178,7 @@ describe("ai.sendMessageAction stream b", () => {
       triggerSource: "rule",
       rawExcerpt: "右下腹痛",
     });
-    vi.mocked(triageKnowledge.runRetrieval).mockResolvedValue(undefined);
+    vi.mocked(triageKnowledgeApi.runRetrieval).mockResolvedValue(undefined);
     vi.mocked(processTriageChat).mockResolvedValue({
       isComplete: true,
       reply: "已完成极速分诊。",
@@ -221,9 +227,9 @@ describe("ai.sendMessageAction stream b", () => {
       }
     );
     expect(
-      vi.mocked(triageSafety.clearSessionFlagsByType)
+      vi.mocked(triageSafetyApi.clearSessionFlagsByType)
     ).toHaveBeenCalledWith(10, "triage_result_v1");
-    expect(vi.mocked(triageSafety.setSessionFlag)).toHaveBeenCalledWith(
+    expect(vi.mocked(triageSafetyApi.setSessionFlag)).toHaveBeenCalledWith(
       expect.objectContaining({
         sessionId: 10,
         flagType: "triage_result_v1",
