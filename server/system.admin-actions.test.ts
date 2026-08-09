@@ -47,7 +47,7 @@ import { issueAppointmentAccessLinks } from "./modules/appointments/tokenService
 import { sendMagicLinkEmail } from "./_core/mailer";
 import { setCachedPatientAccessToken } from "./modules/appointments/tokenCache";
 import { notifyOwner } from "./_core/notification";
-import { systemRouter } from "./_core/systemRouter";
+import { systemRouter } from "./routers/system";
 
 function createAdminCaller() {
   return systemRouter.createCaller({
