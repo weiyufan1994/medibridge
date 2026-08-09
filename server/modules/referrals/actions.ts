@@ -11,10 +11,9 @@ import {
 } from "../ai/historyResult";
 import { getPublicBaseUrl } from "../../_core/getPublicBaseUrl";
 import {
-  createPaymentCheckoutSession,
-  resolvePaymentAdapter,
+  paymentProviderApi,
   type PaymentProvider,
-} from "../payments/providerManager";
+} from "../payments/publicApi";
 import {
   REFERRAL_SERVICE_AGREEMENT_VERSION,
   REFERRAL_SERVICE_AMOUNT,
@@ -851,8 +850,8 @@ export async function createPaymentSessionAction(input: {
   };
   const checkout =
     paymentMode === "mock"
-      ? await createPaymentCheckoutSession(checkoutInput, "mock")
-      : await createPaymentCheckoutSession(checkoutInput);
+      ? await paymentProviderApi.createCheckoutSession(checkoutInput, "mock")
+      : await paymentProviderApi.createCheckoutSession(checkoutInput);
 
   const marked = await referralRepo.markOrderPendingPayment({
     orderId: order.id,
@@ -956,17 +955,17 @@ export async function confirmReturnedPaymentSessionAction(input: {
 
   let paymentProviderTransactionId = order.paymentProviderTransactionId ?? null;
   if (order.paymentStatus !== "paid") {
-    const paymentProvider = order.paymentProvider as PaymentProvider;
-    if (paymentProvider === "mock") {
+    if (order.paymentProvider === "mock") {
       throw new TRPCError({
         code: "FORBIDDEN",
         message:
           "Mock payments must be confirmed by the authenticated mock checkout flow.",
       });
     }
-    const verification = await resolvePaymentAdapter(
-      paymentProvider
-    ).captureOrFinalize({ providerSessionId: input.paymentSessionId });
+    const verification = await paymentProviderApi.captureOrFinalize({
+      provider: order.paymentProvider as PaymentProvider,
+      providerSessionId: input.paymentSessionId,
+    });
     if (verification.paymentStatus !== "paid") {
       throw new TRPCError({
         code: "PRECONDITION_FAILED",
@@ -1021,7 +1020,8 @@ export async function confirmMockPaymentAction(
     });
   }
 
-  const verification = await resolvePaymentAdapter("mock").captureOrFinalize({
+  const verification = await paymentProviderApi.captureOrFinalize({
+    provider: "mock",
     providerSessionId: order.paymentProviderSessionId,
   });
 

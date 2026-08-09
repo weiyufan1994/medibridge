@@ -49,8 +49,8 @@ vi.mock("./_core/llm", () => ({
   invokeLLM: vi.fn(),
 }));
 
-vi.mock("./modules/payments/providerManager", () => ({
-  createPaymentCheckoutSession: vi.fn(),
+vi.mock("./modules/payments/publicApi", () => ({
+  paymentProviderApi: { createCheckoutSession: vi.fn() },
 }));
 import * as appointmentsRepo from "./modules/appointments/repo";
 import { aiTriageSessionApi } from "./modules/ai/publicApi";
@@ -59,7 +59,7 @@ import { schedulingSlotApi } from "./modules/scheduling/publicApi";
 import * as visitRepo from "./modules/visit/repo";
 import { getDb } from "./db";
 import { invokeLLM } from "./_core/llm";
-import { createPaymentCheckoutSession } from "./modules/payments/providerManager";
+import { paymentProviderApi } from "./modules/payments/publicApi";
 import { sendMagicLinkEmail } from "./_core/mailer";
 import { issueAppointmentAccessLinks } from "./modules/appointments/tokenService";
 import { validateAppointmentAccessToken } from "./modules/appointments/tokenValidation";
@@ -147,7 +147,7 @@ describe("appointments router", () => {
     });
     vi.mocked(visitRepo.getRecentMessages).mockResolvedValue([] as never);
 
-    vi.mocked(createPaymentCheckoutSession).mockResolvedValue({
+    vi.mocked(paymentProviderApi.createCheckoutSession).mockResolvedValue({
       id: "cs_test_abc",
       url: "https://checkout.mock/cs_test_abc",
       provider: "stripe",
