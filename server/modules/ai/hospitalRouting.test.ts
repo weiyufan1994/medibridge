@@ -1,17 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../doctors/repo", () => ({
-  getAllHospitals: vi.fn(),
-  getDepartmentsByHospital: vi.fn(),
+vi.mock("../doctors/publicApi", () => ({
+  doctorDirectoryApi: {
+    getAllHospitals: vi.fn(),
+    getDepartmentsByHospital: vi.fn(),
+  },
 }));
 
-import * as doctorsRepo from "../doctors/repo";
+import { doctorDirectoryApi } from "../doctors/publicApi";
 import { buildHospitalRouting } from "./hospitalRouting";
 
 describe("hospitalRouting", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(doctorsRepo.getAllHospitals).mockResolvedValue([
+    vi.mocked(doctorDirectoryApi.getAllHospitals).mockResolvedValue([
       {
         id: 1,
         name: "中国医学科学院阜外医院",
@@ -27,7 +29,7 @@ describe("hospitalRouting", () => {
         cityEn: "Beijing",
       },
     ] as never);
-    vi.mocked(doctorsRepo.getDepartmentsByHospital).mockImplementation(
+    vi.mocked(doctorDirectoryApi.getDepartmentsByHospital).mockImplementation(
       async hospitalId =>
         hospitalId === 1
           ? ([{ id: 101, hospitalId, name: "心内科" }] as never)

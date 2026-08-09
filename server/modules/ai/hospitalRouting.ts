@@ -5,7 +5,7 @@ import {
   hospitalReferenceSpecialtyRankings,
   hospitalReferenceStemRankings,
 } from "../../../drizzle/schema";
-import * as doctorsRepo from "../doctors/repo";
+import { doctorDirectoryApi } from "../doctors/publicApi";
 import { getDb } from "../../db";
 import type {
   TriageRouting,
@@ -54,7 +54,7 @@ type HospitalReferenceData = {
 };
 
 type LocalHospitalMatch = Awaited<
-  ReturnType<typeof doctorsRepo.getAllHospitals>
+  ReturnType<typeof doctorDirectoryApi.getAllHospitals>
 >[number];
 
 const MAX_HOSPITAL_RESULTS = 5;
@@ -526,7 +526,7 @@ async function enhanceWithLocalRecords(input: {
 
   let localHospitals: LocalHospitalMatch[] = [];
   try {
-    localHospitals = await doctorsRepo.getAllHospitals();
+    localHospitals = await doctorDirectoryApi.getAllHospitals();
   } catch (error) {
     console.warn(
       "[TriageHospitalRouting] local hospital enhancement skipped:",
@@ -583,7 +583,7 @@ async function enhanceWithLocalRecords(input: {
 
   const departmentsByHospitalId = new Map<
     number,
-    Awaited<ReturnType<typeof doctorsRepo.getDepartmentsByHospital>>
+    Awaited<ReturnType<typeof doctorDirectoryApi.getDepartmentsByHospital>>
   >();
   await Promise.all(
     enhanced
@@ -596,7 +596,7 @@ async function enhanceWithLocalRecords(input: {
 
         try {
           const departments =
-            await doctorsRepo.getDepartmentsByHospital(hospitalId);
+            await doctorDirectoryApi.getDepartmentsByHospital(hospitalId);
           departmentsByHospitalId.set(hospitalId, departments);
         } catch (error) {
           console.warn(
