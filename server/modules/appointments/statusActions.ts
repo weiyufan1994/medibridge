@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { appointments } from "../../../drizzle/schema";
 import * as appointmentsRepo from "./repo";
-import * as schedulingRepo from "../scheduling/repo";
+import { schedulingSlotApi as slots } from "../scheduling/publicApi";
 import { doctorAccountAccessApi as doctorAccess } from "../doctorAccounts/publicApi";
 import { APPOINTMENT_INVALID_TRANSITION_ERROR } from "./stateMachine";
 import { getAppointmentByIdOrThrow } from "./accessValidation";
@@ -37,7 +37,7 @@ export async function cancelAppointmentByPatient(input: {
     appointmentId: appointment.id,
     reason: "appointment_canceled",
   });
-  await schedulingRepo.releaseHeldSlotByAppointmentId({
+  await slots.releaseHeldSlotByAppointmentId({
     appointmentId: appointment.id,
   });
 

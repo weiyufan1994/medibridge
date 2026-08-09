@@ -14,9 +14,10 @@ vi.mock("./modules/appointments/repo", () => ({
   revokeAppointmentTokens: vi.fn(),
   insertStatusEvent: vi.fn(),
 }));
-vi.mock("./modules/scheduling/repo", () => ({
-  bookHeldSlotByAppointmentId: vi.fn(),
-  releaseHeldSlotByAppointmentId: vi.fn(),
+vi.mock("./modules/scheduling/publicApi", () => ({
+  schedulingSlotApi: {
+    bookHeldSlotByAppointmentId: vi.fn(),
+  },
 }));
 
 vi.mock("./_core/mailer", () => ({
@@ -36,7 +37,7 @@ vi.mock("./modules/payments/providerManager", () => ({
 }));
 
 import * as appointmentsRepo from "./modules/appointments/repo";
-import * as schedulingRepo from "./modules/scheduling/repo";
+import { schedulingSlotApi } from "./modules/scheduling/publicApi";
 import { sendMagicLinkEmail } from "./_core/mailer";
 import { issueAppointmentAccessLinks } from "./modules/appointments/tokenService";
 import {
@@ -68,7 +69,7 @@ describe("payments router", () => {
     vi.clearAllMocks();
     clearTokenValidationStateForTests();
     process.env.APP_BASE_URL = "https://medibridge.test";
-    vi.mocked(schedulingRepo.bookHeldSlotByAppointmentId).mockResolvedValue({
+    vi.mocked(schedulingSlotApi.bookHeldSlotByAppointmentId).mockResolvedValue({
       id: 10,
     } as never);
   });

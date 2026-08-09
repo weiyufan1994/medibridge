@@ -5,7 +5,7 @@ import { createPaymentCheckoutSession } from "../payments/providerManager";
 import { APPOINTMENT_INVALID_TRANSITION_ERROR } from "./stateMachine";
 import { getPublicBaseUrl } from "../../_core/getPublicBaseUrl";
 import { getDb } from "../../db";
-import * as schedulingRepo from "../scheduling/repo";
+import { schedulingSlotApi as slots } from "../scheduling/publicApi";
 
 type CheckoutPackage = {
   id: string;
@@ -111,7 +111,7 @@ export async function createAppointmentCheckoutFlow(input: {
     }
 
     await db.transaction(async tx => {
-      const heldSlot = await schedulingRepo.holdSlot({
+      const heldSlot = await slots.holdSlot({
         slotId,
         heldBySessionId: holdKey,
         dbExecutor: tx,
@@ -159,7 +159,7 @@ export async function createAppointmentCheckoutFlow(input: {
         });
       }
 
-      await schedulingRepo.attachHeldSlotToAppointment({
+      await slots.attachHeldSlotToAppointment({
         slotId,
         appointmentId,
         heldBySessionId: holdKey,
@@ -229,7 +229,7 @@ export async function createAppointmentCheckoutFlow(input: {
     });
     if (transitioned && "ok" in transitioned && !transitioned.ok) {
       if (slotId) {
-        await schedulingRepo.releaseHeldSlotByAppointmentId({ appointmentId });
+        await slots.releaseHeldSlotByAppointmentId({ appointmentId });
       }
       throw new TRPCError({
         code: "PRECONDITION_FAILED",
@@ -249,7 +249,7 @@ export async function createAppointmentCheckoutFlow(input: {
     };
   } catch (error) {
     if (slotId && appointmentId) {
-      await schedulingRepo.releaseHeldSlotByAppointmentId({ appointmentId });
+      await slots.releaseHeldSlotByAppointmentId({ appointmentId });
     }
     throw error;
   }

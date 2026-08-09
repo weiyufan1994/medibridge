@@ -264,19 +264,7 @@
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
-    "module-cross-deep-import:server/modules/appointments/bookingActions.ts->../scheduling/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
     "module-cross-deep-import:server/modules/appointments/checkoutActions.ts->../payments/providerManager": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/appointments/checkoutActions.ts->../scheduling/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/appointments/statusActions.ts->../scheduling/repo": {
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
@@ -345,10 +333,6 @@
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
     "module-cross-deep-import:server/modules/payments/settlement.ts->../appointments/tokenService": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/payments/settlement.ts->../scheduling/repo": {
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
