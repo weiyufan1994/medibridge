@@ -334,23 +334,3 @@ export async function claimDoctorInvite(input: {
     binding: serializeBinding(activeBinding),
   };
 }
-
-export async function resolveBoundDoctorIdForUser(input: {
-  userId: number;
-  allowAdminDoctorId?: number;
-  userRole?: string | null;
-}) {
-  const role = String(input.userRole ?? "");
-  if ((role === "admin" || role === "ops") && input.allowAdminDoctorId) {
-    return input.allowAdminDoctorId;
-  }
-
-  const binding = await repo.getActiveBindingByUserId(input.userId);
-  if (!binding) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Doctor workbench is not enabled for the current account",
-    });
-  }
-  return binding.doctorId;
-}

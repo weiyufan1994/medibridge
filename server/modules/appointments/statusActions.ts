@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { appointments } from "../../../drizzle/schema";
 import * as appointmentsRepo from "./repo";
 import * as schedulingRepo from "../scheduling/repo";
-import { resolveBoundDoctorIdForUser } from "../doctorAccounts/actions";
+import { doctorAccountAccessApi as doctorAccess } from "../doctorAccounts/publicApi";
 import { APPOINTMENT_INVALID_TRANSITION_ERROR } from "./stateMachine";
 import { getAppointmentByIdOrThrow } from "./accessValidation";
 
@@ -123,7 +123,7 @@ export async function startAppointmentByDoctorUser(input: {
   currentUserRole?: string | null;
   doctorId?: number;
 }) {
-  const doctorId = await resolveBoundDoctorIdForUser({
+  const doctorId = await doctorAccess.resolveBoundDoctorIdForUser({
     userId: input.currentUserId,
     allowAdminDoctorId: input.doctorId,
     userRole: input.currentUserRole,

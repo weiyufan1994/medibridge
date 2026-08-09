@@ -21,8 +21,8 @@ vi.mock("./modules/scheduling/repo", () => ({
   attachHeldSlotToAppointment: vi.fn(),
   releaseHeldSlotByAppointmentId: vi.fn(),
 }));
-vi.mock("./modules/doctorAccounts/actions", () => ({
-  resolveBoundDoctorIdForUser: vi.fn(),
+vi.mock("./modules/doctorAccounts/publicApi", () => ({
+  doctorAccountAccessApi: { resolveBoundDoctorIdForUser: vi.fn() },
 }));
 vi.mock("./db", () => ({
   getDb: vi.fn(),
@@ -55,7 +55,7 @@ vi.mock("./modules/payments/providerManager", () => ({
 
 import * as appointmentsRepo from "./modules/appointments/repo";
 import * as aiRepo from "./modules/ai/repo";
-import * as doctorAccountActions from "./modules/doctorAccounts/actions";
+import { doctorAccountAccessApi } from "./modules/doctorAccounts/publicApi";
 import * as schedulingRepo from "./modules/scheduling/repo";
 import * as visitRepo from "./modules/visit/repo";
 import { getDb } from "./db";
@@ -196,7 +196,7 @@ describe("appointments router", () => {
       id: 501,
     } as never);
     vi.mocked(
-      doctorAccountActions.resolveBoundDoctorIdForUser
+      doctorAccountAccessApi.resolveBoundDoctorIdForUser
     ).mockResolvedValue(11);
   });
 

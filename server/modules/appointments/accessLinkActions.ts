@@ -5,7 +5,7 @@ import { setCachedPatientAccessToken } from "./tokenCache";
 import { buildAppointmentAccessLink } from "./linkService";
 import * as appointmentsRepo from "./repo";
 import { issueAppointmentAccessLinks } from "./tokenService";
-import { resolveBoundDoctorIdForUser } from "../doctorAccounts/actions";
+import { doctorAccountAccessApi as doctorAccess } from "../doctorAccounts/publicApi";
 import {
   assertAppointmentBelongsToCurrentUser,
   getAppointmentByIdOrThrow,
@@ -175,7 +175,7 @@ export async function issueAccessLinksForDoctorUserByAppointmentId(input: {
   userRole?: string | null;
 }) {
   const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
-  const doctorId = await resolveBoundDoctorIdForUser({
+  const doctorId = await doctorAccess.resolveBoundDoctorIdForUser({
     userId: input.userId,
     userRole: input.userRole,
   });
