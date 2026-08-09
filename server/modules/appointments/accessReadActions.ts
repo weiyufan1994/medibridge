@@ -1,5 +1,5 @@
 import type { Request } from "express";
-import * as aiRepo from "../ai/repo";
+import { aiTriageSessionApi as triageSessions } from "../ai/publicApi";
 import * as appointmentsRepo from "./repo";
 import { buildAppointmentAccessLink } from "./linkService";
 import { validateAppointmentToken } from "./accessValidation";
@@ -30,7 +30,7 @@ export async function getAppointmentAccessByToken<
     input.req
   );
 
-  const triageSession = await aiRepo.getAiChatSessionById(
+  const triageSession = await triageSessions.getById(
     appointment.triageSessionId
   );
   const medicalSummary =

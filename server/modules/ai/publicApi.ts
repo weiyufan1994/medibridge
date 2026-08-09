@@ -1,4 +1,15 @@
+import {
+  createTriageSessionForUser,
+  getTriageSessionSnapshotById,
+} from "./sessionAccessActions";
 import * as repo from "./repo";
+
+export type { TriageSessionSnapshot } from "./sessionAccessActions";
+
+export const aiTriageSessionApi = {
+  createForUser: createTriageSessionForUser,
+  getById: getTriageSessionSnapshotById,
+};
 
 export const aiAdminApi = {
   get getAiChatSessionById() {

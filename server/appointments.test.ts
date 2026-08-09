@@ -38,9 +38,8 @@ vi.mock("./_core/mailer", () => ({
   sendMagicLinkEmail: vi.fn(),
 }));
 
-vi.mock("./modules/ai/repo", () => ({
-  getAiChatSessionById: vi.fn(),
-  createAiChatSession: vi.fn(),
+vi.mock("./modules/ai/publicApi", () => ({
+  aiTriageSessionApi: { getById: vi.fn(), createForUser: vi.fn() },
 }));
 vi.mock("./modules/visit/repo", () => ({
   getRecentMessages: vi.fn(),
@@ -54,7 +53,7 @@ vi.mock("./modules/payments/providerManager", () => ({
 }));
 
 import * as appointmentsRepo from "./modules/appointments/repo";
-import * as aiRepo from "./modules/ai/repo";
+import { aiTriageSessionApi } from "./modules/ai/publicApi";
 import { doctorAccountAccessApi } from "./modules/doctorAccounts/publicApi";
 import * as schedulingRepo from "./modules/scheduling/repo";
 import * as visitRepo from "./modules/visit/repo";
@@ -140,11 +139,12 @@ describe("appointments router", () => {
       },
     } as never);
 
-    vi.mocked(aiRepo.getAiChatSessionById).mockResolvedValue({
+    vi.mocked(aiTriageSessionApi.getById).mockResolvedValue({
       id: 99,
       userId: 1,
       status: "completed",
-    } as never);
+      summary: null,
+    });
     vi.mocked(visitRepo.getRecentMessages).mockResolvedValue([] as never);
 
     vi.mocked(createPaymentCheckoutSession).mockResolvedValue({
@@ -1152,12 +1152,12 @@ describe("appointments router", () => {
       createdAt: new Date("2026-03-01T00:00:00.000Z"),
       updatedAt: new Date("2026-03-01T00:00:00.000Z"),
     } as never);
-    vi.mocked(aiRepo.getAiChatSessionById).mockResolvedValue({
+    vi.mocked(aiTriageSessionApi.getById).mockResolvedValue({
       id: 99,
       userId: 1,
       status: "completed",
       summary: "Likely upper respiratory infection",
-    } as never);
+    });
     vi.mocked(
       appointmentsRepo.getMedicalSummaryByAppointmentId
     ).mockResolvedValue({

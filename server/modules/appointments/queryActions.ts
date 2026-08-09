@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import * as aiRepo from "../ai/repo";
+import { aiTriageSessionApi as triageSessions } from "../ai/publicApi";
 import * as appointmentsRepo from "./repo";
 import { doctorAccountAccessApi as doctorAccess } from "../doctorAccounts/publicApi";
 import {
@@ -181,7 +181,7 @@ export async function getDoctorWorkbenchAppointmentDetail(input: {
     appointmentDoctorId: appointment.doctorId,
   });
 
-  const triageSession = await aiRepo.getAiChatSessionById(
+  const triageSession = await triageSessions.getById(
     appointment.triageSessionId
   );
   const intake = parseIntakeFromNotes(appointment.notes, value =>

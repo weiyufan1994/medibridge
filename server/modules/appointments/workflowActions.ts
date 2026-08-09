@@ -1,7 +1,7 @@
 import type { Request } from "express";
 import { TRPCError } from "@trpc/server";
 import { invokeLLM } from "../../_core/llm";
-import * as aiRepo from "../ai/repo";
+import { aiTriageSessionApi as triageSessions } from "../ai/publicApi";
 import * as visitRepo from "../visit/repo";
 import * as appointmentsRepo from "./repo";
 import { validateAppointmentToken } from "./accessValidation";
@@ -176,7 +176,7 @@ async function generateAndPersistMedicalSummaryDraft(input: {
   const intake = parseIntakeFromNotes(input.appointment.notes, value =>
     appointmentIntakeSchema.safeParse(value)
   );
-  const triageSession = await aiRepo.getAiChatSessionById(
+  const triageSession = await triageSessions.getById(
     input.appointment.triageSessionId
   );
   const triageSummary = triageSession?.summary ?? null;
