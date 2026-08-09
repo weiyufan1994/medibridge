@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import type { Request } from "express";
 import * as appointmentsRepo from "./repo";
-import { createPaymentCheckoutSession } from "../payments/providerManager";
+import { paymentProviderApi } from "../payments/publicApi";
 import { APPOINTMENT_INVALID_TRANSITION_ERROR } from "./stateMachine";
 import { getPublicBaseUrl } from "../../_core/getPublicBaseUrl";
 import { getDb } from "../../db";
@@ -214,7 +214,7 @@ export async function createAppointmentCheckoutFlow(input: {
 
   try {
     const publicUrlBase = getPublicBaseUrl(input.req);
-    const checkout = await createPaymentCheckoutSession({
+    const checkout = await paymentProviderApi.createCheckoutSession({
       appointmentId,
       amount: input.selectedPackage.amount,
       currency: input.selectedPackage.currency,

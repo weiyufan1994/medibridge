@@ -1,7 +1,7 @@
 import {
-  refundPayment,
+  paymentProviderApi,
   type PaymentProvider,
-} from "../payments/providerManager";
+} from "../payments/publicApi";
 import {
   type ReferralActorType,
   type ReferralRefundReasonCode,
@@ -127,7 +127,7 @@ export async function processReferralRefund(input: {
   }
 
   try {
-    const refund = await refundPayment({
+    const refund = await paymentProviderApi.refund({
       provider: order.paymentProvider as PaymentProvider,
       resource: {
         type: "referral_order",

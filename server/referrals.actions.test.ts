@@ -40,10 +40,12 @@ vi.mock("./modules/ai/historyResult", () => ({
   rebuildHistoricalTriageResultFromSummary: vi.fn(),
 }));
 
-vi.mock("./modules/payments/providerManager", () => ({
-  createPaymentCheckoutSession: vi.fn(),
-  refundPayment: vi.fn(),
-  resolvePaymentAdapter: vi.fn(),
+vi.mock("./modules/payments/publicApi", () => ({
+  paymentProviderApi: {
+    createCheckoutSession: vi.fn(),
+    captureOrFinalize: vi.fn(),
+    refund: vi.fn(),
+  },
 }));
 
 vi.mock("./modules/referrals/notifications", () => ({
@@ -57,11 +59,7 @@ import {
   parseStoredHistoricalTriageResult,
   rebuildHistoricalTriageResultFromSummary,
 } from "./modules/ai/historyResult";
-import {
-  createPaymentCheckoutSession,
-  refundPayment,
-  resolvePaymentAdapter,
-} from "./modules/payments/providerManager";
+import { paymentProviderApi } from "./modules/payments/publicApi";
 import * as referralRepo from "./modules/referrals/repo";
 import {
   assignOrderContactAction,
@@ -362,15 +360,12 @@ describe("referral actions", () => {
   });
 
   it("confirms returned payment sessions and moves orders into paid_pending_assignment", async () => {
-    const captureOrFinalize = vi.fn().mockResolvedValue({
+    vi.mocked(paymentProviderApi.captureOrFinalize).mockResolvedValue({
       provider: "stripe",
       providerSessionId: "cs_referral_1",
       providerTransactionId: "pi_referral_1",
       paymentStatus: "paid",
     });
-    vi.mocked(resolvePaymentAdapter).mockReturnValue({
-      captureOrFinalize,
-    } as never);
     vi.mocked(
       referralRepo.getReferralOrderByPaymentSessionId
     ).mockResolvedValue(
@@ -405,7 +400,8 @@ describe("referral actions", () => {
       paymentSessionId: "cs_referral_1",
     });
 
-    expect(captureOrFinalize).toHaveBeenCalledWith({
+    expect(paymentProviderApi.captureOrFinalize).toHaveBeenCalledWith({
+      provider: "stripe",
       providerSessionId: "cs_referral_1",
     });
     expect(
@@ -455,7 +451,7 @@ describe("referral actions", () => {
         paymentProviderSessionId: "cs_old",
       }) as never
     );
-    vi.mocked(createPaymentCheckoutSession).mockResolvedValue({
+    vi.mocked(paymentProviderApi.createCheckoutSession).mockResolvedValue({
       provider: "stripe",
       id: "cs_referral_2",
       url: "https://checkout.example/referral/2",
@@ -480,7 +476,7 @@ describe("referral actions", () => {
       } as never,
     });
 
-    expect(createPaymentCheckoutSession).toHaveBeenCalledWith(
+    expect(paymentProviderApi.createCheckoutSession).toHaveBeenCalledWith(
       expect.objectContaining({
         resource: {
           type: "referral_order",
@@ -533,7 +529,7 @@ describe("referral actions", () => {
         paymentStatus: "pending",
       },
     } as never);
-    vi.mocked(createPaymentCheckoutSession).mockResolvedValue({
+    vi.mocked(paymentProviderApi.createCheckoutSession).mockResolvedValue({
       provider: "mock",
       id: `mock_referral_order_session_${"a".repeat(32)}`,
       url: "https://app.medibridge.test/referrals/mock-checkout/111",
@@ -551,7 +547,7 @@ describe("referral actions", () => {
         } as never,
       });
 
-      expect(createPaymentCheckoutSession).toHaveBeenCalledWith(
+      expect(paymentProviderApi.createCheckoutSession).toHaveBeenCalledWith(
         expect.objectContaining({
           resource: { type: "referral_order", id: 111 },
           mockCheckoutUrl:
@@ -582,16 +578,13 @@ describe("referral actions", () => {
 
   it("confirms an owned mock payment in production without an external provider", async () => {
     const mockSessionId = `mock_referral_order_session_${"b".repeat(32)}`;
-    const captureOrFinalize = vi.fn().mockResolvedValue({
+    vi.mocked(paymentProviderApi.captureOrFinalize).mockResolvedValue({
       provider: "mock",
       providerSessionId: mockSessionId,
       providerTransactionId: "mock_transaction_123",
       paymentStatus: "paid",
     });
     process.env.REFERRAL_PAYMENT_MODE = "mock";
-    vi.mocked(resolvePaymentAdapter).mockReturnValue({
-      captureOrFinalize,
-    } as never);
     vi.mocked(referralRepo.getReferralOrderById).mockResolvedValue(
       createOrderRow({
         id: 112,
@@ -623,8 +616,8 @@ describe("referral actions", () => {
       { orderId: 112 }
     );
 
-    expect(resolvePaymentAdapter).toHaveBeenCalledWith("mock");
-    expect(captureOrFinalize).toHaveBeenCalledWith({
+    expect(paymentProviderApi.captureOrFinalize).toHaveBeenCalledWith({
+      provider: "mock",
       providerSessionId: mockSessionId,
     });
     expect(
@@ -669,7 +662,7 @@ describe("referral actions", () => {
         paymentStatus: "unpaid",
       }) as never
     );
-    vi.mocked(createPaymentCheckoutSession).mockResolvedValue({
+    vi.mocked(paymentProviderApi.createCheckoutSession).mockResolvedValue({
       provider: "stripe",
       id: "cs_referral_3",
       url: "https://checkout.example/referral/3",
@@ -694,7 +687,7 @@ describe("referral actions", () => {
       } as never,
     });
 
-    expect(createPaymentCheckoutSession).toHaveBeenCalledWith(
+    expect(paymentProviderApi.createCheckoutSession).toHaveBeenCalledWith(
       expect.objectContaining({
         resource: {
           type: "referral_order",
@@ -734,7 +727,7 @@ describe("referral actions", () => {
     ).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",
     });
-    expect(createPaymentCheckoutSession).not.toHaveBeenCalled();
+    expect(paymentProviderApi.createCheckoutSession).not.toHaveBeenCalled();
   });
 
   it("returns a clear message when a referral order is no longer waiting for payment", async () => {
@@ -1297,7 +1290,7 @@ describe("referral actions", () => {
           paymentProviderRefundId: "re_refund_106",
         }) as never
       );
-    vi.mocked(refundPayment).mockResolvedValue({
+    vi.mocked(paymentProviderApi.refund).mockResolvedValue({
       provider: "stripe",
       providerRefundId: "re_refund_106",
       status: "succeeded",

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../payments/providerManager", () => ({
-  refundPayment: vi.fn(),
+vi.mock("../payments/publicApi", () => ({
+  paymentProviderApi: { refund: vi.fn() },
 }));
 
 vi.mock("./repo", () => ({
@@ -18,7 +18,7 @@ vi.mock("./notifications", () => ({
   notifyPatientReferralUpdate: vi.fn(),
 }));
 
-import { refundPayment } from "../payments/providerManager";
+import { paymentProviderApi } from "../payments/publicApi";
 import * as referralRepo from "./repo";
 import {
   notifyInternalActionRequired,
@@ -52,7 +52,7 @@ describe("referral refunds", () => {
       .mockResolvedValueOnce(createProcessingOrder() as never)
       .mockResolvedValueOnce(createProcessingOrder() as never)
       .mockResolvedValueOnce(createProcessingOrder("refunded") as never);
-    vi.mocked(refundPayment).mockResolvedValue({
+    vi.mocked(paymentProviderApi.refund).mockResolvedValue({
       provider: "stripe",
       providerRefundId: "re_refund_501",
       status: "succeeded",
@@ -67,7 +67,7 @@ describe("referral refunds", () => {
       actor: { type: "system", id: null },
     });
 
-    expect(refundPayment).toHaveBeenCalledWith(
+    expect(paymentProviderApi.refund).toHaveBeenCalledWith(
       expect.objectContaining({
         amount: 19900,
         currency: "cny",
@@ -93,7 +93,7 @@ describe("referral refunds", () => {
     vi.mocked(referralRepo.getReferralOrderById).mockResolvedValue(
       createProcessingOrder() as never
     );
-    vi.mocked(refundPayment).mockRejectedValue(
+    vi.mocked(paymentProviderApi.refund).mockRejectedValue(
       new Error("Stripe temporarily unavailable")
     );
 
@@ -133,7 +133,7 @@ describe("referral refunds", () => {
       .mockResolvedValueOnce(mockOrder as never)
       .mockResolvedValueOnce(mockOrder as never)
       .mockResolvedValueOnce(refundedMockOrder as never);
-    vi.mocked(refundPayment).mockResolvedValue({
+    vi.mocked(paymentProviderApi.refund).mockResolvedValue({
       provider: "mock",
       providerRefundId: "mock_refund_501",
       status: "succeeded",
@@ -148,7 +148,7 @@ describe("referral refunds", () => {
       actor: { type: "system", id: null },
     });
 
-    expect(refundPayment).toHaveBeenCalledWith(
+    expect(paymentProviderApi.refund).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "mock",
         providerSessionId: mockOrder.paymentProviderSessionId,
