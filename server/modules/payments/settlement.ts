@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import type { Request } from "express";
 import * as appointmentsRepo from "../appointments/repo";
-import * as schedulingRepo from "../scheduling/repo";
+import { schedulingSlotApi as slots } from "../scheduling/publicApi";
 import { sendMagicLinkEmail } from "../../_core/mailer";
 import { setCachedPatientAccessToken } from "../appointments/tokenCache";
 import { issueAppointmentAccessLinks } from "../appointments/tokenService";
@@ -65,7 +65,7 @@ export async function settleStripePaymentBySessionId(input: {
     });
   }
 
-  await schedulingRepo.bookHeldSlotByAppointmentId({
+  await slots.bookHeldSlotByAppointmentId({
     appointmentId: appointment.id,
     dbExecutor: input.dbExecutor,
   });

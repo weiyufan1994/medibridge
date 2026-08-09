@@ -15,11 +15,13 @@ vi.mock("./modules/appointments/repo", () => ({
   revokeAppointmentTokens: vi.fn(),
   listAppointmentsByDoctor: vi.fn(),
 }));
-vi.mock("./modules/scheduling/repo", () => ({
-  getSlotById: vi.fn(),
-  holdSlot: vi.fn(),
-  attachHeldSlotToAppointment: vi.fn(),
-  releaseHeldSlotByAppointmentId: vi.fn(),
+vi.mock("./modules/scheduling/publicApi", () => ({
+  schedulingSlotApi: {
+    getSlotById: vi.fn(),
+    holdSlot: vi.fn(),
+    attachHeldSlotToAppointment: vi.fn(),
+    releaseHeldSlotByAppointmentId: vi.fn(),
+  },
 }));
 vi.mock("./modules/doctorAccounts/publicApi", () => ({
   doctorAccountAccessApi: { resolveBoundDoctorIdForUser: vi.fn() },
@@ -37,7 +39,6 @@ vi.mock("./modules/appointments/tokenValidation", () => ({
 vi.mock("./_core/mailer", () => ({
   sendMagicLinkEmail: vi.fn(),
 }));
-
 vi.mock("./modules/ai/publicApi", () => ({
   aiTriageSessionApi: { getById: vi.fn(), createForUser: vi.fn() },
 }));
@@ -51,11 +52,10 @@ vi.mock("./_core/llm", () => ({
 vi.mock("./modules/payments/providerManager", () => ({
   createPaymentCheckoutSession: vi.fn(),
 }));
-
 import * as appointmentsRepo from "./modules/appointments/repo";
 import { aiTriageSessionApi } from "./modules/ai/publicApi";
 import { doctorAccountAccessApi } from "./modules/doctorAccounts/publicApi";
-import * as schedulingRepo from "./modules/scheduling/repo";
+import { schedulingSlotApi } from "./modules/scheduling/publicApi";
 import * as visitRepo from "./modules/visit/repo";
 import { getDb } from "./db";
 import { invokeLLM } from "./_core/llm";
@@ -156,7 +156,7 @@ describe("appointments router", () => {
       transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
         callback({}),
     } as never);
-    vi.mocked(schedulingRepo.getSlotById).mockResolvedValue({
+    vi.mocked(schedulingSlotApi.getSlotById).mockResolvedValue({
       id: 501,
       doctorId: 11,
       appointmentType: "online_chat",
@@ -174,7 +174,7 @@ describe("appointments router", () => {
       createdAt: new Date("2026-03-01T00:00:00.000Z"),
       updatedAt: new Date("2026-03-01T00:00:00.000Z"),
     } as never);
-    vi.mocked(schedulingRepo.holdSlot).mockResolvedValue({
+    vi.mocked(schedulingSlotApi.holdSlot).mockResolvedValue({
       id: 501,
       doctorId: 11,
       appointmentType: "online_chat",
@@ -192,7 +192,7 @@ describe("appointments router", () => {
       createdAt: new Date("2026-03-01T00:00:00.000Z"),
       updatedAt: new Date("2026-03-01T00:00:00.000Z"),
     } as never);
-    vi.mocked(schedulingRepo.attachHeldSlotToAppointment).mockResolvedValue({
+    vi.mocked(schedulingSlotApi.attachHeldSlotToAppointment).mockResolvedValue({
       id: 501,
     } as never);
     vi.mocked(

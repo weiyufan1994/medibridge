@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import type { Request } from "express";
 import { z } from "zod";
 import { aiTriageSessionApi as triageSessions } from "../ai/publicApi";
-import * as schedulingRepo from "../scheduling/repo";
+import { schedulingSlotApi as slots } from "../scheduling/publicApi";
 import {
   createAppointmentCheckoutFlow,
   resolveCreateInputToStoredEmail,
@@ -99,7 +99,7 @@ export async function prepareCreateV2Checkout(input: {
     });
   }
 
-  const slot = await schedulingRepo.getSlotById(input.createInput.slotId);
+  const slot = await slots.getSlotById(input.createInput.slotId);
   if (!slot) {
     throw new TRPCError({
       code: "NOT_FOUND",
