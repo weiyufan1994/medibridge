@@ -4,13 +4,13 @@ import { getPublicBaseUrl } from "../../../_core/getPublicBaseUrl";
 import { sendMagicLinkEmail } from "../../../_core/mailer";
 import { adminOrOpsProcedure, adminProcedure } from "../../../_core/trpc";
 import {
-  appointmentsRepo,
+  appointmentsAdminApi,
   issueAppointmentAccessLinks,
   setCachedPatientAccessToken,
 } from "../../appointments/publicApi";
-import { doctorsRepo } from "../../doctors/publicApi";
+import { doctorsAdminApi } from "../../doctors/publicApi";
 import { reinitiateCheckoutForAppointment } from "../../payments/publicApi";
-import { visitRepo } from "../../visit/publicApi";
+import { visitAdminApi } from "../../visit/publicApi";
 import {
   adminAppointmentActionInputSchema,
   adminAppointmentScheduleUpdateSchema,
@@ -24,7 +24,7 @@ export const appointmentActionProcedures = {
     .input(adminAppointmentActionInputSchema)
     .mutation(async ({ input, ctx }) => {
       const actorRole = resolveActorRole(ctx.user?.role);
-      const appointment = await appointmentsRepo.getAppointmentById(
+      const appointment = await appointmentsAdminApi.getAppointmentById(
         input.appointmentId
       );
       if (!appointment) {
@@ -41,7 +41,7 @@ export const appointmentActionProcedures = {
         operatorId: ctx.user.id,
       });
 
-      await appointmentsRepo.insertStatusEvent({
+      await appointmentsAdminApi.insertStatusEvent({
         appointmentId: appointment.id,
         fromStatus: appointment.status,
         toStatus: result.status,
@@ -65,7 +65,7 @@ export const appointmentActionProcedures = {
     .input(adminAppointmentActionInputSchema)
     .mutation(async ({ input, ctx }) => {
       const actorRole = resolveActorRole(ctx.user?.role);
-      const appointment = await appointmentsRepo.getAppointmentById(
+      const appointment = await appointmentsAdminApi.getAppointmentById(
         input.appointmentId
       );
       if (!appointment) {
@@ -94,7 +94,7 @@ export const appointmentActionProcedures = {
       );
       await sendMagicLinkEmail(appointment.email, issued.patientLink);
 
-      await appointmentsRepo.insertStatusEvent({
+      await appointmentsAdminApi.insertStatusEvent({
         appointmentId: appointment.id,
         fromStatus: appointment.status,
         toStatus: appointment.status,
@@ -115,7 +115,7 @@ export const appointmentActionProcedures = {
     .input(adminAppointmentActionInputSchema)
     .mutation(async ({ input, ctx }) => {
       const actorRole = resolveActorRole(ctx.user?.role);
-      const appointment = await appointmentsRepo.getAppointmentById(
+      const appointment = await appointmentsAdminApi.getAppointmentById(
         input.appointmentId
       );
       if (!appointment) {
@@ -143,7 +143,7 @@ export const appointmentActionProcedures = {
         issued.expiresAt
       );
 
-      await appointmentsRepo.insertStatusEvent({
+      await appointmentsAdminApi.insertStatusEvent({
         appointmentId: appointment.id,
         fromStatus: appointment.status,
         toStatus: appointment.status,
@@ -166,7 +166,7 @@ export const appointmentActionProcedures = {
   adminNotifyDoctorFollowup: adminOrOpsProcedure
     .input(adminNotifyDoctorFollowupInputSchema)
     .mutation(async ({ input }) => {
-      const appointment = await appointmentsRepo.getAppointmentById(
+      const appointment = await appointmentsAdminApi.getAppointmentById(
         input.appointmentId
       );
       if (!appointment) {
@@ -176,8 +176,8 @@ export const appointmentActionProcedures = {
         });
       }
 
-      const doctor = await doctorsRepo.getDoctorById(appointment.doctorId);
-      const recentMessages = await visitRepo.getRecentMessages(
+      const doctor = await doctorsAdminApi.getDoctorById(appointment.doctorId);
+      const recentMessages = await visitAdminApi.getRecentMessages(
         appointment.id,
         20
       );
@@ -208,7 +208,7 @@ export const appointmentActionProcedures = {
     .input(adminAppointmentStatusUpdateSchema)
     .mutation(async ({ input, ctx }) => {
       const actorRole = resolveActorRole(ctx.user?.role);
-      const appointment = await appointmentsRepo.getAppointmentById(
+      const appointment = await appointmentsAdminApi.getAppointmentById(
         input.appointmentId
       );
       if (!appointment) {
@@ -218,20 +218,21 @@ export const appointmentActionProcedures = {
         });
       }
 
-      const transitioned = await appointmentsRepo.tryTransitionAppointmentById({
-        appointmentId: appointment.id,
-        allowedFrom: ADMIN_ALLOWED_TRANSITION_FROM,
-        toStatus: input.toStatus,
-        toPaymentStatus: input.toPaymentStatus,
-        operatorType: "admin",
-        operatorId: ctx.user.id,
-        reason: `admin_status_update:${input.reason}`,
-        payloadJson: {
-          actorRole,
-          manual: true,
-          reason: input.reason,
-        },
-      });
+      const transitioned =
+        await appointmentsAdminApi.tryTransitionAppointmentById({
+          appointmentId: appointment.id,
+          allowedFrom: ADMIN_ALLOWED_TRANSITION_FROM,
+          toStatus: input.toStatus,
+          toPaymentStatus: input.toPaymentStatus,
+          operatorType: "admin",
+          operatorId: ctx.user.id,
+          reason: `admin_status_update:${input.reason}`,
+          payloadJson: {
+            actorRole,
+            manual: true,
+            reason: input.reason,
+          },
+        });
 
       if (!transitioned.ok) {
         throw new TRPCError({
@@ -252,7 +253,7 @@ export const appointmentActionProcedures = {
     .input(adminAppointmentScheduleUpdateSchema)
     .mutation(async ({ input, ctx }) => {
       const actorRole = resolveActorRole(ctx.user?.role);
-      const appointment = await appointmentsRepo.getAppointmentById(
+      const appointment = await appointmentsAdminApi.getAppointmentById(
         input.appointmentId
       );
       if (!appointment) {
@@ -263,12 +264,12 @@ export const appointmentActionProcedures = {
       }
 
       const now = new Date();
-      await appointmentsRepo.updateAppointmentById(appointment.id, {
+      await appointmentsAdminApi.updateAppointmentById(appointment.id, {
         scheduledAt: input.scheduledAt,
         updatedAt: now,
       });
 
-      await appointmentsRepo.insertStatusEvent({
+      await appointmentsAdminApi.insertStatusEvent({
         appointmentId: appointment.id,
         fromStatus: appointment.status,
         toStatus: appointment.status,

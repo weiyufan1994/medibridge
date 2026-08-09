@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { adminOrOpsProcedure } from "../../../_core/trpc";
-import { appointmentsRepo } from "../../appointments/publicApi";
+import { appointmentsAdminApi } from "../../appointments/publicApi";
 import * as adminRepo from "../repo";
 import { adminExportSchema } from "../schemas";
 import { formatCsvRows, normalizeAmountFilter, toDate } from "../support";
@@ -29,7 +29,7 @@ export const exportProcedures = {
 
       if (input.scope === "appointments") {
         const queryResult =
-          await appointmentsRepo.listAppointmentsForAdmin(baseFilters);
+          await appointmentsAdminApi.listAppointmentsForAdmin(baseFilters);
         const rows = queryResult.items.map(item => ({
           id: item.id,
           email: item.email,
@@ -65,7 +65,7 @@ export const exportProcedures = {
 
       if (input.scope === "risk_summary") {
         const queryResult =
-          await appointmentsRepo.listAppointmentsForAdmin(baseFilters);
+          await appointmentsAdminApi.listAppointmentsForAdmin(baseFilters);
         const summary = {
           total: queryResult.total,
           page: queryResult.page,
@@ -138,7 +138,7 @@ export const exportProcedures = {
 
       if (input.scope === "webhook_timeline") {
         const timeline = input.webhookAppointmentId
-          ? await appointmentsRepo.listStripeWebhookEventsForAppointment({
+          ? await appointmentsAdminApi.listStripeWebhookEventsForAppointment({
               appointmentId: input.webhookAppointmentId,
               limit: input.pageSize,
             })
@@ -171,7 +171,7 @@ export const exportProcedures = {
 
       if (input.scope === "operation_audit") {
         const result =
-          await appointmentsRepo.listAppointmentStatusEventsForAdmin({
+          await appointmentsAdminApi.listAppointmentStatusEventsForAdmin({
             page: input.auditPage,
             pageSize: input.auditPageSize,
             operatorId: input.auditOperatorId,

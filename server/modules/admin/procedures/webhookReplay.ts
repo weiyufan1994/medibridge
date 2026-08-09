@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { adminOrOpsProcedure } from "../../../_core/trpc";
-import { appointmentsRepo } from "../../appointments/publicApi";
+import { appointmentsAdminApi } from "../../appointments/publicApi";
 import { settleStripePaymentBySessionId } from "../../payments/publicApi";
-import { schedulingRepo } from "../../scheduling/publicApi";
+import { schedulingAdminApi } from "../../scheduling/publicApi";
 import { adminWebhookReplaySchema } from "../schemas";
 import { buildWebhookReplayEventRow, resolveActorRole } from "../support";
 
@@ -18,15 +18,17 @@ export const webhookReplayProcedures = {
 
       const event =
         input.eventId && input.eventId.trim().length > 0
-          ? await appointmentsRepo.getStripeWebhookEventById(
+          ? await appointmentsAdminApi.getStripeWebhookEventById(
               input.eventId.trim()
             )
           : input.appointmentId
             ? ((
-                await appointmentsRepo.listStripeWebhookEventsForAppointment({
-                  appointmentId: input.appointmentId,
-                  limit: 1,
-                })
+                await appointmentsAdminApi.listStripeWebhookEventsForAppointment(
+                  {
+                    appointmentId: input.appointmentId,
+                    limit: 1,
+                  }
+                )
               )[0] ?? null)
             : null;
 
@@ -45,10 +47,12 @@ export const webhookReplayProcedures = {
         });
       }
 
-      const alreadyDone = await appointmentsRepo.hasAppointmentStatusReason({
-        appointmentId: event.appointmentId,
-        reason: marker,
-      });
+      const alreadyDone = await appointmentsAdminApi.hasAppointmentStatusReason(
+        {
+          appointmentId: event.appointmentId,
+          reason: marker,
+        }
+      );
       if (alreadyDone) {
         return {
           ok: false,
@@ -83,7 +87,7 @@ export const webhookReplayProcedures = {
         }
 
         if (event.type === "checkout.session.completed") {
-          const appointment = await appointmentsRepo.getAppointmentById(
+          const appointment = await appointmentsAdminApi.getAppointmentById(
             event.appointmentId
           );
           if (!appointment) {
@@ -98,7 +102,7 @@ export const webhookReplayProcedures = {
             source: "webhook",
             eventId: event.eventId,
           });
-          await appointmentsRepo.insertStatusEvent({
+          await appointmentsAdminApi.insertStatusEvent({
             appointmentId: event.appointmentId,
             fromStatus: appointment.status,
             toStatus: "paid",
@@ -124,26 +128,28 @@ export const webhookReplayProcedures = {
 
         if (event.type === "checkout.session.expired") {
           const expired =
-            await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
-              stripeSessionId: event.stripeSessionId,
-              allowedFrom: ["pending_payment"],
-              toStatus: "expired",
-              toPaymentStatus: "expired",
-              operatorType: "admin",
-              operatorId: ctx.user.id,
-              reason: "admin_webhook_replay",
-              payloadJson: {
-                ...result,
-                actorRole,
-              },
-            });
+            await appointmentsAdminApi.tryTransitionAppointmentByStripeSessionId(
+              {
+                stripeSessionId: event.stripeSessionId,
+                allowedFrom: ["pending_payment"],
+                toStatus: "expired",
+                toPaymentStatus: "expired",
+                operatorType: "admin",
+                operatorId: ctx.user.id,
+                reason: "admin_webhook_replay",
+                payloadJson: {
+                  ...result,
+                  actorRole,
+                },
+              }
+            );
           if (!expired.ok) {
             throw new TRPCError({
               code: "PRECONDITION_FAILED",
               message: `Unable to replay expired webhook: ${expired.reason}`,
             });
           }
-          await appointmentsRepo.insertStatusEvent({
+          await appointmentsAdminApi.insertStatusEvent({
             appointmentId: event.appointmentId,
             fromStatus: "pending_payment",
             toStatus: "expired",
@@ -157,7 +163,7 @@ export const webhookReplayProcedures = {
               actorRole,
             },
           });
-          await schedulingRepo.releaseHeldSlotByAppointmentId({
+          await schedulingAdminApi.releaseHeldSlotByAppointmentId({
             appointmentId: event.appointmentId,
           });
           return {
@@ -170,26 +176,28 @@ export const webhookReplayProcedures = {
 
         if (event.type === "payment_intent.payment_failed") {
           const failed =
-            await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
-              stripeSessionId: event.stripeSessionId,
-              allowedFrom: ["pending_payment"],
-              toStatus: "canceled",
-              toPaymentStatus: "failed",
-              operatorType: "admin",
-              operatorId: ctx.user.id,
-              reason: "admin_webhook_replay",
-              payloadJson: {
-                ...result,
-                actorRole,
-              },
-            });
+            await appointmentsAdminApi.tryTransitionAppointmentByStripeSessionId(
+              {
+                stripeSessionId: event.stripeSessionId,
+                allowedFrom: ["pending_payment"],
+                toStatus: "canceled",
+                toPaymentStatus: "failed",
+                operatorType: "admin",
+                operatorId: ctx.user.id,
+                reason: "admin_webhook_replay",
+                payloadJson: {
+                  ...result,
+                  actorRole,
+                },
+              }
+            );
           if (!failed.ok) {
             throw new TRPCError({
               code: "PRECONDITION_FAILED",
               message: `Unable to replay failed payment webhook: ${failed.reason}`,
             });
           }
-          await appointmentsRepo.insertStatusEvent({
+          await appointmentsAdminApi.insertStatusEvent({
             appointmentId: event.appointmentId,
             fromStatus: "pending_payment",
             toStatus: "canceled",
@@ -203,7 +211,7 @@ export const webhookReplayProcedures = {
               actorRole,
             },
           });
-          await schedulingRepo.releaseHeldSlotByAppointmentId({
+          await schedulingAdminApi.releaseHeldSlotByAppointmentId({
             appointmentId: event.appointmentId,
           });
           return {
@@ -215,7 +223,7 @@ export const webhookReplayProcedures = {
         }
 
         const refund =
-          await appointmentsRepo.tryTransitionAppointmentByStripeSessionId({
+          await appointmentsAdminApi.tryTransitionAppointmentByStripeSessionId({
             stripeSessionId: event.stripeSessionId,
             allowedFrom: ["paid", "active", "ended", "completed"],
             toStatus: "refunded",
@@ -234,7 +242,7 @@ export const webhookReplayProcedures = {
             message: `Unable to replay refund webhook: ${refund.reason}`,
           });
         }
-        await appointmentsRepo.insertStatusEvent({
+        await appointmentsAdminApi.insertStatusEvent({
           appointmentId: event.appointmentId,
           fromStatus: "paid",
           toStatus: "refunded",

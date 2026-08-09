@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { adminOrOpsProcedure, adminProcedure } from "../../../_core/trpc";
-import { appointmentsRepo } from "../../appointments/publicApi";
+import { appointmentsAdminApi } from "../../appointments/publicApi";
 import * as adminRepo from "../repo";
 import {
   adminAppointmentsInputSchema,
@@ -13,7 +13,7 @@ export const listingProcedures = {
   adminAppointments: adminOrOpsProcedure
     .input(adminAppointmentsInputSchema)
     .query(async ({ input }) => {
-      return appointmentsRepo.listAppointmentsForAdmin({
+      return appointmentsAdminApi.listAppointmentsForAdmin({
         page: input.page,
         pageSize: input.pageSize,
         status: input.status,

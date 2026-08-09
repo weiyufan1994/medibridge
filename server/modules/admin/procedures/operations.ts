@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { adminOrOpsProcedure, adminProcedure } from "../../../_core/trpc";
 import { storagePut } from "../../../storage";
-import { aiRepo } from "../../ai/publicApi";
-import { appointmentsRepo } from "../../appointments/publicApi";
+import { aiAdminApi } from "../../ai/publicApi";
+import { appointmentsAdminApi } from "../../appointments/publicApi";
 import {
-  doctorsRepo,
+  doctorsAdminApi,
   toPublicLocalizedHospital,
 } from "../../doctors/publicApi";
 import {
@@ -28,7 +28,7 @@ export const operationProcedures = {
   adminOperationAudit: adminOrOpsProcedure
     .input(adminOperationAuditInputSchema)
     .query(async ({ input }) => {
-      return appointmentsRepo.listAppointmentStatusEventsForAdmin({
+      return appointmentsAdminApi.listAppointmentStatusEventsForAdmin({
         page: input.page,
         pageSize: input.pageSize,
         operatorId: input.operatorId,
@@ -39,14 +39,14 @@ export const operationProcedures = {
     }),
 
   adminHospitals: adminOrOpsProcedure.query(async () => {
-    const hospitals = await doctorsRepo.getAllHospitals();
+    const hospitals = await doctorsAdminApi.getAllHospitals();
     return hospitals.map(toPublicLocalizedHospital);
   }),
 
   adminUploadHospitalImage: adminProcedure
     .input(adminHospitalImageUploadSchema)
     .mutation(async ({ input }) => {
-      const hospital = await doctorsRepo.getHospitalById(input.hospitalId);
+      const hospital = await doctorsAdminApi.getHospitalById(input.hospitalId);
       if (!hospital) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -91,7 +91,7 @@ export const operationProcedures = {
       );
       const storageKey = `hospitals/${input.hospitalId}/${Date.now()}-${randomUUID()}.${extension}`;
       const { url } = await storagePut(storageKey, imageBuffer, contentType);
-      await doctorsRepo.setHospitalImageUrl(input.hospitalId, url);
+      await doctorsAdminApi.setHospitalImageUrl(input.hospitalId, url);
 
       return {
         hospitalId: hospital.id,
@@ -102,14 +102,14 @@ export const operationProcedures = {
   adminClearHospitalImage: adminProcedure
     .input(adminHospitalImageClearSchema)
     .mutation(async ({ input }) => {
-      const hospital = await doctorsRepo.getHospitalById(input.hospitalId);
+      const hospital = await doctorsAdminApi.getHospitalById(input.hospitalId);
       if (!hospital) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Hospital not found",
         });
       }
-      await doctorsRepo.setHospitalImageUrl(input.hospitalId, null);
+      await doctorsAdminApi.setHospitalImageUrl(input.hospitalId, null);
       return {
         hospitalId: hospital.id,
         imageUrl: null,
@@ -119,7 +119,7 @@ export const operationProcedures = {
   adminTriageSessions: adminOrOpsProcedure
     .input(adminTriageSessionsInputSchema)
     .query(async ({ input }) => {
-      return aiRepo.listAiChatSessionsForAdmin({
+      return aiAdminApi.listAiChatSessionsForAdmin({
         limit: input.limit,
         status: input.status,
         userId: input.userId,
@@ -130,8 +130,8 @@ export const operationProcedures = {
     .input(adminTriageRiskEventsInputSchema)
     .query(async ({ input }) => {
       const [events, flags] = await Promise.all([
-        aiRepo.listTriageRiskEventsForAdmin(input.limit),
-        aiRepo.listLatestKnowledgeFlagsForAdmin(input.limit * 2),
+        aiAdminApi.listTriageRiskEventsForAdmin(input.limit),
+        aiAdminApi.listLatestKnowledgeFlagsForAdmin(input.limit * 2),
       ]);
 
       const latestKnowledgeTraceBySessionId = new Map<number, unknown>();

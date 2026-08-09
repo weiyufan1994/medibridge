@@ -1,8 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { adminOrOpsProcedure, adminProcedure } from "../../../_core/trpc";
-import { aiRepo } from "../../ai/publicApi";
-import { appointmentsRepo } from "../../appointments/publicApi";
-import { visitRepo } from "../../visit/publicApi";
+import { aiAdminApi } from "../../ai/publicApi";
+import { appointmentsAdminApi } from "../../appointments/publicApi";
+import { visitAdminApi } from "../../visit/publicApi";
 import * as adminRepo from "../repo";
 import { renderSimpleTextPdf } from "../pdf";
 import {
@@ -40,7 +40,7 @@ export const visitSummaryProcedures = {
   adminGenerateVisitSummary: adminProcedure
     .input(adminSummaryInputSchema)
     .mutation(async ({ input, ctx }) => {
-      const appointment = await appointmentsRepo.getAppointmentById(
+      const appointment = await appointmentsAdminApi.getAppointmentById(
         input.appointmentId
       );
       if (!appointment) {
@@ -66,10 +66,10 @@ export const visitSummaryProcedures = {
         } as const;
       }
 
-      const triageSession = await aiRepo.getAiChatSessionById(
+      const triageSession = await aiAdminApi.getAiChatSessionById(
         appointment.triageSessionId
       );
-      const recentMessagesDesc = await visitRepo.getRecentMessages(
+      const recentMessagesDesc = await visitAdminApi.getRecentMessages(
         appointment.id,
         120
       );
@@ -114,7 +114,7 @@ export const visitSummaryProcedures = {
       );
 
       if (!summary) {
-        const appointment = await appointmentsRepo.getAppointmentById(
+        const appointment = await appointmentsAdminApi.getAppointmentById(
           input.appointmentId
         );
         if (!appointment) {
@@ -124,10 +124,10 @@ export const visitSummaryProcedures = {
           });
         }
 
-        const triageSession = await aiRepo.getAiChatSessionById(
+        const triageSession = await aiAdminApi.getAiChatSessionById(
           appointment.triageSessionId
         );
-        const recentMessagesDesc = await visitRepo.getRecentMessages(
+        const recentMessagesDesc = await visitAdminApi.getRecentMessages(
           appointment.id,
           120
         );
