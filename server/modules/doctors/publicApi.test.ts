@@ -13,19 +13,43 @@ describe("doctorDirectoryApi", () => {
     vi.clearAllMocks();
   });
 
-  it("lists hospitals through the doctors-owned repository", async () => {
-    vi.mocked(repo.getAllHospitals).mockResolvedValue([]);
+  it("returns only stable hospital directory fields", async () => {
+    vi.mocked(repo.getAllHospitals).mockResolvedValue([
+      {
+        id: 17,
+        name: "测试医院",
+        nameEn: "Test Hospital",
+        city: "上海",
+        cityEn: "Shanghai",
+        contact: "not-public",
+      } as never,
+    ]);
 
-    await expect(doctorDirectoryApi.getAllHospitals()).resolves.toEqual([]);
+    await expect(doctorDirectoryApi.getAllHospitals()).resolves.toEqual([
+      {
+        id: 17,
+        name: "测试医院",
+        nameEn: "Test Hospital",
+        city: "上海",
+        cityEn: "Shanghai",
+      },
+    ]);
     expect(repo.getAllHospitals).toHaveBeenCalledOnce();
   });
 
-  it("lists departments for the requested hospital", async () => {
-    vi.mocked(repo.getDepartmentsByHospital).mockResolvedValue([]);
+  it("returns only stable department directory fields", async () => {
+    vi.mocked(repo.getDepartmentsByHospital).mockResolvedValue([
+      {
+        id: 23,
+        hospitalId: 17,
+        name: "心内科",
+        url: "not-public",
+      } as never,
+    ]);
 
     await expect(
       doctorDirectoryApi.getDepartmentsByHospital(17)
-    ).resolves.toEqual([]);
+    ).resolves.toEqual([{ id: 23, name: "心内科" }]);
     expect(repo.getDepartmentsByHospital).toHaveBeenCalledWith(17);
   });
 });
