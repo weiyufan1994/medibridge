@@ -13,12 +13,14 @@ vi.mock("./modules/ai/repo", () => ({
   updateAiChatSessionStatus: vi.fn(),
 }));
 
-vi.mock("./modules/auth/repo", () => ({
-  findOrCreateGuestUserByDeviceId: vi.fn(),
+vi.mock("./modules/auth/publicApi", () => ({
+  authGuestIdentityApi: {
+    findOrCreateGuestSessionOwner: vi.fn(),
+  },
 }));
 
 import * as aiRepo from "./modules/ai/repo";
-import * as authRepo from "./modules/auth/repo";
+import { authGuestIdentityApi } from "./modules/auth/publicApi";
 import { aiRouter } from "./routers/ai";
 
 function createTestContext(user: TrpcContext["user"]): TrpcContext {
@@ -40,19 +42,13 @@ describe("ai billing guard on createSession", () => {
   });
 
   it("creates a guest user lazily for anonymous device on first triage session", async () => {
-    vi.mocked(authRepo.findOrCreateGuestUserByDeviceId).mockResolvedValue({
+    vi.mocked(
+      authGuestIdentityApi.findOrCreateGuestSessionOwner
+    ).mockResolvedValue({
       id: 31,
-      openId: null,
-      name: null,
-      email: null,
       isGuest: 1,
-      deviceId: "guest-device-anon",
-      loginMethod: "guest",
       role: "free",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      lastSignedIn: new Date(),
-    } as never);
+    });
     vi.mocked(aiRepo.countAiChatSessionsByUser).mockResolvedValue(0 as never);
     vi.mocked(aiRepo.createAiChatSession).mockResolvedValue(701 as never);
 
@@ -65,9 +61,9 @@ describe("ai billing guard on createSession", () => {
         lang: "zh",
       })
     ).resolves.toEqual({ sessionId: 701 });
-    expect(authRepo.findOrCreateGuestUserByDeviceId).toHaveBeenCalledWith(
-      "guest-device-anon"
-    );
+    expect(
+      authGuestIdentityApi.findOrCreateGuestSessionOwner
+    ).toHaveBeenCalledWith("guest-device-anon");
     expect(aiRepo.createAiChatSession).toHaveBeenCalledWith(31);
   });
 

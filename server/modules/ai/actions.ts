@@ -7,7 +7,7 @@ import {
 import { processTriageChat } from "./service";
 import * as aiRepo from "./repo";
 import type { TrpcContext } from "../../_core/context";
-import * as authRepo from "../auth/repo";
+import { authGuestIdentityApi as guestIdentity } from "../auth/publicApi";
 import { triageKnowledgeApi as knowledge } from "../triageKnowledge/publicApi";
 import { triageSafetyApi as safety } from "../triageSafety/publicApi";
 import type {
@@ -119,7 +119,7 @@ async function resolveSessionOwner(
     });
   }
 
-  const guestUser = await authRepo.findOrCreateGuestUserByDeviceId(
+  const guestUser = await guestIdentity.findOrCreateGuestSessionOwner(
     ctx.deviceId
   );
   if (!guestUser) {

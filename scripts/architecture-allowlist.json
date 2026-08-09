@@ -260,10 +260,6 @@
       "phase": "5",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
-    "module-cross-deep-import:server/modules/ai/actions.ts->../auth/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
     "module-cross-deep-import:server/modules/appointments/accessLinkActions.ts->../doctorAccounts/actions": {
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
