@@ -3,7 +3,7 @@ import { adminOrOpsProcedure } from "../../../_core/trpc";
 import { getPublicBaseUrl } from "../../../_core/getPublicBaseUrl";
 import { sendMagicLinkEmail } from "../../../_core/mailer";
 import {
-  appointmentsRepo,
+  appointmentsAdminApi,
   issueAppointmentAccessLinks,
   setCachedPatientAccessToken,
 } from "../../appointments/publicApi";
@@ -45,7 +45,7 @@ export const batchAppointmentProcedures = {
 
         const marker = `admin_batch:${normalized.action}:${idempotencyKey}:${appointmentId}`;
         const alreadyProcessed =
-          await appointmentsRepo.hasAppointmentStatusReason({
+          await appointmentsAdminApi.hasAppointmentStatusReason({
             appointmentId,
             reason: marker,
           });
@@ -60,7 +60,7 @@ export const batchAppointmentProcedures = {
 
         try {
           const appointment =
-            await appointmentsRepo.getAppointmentById(appointmentId);
+            await appointmentsAdminApi.getAppointmentById(appointmentId);
           if (!appointment) {
             results.push({
               appointmentId,
@@ -77,7 +77,7 @@ export const batchAppointmentProcedures = {
               operatorType: "admin",
               operatorId: ctx.user.id,
             });
-            await appointmentsRepo.insertStatusEvent({
+            await appointmentsAdminApi.insertStatusEvent({
               appointmentId,
               fromStatus: appointment.status,
               toStatus: result.status,
@@ -115,7 +115,7 @@ export const batchAppointmentProcedures = {
               issued.expiresAt
             );
             await sendMagicLinkEmail(appointment.email, issued.patientLink);
-            await appointmentsRepo.insertStatusEvent({
+            await appointmentsAdminApi.insertStatusEvent({
               appointmentId,
               fromStatus: appointment.status,
               toStatus: appointment.status,
@@ -146,7 +146,7 @@ export const batchAppointmentProcedures = {
           }
 
           const transitioned =
-            await appointmentsRepo.tryTransitionAppointmentById({
+            await appointmentsAdminApi.tryTransitionAppointmentById({
               appointmentId: appointment.id,
               allowedFrom: ADMIN_ALLOWED_TRANSITION_FROM,
               toStatus,
@@ -170,7 +170,7 @@ export const batchAppointmentProcedures = {
             continue;
           }
 
-          await appointmentsRepo.insertStatusEvent({
+          await appointmentsAdminApi.insertStatusEvent({
             appointmentId,
             fromStatus: appointment.status,
             toStatus,
