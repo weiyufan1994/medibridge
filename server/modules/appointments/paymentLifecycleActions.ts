@@ -71,6 +71,9 @@ export const appointmentPaymentApi = {
   get getById() {
     return repo.getAppointmentById;
   },
+  get getCheckoutResultBySessionId() {
+    return repo.getCheckoutResultByStripeSessionId;
+  },
   get getBySessionId() {
     return repo.getAppointmentByStripeSessionId;
   },

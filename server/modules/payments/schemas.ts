@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   APPOINTMENT_STATUS_VALUES,
   PAYMENT_STATUS_VALUES,
-} from "../appointments/stateMachine";
+} from "../appointments/publicApi";
 
 const paymentStatusSchema = z.enum(PAYMENT_STATUS_VALUES);
 const statusSchema = z.enum(APPOINTMENT_STATUS_VALUES);

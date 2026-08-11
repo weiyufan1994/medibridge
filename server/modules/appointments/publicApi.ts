@@ -42,6 +42,7 @@ export {
   APPOINTMENT_STATUS_VALUES,
   PAYMENT_STATUS_VALUES,
   type AppointmentStatus,
+  type PaymentStatus,
 } from "./stateMachine";
 export { setCachedPatientAccessToken } from "./tokenCache";
 export { issueAppointmentAccessLinks } from "./tokenService";
