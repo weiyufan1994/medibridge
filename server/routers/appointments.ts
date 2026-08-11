@@ -88,7 +88,7 @@ const appointmentCheckoutProcedures = {
       resendPaymentLinkForPatient({
         appointmentId: input.appointmentId,
         operatorId: ctx.user?.id ?? null,
-        req: ctx.req,
+        requestMetadata: ctx.requestMetadata,
       })
     ),
   cancel: publicProcedure
