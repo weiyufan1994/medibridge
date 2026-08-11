@@ -4,13 +4,8 @@ import type net from "net";
 import type { Duplex } from "stream";
 import type { AppointmentMessage } from "../../../drizzle/schema";
 import { isDuplicateDbError, isForeignKeyDbError } from "../../_core/dbCompat";
-import * as appointmentsRepo from "../appointments/repo";
-import { canJoinRoom, canSendMessage } from "../appointments/chatPolicy";
-import { resolveConsultationTimerState } from "../appointments/consultationTimer";
-import { extendConsultationByDoctorTokenFlow } from "../appointments/timerActions";
-import { validateAppointmentAccessToken } from "../appointments/tokenValidation";
+import { appointmentVisitApi } from "../appointments/publicApi";
 import * as visitRepo from "./repo";
-import { markInSessionIfTransitioned } from "./status";
 import { translateVisitMessage } from "./translation";
 
 type VisitRole = "patient" | "doctor";
@@ -212,7 +207,7 @@ function asErrorCode(error: unknown) {
 }
 
 function toRoomTimerPayload(notes: string | null | undefined) {
-  const timer = resolveConsultationTimerState(notes);
+  const timer = appointmentVisitApi.resolveConsultationTimerState(notes);
   return {
     baseDurationMinutes: timer.baseDurationMinutes,
     extensionMinutes: timer.extensionMinutes,
@@ -306,7 +301,7 @@ export function createVisitRealtimeGateway() {
     status: string;
     paymentStatus: string;
   }) {
-    const canSend = canSendMessage({
+    const canSend = appointmentVisitApi.canSendMessage({
       status: input.status,
       paymentStatus: input.paymentStatus,
     });
@@ -325,7 +320,7 @@ export function createVisitRealtimeGateway() {
     req: IncomingMessage,
     token: string
   ) {
-    const validated = await validateAppointmentAccessToken({
+    const validated = await appointmentVisitApi.validateAccessToken({
       token,
       action: "join_room",
       req: req as never,
@@ -334,7 +329,7 @@ export function createVisitRealtimeGateway() {
     const role = validated.role;
     const appointmentId = appointment.id;
     if (
-      !canJoinRoom({
+      !appointmentVisitApi.canJoinRoom({
         status: appointment.status,
         paymentStatus: appointment.paymentStatus,
       })
@@ -342,7 +337,7 @@ export function createVisitRealtimeGateway() {
       sendError(connection, "APPOINTMENT_NOT_ALLOWED");
       return;
     }
-    const canSend = canSendMessage({
+    const canSend = appointmentVisitApi.canSendMessage({
       status: appointment.status,
       paymentStatus: appointment.paymentStatus,
     });
@@ -408,7 +403,7 @@ export function createVisitRealtimeGateway() {
       return;
     }
 
-    const validated = await validateAppointmentAccessToken({
+    const validated = await appointmentVisitApi.validateAccessToken({
       token,
       action: "send_message",
       expectedAppointmentId: appointmentId,
@@ -416,7 +411,7 @@ export function createVisitRealtimeGateway() {
     });
     const appointment = validated.appointment;
     if (
-      !canSendMessage({
+      !appointmentVisitApi.canSendMessage({
         status: appointment.status,
         paymentStatus: appointment.paymentStatus,
       })
@@ -502,7 +497,7 @@ export function createVisitRealtimeGateway() {
       }
     }
 
-    await markInSessionIfTransitioned(appointmentId);
+    await appointmentVisitApi.markInSessionAfterFirstMessage(appointmentId);
 
     if (!messageRow) {
       sendError(
@@ -540,7 +535,7 @@ export function createVisitRealtimeGateway() {
       return;
     }
 
-    const extended = await extendConsultationByDoctorTokenFlow({
+    const extended = await appointmentVisitApi.extendConsultationByDoctorToken({
       appointmentId,
       token,
       extensionMinutes: minutes,
@@ -582,14 +577,14 @@ export function createVisitRealtimeGateway() {
       ) {
         return;
       }
-      const appointment = await appointmentsRepo.getAppointmentById(
+      const appointment = await appointmentVisitApi.getAppointmentById(
         connection.appointmentId
       );
       if (!appointment) {
         closeConnection(connection);
         return;
       }
-      const nextCanSend = canSendMessage({
+      const nextCanSend = appointmentVisitApi.canSendMessage({
         status: appointment.status,
         paymentStatus: appointment.paymentStatus,
       });
@@ -606,7 +601,7 @@ export function createVisitRealtimeGateway() {
         });
       }
       if (
-        !canJoinRoom({
+        !appointmentVisitApi.canJoinRoom({
           status: appointment.status,
           paymentStatus: appointment.paymentStatus,
         })

@@ -2,17 +2,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventEmitter } from "node:events";
 import { createVisitRealtimeGateway } from "./realtimeGateway";
 
-vi.mock("../appointments/tokenValidation", () => ({
-  validateAppointmentAccessToken: vi.fn(),
-}));
-
-vi.mock("../appointments/chatPolicy", () => ({
-  canJoinRoom: vi.fn(),
-  canSendMessage: vi.fn(),
-}));
-
-vi.mock("../appointments/repo", () => ({
-  getLatestMessageCursor: vi.fn(),
+vi.mock("../appointments/publicApi", () => ({
+  appointmentVisitApi: {
+    canJoinRoom: vi.fn(),
+    canSendMessage: vi.fn(),
+    extendConsultationByDoctorToken: vi.fn(),
+    getAppointmentById: vi.fn(),
+    markInSessionAfterFirstMessage: vi.fn(),
+    resolveConsultationTimerState: vi.fn(() => ({
+      baseDurationMinutes: 30,
+      extensionMinutes: 0,
+      totalDurationMinutes: 30,
+    })),
+    validateAccessToken: vi.fn(),
+  },
 }));
 
 vi.mock("./repo", () => ({
@@ -22,18 +25,12 @@ vi.mock("./repo", () => ({
   getLatestMessageCursor: vi.fn(),
 }));
 
-vi.mock("./status", () => ({
-  markInSessionIfTransitioned: vi.fn(),
-}));
-
 vi.mock("./translation", () => ({
   translateVisitMessage: vi.fn(),
 }));
 
-import { canJoinRoom, canSendMessage } from "../appointments/chatPolicy";
-import { validateAppointmentAccessToken } from "../appointments/tokenValidation";
+import { appointmentVisitApi } from "../appointments/publicApi";
 import { createMessage, getMessageById } from "./repo";
-import { markInSessionIfTransitioned } from "./status";
 import { translateVisitMessage } from "./translation";
 
 function createWsTextFrame(payload: unknown) {
@@ -103,7 +100,7 @@ function createHttpReq() {
 describe("visit realtime gateway", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(validateAppointmentAccessToken).mockResolvedValue({
+    vi.mocked(appointmentVisitApi.validateAccessToken).mockResolvedValue({
       role: "patient",
       appointment: {
         id: 9001,
@@ -112,8 +109,8 @@ describe("visit realtime gateway", () => {
         userId: 5001,
       },
     } as never);
-    vi.mocked(canJoinRoom).mockReturnValue(true);
-    vi.mocked(canSendMessage).mockReturnValue(true);
+    vi.mocked(appointmentVisitApi.canJoinRoom).mockReturnValue(true);
+    vi.mocked(appointmentVisitApi.canSendMessage).mockReturnValue(true);
     vi.mocked(translateVisitMessage).mockResolvedValue({
       originalContent: "我今天有点发烧",
       translatedContent: "I have a bit of fever today.",
@@ -135,9 +132,9 @@ describe("visit realtime gateway", () => {
       createdAt: new Date("2026-03-01T10:00:00.000Z"),
       clientMessageId: "msg-test-1",
     } as never);
-    vi.mocked(markInSessionIfTransitioned).mockResolvedValue(
-      undefined as never
-    );
+    vi.mocked(
+      appointmentVisitApi.markInSessionAfterFirstMessage
+    ).mockResolvedValue(undefined as never);
   });
 
   afterEach(() => {
