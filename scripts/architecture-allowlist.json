@@ -31,11 +31,6 @@
       "phase": "4",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
-    "server/modules/ai/service.ts": {
-      "maxLines": 421,
-      "phase": "4",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
     "server/modules/ai/triageLogic.ts": {
       "maxLines": 888,
       "phase": "4",
