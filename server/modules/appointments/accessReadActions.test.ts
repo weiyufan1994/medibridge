@@ -176,6 +176,45 @@ describe("appointment access medical summary localization", () => {
     );
   });
 
+  it("logs localization failure without medical content", async () => {
+    vi.mocked(
+      appointmentsRepo.getMedicalSummaryByAppointmentId
+    ).mockResolvedValue(
+      buildMedicalSummary({
+        chiefComplaint: "头痛",
+        historyOfPresentIllness: "头痛两天，夜间加重。",
+        pastMedicalHistory: "无",
+        assessmentDiagnosis: "待评估",
+        planRecommendations: "进一步检查",
+      }) as never
+    );
+    vi.mocked(invokeLLM).mockRejectedValue(
+      new Error("private medical content must stay private")
+    );
+    const consoleWarn = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    const result = await getAppointmentAccessByToken({
+      appointmentId: 1,
+      token: "patient-access-value",
+      lang: "en",
+      parseIntake: () => ({ success: false }) as const,
+    });
+
+    expect(result.medicalSummary?.chiefComplaint).toBe("");
+    const serialized = String(consoleWarn.mock.calls.at(-1)?.[0]);
+    expect(JSON.parse(serialized)).toMatchObject({
+      component: "medical-summary-localization",
+      event: "translation_failed",
+      targetLang: "en",
+      errorName: "Error",
+    });
+    expect(serialized).not.toContain("private medical content");
+    expect(serialized).not.toContain("头痛");
+    consoleWarn.mockRestore();
+  });
+
   it("filters unsafe triage summary and intake fields for english patient reads when localization is unavailable", async () => {
     vi.mocked(validateAppointmentToken).mockResolvedValue({
       role: "patient",
