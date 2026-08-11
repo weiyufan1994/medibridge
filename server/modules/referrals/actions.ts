@@ -26,7 +26,6 @@ import type {
   listMineOrdersInputSchema,
   publishPatientProgressUpdateInputSchema,
   recordBookingResultInputSchema,
-  recordContactAttemptInputSchema,
   referralOrderDetailOutputSchema,
   setConsultationTimeInputSchema,
   updateOrderStatusInputSchema,
@@ -52,6 +51,7 @@ export { createPaymentSessionAction } from "./paymentSessionActions";
 export { confirmReturnedPaymentSessionAction } from "./returnedPaymentActions";
 export { confirmMockPaymentAction } from "./mockPaymentActions";
 export { getAdminOrderDetailAction, listOrdersForAdminAction };
+export { recordContactAttemptAction } from "./contactAttemptActions";
 export { initiateRefundAction } from "./refundRequestActions";
 export { reviewRefundAction } from "./refundReviewActions";
 type ListMineOrdersInput = z.infer<typeof listMineOrdersInputSchema>;
@@ -64,9 +64,6 @@ type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusInputSchema>;
 type AddInternalNoteInput = z.infer<typeof addInternalNoteInputSchema>;
 type PublishPatientProgressUpdateInput = z.infer<
   typeof publishPatientProgressUpdateInputSchema
->;
-type RecordContactAttemptInput = z.infer<
-  typeof recordContactAttemptInputSchema
 >;
 type RecordBookingResultInput = z.infer<typeof recordBookingResultInputSchema>;
 type SetConsultationTimeInput = z.infer<typeof setConsultationTimeInputSchema>;
@@ -502,56 +499,6 @@ export async function publishPatientProgressUpdateAction(
   });
 
   return getAdminOrderDetailAction(currentUser, input.orderId);
-}
-
-export async function recordContactAttemptAction(
-  user: User | null,
-  input: RecordContactAttemptInput
-) {
-  const currentUser = requireUser(user);
-  const order = await referralRepo.getReferralOrderById(input.orderId);
-  if (!order) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Referral order not found",
-    });
-  }
-
-  await referralRepo.insertOperation({
-    orderId: order.id,
-    operatorType: resolveActorTypeFromUser(currentUser),
-    operatorId: currentUser.id,
-    actionType: "contact_attempt",
-    actionPayload: {
-      outcome: input.outcome,
-      note: input.note,
-    },
-  });
-
-  if (input.outcome === "connected" && order.status === "assigned") {
-    await changeOrderStatus({
-      orderId: order.id,
-      toStatus: "contacting",
-      toPaymentStatus: "paid",
-      actorType: resolveActorTypeFromUser(currentUser),
-      actorId: currentUser.id,
-      reason: "contact_connected",
-    });
-  }
-
-  if (input.outcome === "failed") {
-    await initiateAutomaticReferralRefund({
-      orderId: order.id,
-      reasonCode: "contact_failed",
-      reasonDetail: input.note,
-      actor: {
-        type: resolveActorTypeFromUser(currentUser),
-        id: currentUser.id,
-      },
-    });
-  }
-
-  return getAdminOrderDetailAction(currentUser, order.id);
 }
 
 export async function recordBookingResultAction(
