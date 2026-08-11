@@ -36,10 +36,7 @@ import { DoctorAccountManagementCard } from "@/features/admin/components/DoctorA
 import { UserRoleManagementCard } from "@/features/admin/components/UserRoleManagementCard";
 import { ReferralWorkspaceConsole } from "@/features/admin/components/ReferralWorkspaceConsole";
 import { ReferralCatalogCard } from "@/features/admin/components/ReferralCatalogCard";
-import { OverviewSection } from "@/features/admin/components/appointment-detail/OverviewSection";
-import { DiagnosticsSection } from "@/features/admin/components/appointment-detail/DiagnosticsSection";
-import { ActionsSection } from "@/features/admin/components/appointment-detail/ActionsSection";
-import { BookingWorkspace, getBookingWorkspaceCopy } from "@/features/booking";
+import { AdminAppointmentsWorkspace } from "@/features/admin/components/AdminAppointmentsWorkspace";
 import { AdminActionConfirmationProvider } from "@/features/admin/components/AdminActionConfirmation";
 import { useAdminActionConfirmation } from "@/features/admin/adminActionConfirmationContext";
 import { getAdminConfirmationCopy } from "@/features/admin/copy";
@@ -82,118 +79,7 @@ function AdminConsoleContent() {
   const canReinitiatePayment = isAdmin;
   const canMutateAppointments = isAdmin;
   const { requestConfirmation } = useAdminActionConfirmation();
-
-  const {
-    userSearchQuery,
-    setUserSearchQuery,
-    emailQuery,
-    setEmailQuery,
-    page,
-    setPage,
-    pageSize,
-    setPageSize,
-    statusFilter,
-    setStatusFilter,
-    paymentStatusFilter,
-    setPaymentStatusFilter,
-    resetAppointmentFilters,
-    doctorIdInput,
-    setDoctorIdInput,
-    amountMinInput,
-    setAmountMinInput,
-    amountMaxInput,
-    setAmountMaxInput,
-    createdAtFrom,
-    setCreatedAtFrom,
-    createdAtTo,
-    setCreatedAtTo,
-    scheduledAtFrom,
-    setScheduledAtFrom,
-    scheduledAtTo,
-    setScheduledAtTo,
-    hasRiskFilter,
-    setHasRiskFilter,
-    sortBy,
-    setSortBy,
-    sortDirection,
-    setSortDirection,
-    appointmentIdInput,
-    setAppointmentIdInput,
-    selectedAppointmentId,
-    setSelectedAppointmentId,
-    manualStatus,
-    setManualStatus,
-    manualPaymentStatus,
-    setManualPaymentStatus,
-    manualStatusReason,
-    setManualStatusReason,
-    manualScheduledAt,
-    setManualScheduledAt,
-    freeRetentionDaysInput,
-    setFreeRetentionDaysInput,
-    paidRetentionDaysInput,
-    setPaidRetentionDaysInput,
-    issuedLinks,
-    setIssuedLinks,
-    appointmentStatusOptions,
-    paymentStatusOptions,
-    selectedAppointmentIds,
-    isAllVisibleSelected,
-    isAnyVisibleSelected,
-    toggleAppointmentSelection,
-    toggleSelectAllVisible,
-    clearSelection,
-    batchAppointmentsMutation,
-    exportAppointmentsMutation,
-    webhookReplayMutation,
-    appointmentsQuery,
-    triageQuery,
-    triageRiskEventsQuery,
-    operationAuditQuery,
-    operationAuditPage,
-    setOperationAuditPage,
-    operationAuditOperatorIdInput,
-    setOperationAuditOperatorIdInput,
-    operationAuditActionTypeInput,
-    setOperationAuditActionTypeInput,
-    operationAuditFrom,
-    setOperationAuditFrom,
-    operationAuditTo,
-    setOperationAuditTo,
-    appointmentDetailQuery,
-    visitSummaryQuery,
-    retentionPoliciesQuery,
-    retentionAuditsQuery,
-    hospitalsQuery,
-    adminUsersQuery,
-    adminHospitalImageUploadMutation,
-    adminHospitalImageClearMutation,
-    refreshAdminData,
-    resendPaymentMutation,
-    resendAccessLinkMutation,
-    issueLinksMutation,
-    updateStatusMutation,
-    updateScheduleMutation,
-    generateSummaryMutation,
-    exportSummaryPdfMutation,
-    updateRetentionPolicyMutation,
-    updateUserRoleMutation,
-    runRetentionCleanupMutation,
-    risks,
-    suggestions,
-    openAppointmentById,
-    applyManualStatusUpdate,
-    applyManualScheduleUpdate,
-    setScheduleToNow,
-    upsertRetentionPolicy,
-    toggleRetentionEnabled,
-    handleCopyDebugSnapshot,
-    beforeReinitiatePayment,
-    beforeResendAccessLink,
-    beforeIssueLinks,
-    runSuggestedAction,
-    toUiError,
-  } = useAdminConsole({
+  const admin = useAdminConsole({
     canReadAdmin: canAccessAdmin,
     canMutateAdmin: isAdmin,
     canReplayWebhook,
@@ -209,10 +95,46 @@ function AdminConsoleContent() {
     requestConfirmation,
   });
 
+  const {
+    userSearchQuery,
+    setUserSearchQuery,
+    freeRetentionDaysInput,
+    setFreeRetentionDaysInput,
+    paidRetentionDaysInput,
+    setPaidRetentionDaysInput,
+    exportAppointmentsMutation,
+    triageQuery,
+    triageRiskEventsQuery,
+    operationAuditQuery,
+    operationAuditPage,
+    setOperationAuditPage,
+    operationAuditOperatorIdInput,
+    setOperationAuditOperatorIdInput,
+    operationAuditActionTypeInput,
+    setOperationAuditActionTypeInput,
+    operationAuditFrom,
+    setOperationAuditFrom,
+    operationAuditTo,
+    setOperationAuditTo,
+    retentionPoliciesQuery,
+    retentionAuditsQuery,
+    hospitalsQuery,
+    adminUsersQuery,
+    adminHospitalImageUploadMutation,
+    adminHospitalImageClearMutation,
+    refreshAdminData,
+    updateRetentionPolicyMutation,
+    updateUserRoleMutation,
+    runRetentionCleanupMutation,
+    upsertRetentionPolicy,
+    toggleRetentionEnabled,
+    toUiError,
+  } = admin;
+
   const openAppointmentInAdmin = (id: number) => {
     setActiveTab("appointments");
-    setSelectedAppointmentId(id);
-    setIssuedLinks(null);
+    admin.setSelectedAppointmentId(id);
+    admin.setIssuedLinks(null);
   };
 
   const openReferralInAdmin = (id: number) => {
@@ -267,215 +189,6 @@ function AdminConsoleContent() {
       lang
     ),
   };
-
-  const bookingItems = (appointmentsQuery.data?.items ?? []).map(item => ({
-    id: item.id,
-    userId: item.userId ?? null,
-    email: item.email,
-    status: item.status,
-    paymentStatus: item.paymentStatus,
-    amount: item.amount,
-    currency: item.currency,
-    doctorId: item.doctorId ?? null,
-    triageSessionId: item.triageSessionId ?? null,
-    scheduledAt: item.scheduledAt ?? null,
-    createdAt: item.createdAt,
-    riskFlag: item.hasRisk,
-    riskCodes: item.riskCodes,
-  }));
-  const activeBookingItem =
-    bookingItems.find(item => item.id === selectedAppointmentId) ?? null;
-  const detailMeta = appointmentDetailQuery.data
-    ? {
-        id: appointmentDetailQuery.data.appointment.id,
-        email: appointmentDetailQuery.data.appointment.email,
-        status: appointmentDetailQuery.data.appointment.status,
-        paymentStatus: appointmentDetailQuery.data.appointment.paymentStatus,
-        amount: appointmentDetailQuery.data.appointment.amount,
-        currency: appointmentDetailQuery.data.appointment.currency,
-        scheduledAt: appointmentDetailQuery.data.appointment.scheduledAt,
-        riskFlag: activeBookingItem?.riskFlag ?? false,
-      }
-    : activeBookingItem
-      ? {
-          id: activeBookingItem.id,
-          email: activeBookingItem.email,
-          status: activeBookingItem.status,
-          paymentStatus: activeBookingItem.paymentStatus,
-          amount: activeBookingItem.amount,
-          currency: activeBookingItem.currency,
-          scheduledAt: activeBookingItem.scheduledAt,
-          riskFlag: activeBookingItem.riskFlag,
-        }
-      : {
-          id: null,
-          email: null,
-          status: null,
-          paymentStatus: null,
-          amount: null,
-          currency: null,
-          scheduledAt: null,
-          riskFlag: false,
-        };
-  const bookingCopy = getBookingWorkspaceCopy(lang);
-  const bookingDetailContent =
-    selectedAppointmentId && appointmentDetailQuery.data ? (
-      <Tabs defaultValue="summary" className="gap-3">
-        <TabsList className="grid h-10 w-full grid-cols-3">
-          <TabsTrigger value="summary">
-            {bookingCopy.detail.tabs.summary}
-          </TabsTrigger>
-          <TabsTrigger value="diagnostics">
-            {bookingCopy.detail.tabs.diagnostics}
-          </TabsTrigger>
-          <TabsTrigger value="actions">
-            {bookingCopy.detail.tabs.actions}
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="summary" className="mt-0">
-          <OverviewSection
-            tr={tr}
-            lang={lang}
-            locale={locale}
-            detailData={appointmentDetailQuery.data}
-            risks={risks}
-            suggestions={suggestions}
-            runSuggestedAction={runSuggestedAction}
-            canReinitiatePayment={canReinitiatePayment}
-            canResendAccessLink={canResendAccessLink}
-            canIssueAccessLinks={canIssueAccessLinks}
-            canNotifyFollowup={canNotifyFollowup}
-            canReplayWebhook={canReplayWebhook}
-          />
-        </TabsContent>
-        <TabsContent value="diagnostics" className="mt-0">
-          <DiagnosticsSection
-            tr={tr}
-            lang={lang}
-            locale={locale}
-            detailData={appointmentDetailQuery.data}
-            webhookReplayMutation={webhookReplayMutation}
-            canReplayWebhook={canReplayWebhook}
-          />
-        </TabsContent>
-        <TabsContent value="actions" className="mt-0">
-          <ActionsSection
-            tr={tr}
-            lang={lang}
-            selectedAppointmentId={selectedAppointmentId}
-            hideQuickActions
-            beforeReinitiatePayment={beforeReinitiatePayment}
-            beforeResendAccessLink={beforeResendAccessLink}
-            beforeIssueLinks={beforeIssueLinks}
-            resendPaymentMutation={resendPaymentMutation}
-            resendAccessLinkMutation={resendAccessLinkMutation}
-            issueLinksMutation={issueLinksMutation}
-            canMutateAdmin={canMutateAppointments}
-            canReinitiatePayment={canReinitiatePayment}
-            canResendAccessLink={canResendAccessLink}
-            canIssueAccessLinks={canIssueAccessLinks}
-            handleCopyDebugSnapshot={handleCopyDebugSnapshot}
-            currentStatus={appointmentDetailQuery.data.appointment.status}
-            currentPaymentStatus={
-              appointmentDetailQuery.data.appointment.paymentStatus
-            }
-            manualStatus={manualStatus}
-            setManualStatus={setManualStatus}
-            manualPaymentStatus={manualPaymentStatus}
-            setManualPaymentStatus={setManualPaymentStatus}
-            manualStatusReason={manualStatusReason}
-            setManualStatusReason={setManualStatusReason}
-            manualScheduledAt={manualScheduledAt}
-            setManualScheduledAt={setManualScheduledAt}
-            setScheduleToNow={setScheduleToNow}
-            applyManualStatusUpdate={applyManualStatusUpdate}
-            applyManualScheduleUpdate={applyManualScheduleUpdate}
-            updateStatusMutation={updateStatusMutation}
-            updateScheduleMutation={updateScheduleMutation}
-            generateSummaryMutation={generateSummaryMutation}
-            exportSummaryPdfMutation={exportSummaryPdfMutation}
-            visitSummaryQuery={visitSummaryQuery}
-            issuedLinks={issuedLinks}
-          />
-        </TabsContent>
-      </Tabs>
-    ) : undefined;
-  const bookingStickyActions = [
-    {
-      kind: "generate_summary_en" as const,
-      disabled: !selectedAppointmentId || generateSummaryMutation.isPending,
-      pending: generateSummaryMutation.isPending,
-      onClick: () => {
-        if (!selectedAppointmentId) {
-          return;
-        }
-        generateSummaryMutation.mutate({
-          appointmentId: selectedAppointmentId,
-          forceRegenerate: true,
-        });
-      },
-    },
-    {
-      kind: "resend_link" as const,
-      disabled:
-        !selectedAppointmentId ||
-        !canResendAccessLink ||
-        resendAccessLinkMutation.isPending,
-      pending: resendAccessLinkMutation.isPending,
-      title: !canResendAccessLink
-        ? bookingCopy.footer.resendLinkDisabled
-        : undefined,
-      onClick: () => {
-        if (!selectedAppointmentId) {
-          return;
-        }
-        if (!beforeResendAccessLink()) return;
-        const confirmation = getAdminConfirmationCopy(lang, "resendAccessLink");
-        requestConfirmation({
-          title: confirmation.title,
-          description: confirmation.description,
-          confirmLabel: confirmation.continueLabel,
-          cancelLabel: confirmation.cancelLabel,
-          onConfirm: () =>
-            resendAccessLinkMutation.mutateAsync({
-              appointmentId: selectedAppointmentId,
-            }),
-        });
-      },
-    },
-    {
-      kind: "reinitiate_payment" as const,
-      disabled:
-        !selectedAppointmentId ||
-        !canReinitiatePayment ||
-        resendPaymentMutation.isPending,
-      pending: resendPaymentMutation.isPending,
-      title: !canReinitiatePayment
-        ? bookingCopy.footer.reinitiatePaymentDisabled
-        : undefined,
-      onClick: () => {
-        if (!selectedAppointmentId) {
-          return;
-        }
-        if (!beforeReinitiatePayment()) return;
-        const confirmation = getAdminConfirmationCopy(
-          lang,
-          "reinitiatePayment"
-        );
-        requestConfirmation({
-          title: confirmation.title,
-          description: confirmation.description,
-          confirmLabel: confirmation.continueLabel,
-          cancelLabel: confirmation.cancelLabel,
-          tone: "danger",
-          onConfirm: () =>
-            resendPaymentMutation.mutateAsync({
-              appointmentId: selectedAppointmentId,
-            }),
-        });
-      },
-    },
-  ];
 
   if (loading) {
     return (
@@ -560,106 +273,20 @@ function AdminConsoleContent() {
                 value="appointments"
                 className="mt-0 h-full min-h-0 p-4 sm:p-5"
               >
-                <BookingWorkspace
+                <AdminAppointmentsWorkspace
+                  admin={admin}
                   lang={lang}
                   locale={locale}
-                  filters={{
-                    emailQuery,
-                    appointmentIdInput,
-                    statusFilter,
-                    paymentStatusFilter,
-                    doctorIdInput,
-                    amountMinInput,
-                    amountMaxInput,
-                    createdAtFrom,
-                    createdAtTo,
-                    scheduledAtFrom,
-                    scheduledAtTo,
-                    hasRiskFilter,
-                    sortBy,
-                    sortDirection,
-                    pageSize,
-                    page,
+                  tr={tr}
+                  permissions={{
+                    canIssueAccessLinks,
+                    canMutateAppointments,
+                    canNotifyFollowup,
+                    canReinitiatePayment,
+                    canReplayWebhook,
+                    canResendAccessLink,
                   }}
-                  options={{
-                    appointmentStatusOptions,
-                    paymentStatusOptions,
-                  }}
-                  callbacks={{
-                    onEmailQueryChange: setEmailQuery,
-                    onAppointmentIdInputChange: setAppointmentIdInput,
-                    onOpenAppointmentById: openAppointmentById,
-                    onStatusFilterChange: setStatusFilter,
-                    onPaymentStatusFilterChange: setPaymentStatusFilter,
-                    onDoctorIdInputChange: setDoctorIdInput,
-                    onAmountMinChange: setAmountMinInput,
-                    onAmountMaxChange: setAmountMaxInput,
-                    onCreatedAtFromChange: setCreatedAtFrom,
-                    onCreatedAtToChange: setCreatedAtTo,
-                    onScheduledAtFromChange: setScheduledAtFrom,
-                    onScheduledAtToChange: setScheduledAtTo,
-                    onHasRiskFilterChange: setHasRiskFilter,
-                    onSortByChange: setSortBy,
-                    onSortDirectionChange: setSortDirection,
-                    onPageSizeChange: setPageSize,
-                    onPageChange: setPage,
-                    onResetFilters: resetAppointmentFilters,
-                    onRefresh: () => {
-                      void refreshAdminData();
-                    },
-                    onSelectAppointment: id => {
-                      setSelectedAppointmentId(id);
-                      setIssuedLinks(null);
-                    },
-                    onCloseDetail: () => {
-                      setSelectedAppointmentId(null);
-                      setIssuedLinks(null);
-                    },
-                    onToggleSelection: toggleAppointmentSelection,
-                    onToggleAllVisible: toggleSelectAllVisible,
-                    onClearSelection: clearSelection,
-                    onBatchAction: input => {
-                      const key =
-                        input.action === "reinitiate_payment"
-                          ? "reinitiatePayment"
-                          : input.action === "resend_access_link"
-                            ? "resendAccessLink"
-                            : "batchUpdateAppointments";
-                      const confirmation = getAdminConfirmationCopy(lang, key);
-                      requestConfirmation({
-                        title: confirmation.title,
-                        description: confirmation.description,
-                        confirmLabel: confirmation.continueLabel,
-                        cancelLabel: confirmation.cancelLabel,
-                        tone:
-                          input.action === "resend_access_link"
-                            ? "default"
-                            : "danger",
-                        onConfirm: () =>
-                          batchAppointmentsMutation.executeBatch(input),
-                      });
-                    },
-                  }}
-                  items={bookingItems}
-                  activeAppointmentId={selectedAppointmentId}
-                  selectedAppointmentIds={selectedAppointmentIds}
-                  isAllVisibleSelected={isAllVisibleSelected}
-                  isAnyVisibleSelected={isAnyVisibleSelected}
-                  isListLoading={appointmentsQuery.isLoading}
-                  listErrorMessage={appointmentsQuery.error?.message}
-                  total={appointmentsQuery.data?.total ?? 0}
-                  totalPages={appointmentsQuery.data?.totalPages ?? 1}
-                  riskSummary={appointmentsQuery.data?.riskSummary ?? null}
-                  batchIsPending={batchAppointmentsMutation.isPending}
-                  batchResult={batchAppointmentsMutation.lastResult}
-                  canBatchResendAccessLink={canResendAccessLink}
-                  canBatchReinitiatePayment={canReinitiatePayment}
-                  canBatchUpdateStatus={canMutateAppointments}
-                  detailMeta={detailMeta}
-                  isDetailLoading={appointmentDetailQuery.isLoading}
-                  detailErrorMessage={appointmentDetailQuery.error?.message}
-                  detailContent={bookingDetailContent}
-                  stickyActions={bookingStickyActions}
+                  requestConfirmation={requestConfirmation}
                 />
               </TabsContent>
 
