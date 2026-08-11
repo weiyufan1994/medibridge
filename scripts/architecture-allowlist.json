@@ -7,7 +7,7 @@
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
     "client/src/features/admin/AdminConsole.tsx": {
-      "maxLines": 951,
+      "maxLines": 577,
       "phase": "5",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
