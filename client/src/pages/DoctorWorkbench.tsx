@@ -1,50 +1,25 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRoute, Link } from "wouter";
-import {
-  Calendar,
-  ChevronRight,
-  Clock3,
-  ExternalLink,
-  FileSearch,
-  Loader2,
-  Sparkles,
-  Stethoscope,
-} from "lucide-react";
 import AppLayout from "@/components/layout/AppLayout";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/features/auth";
 import {
+  buildDoctorWorkbenchSummaryModalCopy,
   DoctorWorkbenchAccessState,
+  DoctorWorkbenchAppointmentsPanel,
   DoctorWorkbenchAppointmentSheet,
-  formatDoctorWorkbenchDateTime,
-  getDoctorWorkbenchAppointmentTypeLabel,
+  DoctorWorkbenchOverview,
+  DoctorWorkbenchSlotsPanel,
   getDoctorWorkbenchHeading,
-  getDoctorWorkbenchStatusLabel,
-  maskDoctorWorkbenchEmail,
   normalizeDoctorWorkbenchError,
   parseDoctorWorkbenchToken,
+  type DoctorWorkbenchItem,
 } from "@/features/doctorWorkbench";
 import { getVisitCopy, MedicalSummaryModal } from "@/features/visit";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getDisplayLocale, getLocalizedText } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-
-type WorkbenchItem = {
-  id: number;
-  slotId: number | null;
-  doctorId: number;
-  appointmentType: "online_chat" | "video_call" | "in_person";
-  scheduledAt: Date | string | null;
-  status: string;
-  paymentStatus: string;
-  patientEmail: string;
-  chiefComplaint: string | null;
-  packageId: string | null;
-  createdAt: Date | string;
-};
 
 export default function DoctorWorkbenchPage() {
   const [isCompatRoute, compatParams] = useRoute("/doctor/:id/workbench");
@@ -157,7 +132,7 @@ export default function DoctorWorkbenchPage() {
       [
         ...(workbenchQuery.data?.upcoming ?? []),
         ...(workbenchQuery.data?.recent ?? []),
-      ] as WorkbenchItem[],
+      ] as DoctorWorkbenchItem[],
     [workbenchQuery.data?.recent, workbenchQuery.data?.upcoming]
   );
 
@@ -278,26 +253,7 @@ export default function DoctorWorkbenchPage() {
   );
 
   const summaryModalCopy = useMemo(
-    () => ({
-      title: visitCopy.reviewMedicalSummaryTitle,
-      aiDisclaimer: visitCopy.medicalSummaryAIDisclaimer,
-      chiefComplaintLabel: visitCopy.medicalSummaryChiefComplaint,
-      hpiLabel: visitCopy.medicalSummaryHpi,
-      pmhLabel: visitCopy.medicalSummaryPmh,
-      assessmentLabel: visitCopy.medicalSummaryAssessment,
-      planLabel: visitCopy.medicalSummaryPlan,
-      cancelText: visitCopy.medicalSummaryCancel,
-      regenerateText: visitCopy.medicalSummaryRegenerate,
-      signText: visitCopy.medicalSummarySign,
-      generatingText: visitCopy.medicalSummaryGenerating,
-      signingText: visitCopy.medicalSummarySigning,
-      signSuccessText: visitCopy.consultationEndedSuccess,
-      draftFailedText: visitCopy.medicalSummaryDraftFailed,
-      draftTimeoutText: visitCopy.medicalSummaryDraftTimeout,
-      draftTimeoutHintText: visitCopy.medicalSummaryDraftTimeoutHint,
-      requiredFieldsText: visitCopy.medicalSummaryRequiredFields,
-      signFailedText: visitCopy.medicalSummarySignFailed,
-    }),
+    () => buildDoctorWorkbenchSummaryModalCopy(visitCopy),
     [visitCopy]
   );
 
@@ -344,264 +300,41 @@ export default function DoctorWorkbenchPage() {
     >
       <main className="min-h-screen w-full bg-[radial-gradient(circle_at_top_left,rgba(20,184,166,0.08),transparent_28%),linear-gradient(180deg,#f8fafc_0%,#f8fafc_48%,#ffffff_100%)]">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
-          {isPrimaryRoute ? null : (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              {tr(
-                "这是兼容旧 doctorId 路由的入口。正式入口已经切换到 /doctor/workbench。",
-                "This page is serving a legacy doctorId route. The canonical workbench entry is now /doctor/workbench."
-              )}
-            </div>
-          )}
-
-          <section className="grid gap-4 lg:grid-cols-[1.35fr,0.65fr]">
-            <Card className="overflow-hidden border-slate-200/80 shadow-sm">
-              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-500 via-emerald-400 to-cyan-500" />
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <Stethoscope className="h-5 w-5 text-teal-600" />
-                  {doctorName}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-slate-600">
-                <p>
-                  {tr(
-                    "工作台现在支持查看诊前资料、AI 分诊摘要、快速开始接诊，以及从这里直接结束问诊并签发病历摘要。",
-                    "The workbench now supports pre-visit context review, AI triage summary, quick consultation start, and ending the visit with summary signing directly from here."
-                  )}
-                </p>
-                {doctorQuery.data?.doctor ? (
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                    <Badge
-                      variant="outline"
-                      className="border-slate-300 bg-white text-slate-700"
-                    >
-                      {tr("科室", "Department")} #
-                      {doctorQuery.data.doctor.departmentId}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className="border-slate-300 bg-white text-slate-700"
-                    >
-                      ID #{doctorQuery.data.doctor.id}
-                    </Badge>
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
-
-            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-              <Card className="border-slate-200/80 shadow-sm">
-                <CardContent className="p-5">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">
-                    {tr("未来预约", "Upcoming Visits")}
-                  </p>
-                  <p className="mt-2 text-3xl font-semibold text-slate-900">
-                    {workbenchQuery.data?.upcoming.length ?? 0}
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="border-slate-200/80 shadow-sm">
-                <CardContent className="p-5">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">
-                    {tr("未来 Slots", "Future Slots")}
-                  </p>
-                  <p className="mt-2 text-3xl font-semibold text-slate-900">
-                    {slotsQuery.data?.length ?? 0}
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="border-slate-200/80 shadow-sm">
-                <CardContent className="p-5">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">
-                    {tr("已签摘要", "Signed Summaries")}
-                  </p>
-                  <p className="mt-2 text-3xl font-semibold text-slate-900">
-                    {
-                      allAppointments.filter(
-                        item =>
-                          item.status === "completed" || item.status === "ended"
-                      ).length
-                    }
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          </section>
+          <DoctorWorkbenchOverview
+            showLegacyRouteNotice={!isPrimaryRoute}
+            doctorName={doctorName}
+            doctor={doctorQuery.data?.doctor ?? null}
+            upcomingCount={workbenchQuery.data?.upcoming.length ?? 0}
+            slotsCount={slotsQuery.data?.length ?? 0}
+            appointments={allAppointments}
+            tr={tr}
+          />
 
           <section className="grid gap-6 xl:grid-cols-[1.1fr,0.9fr]">
-            <Card className="border-slate-200/80 shadow-sm">
-              <CardHeader>
-                <CardTitle>
-                  {tr("待接诊与近期预约", "Upcoming and Recent Appointments")}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {workbenchQuery.isLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-slate-500">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    {tr("正在加载预约...", "Loading appointments...")}
-                  </div>
-                ) : workbenchQuery.error ? (
-                  <p className="text-sm text-destructive">
-                    {workbenchQuery.error.message}
-                  </p>
-                ) : (
-                  <>
-                    {allAppointments.map(item => (
-                      <div
-                        key={item.id}
-                        className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm"
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-4">
-                          <div className="min-w-0 flex-1 space-y-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge className="border-0 bg-slate-900 text-white">
-                                {getDoctorWorkbenchAppointmentTypeLabel(
-                                  item.appointmentType,
-                                  lang
-                                )}
-                              </Badge>
-                              <Badge
-                                variant="outline"
-                                className="border-slate-300 bg-white text-slate-700"
-                              >
-                                {getDoctorWorkbenchStatusLabel(
-                                  item.status,
-                                  lang
-                                )}
-                              </Badge>
-                              {item.packageId ? (
-                                <Badge
-                                  variant="outline"
-                                  className="border-slate-300 bg-white text-slate-700"
-                                >
-                                  {item.packageId}
-                                </Badge>
-                              ) : null}
-                            </div>
-                            <p className="text-sm font-medium text-slate-900">
-                              {formatDoctorWorkbenchDateTime(
-                                item.scheduledAt,
-                                locale
-                              )}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {maskDoctorWorkbenchEmail(item.patientEmail)} ·{" "}
-                              {item.paymentStatus}
-                            </p>
-                            <p className="line-clamp-2 text-sm text-slate-700">
-                              {item.chiefComplaint ||
-                                tr("主诉待补充", "Chief complaint pending")}
-                            </p>
-                          </div>
-                          <div className="flex shrink-0 flex-wrap gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openDetailSheet(item.id)}
-                            >
-                              <FileSearch className="mr-1.5 h-4 w-4" />
-                              {tr("查看资料", "Review Context")}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              disabled={
-                                item.status !== "paid" ||
-                                startAppointmentMutation.isPending
-                              }
-                              onClick={() => void startConsultation(item.id)}
-                            >
-                              <Sparkles className="mr-1.5 h-4 w-4" />
-                              {tr("开始接诊", "Start")}
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={
-                                ![
-                                  "paid",
-                                  "active",
-                                  "ended",
-                                  "completed",
-                                ].includes(item.status) ||
-                                issueLinksMutation.isPending
-                              }
-                              onClick={() => void openDoctorRoom(item.id)}
-                            >
-                              <ExternalLink className="mr-1.5 h-4 w-4" />
-                              {tr("进入房间", "Open Room")}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {allAppointments.length === 0 ? (
-                      <p className="text-sm text-slate-500">
-                        {tr(
-                          "当前没有可显示的预约。",
-                          "No appointments to show."
-                        )}
-                      </p>
-                    ) : null}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200/80 shadow-sm">
-              <CardHeader>
-                <CardTitle>
-                  {tr("未来可售 Slots", "Future Sellable Slots")}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {slotsQuery.isLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-slate-500">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    {tr("正在加载 slots...", "Loading slots...")}
-                  </div>
-                ) : slotsQuery.error ? (
-                  <p className="text-sm text-destructive">
-                    {slotsQuery.error.message}
-                  </p>
-                ) : (
-                  <>
-                    {(slotsQuery.data ?? []).map(slot => (
-                      <div
-                        key={slot.id}
-                        className="rounded-2xl border border-slate-200 bg-white p-4"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="space-y-1">
-                            <p className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                              <Calendar className="h-4 w-4 text-teal-600" />
-                              {formatDoctorWorkbenchDateTime(
-                                slot.startAt,
-                                locale
-                              )}
-                            </p>
-                            <p className="flex items-center gap-2 text-xs text-slate-500">
-                              <Clock3 className="h-3.5 w-3.5" />
-                              {slot.slotDurationMinutes} min ·{" "}
-                              {slot.appointmentType} · {slot.status}
-                            </p>
-                          </div>
-                          <ChevronRight className="h-4 w-4 text-slate-400" />
-                        </div>
-                      </div>
-                    ))}
-                    {(slotsQuery.data?.length ?? 0) === 0 ? (
-                      <p className="text-sm text-slate-500">
-                        {tr("当前没有未来 slots。", "No future slots yet.")}
-                      </p>
-                    ) : null}
-                  </>
-                )}
-              </CardContent>
-            </Card>
+            <DoctorWorkbenchAppointmentsPanel
+              items={allAppointments}
+              isLoading={workbenchQuery.isLoading}
+              errorMessage={workbenchQuery.error?.message ?? null}
+              locale={locale}
+              lang={lang}
+              tr={tr}
+              isStarting={startAppointmentMutation.isPending}
+              isOpeningRoom={issueLinksMutation.isPending}
+              onOpenDetail={openDetailSheet}
+              onStartConsultation={appointmentId => {
+                void startConsultation(appointmentId);
+              }}
+              onOpenRoom={appointmentId => {
+                void openDoctorRoom(appointmentId);
+              }}
+            />
+            <DoctorWorkbenchSlotsPanel
+              slots={slotsQuery.data ?? []}
+              isLoading={slotsQuery.isLoading}
+              errorMessage={slotsQuery.error?.message ?? null}
+              locale={locale}
+              tr={tr}
+            />
           </section>
         </div>
       </main>

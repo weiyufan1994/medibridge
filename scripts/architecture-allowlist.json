@@ -86,11 +86,6 @@
       "phase": "5",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
-    "client/src/pages/DoctorWorkbench.tsx": {
-      "maxLines": 654,
-      "phase": "5",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
     "client/src/sandbox/ComponentShowcase.tsx": {
       "maxLines": 1444,
       "phase": "5",

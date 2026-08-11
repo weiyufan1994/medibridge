@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildDoctorWorkbenchSummaryModalCopy,
+  countSignedDoctorWorkbenchAppointments,
   formatDoctorWorkbenchDateTime,
   getDoctorWorkbenchAppointmentTypeLabel,
   getDoctorWorkbenchHeading,
@@ -8,6 +10,7 @@ import {
   normalizeDoctorWorkbenchError,
   parseDoctorWorkbenchToken,
 } from "@/features/doctorWorkbench";
+import { getVisitCopy } from "@/features/visit";
 
 const tr = (zh: string, en: string) => en;
 
@@ -52,6 +55,28 @@ describe("getDoctorWorkbenchHeading", () => {
 });
 
 describe("doctor workbench presentation", () => {
+  it("maps visit copy into the medical summary modal contract", () => {
+    const visitCopy = getVisitCopy("en");
+    expect(buildDoctorWorkbenchSummaryModalCopy(visitCopy)).toMatchObject({
+      title: visitCopy.reviewMedicalSummaryTitle,
+      aiDisclaimer: visitCopy.medicalSummaryAIDisclaimer,
+      signText: visitCopy.medicalSummarySign,
+      signSuccessText: visitCopy.consultationEndedSuccess,
+      signFailedText: visitCopy.medicalSummarySignFailed,
+    });
+  });
+
+  it("counts ended and completed appointments as signed summaries", () => {
+    expect(
+      countSignedDoctorWorkbenchAppointments([
+        { status: "paid" },
+        { status: "active" },
+        { status: "ended" },
+        { status: "completed" },
+      ])
+    ).toBe(2);
+  });
+
   it("masks valid emails while preserving malformed values", () => {
     expect(maskDoctorWorkbenchEmail("alice@example.com")).toBe(
       "a***e@example.com"
