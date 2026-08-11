@@ -12,7 +12,6 @@ import {
   REFERRAL_INVALID_TRANSITION_ERROR,
   isReferralTerminalStatus,
 } from "./stateMachine";
-import { initiateAutomaticReferralRefund } from "./refunds";
 import {
   getOwnedOrder,
   requireUser,
@@ -25,7 +24,6 @@ import type {
   beginTimeCoordinationInputSchema,
   listMineOrdersInputSchema,
   publishPatientProgressUpdateInputSchema,
-  recordBookingResultInputSchema,
   referralOrderDetailOutputSchema,
   setConsultationTimeInputSchema,
   updateOrderStatusInputSchema,
@@ -51,6 +49,7 @@ export { createPaymentSessionAction } from "./paymentSessionActions";
 export { confirmReturnedPaymentSessionAction } from "./returnedPaymentActions";
 export { confirmMockPaymentAction } from "./mockPaymentActions";
 export { getAdminOrderDetailAction, listOrdersForAdminAction };
+export { recordBookingResultAction } from "./bookingResultActions";
 export { recordContactAttemptAction } from "./contactAttemptActions";
 export { initiateRefundAction } from "./refundRequestActions";
 export { reviewRefundAction } from "./refundReviewActions";
@@ -65,7 +64,6 @@ type AddInternalNoteInput = z.infer<typeof addInternalNoteInputSchema>;
 type PublishPatientProgressUpdateInput = z.infer<
   typeof publishPatientProgressUpdateInputSchema
 >;
-type RecordBookingResultInput = z.infer<typeof recordBookingResultInputSchema>;
 type SetConsultationTimeInput = z.infer<typeof setConsultationTimeInputSchema>;
 type ReferralOrderDetailOutput = z.infer<
   typeof referralOrderDetailOutputSchema
@@ -499,59 +497,6 @@ export async function publishPatientProgressUpdateAction(
   });
 
   return getAdminOrderDetailAction(currentUser, input.orderId);
-}
-
-export async function recordBookingResultAction(
-  user: User | null,
-  input: RecordBookingResultInput
-) {
-  const currentUser = requireUser(user);
-  const order = await referralRepo.getReferralOrderById(input.orderId);
-  if (!order) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Referral order not found",
-    });
-  }
-
-  await referralRepo.insertOperation({
-    orderId: order.id,
-    operatorType: resolveActorTypeFromUser(currentUser),
-    operatorId: currentUser.id,
-    actionType: "booking_result",
-    actionPayload: {
-      outcome: input.outcome,
-      note: input.note,
-    },
-  });
-
-  if (input.outcome === "progressing") {
-    const currentStatus = order.status as ReferralOrderStatus;
-    if (currentStatus === "contacting" || currentStatus === "assigned") {
-      await changeOrderStatus({
-        orderId: order.id,
-        toStatus: "booking_in_progress",
-        toPaymentStatus: "paid",
-        actorType: resolveActorTypeFromUser(currentUser),
-        actorId: currentUser.id,
-        reason: "booking_progressing",
-      });
-    }
-  }
-
-  if (input.outcome === "failed") {
-    await initiateAutomaticReferralRefund({
-      orderId: order.id,
-      reasonCode: "booking_failed",
-      reasonDetail: input.note,
-      actor: {
-        type: resolveActorTypeFromUser(currentUser),
-        id: currentUser.id,
-      },
-    });
-  }
-
-  return getAdminOrderDetailAction(currentUser, order.id);
 }
 
 export async function beginTimeCoordinationAction(
