@@ -3,14 +3,8 @@ import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { DisclaimerDialog } from "@/components/disclaimer/DisclaimerDialog";
-import {
-  useTriageChat,
-  type TriageResult as ChatTriageResult,
-} from "@/features/triage/hooks/useTriageChat";
-import {
-  getLocalizedInterruptionDetail,
-  getTriageCopy,
-} from "@/features/triage/copy";
+import { useTriageChat } from "@/features/triage/hooks/useTriageChat";
+import { getTriageCopy } from "@/features/triage/copy";
 import {
   resolveAnimatedAssistantSignature,
   type TriageDisplayMessage,
@@ -27,7 +21,10 @@ import {
 } from "@/features/triage/components/triageHistory";
 import { TriageMessageStream } from "@/features/triage/components/TriageMessageStream";
 import { TriageResultPanel } from "@/features/triage/components/TriageResultPanel";
-import { buildPrimaryReferralEntryHref } from "@/features/triage/components/TriageHospitalRoutingCard";
+import {
+  buildTriageChatViewModel,
+  hasLightResultFormContent,
+} from "@/features/triage/components/triageChatViewModel";
 import { useAuth } from "@/features/auth";
 import { trpc } from "@/lib/trpc";
 import {
@@ -36,9 +33,6 @@ import {
   EMPTY_LIGHT_TRIAGE_RESULT_FORM,
   type LightTriageResultForm,
 } from "@shared/triageRouting";
-
-const hasLightResultFormContent = (draft: LightTriageResultForm) =>
-  Object.values(draft).some(value => value.trim().length > 0);
 
 export default function AITriageChat() {
   const [, setLocation] = useLocation();
@@ -97,9 +91,6 @@ export default function AITriageChat() {
   const isChatPending =
     createSessionMutation.isPending || sendMessageMutation.isPending;
   const patientName = user?.name || user?.email || t.common.unnamed_patient;
-  const historyTriageResult: ChatTriageResult | null =
-    historyMessagesQuery.data?.triageResult ?? null;
-  const historySummary = historyMessagesQuery.data?.summary ?? null;
 
   const historyItems = useMemo(
     () => buildTriageHistoryItems(historyQuery.data ?? []),
@@ -150,115 +141,51 @@ export default function AITriageChat() {
     );
   }, [triageResult?.isComplete, triageSessionId]);
 
-  const selectedHistorySession =
-    activeSessionId === null
-      ? null
-      : (historyItems.find(item => item.id === activeSessionId) ?? null);
-  const isHistoryReadOnly = activeSessionId !== null;
-  const displayedTriageResult = isHistoryReadOnly
-    ? historyTriageResult
-    : triageResult;
-  const displayedTriageSessionId = isHistoryReadOnly
-    ? (activeSessionId ?? 0)
-    : (() => {
-        const parsedSessionId = Number(triageSessionId);
-        return Number.isInteger(parsedSessionId) && parsedSessionId > 0
-          ? parsedSessionId
-          : 0;
-      })();
-  const isReadOnlyMode =
-    isHistoryReadOnly ||
-    selectedHistorySession?.status === "completed" ||
-    triageResult?.isComplete === true ||
-    reportGenerationLocked ||
-    messageLimitReached;
-  const isInputDisabled = isReadOnlyMode;
-
-  const displayMessages: TriageDisplayMessage[] = isHistoryReadOnly
-    ? (historyMessagesQuery.data?.messages ?? []).map(message => ({
-        role:
-          message.role === "ai" ? ("assistant" as const) : ("user" as const),
-        content: message.content,
-      }))
-    : messages;
-
-  const renderedMessages = useMemo(() => {
-    if (!displayedTriageResult?.isComplete || displayMessages.length === 0) {
-      return displayMessages;
-    }
-
-    const lastIndex = displayMessages.length - 1;
-    return displayMessages.filter(
-      (message, index) => !(index === lastIndex && message.role === "assistant")
-    );
-  }, [displayMessages, displayedTriageResult?.isComplete]);
-
-  const inputPlaceholder = isHistoryReadOnly
-    ? t.sidebar.read_only_placeholder
-    : reportGenerationLocked
-      ? t.status.reviewing
-      : isChatPending
-        ? t.status.thinking
-        : t.placeholder;
-
-  const activityLabel = reportGenerationLocked
-    ? t.status.reviewing
-    : isChatPending
-      ? t.status.thinking
-      : null;
-
-  const historyResultFormDraft = useMemo(
+  const {
+    isHistoryReadOnly,
+    displayedTriageResult,
+    displayedTriageSessionId,
+    isInputDisabled,
+    renderedMessages,
+    inputPlaceholder,
+    activityLabel,
+    displayedResultFormDraft,
+    effectiveSummary,
+    localizedInterruptionDetail,
+    primaryReferralEntryHref,
+    routingSafetyNotice,
+    showReferralNextStepGuidance,
+  } = useMemo(
     () =>
-      buildLightTriageResultFormDefaults({
-        summary: historyTriageResult?.summary ?? historySummary,
-        extraction: historyTriageResult?.extraction,
+      buildTriageChatViewModel({
+        activeSessionId,
+        historyItems,
+        historyData: historyMessagesQuery.data ?? null,
+        messages,
+        triageResult,
+        triageSessionId,
+        resultFormDraft,
+        resolved,
+        reportGenerationLocked,
+        messageLimitReached,
+        isChatPending,
+        copy: t,
       }),
     [
-      historySummary,
-      historyTriageResult?.extraction,
-      historyTriageResult?.summary,
+      activeSessionId,
+      historyItems,
+      historyMessagesQuery.data,
+      isChatPending,
+      messageLimitReached,
+      messages,
+      reportGenerationLocked,
+      resolved,
+      resultFormDraft,
+      t,
+      triageResult,
+      triageSessionId,
     ]
   );
-  const displayedResultFormDraft = isHistoryReadOnly
-    ? historyResultFormDraft
-    : resultFormDraft;
-  const effectiveSummary =
-    displayedTriageResult?.isComplete === true
-      ? hasLightResultFormContent(displayedResultFormDraft)
-        ? buildLightTriageResultSummary(displayedResultFormDraft, resolved)
-        : displayedTriageResult.summary?.trim() ||
-          historySummary?.trim() ||
-          t.common.no_summary_available
-      : displayedTriageResult?.summary?.trim() ||
-        historySummary?.trim() ||
-        t.common.no_summary_available;
-  const localizedInterruptionDetail =
-    displayedTriageResult?.interrupted && displayedTriageResult.reply
-      ? getLocalizedInterruptionDetail({
-          lang: resolved,
-          message: displayedTriageResult.interruptionMessage,
-          riskCodes: displayedTriageResult.riskCodes,
-          fallback: displayedTriageResult.reply,
-        })
-      : null;
-  const primaryReferralEntryHref = buildPrimaryReferralEntryHref({
-    triageSessionId: displayedTriageSessionId,
-    hospitals: displayedTriageResult?.routing?.hospitals ?? [],
-  });
-  const routingSafetyNotice =
-    displayedTriageResult?.routing?.confidence === "reduced"
-      ? {
-          title: t.triage_card.reduced_confidence_title,
-          description: t.triage_card.reduced_confidence_description(
-            displayedTriageResult.routing.missingCriticalFields.map(
-              field => t.triage_card.critical_field_labels[field]
-            )
-          ),
-        }
-      : null;
-  const showReferralNextStepGuidance =
-    displayedTriageResult?.isComplete === true &&
-    displayedTriageResult.interrupted !== true;
 
   useEffect(() => {
     const isFreshSession =

@@ -71,11 +71,6 @@
       "phase": "5",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
-    "client/src/features/triage/components/AITriageChat.tsx": {
-      "maxLines": 470,
-      "phase": "5",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
     "client/src/features/triage/copy.ts": {
       "maxLines": 514,
       "phase": "5",
