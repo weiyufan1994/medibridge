@@ -24,7 +24,7 @@ export const doctorAccountsRouter = router({
         doctorId: input.doctorId,
         email: input.email,
         createdByUserId: ctx.user.id,
-        req: ctx.req,
+        requestMetadata: ctx.requestMetadata,
       })
     ),
 
@@ -35,7 +35,7 @@ export const doctorAccountsRouter = router({
       doctorAccountActions.resendDoctorInvite({
         inviteId: input.inviteId,
         actorUserId: ctx.user.id,
-        req: ctx.req,
+        requestMetadata: ctx.requestMetadata,
       })
     ),
 
