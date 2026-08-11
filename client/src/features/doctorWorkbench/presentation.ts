@@ -1,7 +1,40 @@
 import { getLocalizedText } from "@/lib/i18n";
+import type { getVisitCopy } from "@/features/visit";
 import type { LocalizedText } from "@shared/types";
+import type { DoctorWorkbenchItem, DoctorWorkbenchLanguage } from "./types";
 
-export type DoctorWorkbenchLanguage = "zh" | "en";
+type VisitCopy = ReturnType<typeof getVisitCopy>;
+
+export function countSignedDoctorWorkbenchAppointments(
+  appointments: Pick<DoctorWorkbenchItem, "status">[]
+) {
+  return appointments.filter(
+    item => item.status === "completed" || item.status === "ended"
+  ).length;
+}
+
+export function buildDoctorWorkbenchSummaryModalCopy(copy: VisitCopy) {
+  return {
+    title: copy.reviewMedicalSummaryTitle,
+    aiDisclaimer: copy.medicalSummaryAIDisclaimer,
+    chiefComplaintLabel: copy.medicalSummaryChiefComplaint,
+    hpiLabel: copy.medicalSummaryHpi,
+    pmhLabel: copy.medicalSummaryPmh,
+    assessmentLabel: copy.medicalSummaryAssessment,
+    planLabel: copy.medicalSummaryPlan,
+    cancelText: copy.medicalSummaryCancel,
+    regenerateText: copy.medicalSummaryRegenerate,
+    signText: copy.medicalSummarySign,
+    generatingText: copy.medicalSummaryGenerating,
+    signingText: copy.medicalSummarySigning,
+    signSuccessText: copy.consultationEndedSuccess,
+    draftFailedText: copy.medicalSummaryDraftFailed,
+    draftTimeoutText: copy.medicalSummaryDraftTimeout,
+    draftTimeoutHintText: copy.medicalSummaryDraftTimeoutHint,
+    requiredFieldsText: copy.medicalSummaryRequiredFields,
+    signFailedText: copy.medicalSummarySignFailed,
+  };
+}
 
 export function formatDoctorWorkbenchDateTime(
   value: Date | string | null,
