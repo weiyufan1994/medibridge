@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Loader2, X } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
-  formatReferralDateTime,
   getReferralCopy,
   getReferralStatusLabel,
   getRefundStatusLabel,
@@ -17,7 +15,6 @@ import { getLocalizedText } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import {
-  REFERRAL_ORDER_STATUS_VALUES,
   REFERRAL_REFUND_REASON_CODE_VALUES,
   type ReferralOrderStatus,
 } from "@shared/referrals";
@@ -42,10 +39,8 @@ import {
   saveReferralStatusDraft,
 } from "@/features/admin/referralStatusDraft";
 import {
-  formatReferralWaitingDuration,
   getReferralAdminStatusTone,
   getReferralAdminTaskKind,
-  shouldShowReferralWaitDuration,
 } from "@/features/admin/referralAdminPresentation";
 import { useAdminActionConfirmation } from "@/features/admin/adminActionConfirmationContext";
 import { AdminStatusBadge } from "@/features/admin/components/AdminStatusBadge";
@@ -56,8 +51,10 @@ import {
 import {
   FieldShell,
   SectionBox,
-  SummaryPill,
 } from "./referral-admin/ReferralAdminPrimitives";
+import { ReferralAdminFilters } from "./referral-admin/ReferralAdminFilters";
+import { ReferralOrderDetailHeader } from "./referral-admin/ReferralOrderDetailHeader";
+import { ReferralOrderList } from "./referral-admin/ReferralOrderList";
 import { ReferralPatientSection } from "./referral-admin/ReferralPatientSection";
 import { ReferralTimelineSection } from "./referral-admin/ReferralTimelineSection";
 
@@ -610,219 +607,46 @@ export function ReferralAdminPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
-      <div className="shrink-0 rounded-2xl border border-admin-border bg-admin-surface px-3 py-3">
-        <div className="grid gap-2 xl:grid-cols-[1fr_180px_180px_auto]">
-          <FieldShell label={copy.admin.statusFilter}>
-            <select
-              className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
-              value={statusFilter}
-              onChange={event => {
-                setStatusFilter(
-                  event.target.value === "all"
-                    ? "all"
-                    : (event.target.value as ReferralOrderStatus)
-                );
-                setPage(1);
-              }}
-            >
-              <option value="all">{copy.admin.statusAll}</option>
-              {REFERRAL_ORDER_STATUS_VALUES.map(status => (
-                <option key={status} value={status}>
-                  {getReferralStatusLabel(status, lang)}
-                </option>
-              ))}
-            </select>
-          </FieldShell>
-
-          <FieldShell label={copy.admin.sortDirection}>
-            <select
-              className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
-              value={sortDirection}
-              onChange={event => {
-                setSortDirection(event.target.value as "asc" | "desc");
-                setPage(1);
-              }}
-            >
-              <option value="desc">{copy.admin.sortNewest}</option>
-              <option value="asc">{copy.admin.sortOldest}</option>
-            </select>
-          </FieldShell>
-
-          <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-              {copy.admin.assignedToMe}
-            </span>
-            <span className="inline-flex h-8 items-center gap-2 rounded-md border border-input px-2 text-sm">
-              <input
-                type="checkbox"
-                checked={assignedToMe}
-                onChange={event => {
-                  setAssignedToMe(event.target.checked);
-                  setPage(1);
-                }}
-              />
-              {copy.admin.assignedToMe}
-            </span>
-          </label>
-
-          <div className="flex items-end justify-end">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                void refreshReferralAdminData();
-              }}
-            >
-              {copy.admin.refresh}
-            </Button>
-          </div>
-        </div>
-
-        <p className="mt-2 text-xs leading-tight text-muted-foreground">
-          {copy.admin.listSummary}
-        </p>
-      </div>
+      <ReferralAdminFilters
+        lang={lang}
+        statusFilter={statusFilter}
+        sortDirection={sortDirection}
+        assignedToMe={assignedToMe}
+        onStatusFilterChange={value => {
+          setStatusFilter(value);
+          setPage(1);
+        }}
+        onSortDirectionChange={value => {
+          setSortDirection(value);
+          setPage(1);
+        }}
+        onAssignedToMeChange={value => {
+          setAssignedToMe(value);
+          setPage(1);
+        }}
+        onRefresh={() => {
+          void refreshReferralAdminData();
+        }}
+      />
 
       <div className="grid min-h-0 flex-1 overflow-hidden rounded-xl border border-admin-border bg-admin-surface xl:grid-cols-[minmax(320px,35%)_minmax(0,65%)]">
-        <div className="flex min-h-0 flex-col border-r border-admin-border">
-          <div className="border-b border-admin-border px-3 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">
-                  {copy.admin.orderListTitle}
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  {copy.admin.filtersTitle}
-                </p>
-              </div>
-              {ordersQuery.isLoading ? (
-                <Loader2 className="size-4 animate-spin text-muted-foreground" />
-              ) : null}
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {ordersQuery.isLoading ? (
-              <div className="flex h-full items-center justify-center px-4 text-sm text-muted-foreground">
-                {copy.common.loading}
-              </div>
-            ) : ordersQuery.error ? (
-              <div className="flex h-full items-center justify-center px-4 text-sm text-rose-600">
-                {ordersQuery.error.message}
-              </div>
-            ) : ordersQuery.data && ordersQuery.data.items.length > 0 ? (
-              <div className="divide-y divide-admin-border">
-                {ordersQuery.data.items.map(item => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setSelectedOrderId(item.id)}
-                    className={[
-                      "w-full px-3 py-2 text-left text-sm leading-tight transition-colors",
-                      selectedOrderId === item.id
-                        ? "bg-admin-surface-muted"
-                        : "hover:bg-admin-surface-muted",
-                    ].join(" ")}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate font-medium text-foreground">
-                            #{item.id} ·{" "}
-                            {getLocalizedText({
-                              lang,
-                              value: item.hospitalName,
-                            }).trim() || copy.common.notAvailable}
-                          </span>
-                          {item.manualFulfillmentRequired ? (
-                            <span className="size-2 shrink-0 rounded-full bg-amber-500" />
-                          ) : null}
-                        </div>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {getLocalizedText({
-                            lang,
-                            value: item.departmentName,
-                          }).trim() || copy.common.notAvailable}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {item.patientEmail ?? copy.common.notAvailable}
-                        </p>
-                      </div>
-                      <AdminStatusBadge
-                        label={getReferralStatusLabel(item.status, lang)}
-                        tone={getReferralAdminStatusTone(item.status)}
-                      />
-                    </div>
-
-                    <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground md:grid-cols-2">
-                      {shouldShowReferralWaitDuration(item.status) ? (
-                        <p>
-                          {copy.admin.urgencyMinutes.replace(
-                            "{{duration}}",
-                            formatReferralWaitingDuration(
-                              item.urgencyMinutes,
-                              lang
-                            )
-                          )}
-                        </p>
-                      ) : (
-                        <span aria-hidden="true" />
-                      )}
-                      <p>{formatReferralDateTime(item.updatedAt, lang)}</p>
-                      <p>
-                        {copy.orderDetail.consultationTime}:{" "}
-                        {formatReferralDateTime(item.consultationTime, lang)}
-                      </p>
-                      <p>
-                        {item.assignedAgentId
-                          ? String(item.assignedAgentId)
-                          : copy.admin.unassigned}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="flex h-full items-center justify-center px-4 text-sm text-muted-foreground">
-                {copy.admin.noOrders}
-              </div>
-            )}
-          </div>
-
-          <div className="shrink-0 border-t border-admin-border px-3 py-2">
-            <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-              <span>
-                {ordersQuery.data?.page ?? page} /{" "}
-                {ordersQuery.data?.totalPages ?? 1}
-              </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={(ordersQuery.data?.page ?? page) <= 1}
-                  onClick={() => setPage(value => Math.max(1, value - 1))}
-                >
-                  {copy.admin.prevPage}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={
-                    (ordersQuery.data?.page ?? page) >=
-                    (ordersQuery.data?.totalPages ?? 1)
-                  }
-                  onClick={() =>
-                    setPage(value =>
-                      Math.min(ordersQuery.data?.totalPages ?? value, value + 1)
-                    )
-                  }
-                >
-                  {copy.admin.nextPage}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ReferralOrderList
+          lang={lang}
+          isLoading={ordersQuery.isLoading}
+          hasError={Boolean(ordersQuery.error)}
+          errorMessage={ordersQuery.error?.message}
+          items={ordersQuery.data?.items ?? []}
+          selectedOrderId={selectedOrderId}
+          page={ordersQuery.data?.page ?? page}
+          totalPages={ordersQuery.data?.totalPages ?? 1}
+          onSelectOrder={setSelectedOrderId}
+          onPreviousPage={() => setPage(value => Math.max(1, value - 1))}
+          onNextPage={() =>
+            setPage(value =>
+              Math.min(ordersQuery.data?.totalPages ?? value, value + 1)
+            )
+          }
+        />
 
         {usesReferralDrawer && selectedOrderId ? (
           <button
@@ -870,121 +694,24 @@ export function ReferralAdminPanel({
               }
               className="flex h-full min-h-0 flex-col gap-0"
             >
-              <div className="shrink-0 border-b border-admin-border bg-admin-surface">
-                <div className="px-4 py-3">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3
-                          id="referral-order-detail-title"
-                          className="text-sm font-semibold text-foreground"
-                        >
-                          #{orderState.id}
-                        </h3>
-                        <AdminStatusBadge
-                          label={getReferralStatusLabel(
-                            orderState.status,
-                            lang
-                          )}
-                          tone={getReferralAdminStatusTone(orderState.status)}
-                        />
-                        {orderState.manualFulfillmentRequired ? (
-                          <Badge className="border border-amber-200 bg-amber-50 px-2 py-0 text-[11px] text-amber-800">
-                            {copy.admin.manualFulfillmentBadge}
-                          </Badge>
-                        ) : null}
-                      </div>
-                      <p className="mt-1 truncate text-sm text-foreground">
-                        {selectedOrder.patient.email ??
-                          copy.common.notAvailable}
-                      </p>
-                    </div>
-
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="xl:hidden"
-                      aria-label={copy.common.cancel}
-                      autoFocus={usesReferralDrawer}
-                      onClick={() => setSelectedOrderId(null)}
-                    >
-                      <X className="size-4" />
-                    </Button>
-
-                    <div className="grid gap-2 text-[11px] text-muted-foreground sm:grid-cols-2 lg:grid-cols-3">
-                      <SummaryPill
-                        label={copy.orderDetail.assignedAgent}
-                        value={selectedAssignee}
-                      />
-                      <SummaryPill
-                        label={copy.orderDetail.selectedContact}
-                        value={
-                          selectedOrder.contact?.name ??
-                          copy.admin.contactPending
-                        }
-                      />
-                      <SummaryPill
-                        label={copy.admin.paymentStatus}
-                        value={orderState.paymentStatus}
-                      />
-                      <SummaryPill
-                        label={copy.orderDetail.selectedHospital}
-                        value={selectedHospitalName || copy.common.notAvailable}
-                      />
-                      <SummaryPill
-                        label={copy.selection.recommendedDepartment}
-                        value={
-                          selectedDepartmentName || copy.common.notAvailable
-                        }
-                      />
-                      <SummaryPill
-                        label={copy.orderDetail.consultationTime}
-                        value={formatReferralDateTime(
-                          orderState.consultationTime,
-                          lang
-                        )}
-                      />
-                    </div>
-                  </div>
-
-                  {orderState.manualFulfillmentRequired ||
-                  !selectedOrder.hospital.id ? (
-                    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-tight text-amber-900">
-                      {orderState.manualFulfillmentRequired
-                        ? copy.admin.manualFulfillmentDetail
-                        : copy.admin.noLocalHospitalMapping}
-                    </div>
-                  ) : null}
-
-                  <p className="mt-3 text-xs leading-tight text-muted-foreground">
-                    {copy.admin.detailSummary}
-                  </p>
-                </div>
-
-                <div className="border-t border-admin-border px-3 py-2">
-                  <TabsList className="grid h-9 w-full grid-cols-3 rounded-lg border border-admin-border bg-admin-surface-muted p-1">
-                    <TabsTrigger
-                      value="operations"
-                      className="rounded-md px-2 py-1 text-sm"
-                    >
-                      {copy.admin.detailTabs.operations}
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="patient"
-                      className="rounded-md px-2 py-1 text-sm"
-                    >
-                      {copy.admin.detailTabs.patient}
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="timeline"
-                      className="rounded-md px-2 py-1 text-sm"
-                    >
-                      {copy.admin.detailTabs.timeline}
-                    </TabsTrigger>
-                  </TabsList>
-                </div>
-              </div>
+              <ReferralOrderDetailHeader
+                lang={lang}
+                orderId={orderState.id}
+                status={orderState.status}
+                manualFulfillmentRequired={orderState.manualFulfillmentRequired}
+                patientEmail={selectedOrder.patient.email}
+                selectedAssignee={selectedAssignee}
+                selectedContactName={selectedOrder.contact?.name ?? null}
+                paymentStatus={orderState.paymentStatus}
+                hospitalName={selectedHospitalName || copy.common.notAvailable}
+                departmentName={
+                  selectedDepartmentName || copy.common.notAvailable
+                }
+                consultationTime={orderState.consultationTime}
+                hasLocalHospitalMapping={Boolean(selectedOrder.hospital.id)}
+                usesReferralDrawer={usesReferralDrawer}
+                onClose={() => setSelectedOrderId(null)}
+              />
 
               <TabsContent
                 value="operations"
