@@ -26,11 +26,6 @@
       "phase": "4",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
-    "server/modules/ai/hospitalRouting.ts": {
-      "maxLines": 670,
-      "phase": "4",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
     "server/modules/ai/triageLogic.ts": {
       "maxLines": 888,
       "phase": "4",
