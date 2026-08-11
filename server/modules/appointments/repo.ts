@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, isNull, like, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, like, lt, sql } from "drizzle-orm";
 import {
   appointmentTokens,
   appointments,
@@ -6,7 +6,6 @@ import {
 } from "../../../drizzle/schema";
 import { getDb } from "../../db";
 import { type AppointmentStatus, type PaymentStatus } from "./stateMachine";
-import { extractAffectedRows } from "../../_core/dbCompat";
 import { insertStatusEvent } from "./lifecycleRepo";
 import { type AppointmentRepoExecutor } from "./repoExecutor";
 
@@ -63,34 +62,9 @@ export {
 } from "./listReadRepo";
 export { createAppointmentDraft } from "./draftWriteRepo";
 export { updateAppointmentById } from "./updateWriteRepo";
+export { updateAppointmentNotesIfMatch } from "./notesWriteRepo";
 
 export type { AppointmentRepoExecutor };
-
-export async function updateAppointmentNotesIfMatch(input: {
-  appointmentId: number;
-  expectedNotes: string | null;
-  nextNotes: string;
-}) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  const expectedClause =
-    input.expectedNotes === null
-      ? isNull(appointments.notes)
-      : eq(appointments.notes, input.expectedNotes);
-
-  const result = await db
-    .update(appointments)
-    .set({
-      notes: input.nextNotes,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(appointments.id, input.appointmentId), expectedClause));
-
-  return extractAffectedRows(result);
-}
 
 export async function bindAppointmentsToUserByEmail(
   email: string,
