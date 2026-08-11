@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { sendMagicLinkEmail } from "./_core/mailer";
+import { sendDoctorInviteEmail, sendMagicLinkEmail } from "./_core/mailer";
 
 describe("mailer", () => {
   const originalNodeEnv = process.env.NODE_ENV;
@@ -117,7 +117,7 @@ describe("mailer", () => {
     process.env.NODE_ENV = "development";
     const fetchMock = vi.mocked(fetch);
     const consoleSpy = vi
-      .spyOn(console, "log")
+      .spyOn(console, "info")
       .mockImplementation(() => undefined);
 
     await sendMagicLinkEmail(
@@ -126,11 +126,33 @@ describe("mailer", () => {
     );
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalledWith(
-      "[Mailer][DEV] To: user@example.com"
+    const output = consoleSpy.mock.calls
+      .map(call => String(call[0]))
+      .join("\n");
+    expect(output).toContain("magic_link.preview_suppressed");
+    expect(output).not.toContain("user@example.com");
+    expect(output).not.toContain("/visit/4");
+    expect(output).not.toContain("token");
+  });
+
+  it("does not log doctor invite secrets in development", async () => {
+    process.env.NODE_ENV = "development";
+    const consoleSpy = vi
+      .spyOn(console, "info")
+      .mockImplementation(() => undefined);
+
+    await sendDoctorInviteEmail(
+      "doctor@example.com",
+      "https://medibridge.test/doctor/claim?token=doctor-secret",
+      { expiresAt: new Date("2026-08-20T00:00:00.000Z") }
     );
-    expect(consoleSpy).toHaveBeenCalledWith(
-      "[Mailer][DEV] Magic link: https://medibridge.test/visit/4?t=token"
-    );
+
+    const output = consoleSpy.mock.calls
+      .map(call => String(call[0]))
+      .join("\n");
+    expect(output).toContain("doctor_invite.preview_suppressed");
+    expect(output).not.toContain("doctor@example.com");
+    expect(output).not.toContain("doctor-secret");
+    expect(output).not.toContain("/doctor/claim");
   });
 });
