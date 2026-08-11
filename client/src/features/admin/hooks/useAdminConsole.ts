@@ -1,16 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
-import {
-  computeAdminRisks,
-  computeAdminSuggestions,
-  type AdminSuggestion,
-} from "@/features/admin/risk";
-import {
-  downloadBase64File,
-  formatDate,
-  stringify,
-} from "@/features/admin/utils/adminFormatting";
 import type {
   AdminBatchActionResult,
   UseAdminConsoleResult,
@@ -19,19 +9,11 @@ import type {
   AdminConsoleSectionKey,
   AdminOperationsTabKey,
 } from "@/features/admin/adminConsoleLayout";
-import {
-  getAdminConfirmationCopy,
-  getAdminStatusGuidanceCopy,
-  type AdminLang,
-} from "@/features/admin/copy";
-import {
-  getAdminAppointmentNextStatuses,
-  getAdminAppointmentPaymentStatuses,
-  isAdminAppointmentStatus,
-  isAdminPaymentStatus,
-} from "@/features/admin/adminStatusTransitions";
 import type { AdminConfirmationRequest } from "@/features/admin/adminActionConfirmationContext";
+import { useAdminAppointmentDetailActions } from "@/features/admin/hooks/useAdminAppointmentDetailActions";
+import { useAdminAppointmentDetailState } from "@/features/admin/hooks/useAdminAppointmentDetailState";
 import { useAdminAppointmentFilters } from "@/features/admin/hooks/useAdminAppointmentFilters";
+import { useAdminAppointmentMutations } from "@/features/admin/hooks/useAdminAppointmentMutations";
 import { useAdminOperations } from "@/features/admin/hooks/useAdminOperations";
 import { useAdminDirectory } from "@/features/admin/hooks/useAdminDirectory";
 import { useAdminUsers } from "@/features/admin/hooks/useAdminUsers";
@@ -124,18 +106,6 @@ export function useAdminConsole({
   activeUsersTab,
   requestConfirmation,
 }: UseAdminConsoleParams): UseAdminConsoleResult {
-  const [appointmentIdInput, setAppointmentIdInput] = useState("");
-  const [selectedAppointmentId, setSelectedAppointmentId] = useState<
-    number | null
-  >(null);
-  const [manualStatus, setManualStatus] = useState("active");
-  const [manualPaymentStatus, setManualPaymentStatus] = useState("paid");
-  const [manualStatusReason, setManualStatusReason] = useState("");
-  const [manualScheduledAt, setManualScheduledAt] = useState("");
-  const [issuedLinks, setIssuedLinks] = useState<{
-    patientLink: string;
-    doctorLink: string;
-  } | null>(null);
   const [batchLastResult, setBatchLastResult] = useState<
     AdminBatchActionResult[] | null
   >(DEFAULT_BATCH_RESULT);
@@ -185,10 +155,31 @@ export function useAdminConsole({
     canReadAdmin,
     isAppointmentsActive: activeSection === "appointments",
   });
-
-  useEffect(() => {
-    setManualStatusReason("");
-  }, [selectedAppointmentId]);
+  const detailState = useAdminAppointmentDetailState({
+    canReadAdmin,
+    isAppointmentsActive: activeSection === "appointments",
+    lang,
+  });
+  const {
+    appointmentIdInput,
+    setAppointmentIdInput,
+    selectedAppointmentId,
+    setSelectedAppointmentId,
+    manualStatus,
+    setManualStatus,
+    manualPaymentStatus,
+    setManualPaymentStatus,
+    manualStatusReason,
+    setManualStatusReason,
+    manualScheduledAt,
+    setManualScheduledAt,
+    issuedLinks,
+    setIssuedLinks,
+    appointmentDetailQuery,
+    visitSummaryQuery,
+    risks,
+    suggestions,
+  } = detailState;
 
   const toUiError = (message?: string) => {
     const raw = (message ?? "").trim();
@@ -216,36 +207,6 @@ export function useAdminConsole({
     return raw;
   };
 
-  const toDateTimeLocalValue = (value: Date | string | null | undefined) => {
-    if (!value) {
-      return "";
-    }
-    const date = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return "";
-    }
-    const pad = (part: number) => String(part).padStart(2, "0");
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-  };
-
-  const appointmentDetailQuery = trpc.system.adminAppointmentDetail.useQuery(
-    { appointmentId: selectedAppointmentId ?? 0 },
-    {
-      enabled:
-        canReadAdmin &&
-        activeSection === "appointments" &&
-        typeof selectedAppointmentId === "number",
-    }
-  );
-  const visitSummaryQuery = trpc.system.adminGetVisitSummary.useQuery(
-    { appointmentId: selectedAppointmentId ?? 0 },
-    {
-      enabled:
-        canReadAdmin &&
-        activeSection === "appointments" &&
-        typeof selectedAppointmentId === "number",
-    }
-  );
   const {
     operationAuditPage,
     setOperationAuditPage,
@@ -312,11 +273,6 @@ export function useAdminConsole({
     toUiError,
   });
 
-  useEffect(() => {
-    const scheduledAt = appointmentDetailQuery.data?.appointment.scheduledAt;
-    setManualScheduledAt(toDateTimeLocalValue(scheduledAt));
-  }, [appointmentDetailQuery.data?.appointment.scheduledAt]);
-
   const refreshAdminData = useCallback(async () => {
     if (activeSection === "appointments") {
       await Promise.all([
@@ -350,92 +306,45 @@ export function useAdminConsole({
     visitSummaryQuery,
   ]);
 
-  const resendPaymentMutation = trpc.system.adminReinitiatePayment.useMutation({
-    onError: error => {
-      toast.error(toUiError(error.message));
-    },
-    onSuccess: async result => {
-      toast.success(tr("正在跳转到支付页...", "Redirecting to checkout..."));
-      await refreshAdminData();
-      if (typeof window !== "undefined") {
-        window.location.href = result.checkoutUrl;
-      }
-    },
+  const detailMutations = useAdminAppointmentMutations({
+    tr,
+    toUiError,
+    refreshAdminData,
+    detailState,
   });
-  const resendAccessLinkMutation =
-    trpc.system.adminResendAccessLink.useMutation({
-      onSuccess: async () => {
-        toast.success(tr("访问链接邮件已重发。", "Access link email resent."));
-        await refreshAdminData();
-      },
-      onError: error => {
-        toast.error(toUiError(error.message));
-      },
-    });
-  const issueLinksMutation = trpc.system.adminIssueAccessLinks.useMutation({
-    onSuccess: async result => {
-      setIssuedLinks({
-        patientLink: result.patientLink,
-        doctorLink: result.doctorLink,
-      });
-      toast.success(tr("新链接已签发。", "New links issued."));
-      await refreshAdminData();
-    },
-    onError: error => {
-      toast.error(toUiError(error.message));
-    },
+  const detailActions = useAdminAppointmentDetailActions({
+    canMutateAdmin,
+    canResendAccessLink,
+    canIssueAccessLinks,
+    canNotifyFollowup,
+    lang,
+    tr,
+    requestConfirmation,
+    detailState,
+    mutations: detailMutations,
   });
-  const notifyDoctorFollowupMutation =
-    trpc.system.adminNotifyDoctorFollowup.useMutation({
-      onSuccess: () => {
-        toast.success(
-          tr("已发送医生跟进提醒。", "Doctor follow-up reminder sent.")
-        );
-      },
-      onError: error => {
-        toast.error(toUiError(error.message));
-      },
-    });
-  const updateStatusMutation =
-    trpc.system.adminUpdateAppointmentStatus.useMutation({
-      onSuccess: async () => {
-        toast.success(tr("预约状态已更新。", "Appointment status updated."));
-        await refreshAdminData();
-      },
-      onError: error => {
-        toast.error(toUiError(error.message));
-      },
-    });
-  const updateScheduleMutation =
-    trpc.system.adminUpdateAppointmentSchedule.useMutation({
-      onSuccess: async () => {
-        toast.success(tr("预约时间已更新。", "Appointment schedule updated."));
-        await refreshAdminData();
-      },
-      onError: error => {
-        toast.error(toUiError(error.message));
-      },
-    });
-  const generateSummaryMutation =
-    trpc.system.adminGenerateVisitSummary.useMutation({
-      onSuccess: () => {
-        toast.success(tr("会后总结已生成。", "Visit summary generated."));
-        void visitSummaryQuery.refetch();
-      },
-      onError: error => {
-        toast.error(toUiError(error.message));
-      },
-    });
-  const exportSummaryPdfMutation =
-    trpc.system.adminExportVisitSummaryPdf.useMutation({
-      onSuccess: result => {
-        downloadBase64File(result.base64, result.mimeType, result.filename);
-        toast.success(tr("PDF 已导出。", "PDF exported."));
-      },
-      onError: error => {
-        toast.error(toUiError(error.message));
-      },
-    });
+  const {
+    resendPaymentMutation,
+    resendAccessLinkMutation,
+    issueLinksMutation,
+    notifyDoctorFollowupMutation,
+    updateStatusMutation,
+    updateScheduleMutation,
+    generateSummaryMutation,
+    exportSummaryPdfMutation,
+  } = detailMutations;
+  const {
+    openAppointmentById,
+    applyManualStatusUpdate,
+    applyManualScheduleUpdate,
+    setScheduleToNow,
+    handleCopyDebugSnapshot,
+    beforeReinitiatePayment,
+    beforeResendAccessLink,
+    beforeIssueLinks,
+    runSuggestedAction,
+  } = detailActions;
+
   const adminBatchMutation =
     trpc.system.adminBatchAppointmentsAction.useMutation({
       onSuccess: result => {
@@ -473,365 +382,6 @@ export function useAdminConsole({
       toast.error(toUiError(error.message));
     },
   });
-  const risks = useMemo(
-    () => computeAdminRisks(appointmentDetailQuery.data, new Date(), lang),
-    [appointmentDetailQuery.data, lang]
-  );
-  const suggestions = useMemo(
-    () => computeAdminSuggestions(appointmentDetailQuery.data, risks, lang),
-    [appointmentDetailQuery.data, risks, lang]
-  );
-
-  const openAppointmentById = () => {
-    const parsed = Number(appointmentIdInput.trim());
-    if (!Number.isInteger(parsed) || parsed <= 0) {
-      toast.error(
-        tr("请输入有效的预约 ID。", "Please enter a valid appointment ID.")
-      );
-      return;
-    }
-    setSelectedAppointmentId(parsed);
-    setIssuedLinks(null);
-  };
-
-  const applyManualStatusUpdate = () => {
-    if (!selectedAppointmentId) {
-      toast.error(tr("请先加载预约详情。", "Load appointment detail first."));
-      return;
-    }
-
-    const statusCopy = getAdminStatusGuidanceCopy(lang);
-    const currentStatus = appointmentDetailQuery.data?.appointment.status ?? "";
-    if (
-      !isAdminAppointmentStatus(currentStatus) ||
-      !isAdminAppointmentStatus(manualStatus) ||
-      !isAdminPaymentStatus(manualPaymentStatus) ||
-      !getAdminAppointmentNextStatuses(currentStatus).includes(manualStatus) ||
-      !getAdminAppointmentPaymentStatuses(manualStatus).includes(
-        manualPaymentStatus
-      )
-    ) {
-      toast.error(statusCopy.appointment.invalidSelection);
-      return;
-    }
-
-    const reason = manualStatusReason.trim();
-    if (reason.length < 3) {
-      toast.error(tr("请填写有效原因。", "Please provide a valid reason."));
-      return;
-    }
-
-    const confirmation = getAdminConfirmationCopy(
-      lang as AdminLang,
-      "updateAppointmentStatus"
-    );
-    requestConfirmation({
-      title: confirmation.title,
-      description: confirmation.description,
-      confirmLabel: confirmation.confirmLabel,
-      cancelLabel: confirmation.cancelLabel,
-      tone:
-        manualStatus === "canceled" ||
-        manualStatus === "refunded" ||
-        manualPaymentStatus === "refunded" ||
-        manualPaymentStatus === "canceled"
-          ? "danger"
-          : "default",
-      onConfirm: () =>
-        updateStatusMutation.mutateAsync({
-          appointmentId: selectedAppointmentId,
-          toStatus: manualStatus as
-            | "draft"
-            | "pending_payment"
-            | "paid"
-            | "active"
-            | "ended"
-            | "completed"
-            | "expired"
-            | "refunded"
-            | "canceled",
-          toPaymentStatus: manualPaymentStatus as
-            | "unpaid"
-            | "pending"
-            | "paid"
-            | "failed"
-            | "expired"
-            | "refunded"
-            | "canceled",
-          reason,
-        }),
-    });
-  };
-
-  const applyManualScheduleUpdate = () => {
-    if (!selectedAppointmentId) {
-      toast.error(tr("请先加载预约详情。", "Load appointment detail first."));
-      return;
-    }
-    const raw = manualScheduledAt.trim();
-    if (!raw) {
-      toast.error(tr("请选择预约时间。", "Please select a scheduled time."));
-      return;
-    }
-    const parsed = new Date(raw);
-    if (Number.isNaN(parsed.getTime())) {
-      toast.error(tr("预约时间格式无效。", "Invalid scheduled time format."));
-      return;
-    }
-    updateScheduleMutation.mutate({
-      appointmentId: selectedAppointmentId,
-      scheduledAt: parsed,
-      reason: "ops_manual_schedule",
-    });
-  };
-
-  const setScheduleToNow = () => {
-    if (!selectedAppointmentId) {
-      toast.error(tr("请先加载预约详情。", "Load appointment detail first."));
-      return;
-    }
-    const now = new Date();
-    setManualScheduledAt(toDateTimeLocalValue(now));
-    updateScheduleMutation.mutate({
-      appointmentId: selectedAppointmentId,
-      scheduledAt: now,
-      reason: "ops_set_schedule_now",
-    });
-  };
-
-  const handleCopyDebugSnapshot = async () => {
-    if (!appointmentDetailQuery.data) {
-      toast.error(
-        tr("没有可复制的预约详情。", "No appointment detail to copy.")
-      );
-      return;
-    }
-
-    const debugPayload = {
-      appointmentId: appointmentDetailQuery.data.appointment.id,
-      status: appointmentDetailQuery.data.appointment.status,
-      paymentStatus: appointmentDetailQuery.data.appointment.paymentStatus,
-      stripeSessionId: null,
-      scheduledAt: appointmentDetailQuery.data.appointment.scheduledAt,
-      paidAt: appointmentDetailQuery.data.appointment.paidAt,
-      tokenSummary: appointmentDetailQuery.data.activeTokens.map(token => ({
-        id: token.id,
-        role: token.role,
-        useCount: token.useCount,
-        maxUses: token.maxUses,
-        expiresAt: token.expiresAt,
-        lastUsedAt: token.lastUsedAt,
-      })),
-      latestStatusEvents: appointmentDetailQuery.data.statusEvents.slice(0, 10),
-      latestWebhookEvents: appointmentDetailQuery.data.webhookEvents.slice(
-        0,
-        10
-      ),
-    };
-    const textTemplate = [
-      `Appointment #${debugPayload.appointmentId}`,
-      `Status: ${debugPayload.status}`,
-      `Payment: ${debugPayload.paymentStatus}`,
-      `Scheduled At: ${formatDate(debugPayload.scheduledAt as Date | string | null)}`,
-      `Paid At: ${formatDate(debugPayload.paidAt as Date | string | null)}`,
-      `Token Count: ${debugPayload.tokenSummary.length}`,
-      `Recent Status Events: ${debugPayload.latestStatusEvents.length}`,
-      `Recent Webhook Events: ${debugPayload.latestWebhookEvents.length}`,
-      "",
-      "JSON:",
-      stringify(debugPayload),
-    ].join("\n");
-
-    try {
-      await navigator.clipboard.writeText(textTemplate);
-      toast.success(tr("调试快照已复制。", "Debug snapshot copied."));
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : tr("复制调试快照失败。", "Failed to copy debug snapshot.")
-      );
-    }
-  };
-
-  const beforeReinitiatePayment = () => {
-    const detail = appointmentDetailQuery.data?.appointment;
-    if (!detail) {
-      toast.error(tr("请先加载预约详情。", "Load appointment detail first."));
-      return false;
-    }
-    const blockedStatuses = new Set([
-      "paid",
-      "active",
-      "ended",
-      "completed",
-      "refunded",
-    ]);
-    if (detail.paymentStatus === "paid" || blockedStatuses.has(detail.status)) {
-      toast.error(
-        tr(
-          "该预约已结算，不可重新发起支付。",
-          "This appointment is already settled. Re-initiate payment is not allowed."
-        )
-      );
-      return false;
-    }
-    return true;
-  };
-
-  const beforeResendAccessLink = () => {
-    const detail = appointmentDetailQuery.data?.appointment;
-    if (!detail) {
-      toast.error(tr("请先加载预约详情。", "Load appointment detail first."));
-      return false;
-    }
-    const allowedStatuses = new Set(["paid", "active"]);
-    if (
-      detail.paymentStatus !== "paid" ||
-      !allowedStatuses.has(detail.status)
-    ) {
-      toast.error(
-        tr(
-          "仅已支付/进行中的预约支持重发访问链接。",
-          "Access link resend is only available for paid/active appointments."
-        )
-      );
-      return false;
-    }
-    return true;
-  };
-
-  const beforeIssueLinks = () => {
-    const detail = appointmentDetailQuery.data?.appointment;
-    if (!detail) {
-      toast.error(tr("请先加载预约详情。", "Load appointment detail first."));
-      return false;
-    }
-    if (detail.paymentStatus !== "paid") {
-      toast.error(
-        tr(
-          "仅支付完成后可签发访问链接。",
-          "Issue link is only available after payment is settled."
-        )
-      );
-      return false;
-    }
-    return true;
-  };
-
-  const runSuggestedAction = (suggestion: AdminSuggestion) => {
-    if (!selectedAppointmentId) {
-      toast.error(tr("请先加载预约详情。", "Load appointment detail first."));
-      return;
-    }
-
-    if (suggestion.action === "reinitiate_payment") {
-      if (!canMutateAdmin) {
-        toast.message(
-          tr(
-            "当前角色无权执行该动作。",
-            "Current role cannot execute this action."
-          )
-        );
-        return;
-      }
-    } else if (suggestion.action === "resend_access_link") {
-      if (!canResendAccessLink) {
-        toast.message(
-          tr(
-            "当前角色无权执行该动作。",
-            "Current role cannot execute this action."
-          )
-        );
-        return;
-      }
-    } else if (suggestion.action === "issue_access_links") {
-      if (!canIssueAccessLinks) {
-        toast.message(
-          tr(
-            "当前角色无权执行该动作。",
-            "Current role cannot execute this action."
-          )
-        );
-        return;
-      }
-    }
-
-    if (suggestion.action === "notify_doctor_followup" && !canNotifyFollowup) {
-      toast.message(
-        tr(
-          "当前角色无权执行该动作。",
-          "Current role cannot execute this action."
-        )
-      );
-      return;
-    }
-
-    if (suggestion.action === "reinitiate_payment") {
-      if (!beforeReinitiatePayment()) return;
-      const confirmation = getAdminConfirmationCopy(lang, "reinitiatePayment");
-      requestConfirmation({
-        title: confirmation.title,
-        description: confirmation.description,
-        confirmLabel: confirmation.continueLabel,
-        cancelLabel: confirmation.cancelLabel,
-        tone: "danger",
-        onConfirm: () =>
-          resendPaymentMutation.mutateAsync({
-            appointmentId: selectedAppointmentId,
-          }),
-      });
-      return;
-    }
-    if (suggestion.action === "resend_access_link") {
-      if (!beforeResendAccessLink()) return;
-      const confirmation = getAdminConfirmationCopy(lang, "resendAccessLink");
-      requestConfirmation({
-        title: confirmation.title,
-        description: confirmation.description,
-        confirmLabel: confirmation.continueLabel,
-        cancelLabel: confirmation.cancelLabel,
-        onConfirm: () =>
-          resendAccessLinkMutation.mutateAsync({
-            appointmentId: selectedAppointmentId,
-          }),
-      });
-      return;
-    }
-    if (suggestion.action === "issue_access_links") {
-      if (!beforeIssueLinks()) return;
-      const confirmation = getAdminConfirmationCopy(lang, "issueAccessLinks");
-      requestConfirmation({
-        title: confirmation.title,
-        description: confirmation.description,
-        confirmLabel: confirmation.continueLabel,
-        cancelLabel: confirmation.cancelLabel,
-        tone: "danger",
-        onConfirm: () =>
-          issueLinksMutation.mutateAsync({
-            appointmentId: selectedAppointmentId,
-          }),
-      });
-      return;
-    }
-    if (suggestion.action === "notify_doctor_followup") {
-      notifyDoctorFollowupMutation.mutate({
-        appointmentId: selectedAppointmentId,
-      });
-      return;
-    }
-    if (suggestion.action === "inspect_webhook_timeline") {
-      toast.message(
-        tr(
-          "请先查看下方 webhook 时间线再执行下一步。",
-          "Review the webhook timeline section below before next action."
-        )
-      );
-      return;
-    }
-    toast.message(tr("当前无紧急动作。", "No urgent action required."));
-  };
-
   const executeBatch = (input: {
     action: "resend_access_link" | "reinitiate_payment" | "update_status";
     toStatus?: string;
