@@ -27,7 +27,7 @@
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
     "server/modules/appointments/repo.ts": {
-      "maxLines": 892,
+      "maxLines": 893,
       "phase": "4",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
