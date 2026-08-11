@@ -12,13 +12,11 @@ import {
   sql,
 } from "drizzle-orm";
 import {
-  appointmentMedicalSummaries,
   appointmentTokens,
   appointmentStatusEvents,
   appointments,
   stripeWebhookEvents,
   type InsertAppointment,
-  type InsertAppointmentMedicalSummary,
 } from "../../../drizzle/schema";
 import { getDb } from "../../db";
 import { type AppointmentStatus, type PaymentStatus } from "./stateMachine";
@@ -52,6 +50,10 @@ export {
   tryTransitionAppointmentById,
   tryTransitionAppointmentByStripeSessionId,
 } from "./lifecycleRepo";
+export {
+  getMedicalSummaryByAppointmentId,
+  upsertMedicalSummaryByAppointmentId,
+} from "./medicalSummaryRepo";
 
 type PaymentProvider = "stripe" | "paypal";
 type DbExecutor = AppointmentRepoExecutor;
@@ -190,61 +192,6 @@ export async function updateAppointmentNotesIfMatch(input: {
     .where(and(eq(appointments.id, input.appointmentId), expectedClause));
 
   return extractAffectedRows(result);
-}
-
-export async function getMedicalSummaryByAppointmentId(
-  appointmentId: number,
-  dbExecutor?: DbExecutor
-) {
-  const db = await resolveDbExecutor(dbExecutor);
-  const rows = await db
-    .select()
-    .from(appointmentMedicalSummaries)
-    .where(eq(appointmentMedicalSummaries.appointmentId, appointmentId))
-    .limit(1);
-
-  return rows[0] ?? null;
-}
-
-export async function upsertMedicalSummaryByAppointmentId(input: {
-  appointmentId: number;
-  chiefComplaint: string;
-  historyOfPresentIllness: string;
-  pastMedicalHistory: string;
-  assessmentDiagnosis: string;
-  planRecommendations: string;
-  source: InsertAppointmentMedicalSummary["source"];
-  signedBy?: number | null;
-  dbExecutor?: DbExecutor;
-}) {
-  const db = await resolveDbExecutor(input.dbExecutor);
-  await db
-    .insert(appointmentMedicalSummaries)
-    .values({
-      appointmentId: input.appointmentId,
-      chiefComplaint: input.chiefComplaint,
-      historyOfPresentIllness: input.historyOfPresentIllness,
-      pastMedicalHistory: input.pastMedicalHistory,
-      assessmentDiagnosis: input.assessmentDiagnosis,
-      planRecommendations: input.planRecommendations,
-      source: input.source,
-      signedBy: input.signedBy ?? null,
-    })
-    .onConflictDoUpdate({
-      target: appointmentMedicalSummaries.appointmentId,
-      set: {
-        chiefComplaint: input.chiefComplaint,
-        historyOfPresentIllness: input.historyOfPresentIllness,
-        pastMedicalHistory: input.pastMedicalHistory,
-        assessmentDiagnosis: input.assessmentDiagnosis,
-        planRecommendations: input.planRecommendations,
-        source: input.source,
-        signedBy: input.signedBy ?? null,
-        updatedAt: new Date(),
-      },
-    });
-
-  return getMedicalSummaryByAppointmentId(input.appointmentId, db);
 }
 
 export async function findLatestAppointmentIdByLookup(lookup: {
