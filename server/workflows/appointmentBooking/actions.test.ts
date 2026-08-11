@@ -43,7 +43,15 @@ describe("appointment booking workflow", () => {
         createInput: { marker: "input" },
         userId: 12,
         userEmail: "patient@example.com",
-        req: { headers: {} },
+        requestMetadata: {
+          clientIp: null,
+          forwardedHost: null,
+          forwardedProto: null,
+          host: "app.medibridge.test",
+          protocol: "https",
+          requestId: null,
+          userAgent: null,
+        },
       } as never;
 
       await run(input);
