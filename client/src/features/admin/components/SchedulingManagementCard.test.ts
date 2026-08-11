@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getSchedulingDoctorLabel } from "@/features/admin/components/SchedulingManagementCard";
+import { formatSchedulingStatus } from "@/features/admin/schedulingPresentation";
 
 const tr = (zh: string, en: string) => en;
 
@@ -56,5 +57,16 @@ describe("getSchedulingDoctorLabel", () => {
         tr,
       })
     ).toBe("张医生 (#12)");
+  });
+});
+
+describe("formatSchedulingStatus", () => {
+  it("localizes known slot statuses", () => {
+    expect(formatSchedulingStatus("open", tr)).toBe("Open");
+    expect(formatSchedulingStatus("blocked", tr)).toBe("Blocked");
+  });
+
+  it("preserves unknown statuses", () => {
+    expect(formatSchedulingStatus("custom", tr)).toBe("custom");
   });
 });
