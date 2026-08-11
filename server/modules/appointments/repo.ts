@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, isNull, like, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull, like, lt, sql } from "drizzle-orm";
 import {
   appointmentTokens,
   appointments,
@@ -59,6 +59,12 @@ export {
   getAppointmentByStripeSessionId,
   getCheckoutResultByStripeSessionId,
 } from "./coreReadRepo";
+export {
+  listAppointmentsByDoctor,
+  listAppointmentsByEmail,
+  listAppointmentsByUserOrEmail,
+  listAppointmentsByUserScope,
+} from "./listReadRepo";
 
 type DbExecutor = AppointmentRepoExecutor;
 export type { AppointmentRepoExecutor };
@@ -157,90 +163,6 @@ export async function bindAppointmentsToUserByEmail(
     .update(appointments)
     .set({ userId })
     .where(eq(appointments.email, email));
-}
-
-export async function listAppointmentsByUserScope(input: {
-  userId: number;
-  email?: string | null;
-  limit: number;
-}) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  const hasEmail = Boolean(input.email && input.email.trim().length > 0);
-  const whereClause = hasEmail
-    ? or(
-        eq(appointments.userId, input.userId),
-        eq(appointments.email, input.email!)
-      )
-    : eq(appointments.userId, input.userId);
-
-  return db
-    .select()
-    .from(appointments)
-    .where(whereClause)
-    .orderBy(desc(appointments.createdAt), desc(appointments.id))
-    .limit(input.limit);
-}
-
-export async function listAppointmentsByUserOrEmail(input: {
-  userId: number;
-  email?: string | null;
-}) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  const hasEmail = Boolean(input.email && input.email.trim().length > 0);
-  const whereClause = hasEmail
-    ? or(
-        eq(appointments.userId, input.userId),
-        eq(appointments.email, input.email!)
-      )
-    : eq(appointments.userId, input.userId);
-
-  return db
-    .select()
-    .from(appointments)
-    .where(whereClause)
-    .orderBy(desc(appointments.createdAt), desc(appointments.id));
-}
-
-export async function listAppointmentsByEmail(email: string) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  return db
-    .select()
-    .from(appointments)
-    .where(eq(appointments.email, email))
-    .orderBy(desc(appointments.createdAt), desc(appointments.id));
-}
-
-export async function listAppointmentsByDoctor(input: {
-  doctorId: number;
-  limit: number;
-}) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  return db
-    .select()
-    .from(appointments)
-    .where(eq(appointments.doctorId, input.doctorId))
-    .orderBy(
-      asc(appointments.scheduledAt),
-      desc(appointments.createdAt),
-      desc(appointments.id)
-    )
-    .limit(input.limit);
 }
 
 export async function listAppointmentsForAdmin(input: {
