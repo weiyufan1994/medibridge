@@ -27,7 +27,7 @@
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
     "server/modules/referrals/actions.ts": {
-      "maxLines": 1515,
+      "maxLines": 1347,
       "phase": "4",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
