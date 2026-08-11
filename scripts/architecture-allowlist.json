@@ -26,11 +26,6 @@
       "phase": "5",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
-    "client/src/features/admin/components/ReferralAdminPanel.tsx": {
-      "maxLines": 959,
-      "phase": "5",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
     "client/src/features/admin/components/ReferralCatalogCard.tsx": {
       "maxLines": 722,
       "phase": "5",
