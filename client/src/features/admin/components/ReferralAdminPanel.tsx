@@ -7,13 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getReferralCopy } from "@/features/referrals/copy";
 import {
   formatReferralDateTime,
   formatReferralMoney,
+  getReferralCopy,
   getReferralStatusLabel,
   getRefundStatusLabel,
-} from "@/features/referrals/presentation";
+} from "@/features/referrals";
 import { getLocalizedText } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";

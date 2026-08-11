@@ -11,7 +11,7 @@ import {
 import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useAuth } from "@/features/auth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getDisplayLocale, getLocalizedText } from "@/lib/i18n";
 import { useAdminConsole } from "@/features/admin/hooks/useAdminConsole";
@@ -39,8 +39,7 @@ import { ReferralCatalogCard } from "@/features/admin/components/ReferralCatalog
 import { OverviewSection } from "@/features/admin/components/appointment-detail/OverviewSection";
 import { DiagnosticsSection } from "@/features/admin/components/appointment-detail/DiagnosticsSection";
 import { ActionsSection } from "@/features/admin/components/appointment-detail/ActionsSection";
-import { getBookingWorkspaceCopy } from "@/features/booking/copy";
-import { BookingWorkspace } from "@/features/booking/components/BookingWorkspace";
+import { BookingWorkspace, getBookingWorkspaceCopy } from "@/features/booking";
 import { AdminActionConfirmationProvider } from "@/features/admin/components/AdminActionConfirmation";
 import { useAdminActionConfirmation } from "@/features/admin/adminActionConfirmationContext";
 import { getAdminConfirmationCopy } from "@/features/admin/copy";

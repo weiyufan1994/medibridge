@@ -14,18 +14,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
-import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useAuth } from "@/features/auth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { MyAppointments } from "@/components/MyAppointments";
-import { getDashboardCopy } from "@/features/dashboard/copy";
 import {
+  getDashboardCopy,
   parseDashboardSectionFromSearch,
+  PricingModal,
   type DashboardSection,
-} from "@/features/dashboard/presentation";
+} from "@/features/dashboard";
 import { getDisplayLocale } from "@/lib/i18n";
-import PricingModal from "@/features/dashboard/components/PricingModal";
-import { MyReferralOrders } from "@/features/referrals/components/MyReferralOrders";
+import { MyReferralOrders } from "@/features/referrals";
 import { useLocation } from "wouter";
 
 function formatDateTime(value: Date | string | null, locale?: string) {

@@ -1,4 +1,4 @@
-import { getTriageCopy } from "@/features/triage/copy";
+import { getTriageCopy } from "@/features/triage";
 
 type Lang = "en" | "zh";
 

@@ -2,9 +2,11 @@ import { useRoute } from "wouter";
 import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ReferralOrderDetailScreen } from "@/features/referrals/components/ReferralOrderDetailScreen";
-import { getReferralCopy } from "@/features/referrals/copy";
-import { parsePositiveNumberParam } from "@/features/referrals/presentation";
+import {
+  getReferralCopy,
+  parsePositiveNumberParam,
+  ReferralOrderDetailScreen,
+} from "@/features/referrals";
 
 export default function ReferralOrderDetailPage() {
   const { resolved } = useLanguage();

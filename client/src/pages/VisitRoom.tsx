@@ -1,4 +1,4 @@
-import { VisitRoomScreen } from "@/features/visit/components/VisitRoomScreen";
+import { VisitRoomScreen } from "@/features/visit";
 
 export default function VisitRoomPage() {
   return <VisitRoomScreen />;

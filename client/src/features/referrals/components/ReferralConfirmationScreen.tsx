@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { getLocalizedText } from "@/lib/i18n";
-import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useAuth } from "@/features/auth";
 import { getReferralCopy, type ReferralLang } from "@/features/referrals/copy";
 import {
   buildReferralSelectionHref,

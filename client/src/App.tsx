@@ -3,8 +3,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { AnalyticsLoader } from "@/components/AnalyticsLoader";
-import { LoginModal } from "@/features/auth/components/LoginModal";
-import { useAuth } from "@/features/auth/hooks/useAuth";
+import { LoginModal, useAuth } from "@/features/auth";
 import NotFound from "@/pages/NotFound";
 import { Suspense, lazy, useEffect } from "react";
 import { Route, Switch } from "wouter";
@@ -12,7 +11,7 @@ import { Loader2 } from "lucide-react";
 import ErrorBoundary from "@/components/layout/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { LanguageProvider, useLanguage } from "./contexts/LanguageContext";
-import { getDashboardCopy } from "@/features/dashboard/copy";
+import { getDashboardCopy } from "@/features/dashboard";
 
 const HomePage = lazy(() => import("./pages/Home"));
 const DoctorDetailPage = lazy(() => import("./pages/DoctorDetail"));

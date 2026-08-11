@@ -42,7 +42,7 @@ import {
   resolveAnimatedAssistantSignature,
   type TriageDisplayMessage,
 } from "@/features/triage/components/aiTriageMessagePresentation";
-import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useAuth } from "@/features/auth";
 import { trpc } from "@/lib/trpc";
 import {
   buildLightTriageResultFormDefaults,
@@ -51,7 +51,7 @@ import {
   type LightTriageResultForm,
   type TriageRoutingHospital,
 } from "@shared/triageRouting";
-import { buildReferralSelectionHref } from "@/features/referrals/presentation";
+import { buildReferralSelectionHref } from "@/features/referrals";
 
 type HistoryItem = {
   id: number;

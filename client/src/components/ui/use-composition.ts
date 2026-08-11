@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { usePersistFn } from "./usePersistFn";
+import { usePersistFn } from "./use-persist-fn";
 
 export interface UseCompositionReturn<
   T extends HTMLInputElement | HTMLTextAreaElement,
@@ -47,7 +47,6 @@ export function useComposition<
   });
 
   const onCompositionEnd = usePersistFn((e: React.CompositionEvent<T>) => {
-    // 使用两层 setTimeout 来处理 Safari 浏览器中 compositionEnd 先于 onKeyDown 触发的问题
     timer.current = setTimeout(() => {
       timer2.current = setTimeout(() => {
         c.current = false;
@@ -57,7 +56,6 @@ export function useComposition<
   });
 
   const onKeyDown = usePersistFn((e: React.KeyboardEvent<T>) => {
-    // 在 composition 状态下，阻止 ESC 和 Enter（非 shift+Enter）事件的冒泡
     if (
       c.current &&
       (e.key === "Escape" || (e.key === "Enter" && !e.shiftKey))
@@ -68,9 +66,7 @@ export function useComposition<
     originalOnKeyDown?.(e);
   });
 
-  const isComposing = usePersistFn(() => {
-    return c.current;
-  });
+  const isComposing = usePersistFn(() => c.current);
 
   return {
     onCompositionStart,

@@ -1,12 +1,12 @@
 import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ReferralConfirmationScreen } from "@/features/referrals/components/ReferralConfirmationScreen";
-import { getReferralCopy } from "@/features/referrals/copy";
 import {
+  getReferralCopy,
   parseNonNegativeNumberParam,
   parsePositiveNumberParam,
-} from "@/features/referrals/presentation";
+  ReferralConfirmationScreen,
+} from "@/features/referrals";
 
 function readConfirmationParams() {
   if (typeof window === "undefined") {

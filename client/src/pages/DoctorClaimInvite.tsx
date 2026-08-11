@@ -4,7 +4,7 @@ import { Loader2, MailCheck } from "lucide-react";
 import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useAuth } from "@/features/auth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getLocalizedText } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
