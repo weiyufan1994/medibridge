@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { User } from "../../../drizzle/schema";
 import { aiHistoricalTriageApi } from "../ai/publicApi";
+import { requireUser } from "./accessControl";
 import * as referralRepo from "./repo";
 import {
   toPublicReferralContact,
@@ -23,17 +24,6 @@ type OwnedTriageRecommendation = Awaited<
 type RankedHospitalRecommendation = NonNullable<
   NonNullable<OwnedTriageRecommendation["triageResult"]>["routing"]
 >["hospitals"][number];
-
-function requireUser(user: User | null) {
-  if (!user) {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "Please sign in to continue.",
-    });
-  }
-
-  return user;
-}
 
 async function getOwnedTriageRecommendation(input: {
   triageSessionId: number;

@@ -6,6 +6,7 @@ import {
   REFERRAL_SERVICE_AMOUNT,
   REFERRAL_SERVICE_CURRENCY,
 } from "../../../shared/referrals";
+import { requireFormalUser } from "./accessControl";
 import { mapOrderToSummary } from "./orderSummary";
 import * as referralRepo from "./repo";
 import type { createOrderDraftInputSchema } from "./schemas";
@@ -16,23 +17,6 @@ import {
 } from "./triageActions";
 
 type CreateOrderDraftInput = z.infer<typeof createOrderDraftInputSchema>;
-
-function requireFormalUser(user: User | null) {
-  if (!user) {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "Please sign in to continue.",
-    });
-  }
-  if (user.isGuest === 1) {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "FORMAL_ACCOUNT_REQUIRED",
-    });
-  }
-
-  return user;
-}
 
 export async function createOrderDraftAction(
   user: User | null,
