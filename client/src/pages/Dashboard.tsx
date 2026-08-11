@@ -17,13 +17,13 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/features/auth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { MyAppointments } from "@/components/MyAppointments";
 import {
   getDashboardCopy,
   parseDashboardSectionFromSearch,
   PricingModal,
   type DashboardSection,
 } from "@/features/dashboard";
+import { MyAppointments } from "@/features/myAppointments";
 import { getDisplayLocale } from "@/lib/i18n";
 import { MyReferralOrders } from "@/features/referrals";
 import { useLocation } from "wouter";
