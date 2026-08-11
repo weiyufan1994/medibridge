@@ -1,10 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { User } from "../../../drizzle/schema";
-import {
-  paymentProviderApi,
-  type PaymentProvider,
-} from "../payments/publicApi";
+import { paymentProviderApi } from "../payments/publicApi";
 import {
   type ReferralActorType,
   type ReferralOrderStatus,
@@ -28,10 +25,7 @@ import {
   initiateAutomaticReferralRefund,
   processReferralRefund,
 } from "./refunds";
-import {
-  publishReferralPaymentSettlement,
-  settleReferralPaymentTransition,
-} from "./paymentSettlement";
+import { settleReferralOrderPaymentBySessionId } from "./paymentSettlement";
 import { resolveReferralPaymentMode } from "./paymentMode";
 import {
   getOwnedOrder,
@@ -64,6 +58,7 @@ export {
 } from "./triageActions";
 export { createOrderDraftAction } from "./orderDraftActions";
 export { createPaymentSessionAction } from "./paymentSessionActions";
+export { confirmReturnedPaymentSessionAction } from "./returnedPaymentActions";
 type ListMineOrdersInput = z.infer<typeof listMineOrdersInputSchema>;
 type ListOrdersInput = z.infer<typeof listOrdersInputSchema>;
 type AssignOrderInput = z.infer<typeof assignOrderInputSchema>;
@@ -225,21 +220,6 @@ async function recordPatientNotification(input: {
   });
 }
 
-async function settleReferralOrderPaymentBySessionId(input: {
-  paymentSessionId: string;
-  paymentProviderTransactionId?: string | null;
-  actorType: ReferralActorType;
-  reason: string;
-}) {
-  const settlement = await settleReferralPaymentTransition({
-    paymentSessionId: input.paymentSessionId,
-    paymentProviderTransactionId: input.paymentProviderTransactionId ?? null,
-    actorType: input.actorType,
-    reason: input.reason,
-  });
-  return publishReferralPaymentSettlement(settlement.orderId);
-}
-
 async function changeOrderStatus(input: {
   orderId: number;
   toStatus: ReferralOrderStatus;
@@ -280,57 +260,6 @@ async function changeOrderStatus(input: {
       message: REFERRAL_INVALID_TRANSITION_ERROR,
     });
   }
-}
-
-export async function confirmReturnedPaymentSessionAction(input: {
-  paymentSessionId: string;
-}) {
-  const order = await referralRepo.getReferralOrderByPaymentSessionId(
-    input.paymentSessionId
-  );
-  if (!order) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Referral order not found for payment session",
-    });
-  }
-
-  let paymentProviderTransactionId = order.paymentProviderTransactionId ?? null;
-  if (order.paymentStatus !== "paid") {
-    if (order.paymentProvider === "mock") {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message:
-          "Mock payments must be confirmed by the authenticated mock checkout flow.",
-      });
-    }
-    const verification = await paymentProviderApi.captureOrFinalize({
-      provider: order.paymentProvider as PaymentProvider,
-      providerSessionId: input.paymentSessionId,
-    });
-    if (verification.paymentStatus !== "paid") {
-      throw new TRPCError({
-        code: "PRECONDITION_FAILED",
-        message: "Payment has not been confirmed by the provider.",
-      });
-    }
-    paymentProviderTransactionId = verification.providerTransactionId ?? null;
-  }
-
-  const settledOrder = await settleReferralOrderPaymentBySessionId({
-    paymentSessionId: input.paymentSessionId,
-    paymentProviderTransactionId,
-    actorType: "webhook",
-    reason: "return_url_payment_verified",
-  });
-
-  return {
-    ok: true as const,
-    orderId: settledOrder.id,
-    status: settledOrder.status,
-    paymentStatus: settledOrder.paymentStatus,
-    paymentSessionId: settledOrder.paymentProviderSessionId ?? null,
-  };
 }
 
 export async function confirmMockPaymentAction(
