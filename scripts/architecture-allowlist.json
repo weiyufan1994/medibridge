@@ -6,11 +6,6 @@
       "phase": "5",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
-    "client/src/features/admin/components/SchedulingManagementCard.tsx": {
-      "maxLines": 846,
-      "phase": "5",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
     "client/src/features/admin/copy.ts": {
       "maxLines": 762,
       "phase": "5",
