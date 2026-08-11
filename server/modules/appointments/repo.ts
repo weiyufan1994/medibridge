@@ -59,6 +59,7 @@ export {
   insertStripeWebhookEvent,
   listStripeWebhookEventsForAppointment,
 } from "./webhookEventRepo";
+export { markAppointmentInSessionIfNeeded } from "./sessionTransitionRepo";
 
 type DbExecutor = AppointmentRepoExecutor;
 export type { AppointmentRepoExecutor };
@@ -596,37 +597,6 @@ export async function listAppointmentsForAdmin(input: {
     items,
     riskSummary,
   } as const;
-}
-
-export async function markAppointmentInSessionIfNeeded(appointmentId: number) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  const rows = await db
-    .select({ status: appointments.status })
-    .from(appointments)
-    .where(eq(appointments.id, appointmentId))
-    .limit(1);
-
-  const currentStatus = rows[0]?.status;
-  if (currentStatus !== "paid") {
-    return null;
-  }
-
-  const result = await db
-    .update(appointments)
-    .set({ status: "active", updatedAt: new Date() })
-    .where(
-      and(
-        eq(appointments.id, appointmentId),
-        eq(appointments.status, currentStatus)
-      )
-    );
-
-  const affectedRows = extractAffectedRows(result);
-  return affectedRows > 0 ? currentStatus : null;
 }
 
 export async function countStatusEventsByAppointment(appointmentId: number) {
