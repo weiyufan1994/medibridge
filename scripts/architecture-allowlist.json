@@ -6,11 +6,6 @@
       "phase": "5",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
-    "client/src/features/admin/components/appointment-detail/ActionsSection.tsx": {
-      "maxLines": 527,
-      "phase": "5",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
     "client/src/features/admin/components/AppointmentsCard.tsx": {
       "maxLines": 414,
       "phase": "5",
