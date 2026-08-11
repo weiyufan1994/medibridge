@@ -291,3 +291,5 @@ export function useAppointmentForm({
     handleCreateBooking,
   };
 }
+
+export type UseAppointmentFormResult = ReturnType<typeof useAppointmentForm>;
