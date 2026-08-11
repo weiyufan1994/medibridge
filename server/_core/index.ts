@@ -14,6 +14,7 @@ import { createVisitRealtimeGateway } from "../modules/visit/realtimeGateway";
 import { startAppointmentAutoCloseWorker } from "../workflows/appointmentAutoClose/publicApi";
 import { startReferralFulfillmentWorker } from "../modules/referrals/fulfillmentWorker";
 import { startReferralNotificationWorker } from "../modules/referrals/notificationWorker";
+import { authOAuthApi, authSessionApi } from "../modules/auth/publicApi";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -61,13 +62,13 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // OAuth callback under /api/oauth/callback
-  registerOAuthRoutes(app);
+  registerOAuthRoutes(app, authOAuthApi);
   // tRPC API
   app.use(
     "/api/trpc",
     createExpressMiddleware({
       router: appRouter,
-      createContext,
+      createContext: opts => createContext(opts, authSessionApi),
     })
   );
   // development mode uses Vite, production mode uses static files

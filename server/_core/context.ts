@@ -1,8 +1,13 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import { parse as parseCookieHeader } from "cookie";
 import type { User } from "../../drizzle/schema";
-import * as authRepo from "../modules/auth/repo";
-import { sdk } from "./sdk";
+
+export type ContextAuthDependencies = {
+  authenticateRequest: (
+    req: CreateExpressContextOptions["req"]
+  ) => Promise<User>;
+  getGuestUserByDeviceId: (deviceId: string) => Promise<User | undefined>;
+};
 
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
@@ -48,20 +53,21 @@ function getDeviceIdFromRequest(
 }
 
 export async function createContext(
-  opts: CreateExpressContextOptions
+  opts: CreateExpressContextOptions,
+  auth: ContextAuthDependencies
 ): Promise<TrpcContext> {
   let user: User | null = null;
   const deviceId = getDeviceIdFromRequest(opts.req);
 
   try {
-    user = await sdk.authenticateRequest(opts.req);
+    user = await auth.authenticateRequest(opts.req);
   } catch (error) {
     // Authentication is optional for public procedures.
     user = null;
   }
 
   if (!user && deviceId) {
-    user = (await authRepo.getGuestUserByDeviceId(deviceId)) ?? null;
+    user = (await auth.getGuestUserByDeviceId(deviceId)) ?? null;
   }
 
   return {
