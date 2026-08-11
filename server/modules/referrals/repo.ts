@@ -1,15 +1,13 @@
-import { and, asc, desc, eq, inArray, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lte, or } from "drizzle-orm";
 import {
   departments,
   hospitals,
   referralContacts,
-  referralNotificationOutbox,
   referralOrderOperations,
   referralOrders,
   referralOrderStatusEvents,
   refundRequests,
   users,
-  type InsertReferralNotificationOutbox,
   type InsertReferralOrder,
   type InsertRefundRequest,
 } from "../../../drizzle/schema";
@@ -96,6 +94,14 @@ export {
   listReferralOrdersForAdmin,
   listStatusEventsByOrderId,
 } from "./orderListReadRepo";
+export {
+  claimReferralNotification,
+  enqueueReferralNotification,
+  listDueReferralNotificationIds,
+  listFailedReferralNotificationsByOrderId,
+  markReferralNotificationFailed,
+  markReferralNotificationSent,
+} from "./notificationOutboxRepo";
 
 export async function createReferralOrder(input: {
   values: InsertReferralOrder;
@@ -502,147 +508,4 @@ export async function updateRefundRequestById(input: {
     .where(eq(refundRequests.id, input.refundRequestId));
 
   return extractAffectedRows(result);
-}
-
-export async function enqueueReferralNotification(input: {
-  values: InsertReferralNotificationOutbox;
-}) {
-  const db = await resolveDbExecutor();
-  await db
-    .insert(referralNotificationOutbox)
-    .values(input.values)
-    .onConflictDoNothing({
-      target: referralNotificationOutbox.dedupeKey,
-    });
-}
-
-export async function listDueReferralNotificationIds(input: {
-  now: Date;
-  staleProcessingBefore: Date;
-  limit: number;
-}) {
-  const db = await resolveDbExecutor();
-  const rows = await db
-    .select({ id: referralNotificationOutbox.id })
-    .from(referralNotificationOutbox)
-    .where(
-      or(
-        and(
-          eq(referralNotificationOutbox.status, "pending"),
-          lte(referralNotificationOutbox.nextAttemptAt, input.now)
-        ),
-        and(
-          eq(referralNotificationOutbox.status, "processing"),
-          lte(
-            referralNotificationOutbox.processingStartedAt,
-            input.staleProcessingBefore
-          )
-        )
-      )
-    )
-    .orderBy(
-      asc(referralNotificationOutbox.nextAttemptAt),
-      asc(referralNotificationOutbox.id)
-    )
-    .limit(input.limit);
-
-  return rows.map(row => row.id);
-}
-
-export async function claimReferralNotification(input: {
-  notificationId: number;
-  now: Date;
-  staleProcessingBefore: Date;
-}) {
-  const db = await resolveDbExecutor();
-  const result = await db
-    .update(referralNotificationOutbox)
-    .set({
-      status: "processing",
-      processingStartedAt: input.now,
-      attemptCount: sql`${referralNotificationOutbox.attemptCount} + 1`,
-      updatedAt: input.now,
-    })
-    .where(
-      and(
-        eq(referralNotificationOutbox.id, input.notificationId),
-        or(
-          eq(referralNotificationOutbox.status, "pending"),
-          and(
-            eq(referralNotificationOutbox.status, "processing"),
-            lte(
-              referralNotificationOutbox.processingStartedAt,
-              input.staleProcessingBefore
-            )
-          )
-        )
-      )
-    );
-
-  if (extractAffectedRows(result) !== 1) {
-    return null;
-  }
-
-  const rows = await db
-    .select()
-    .from(referralNotificationOutbox)
-    .where(eq(referralNotificationOutbox.id, input.notificationId))
-    .limit(1);
-
-  return rows[0] ?? null;
-}
-
-export async function markReferralNotificationSent(input: {
-  notificationId: number;
-  sentAt: Date;
-}) {
-  const db = await resolveDbExecutor();
-  await db
-    .update(referralNotificationOutbox)
-    .set({
-      status: "sent",
-      sentAt: input.sentAt,
-      lastError: null,
-      processingStartedAt: null,
-      updatedAt: input.sentAt,
-    })
-    .where(eq(referralNotificationOutbox.id, input.notificationId));
-}
-
-export async function markReferralNotificationFailed(input: {
-  notificationId: number;
-  error: string;
-  nextAttemptAt: Date;
-  terminal: boolean;
-}) {
-  const db = await resolveDbExecutor();
-  await db
-    .update(referralNotificationOutbox)
-    .set({
-      status: input.terminal ? "failed" : "pending",
-      lastError: input.error,
-      nextAttemptAt: input.nextAttemptAt,
-      processingStartedAt: null,
-      updatedAt: new Date(),
-    })
-    .where(eq(referralNotificationOutbox.id, input.notificationId));
-}
-
-export async function listFailedReferralNotificationsByOrderId(
-  orderId: number
-) {
-  const db = await resolveDbExecutor();
-  return db
-    .select()
-    .from(referralNotificationOutbox)
-    .where(
-      and(
-        eq(referralNotificationOutbox.orderId, orderId),
-        eq(referralNotificationOutbox.status, "failed")
-      )
-    )
-    .orderBy(
-      desc(referralNotificationOutbox.updatedAt),
-      desc(referralNotificationOutbox.id)
-    );
 }
