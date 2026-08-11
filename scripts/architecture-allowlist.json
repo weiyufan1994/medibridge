@@ -31,11 +31,6 @@
       "phase": "4",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
-    "server/modules/admin/repo.ts": {
-      "maxLines": 554,
-      "phase": "4",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
     "server/modules/ai/actions.ts": {
       "maxLines": 409,
       "phase": "4",
