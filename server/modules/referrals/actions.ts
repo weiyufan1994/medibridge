@@ -1,7 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { User } from "../../../drizzle/schema";
-import { paymentProviderApi } from "../payments/publicApi";
 import {
   type ReferralActorType,
   type ReferralOrderStatus,
@@ -25,8 +24,6 @@ import {
   initiateAutomaticReferralRefund,
   processReferralRefund,
 } from "./refunds";
-import { settleReferralOrderPaymentBySessionId } from "./paymentSettlement";
-import { resolveReferralPaymentMode } from "./paymentMode";
 import {
   getOwnedOrder,
   requireUser,
@@ -59,6 +56,7 @@ export {
 export { createOrderDraftAction } from "./orderDraftActions";
 export { createPaymentSessionAction } from "./paymentSessionActions";
 export { confirmReturnedPaymentSessionAction } from "./returnedPaymentActions";
+export { confirmMockPaymentAction } from "./mockPaymentActions";
 type ListMineOrdersInput = z.infer<typeof listMineOrdersInputSchema>;
 type ListOrdersInput = z.infer<typeof listOrdersInputSchema>;
 type AssignOrderInput = z.infer<typeof assignOrderInputSchema>;
@@ -260,56 +258,6 @@ async function changeOrderStatus(input: {
       message: REFERRAL_INVALID_TRANSITION_ERROR,
     });
   }
-}
-
-export async function confirmMockPaymentAction(
-  user: User | null,
-  input: { orderId: number }
-) {
-  if (resolveReferralPaymentMode() !== "mock") {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Mock checkout is disabled",
-    });
-  }
-
-  const currentUser = requireUser(user);
-  const order = await getOwnedOrder({
-    orderId: input.orderId,
-    userId: currentUser.id,
-  });
-  if (!order.paymentProviderSessionId) {
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message: "Payment session is missing for referral order",
-    });
-  }
-  if (order.paymentProvider !== "mock") {
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message: "Referral order is not using mock payment",
-    });
-  }
-
-  const verification = await paymentProviderApi.captureOrFinalize({
-    provider: "mock",
-    providerSessionId: order.paymentProviderSessionId,
-  });
-
-  const settledOrder = await settleReferralOrderPaymentBySessionId({
-    paymentSessionId: order.paymentProviderSessionId,
-    paymentProviderTransactionId: verification.providerTransactionId ?? null,
-    actorType: "system",
-    reason: "mock_payment_confirmed",
-  });
-
-  return {
-    ok: true as const,
-    orderId: settledOrder.id,
-    status: settledOrder.status,
-    paymentStatus: settledOrder.paymentStatus,
-    paymentSessionId: settledOrder.paymentProviderSessionId ?? null,
-  };
 }
 
 export async function listMineOrdersAction(
