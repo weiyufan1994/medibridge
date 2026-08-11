@@ -31,10 +31,7 @@ import {
   isAdminPaymentStatus,
 } from "@/features/admin/adminStatusTransitions";
 import type { AdminConfirmationRequest } from "@/features/admin/adminActionConfirmationContext";
-import {
-  getAppointmentSelectionScopeKey,
-  parseOptionalNonNegativeInteger,
-} from "@/features/admin/hooks/adminConsoleHelpers";
+import { useAdminAppointmentFilters } from "@/features/admin/hooks/useAdminAppointmentFilters";
 import { useAdminOperations } from "@/features/admin/hooks/useAdminOperations";
 import { useAdminDirectory } from "@/features/admin/hooks/useAdminDirectory";
 import { useAdminUsers } from "@/features/admin/hooks/useAdminUsers";
@@ -127,30 +124,10 @@ export function useAdminConsole({
   activeUsersTab,
   requestConfirmation,
 }: UseAdminConsoleParams): UseAdminConsoleResult {
-  const [emailQuery, setEmailQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
-  const [sortBy, setSortBy] = useState<
-    "createdAt" | "scheduledAt" | "amount" | "status" | "paymentStatus" | "id"
-  >("createdAt");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
-  const [doctorIdInput, setDoctorIdInput] = useState("");
-  const [amountMinInput, setAmountMinInput] = useState("");
-  const [amountMaxInput, setAmountMaxInput] = useState("");
-  const [createdAtFrom, setCreatedAtFrom] = useState("");
-  const [createdAtTo, setCreatedAtTo] = useState("");
-  const [scheduledAtFrom, setScheduledAtFrom] = useState("");
-  const [scheduledAtTo, setScheduledAtTo] = useState("");
-  const [hasRiskFilter, setHasRiskFilter] = useState(false);
   const [appointmentIdInput, setAppointmentIdInput] = useState("");
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<
     number | null
   >(null);
-  const [selectedAppointmentIds, setSelectedAppointmentIds] = useState<
-    number[]
-  >([]);
   const [manualStatus, setManualStatus] = useState("active");
   const [manualPaymentStatus, setManualPaymentStatus] = useState("paid");
   const [manualStatusReason, setManualStatusReason] = useState("");
@@ -162,33 +139,56 @@ export function useAdminConsole({
   const [batchLastResult, setBatchLastResult] = useState<
     AdminBatchActionResult[] | null
   >(DEFAULT_BATCH_RESULT);
+  const {
+    emailQuery,
+    setEmailQuery,
+    statusFilter,
+    setStatusFilter,
+    paymentStatusFilter,
+    setPaymentStatusFilter,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    sortBy,
+    setSortBy,
+    sortDirection,
+    setSortDirection,
+    doctorIdInput,
+    setDoctorIdInput,
+    amountMinInput,
+    setAmountMinInput,
+    amountMaxInput,
+    setAmountMaxInput,
+    createdAtFrom,
+    setCreatedAtFrom,
+    createdAtTo,
+    setCreatedAtTo,
+    scheduledAtFrom,
+    setScheduledAtFrom,
+    scheduledAtTo,
+    setScheduledAtTo,
+    hasRiskFilter,
+    setHasRiskFilter,
+    selectedAppointmentIds,
+    appointmentStatusOptions,
+    paymentStatusOptions,
+    appointmentsQuery,
+    exportFilters,
+    isAllVisibleSelected,
+    isAnyVisibleSelected,
+    resetAppointmentFilters,
+    toggleAppointmentSelection,
+    toggleSelectAllVisible,
+    clearSelection,
+  } = useAdminAppointmentFilters({
+    canReadAdmin,
+    isAppointmentsActive: activeSection === "appointments",
+  });
 
   useEffect(() => {
     setManualStatusReason("");
   }, [selectedAppointmentId]);
-
-  const appointmentStatusOptions = [
-    "",
-    "draft",
-    "pending_payment",
-    "paid",
-    "active",
-    "ended",
-    "completed",
-    "expired",
-    "refunded",
-    "canceled",
-  ] as const;
-  const paymentStatusOptions = [
-    "",
-    "unpaid",
-    "pending",
-    "paid",
-    "failed",
-    "expired",
-    "refunded",
-    "canceled",
-  ] as const;
 
   const toUiError = (message?: string) => {
     const raw = (message ?? "").trim();
@@ -228,143 +228,6 @@ export function useAdminConsole({
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   };
 
-  const toNumber = (value: string) => parseOptionalNonNegativeInteger(value);
-
-  const toPositiveNumber = (value: string) => {
-    const parsed = toNumber(value);
-    if (typeof parsed !== "number" || parsed <= 0) {
-      return undefined;
-    }
-    return parsed;
-  };
-
-  const toDate = (value: string) => {
-    if (!value.trim()) {
-      return undefined;
-    }
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return undefined;
-    }
-    return date;
-  };
-
-  const parseFilters = useMemo(
-    () => ({
-      page,
-      pageSize,
-      status: (statusFilter || undefined) as
-        | "draft"
-        | "pending_payment"
-        | "paid"
-        | "active"
-        | "ended"
-        | "completed"
-        | "expired"
-        | "refunded"
-        | "canceled"
-        | undefined,
-      paymentStatus: (paymentStatusFilter || undefined) as
-        | "unpaid"
-        | "pending"
-        | "paid"
-        | "failed"
-        | "expired"
-        | "refunded"
-        | "canceled"
-        | undefined,
-      doctorId: toPositiveNumber(doctorIdInput),
-      amountMin: toNumber(amountMinInput),
-      amountMax: toNumber(amountMaxInput),
-      createdAtFrom: toDate(createdAtFrom),
-      createdAtTo: toDate(createdAtTo),
-      scheduledAtFrom: toDate(scheduledAtFrom),
-      scheduledAtTo: toDate(scheduledAtTo),
-      hasRisk: hasRiskFilter || undefined,
-      sortBy,
-      sortDirection,
-      emailQuery: emailQuery.trim() || undefined,
-    }),
-    [
-      amountMaxInput,
-      amountMinInput,
-      createdAtFrom,
-      createdAtTo,
-      doctorIdInput,
-      emailQuery,
-      hasRiskFilter,
-      page,
-      pageSize,
-      paymentStatusFilter,
-      scheduledAtFrom,
-      scheduledAtTo,
-      sortBy,
-      sortDirection,
-      statusFilter,
-    ]
-  );
-
-  const appointmentsQuery = trpc.system.adminAppointments.useQuery(
-    parseFilters,
-    {
-      enabled: canReadAdmin && activeSection === "appointments",
-    }
-  );
-
-  useEffect(() => {
-    setPage(current => (current === 1 ? current : 1));
-  }, [
-    amountMaxInput,
-    amountMinInput,
-    createdAtFrom,
-    createdAtTo,
-    doctorIdInput,
-    emailQuery,
-    hasRiskFilter,
-    paymentStatusFilter,
-    scheduledAtFrom,
-    scheduledAtTo,
-    statusFilter,
-  ]);
-
-  const appointmentSelectionScopeKey = getAppointmentSelectionScopeKey({
-    amountMaxInput,
-    amountMinInput,
-    createdAtFrom,
-    createdAtTo,
-    doctorIdInput,
-    emailQuery,
-    hasRiskFilter,
-    page,
-    pageSize,
-    paymentStatusFilter,
-    scheduledAtFrom,
-    scheduledAtTo,
-    sortBy,
-    sortDirection,
-    statusFilter,
-  });
-
-  useEffect(() => {
-    setSelectedAppointmentIds([]);
-  }, [appointmentSelectionScopeKey]);
-
-  const resetAppointmentFilters = useCallback(() => {
-    setEmailQuery("");
-    setStatusFilter("");
-    setPaymentStatusFilter("");
-    setDoctorIdInput("");
-    setAmountMinInput("");
-    setAmountMaxInput("");
-    setCreatedAtFrom("");
-    setCreatedAtTo("");
-    setScheduledAtFrom("");
-    setScheduledAtTo("");
-    setHasRiskFilter(false);
-    setSortBy("createdAt");
-    setSortDirection("desc");
-    setPage(1);
-  }, []);
   const appointmentDetailQuery = trpc.system.adminAppointmentDetail.useQuery(
     { appointmentId: selectedAppointmentId ?? 0 },
     {
@@ -413,21 +276,7 @@ export function useAdminConsole({
     canReadAdmin,
     activeSection,
     activeOperationsTab,
-    exportFilters: {
-      pageSize,
-      status: toStatusValue(statusFilter),
-      paymentStatus: toPaymentStatusValue(paymentStatusFilter),
-      doctorId: toPositiveNumber(doctorIdInput),
-      amountMin: toNumber(amountMinInput),
-      amountMax: toNumber(amountMaxInput),
-      createdAtFrom: toDate(createdAtFrom),
-      createdAtTo: toDate(createdAtTo),
-      scheduledAtFrom: toDate(scheduledAtFrom),
-      scheduledAtTo: toDate(scheduledAtTo),
-      hasRisk: hasRiskFilter || undefined,
-      sortBy,
-      sortDirection,
-    },
+    exportFilters,
     tr,
     toUiError,
   });
@@ -467,60 +316,6 @@ export function useAdminConsole({
     const scheduledAt = appointmentDetailQuery.data?.appointment.scheduledAt;
     setManualScheduledAt(toDateTimeLocalValue(scheduledAt));
   }, [appointmentDetailQuery.data?.appointment.scheduledAt]);
-
-  const visibleIds = useMemo(
-    () => (appointmentsQuery.data?.items ?? []).map(item => item.id),
-    [appointmentsQuery.data?.items]
-  );
-  const selectedAppointmentSet = useMemo(
-    () => new Set(selectedAppointmentIds),
-    [selectedAppointmentIds]
-  );
-  const isAllVisibleSelected =
-    visibleIds.length > 0 &&
-    visibleIds.every(itemId => selectedAppointmentSet.has(itemId));
-  const isAnyVisibleSelected = visibleIds.some(itemId =>
-    selectedAppointmentSet.has(itemId)
-  );
-
-  const isSelected = useCallback(
-    (id: number) => selectedAppointmentSet.has(id),
-    [selectedAppointmentSet]
-  );
-
-  const toggleAppointmentSelection = useCallback(
-    (appointmentId: number, checked: boolean) => {
-      setSelectedAppointmentIds(prev => {
-        const normalized = new Set(prev);
-        if (checked) {
-          normalized.add(appointmentId);
-        } else {
-          normalized.delete(appointmentId);
-        }
-        return Array.from(normalized);
-      });
-    },
-    []
-  );
-
-  const toggleSelectAllVisible = useCallback(
-    (checked: boolean) => {
-      setSelectedAppointmentIds(prev => {
-        const normalized = new Set(prev);
-        if (checked) {
-          visibleIds.forEach(itemId => normalized.add(itemId));
-        } else {
-          visibleIds.forEach(itemId => normalized.delete(itemId));
-        }
-        return Array.from(normalized);
-      });
-    },
-    [visibleIds]
-  );
-
-  const clearSelection = useCallback(() => {
-    setSelectedAppointmentIds([]);
-  }, []);
 
   const refreshAdminData = useCallback(async () => {
     if (activeSection === "appointments") {
