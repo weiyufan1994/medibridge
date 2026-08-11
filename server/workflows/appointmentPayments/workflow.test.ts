@@ -317,10 +317,16 @@ describe("appointment payment workflow", () => {
         },
       })
     );
-    expect(consoleError).toHaveBeenCalledWith(
-      "[payments] failed to send payment success link email:",
-      "mailer unavailable"
-    );
+    const serialized = String(consoleError.mock.calls.at(-1)?.[0]);
+    expect(JSON.parse(serialized)).toMatchObject({
+      component: "appointment-payment-settlement",
+      event: "patient_link_email_failed",
+      appointmentId: 51,
+      source: "webhook",
+      errorName: "Error",
+    });
+    expect(serialized).not.toContain("mailer unavailable");
+    expect(serialized).not.toContain("cs_paid_51");
   });
 
   it("skips email delivery for internal placeholder addresses", async () => {

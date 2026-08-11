@@ -1,10 +1,13 @@
 import { TRPCError } from "@trpc/server";
 import { sendMagicLinkEmail } from "../../_core/mailer";
+import { createLogger } from "../../_core/logger";
 import {
   appointmentPaymentApi,
   type AppointmentPaymentDbExecutor,
 } from "../../modules/appointments/publicApi";
 import { schedulingSlotApi as slots } from "../../modules/scheduling/publicApi";
+
+const logger = createLogger("appointment-payment-settlement");
 
 export async function settleStripePaymentBySessionId(input: {
   stripeSessionId: string;
@@ -102,10 +105,11 @@ export async function settleStripePaymentBySessionId(input: {
         },
         dbExecutor: input.dbExecutor,
       });
-      console.error(
-        "[payments] failed to send payment success link email:",
-        reason
-      );
+      logger.error("patient_link_email_failed", {
+        appointmentId: appointment.id,
+        source: input.source,
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
     }
   }
 
