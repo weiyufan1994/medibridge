@@ -1,25 +1,17 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   AlertTriangle,
-  ArrowRight,
-  Building2,
-  FileText,
   Loader2,
   MessageSquare,
-  MapPinned,
   PanelLeft,
   PanelLeftOpen,
   Plus,
   Send,
-  Stethoscope,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -42,6 +34,12 @@ import {
   resolveAnimatedAssistantSignature,
   type TriageDisplayMessage,
 } from "@/features/triage/components/aiTriageMessagePresentation";
+import { LightTriageSummaryFormCard } from "@/features/triage/components/LightTriageSummaryFormCard";
+import {
+  buildPrimaryReferralEntryHref,
+  TriageHospitalRoutingCard,
+} from "@/features/triage/components/TriageHospitalRoutingCard";
+import { TriageTypewriterMessage } from "@/features/triage/components/TriageTypewriterMessage";
 import { useAuth } from "@/features/auth";
 import { trpc } from "@/lib/trpc";
 import {
@@ -49,9 +47,7 @@ import {
   buildLightTriageResultSummary,
   EMPTY_LIGHT_TRIAGE_RESULT_FORM,
   type LightTriageResultForm,
-  type TriageRoutingHospital,
 } from "@shared/triageRouting";
-import { buildReferralSelectionHref } from "@/features/referrals";
 
 type HistoryItem = {
   id: number;
@@ -82,425 +78,6 @@ const buildCurrentSessionSidebarTitle = (input: {
 
 const hasLightResultFormContent = (draft: LightTriageResultForm) =>
   Object.values(draft).some(value => value.trim().length > 0);
-
-const TypewriterMessage = memo(
-  function TypewriterMessage(props: {
-    text: string;
-    speed?: number;
-    active?: boolean;
-    onProgress?: () => void;
-  }) {
-    const { text, speed = 20, active = false, onProgress } = props;
-    const [displayedText, setDisplayedText] = useState(active ? "" : text);
-    const intervalRef = useRef<number | null>(null);
-    const cursorRef = useRef(active ? 0 : text.length);
-    const isCompletedRef = useRef(!active);
-    const latestOnProgressRef = useRef(onProgress);
-    const latestTextRef = useRef(text);
-
-    useEffect(() => {
-      latestOnProgressRef.current = onProgress;
-    }, [onProgress]);
-
-    useEffect(() => {
-      if (latestTextRef.current !== text) {
-        latestTextRef.current = text;
-        cursorRef.current = active ? 0 : text.length;
-        isCompletedRef.current = !active;
-        setDisplayedText(active ? "" : text);
-      }
-    }, [active, text]);
-
-    useEffect(() => {
-      if (!active) {
-        if (intervalRef.current) {
-          window.clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-        cursorRef.current = text.length;
-        isCompletedRef.current = true;
-        setDisplayedText(text);
-        return;
-      }
-
-      if (isCompletedRef.current) {
-        return;
-      }
-
-      if (intervalRef.current) {
-        return;
-      }
-
-      intervalRef.current = window.setInterval(() => {
-        const nextCursor = Math.min(cursorRef.current + 1, text.length);
-        if (nextCursor === cursorRef.current) {
-          return;
-        }
-
-        cursorRef.current = nextCursor;
-        setDisplayedText(text.slice(0, nextCursor));
-        latestOnProgressRef.current?.();
-
-        if (nextCursor >= text.length) {
-          isCompletedRef.current = true;
-          if (intervalRef.current) {
-            window.clearInterval(intervalRef.current);
-            intervalRef.current = null;
-          }
-        }
-      }, speed);
-
-      return () => {
-        if (intervalRef.current) {
-          window.clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-      };
-    }, [active, speed, text]);
-
-    return <p className="whitespace-pre-wrap">{displayedText}</p>;
-  },
-  (prev, next) =>
-    prev.text === next.text &&
-    prev.speed === next.speed &&
-    prev.active === next.active
-);
-
-function buildReferralSelectionLink(input: {
-  triageSessionId: number;
-  hospital: TriageRoutingHospital;
-  rankedHospitalIndex: number;
-}) {
-  if (input.triageSessionId <= 0) {
-    return "/triage";
-  }
-
-  return buildReferralSelectionHref({
-    triageSessionId: input.triageSessionId,
-    rankedHospitalIndex: input.rankedHospitalIndex,
-    hospitalId: input.hospital.matchedHospitalId ?? undefined,
-  });
-}
-
-function buildPrimaryReferralEntryHref(input: {
-  triageSessionId: number;
-  hospitals: TriageRoutingHospital[];
-}) {
-  for (
-    let rankedHospitalIndex = 0;
-    rankedHospitalIndex < input.hospitals.length;
-    rankedHospitalIndex += 1
-  ) {
-    const hospital = input.hospitals[rankedHospitalIndex];
-    const href = buildReferralSelectionLink({
-      triageSessionId: input.triageSessionId,
-      hospital,
-      rankedHospitalIndex,
-    });
-    if (href) {
-      return href;
-    }
-  }
-
-  return "/triage";
-}
-
-function HospitalRoutingCard(props: {
-  triageSessionId: number;
-  summary: string;
-  possibilitySummary: string;
-  recommendedDepartment: string;
-  hospitals: TriageRoutingHospital[];
-  safetyNotice?: {
-    title: string;
-    description: string;
-  } | null;
-  labels: {
-    summary: string;
-    possibility: string;
-    department: string;
-    recommendedHospitals: string;
-    notDiagnosis: string;
-    browseHospital: string;
-    nextStepTitle: string;
-    nextStepDescription: string;
-    platformMatch: string;
-    manualCoordination: string;
-    noHospitals: string;
-  };
-}) {
-  return (
-    <div className="w-full rounded-2xl border border-teal-200 bg-white p-5 shadow-md">
-      <div className="space-y-5">
-        <div>
-          <h4 className="flex items-center gap-2 text-base font-semibold text-slate-900">
-            <FileText className="h-4 w-4" />
-            {props.labels.summary}
-          </h4>
-          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-            {props.summary}
-          </p>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-[1.3fr_0.9fr]">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-            <p className="flex items-center gap-2 text-sm font-medium text-slate-900">
-              <Stethoscope className="h-4 w-4 text-teal-600" />
-              {props.labels.possibility}
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-slate-700">
-              {props.possibilitySummary}
-            </p>
-            <p className="mt-3 text-xs leading-relaxed text-slate-500">
-              {props.labels.notDiagnosis}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-teal-50/70 p-4">
-            <p className="text-sm font-medium text-slate-900">
-              {props.labels.department}
-            </p>
-            <Badge className="mt-3 rounded-full border-0 bg-teal-600 px-3 py-1 text-white">
-              {props.recommendedDepartment}
-            </Badge>
-          </div>
-        </div>
-
-        {props.safetyNotice ? (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4">
-            <p className="text-sm font-semibold text-amber-900">
-              {props.safetyNotice.title}
-            </p>
-            <p className="mt-1 text-sm leading-relaxed text-amber-800">
-              {props.safetyNotice.description}
-            </p>
-          </div>
-        ) : null}
-
-        <div>
-          <h4 className="mb-3 flex items-center gap-2 text-base font-semibold text-slate-900">
-            <Building2 className="h-4 w-4" />
-            {props.labels.recommendedHospitals}
-          </h4>
-          <div className="rounded-2xl border border-teal-100 bg-teal-50/80 p-4">
-            <div className="flex items-start gap-3">
-              <div className="rounded-2xl bg-white/90 p-2 text-teal-600 shadow-sm">
-                <MapPinned className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-teal-900">
-                  {props.labels.nextStepTitle}
-                </p>
-                <p className="mt-1 text-sm leading-relaxed text-teal-800">
-                  {props.labels.nextStepDescription}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {props.hospitals.length === 0 ? (
-            <p className="mt-4 text-sm text-slate-500">
-              {props.labels.noHospitals}
-            </p>
-          ) : (
-            <div className="mt-4 space-y-3">
-              {props.hospitals.map((hospital, index) => {
-                const referralHref = buildReferralSelectionLink({
-                  triageSessionId: props.triageSessionId,
-                  hospital,
-                  rankedHospitalIndex: index,
-                });
-                const content = (
-                  <>
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">
-                          {index + 1}. {hospital.hospitalName}
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {hospital.specialtyRank !== null ? (
-                            <Badge className="rounded-full border-0 bg-emerald-50 text-emerald-700">
-                              #{hospital.specialtyRank}
-                            </Badge>
-                          ) : null}
-                          {hospital.generalGrade ? (
-                            <Badge className="rounded-full border-0 bg-sky-50 text-sky-700">
-                              {hospital.generalGrade}
-                            </Badge>
-                          ) : null}
-                          {hospital.stemRank !== null ? (
-                            <Badge className="rounded-full border-0 bg-amber-50 text-amber-700">
-                              STEM #{hospital.stemRank}
-                            </Badge>
-                          ) : null}
-                          {hospital.matchedHospitalId ? (
-                            <Badge className="rounded-full border-0 bg-violet-50 text-violet-700">
-                              {props.labels.platformMatch}
-                            </Badge>
-                          ) : (
-                            <Badge className="rounded-full border-0 bg-teal-50 text-teal-700">
-                              {props.labels.manualCoordination}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                      {hospital.reason}
-                    </p>
-                    {hospital.city ? (
-                      <p className="mt-2 text-xs text-slate-500">
-                        {hospital.city}
-                      </p>
-                    ) : null}
-
-                    <div className="mt-4 flex items-center justify-between rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-medium text-teal-700">
-                      <span>{props.labels.browseHospital}</span>
-                      <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                    </div>
-                  </>
-                );
-
-                return (
-                  <Link
-                    key={`${hospital.hospitalName}-${index}`}
-                    href={referralHref}
-                    className="group block cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-teal-400 hover:bg-teal-50/40 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
-                  >
-                    {content}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LightSummaryFormCard(props: {
-  draft: LightTriageResultForm;
-  onChange: <K extends keyof LightTriageResultForm>(
-    key: K,
-    value: LightTriageResultForm[K]
-  ) => void;
-  readOnly?: boolean;
-  labels: {
-    title: string;
-    description: string;
-    ageGender: string;
-    mainSymptomAndLocation: string;
-    durationAndOnset: string;
-    traumaOrSurgery: string;
-    medicalHistory: string;
-    otherSymptoms: string;
-  };
-}) {
-  return (
-    <div className="w-full rounded-2xl border border-slate-200 bg-white p-5 shadow-md">
-      <div className="mb-4">
-        <h4 className="text-base font-semibold text-slate-900">
-          {props.labels.title}
-        </h4>
-        <p className="mt-1 text-sm text-slate-500">
-          {props.labels.description}
-        </p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <Label htmlFor="triage-summary-age-gender">
-            {props.labels.ageGender}
-          </Label>
-          <Input
-            id="triage-summary-age-gender"
-            value={props.draft.ageGender}
-            onChange={event => props.onChange("ageGender", event.target.value)}
-            disabled={props.readOnly}
-            className="mt-2"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="triage-summary-duration">
-            {props.labels.durationAndOnset}
-          </Label>
-          <Input
-            id="triage-summary-duration"
-            value={props.draft.durationAndOnset}
-            onChange={event =>
-              props.onChange("durationAndOnset", event.target.value)
-            }
-            disabled={props.readOnly}
-            className="mt-2"
-          />
-        </div>
-
-        <div className="md:col-span-2">
-          <Label htmlFor="triage-summary-symptom">
-            {props.labels.mainSymptomAndLocation}
-          </Label>
-          <Textarea
-            id="triage-summary-symptom"
-            value={props.draft.mainSymptomAndLocation}
-            onChange={event =>
-              props.onChange("mainSymptomAndLocation", event.target.value)
-            }
-            disabled={props.readOnly}
-            className="mt-2 min-h-[88px]"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="triage-summary-trauma">
-            {props.labels.traumaOrSurgery}
-          </Label>
-          <Input
-            id="triage-summary-trauma"
-            value={props.draft.traumaOrSurgery}
-            onChange={event =>
-              props.onChange("traumaOrSurgery", event.target.value)
-            }
-            disabled={props.readOnly}
-            className="mt-2"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="triage-summary-history">
-            {props.labels.medicalHistory}
-          </Label>
-          <Input
-            id="triage-summary-history"
-            value={props.draft.medicalHistory}
-            onChange={event =>
-              props.onChange("medicalHistory", event.target.value)
-            }
-            disabled={props.readOnly}
-            className="mt-2"
-          />
-        </div>
-
-        <div className="md:col-span-2">
-          <Label htmlFor="triage-summary-other">
-            {props.labels.otherSymptoms}
-          </Label>
-          <Textarea
-            id="triage-summary-other"
-            value={props.draft.otherSymptoms}
-            onChange={event =>
-              props.onChange("otherSymptoms", event.target.value)
-            }
-            disabled={props.readOnly}
-            className="mt-2 min-h-[88px]"
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function AITriageChat() {
   const [, setLocation] = useLocation();
@@ -1040,7 +617,7 @@ export default function AITriageChat() {
                               : "relative rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm leading-relaxed text-slate-700 before:absolute before:left-[-6px] before:top-3 before:h-3 before:w-3 before:rotate-45 before:border-l before:border-t before:border-slate-100 before:bg-slate-50"
                           }
                         >
-                          <TypewriterMessage
+                          <TriageTypewriterMessage
                             text={message.content}
                             speed={20}
                             active={
@@ -1125,7 +702,7 @@ export default function AITriageChat() {
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          <HospitalRoutingCard
+                          <TriageHospitalRoutingCard
                             triageSessionId={displayedTriageSessionId}
                             summary={effectiveSummary}
                             possibilitySummary={
@@ -1160,7 +737,7 @@ export default function AITriageChat() {
                               noHospitals: t.triage_card.no_hospitals,
                             }}
                           />
-                          <LightSummaryFormCard
+                          <LightTriageSummaryFormCard
                             draft={displayedResultFormDraft}
                             onChange={updateResultFormDraft}
                             readOnly={isHistoryReadOnly}
