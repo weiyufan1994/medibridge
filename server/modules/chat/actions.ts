@@ -1,6 +1,6 @@
 import { createEmbedding, invokeLLM } from "../../_core/llm";
-import * as doctorsRepo from "../doctors/repo";
-import * as visitRepo from "../visit/repo";
+import { doctorSearchApi as doctors } from "../doctors/publicApi";
+import { visitChatSessionApi as sessions } from "../visit/publicApi";
 import { nanoid } from "nanoid";
 import type { GetSessionInput, SendMessageInput } from "./schemas";
 
@@ -131,7 +131,7 @@ const GENERAL_DEPARTMENT_KEYWORDS = [
 ];
 
 const isGeneralDepartment = (
-  doctorResult: Awaited<ReturnType<typeof doctorsRepo.searchDoctors>>[number]
+  doctorResult: Awaited<ReturnType<typeof doctors.search>>[number]
 ) => {
   const departmentText = [
     doctorResult.department.name,
@@ -152,7 +152,7 @@ const isGeneralDepartment = (
 };
 
 const scoreDoctorRelevance = (
-  doctorResult: Awaited<ReturnType<typeof doctorsRepo.searchDoctors>>[number],
+  doctorResult: Awaited<ReturnType<typeof doctors.search>>[number],
   tokens: string[],
   intents: DepartmentIntent[]
 ) => {
@@ -209,7 +209,7 @@ const scoreDoctorRelevance = (
 };
 
 const isDoctorRelevantToSymptoms = (
-  doctorResult: Awaited<ReturnType<typeof doctorsRepo.searchDoctors>>[number],
+  doctorResult: Awaited<ReturnType<typeof doctors.search>>[number],
   tokens: string[]
 ) => {
   if (tokens.length === 0) {
@@ -364,7 +364,7 @@ const buildNoMatchFollowupMessage = (isEnglish: boolean) =>
 
 const buildMatchedReason = (
   isEnglish: boolean,
-  result: Awaited<ReturnType<typeof doctorsRepo.searchDoctors>>[number]
+  result: Awaited<ReturnType<typeof doctors.search>>[number]
 ) => {
   if (isEnglish) {
     const departmentName = normalizePromptText(result.department.nameEn);
@@ -414,7 +414,7 @@ const normalizePromptText = (
 };
 
 const buildEnglishRankingCandidate = (
-  result: Awaited<ReturnType<typeof doctorsRepo.searchDoctors>>[number],
+  result: Awaited<ReturnType<typeof doctors.search>>[number],
   index: number
 ) => {
   const englishDisplayFields = {
@@ -438,7 +438,7 @@ const buildEnglishRankingCandidate = (
 };
 
 const getEnglishGroundedDisplayFields = (
-  result: Awaited<ReturnType<typeof doctorsRepo.searchDoctors>>[number]
+  result: Awaited<ReturnType<typeof doctors.search>>[number]
 ) => {
   const doctorName = normalizePromptText(result.doctor.nameEn);
   const hospitalName = normalizePromptText(result.hospital.nameEn);
@@ -611,9 +611,7 @@ readyForRecommendation should be true if you have basic symptom information (eve
   // Search doctors if ready
   let recommendedDoctors: any[] = [];
   if (extraction.readyForRecommendation && extraction.keywords.length > 0) {
-    type DoctorSearchResult = Awaited<
-      ReturnType<typeof doctorsRepo.searchDoctors>
-    >;
+    type DoctorSearchResult = Awaited<ReturnType<typeof doctors.search>>;
 
     let vectorResults: DoctorSearchResult = [];
     try {
@@ -626,10 +624,7 @@ readyForRecommendation should be true if you have basic symptom information (eve
 
       if (semanticQuery.length > 0) {
         const queryEmbedding = await createEmbedding(semanticQuery);
-        vectorResults = await doctorsRepo.searchDoctorsByEmbedding(
-          queryEmbedding,
-          10
-        );
+        vectorResults = await doctors.searchByEmbedding(queryEmbedding, 10);
       }
     } catch (error) {
       console.warn(
@@ -638,13 +633,9 @@ readyForRecommendation should be true if you have basic symptom information (eve
       );
     }
 
-    let keywordResults = await doctorsRepo.searchDoctors(
-      extraction.keywords,
-      10,
-      {
-        lang: isEnglish ? "en" : "zh",
-      }
-    );
+    let keywordResults = await doctors.search(extraction.keywords, 10, {
+      lang: isEnglish ? "en" : "zh",
+    });
 
     if (isEnglish && keywordResults.length < 3) {
       const translationResponse = await invokeLLM({
@@ -682,14 +673,10 @@ readyForRecommendation should be true if you have basic symptom information (eve
         translationResponse.choices[0].message.content as string
       ) as { keywordsZh: string[] };
 
-      keywordResults = await doctorsRepo.searchDoctors(
-        extraction.keywords,
-        10,
-        {
-          lang: "en",
-          fallbackKeywords: translated.keywordsZh,
-        }
-      );
+      keywordResults = await doctors.search(extraction.keywords, 10, {
+        lang: "en",
+        fallbackKeywords: translated.keywordsZh,
+      });
     }
 
     const mergedResults = new Map<number, DoctorSearchResult[number]>();
@@ -952,7 +939,7 @@ ${doctorRankingInput}`;
     { role: "assistant" as const, content: assistantMessage },
   ];
 
-  await visitRepo.upsertPatientSession({
+  await sessions.upsertSession({
     sessionId,
     chatHistory: JSON.stringify(updatedHistory),
     symptoms: extraction.symptoms,
@@ -971,7 +958,7 @@ ${doctorRankingInput}`;
 }
 
 export async function getSessionAction(input: GetSessionInput) {
-  const session = await visitRepo.getPatientSession(input.sessionId);
+  const session = await sessions.getSession(input.sessionId);
   if (!session) {
     return null;
   }

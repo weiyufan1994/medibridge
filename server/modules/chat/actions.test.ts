@@ -5,19 +5,23 @@ vi.mock("../../_core/llm", () => ({
   invokeLLM: vi.fn(),
 }));
 
-vi.mock("../doctors/repo", () => ({
-  searchDoctors: vi.fn(),
-  searchDoctorsByEmbedding: vi.fn(),
+vi.mock("../doctors/publicApi", () => ({
+  doctorSearchApi: {
+    search: vi.fn(),
+    searchByEmbedding: vi.fn(),
+  },
 }));
 
-vi.mock("../visit/repo", () => ({
-  upsertPatientSession: vi.fn(),
-  getPatientSession: vi.fn(),
+vi.mock("../visit/publicApi", () => ({
+  visitChatSessionApi: {
+    getSession: vi.fn(),
+    upsertSession: vi.fn(),
+  },
 }));
 
 import { createEmbedding, invokeLLM } from "../../_core/llm";
-import * as doctorsRepo from "../doctors/repo";
-import * as visitRepo from "../visit/repo";
+import { doctorSearchApi as doctors } from "../doctors/publicApi";
+import { visitChatSessionApi as sessions } from "../visit/publicApi";
 import { sendMessageAction } from "./actions";
 
 const ENGLISH_GROUNDED_SYSTEM_PROMPT_SNIPPET =
@@ -76,16 +80,12 @@ describe("chat actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(createEmbedding).mockResolvedValue([0.1, 0.2] as never);
-    vi.mocked(doctorsRepo.searchDoctorsByEmbedding).mockResolvedValue(
-      [] as never
-    );
-    vi.mocked(visitRepo.upsertPatientSession).mockResolvedValue(
-      undefined as never
-    );
+    vi.mocked(doctors.searchByEmbedding).mockResolvedValue([] as never);
+    vi.mocked(sessions.upsertSession).mockResolvedValue(undefined as never);
   });
 
   it("passes structured missing-translation metadata to english ranking prompts", async () => {
-    vi.mocked(doctorsRepo.searchDoctors).mockResolvedValue([
+    vi.mocked(doctors.search).mockResolvedValue([
       buildDoctorSearchResult({
         id: 1,
         nameEn: null,
@@ -204,7 +204,7 @@ describe("chat actions", () => {
   });
 
   it("filters english grounded recommendations down to candidates with required english display fields", async () => {
-    vi.mocked(doctorsRepo.searchDoctors).mockResolvedValue([
+    vi.mocked(doctors.search).mockResolvedValue([
       buildDoctorSearchResult({
         id: 1,
         nameEn: "Chen Wei",
@@ -311,7 +311,7 @@ describe("chat actions", () => {
   });
 
   it("uses english-safe fallback copy when grounded recommendations have no required english display fields", async () => {
-    vi.mocked(doctorsRepo.searchDoctors).mockResolvedValue([
+    vi.mocked(doctors.search).mockResolvedValue([
       buildDoctorSearchResult({
         id: 1,
         nameEn: "Chen Wei",
