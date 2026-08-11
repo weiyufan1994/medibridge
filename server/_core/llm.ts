@@ -1,4 +1,12 @@
 import { ENV } from "./env";
+import {
+  assertLlmApiKey,
+  getErrorText,
+  resolveChatCompletionsApiUrl,
+  withTimeoutSignal,
+} from "./llmTransport";
+
+export { createEmbedding } from "./embedding";
 
 export type Role = "system" | "user" | "assistant" | "tool" | "function";
 
@@ -216,41 +224,6 @@ const normalizeToolChoice = (
   return toolChoice;
 };
 
-const resolveApiUrl = () =>
-  ENV.llmApiUrl && ENV.llmApiUrl.trim().length > 0
-    ? `${ENV.llmApiUrl.replace(/\/$/, "")}/v1/chat/completions`
-    : "https://forge.manus.im/v1/chat/completions";
-
-const resolveEmbeddingsApiUrl = () =>
-  ENV.llmApiUrl && ENV.llmApiUrl.trim().length > 0
-    ? `${ENV.llmApiUrl.replace(/\/$/, "")}/v1/embeddings`
-    : "https://forge.manus.im/v1/embeddings";
-
-const assertApiKey = () => {
-  if (!ENV.llmApiKey) {
-    throw new Error(
-      "LLM API key is not configured. Set LLM_API_KEY or OPENAI_API_KEY"
-    );
-  }
-};
-
-const withTimeoutSignal = (timeoutMs: number) => {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return {
-    signal: controller.signal,
-    clear: () => clearTimeout(timer),
-  };
-};
-
-const getErrorText = async (response: Response) => {
-  try {
-    return await response.text();
-  } catch {
-    return "";
-  }
-};
-
 const normalizeResponseFormat = ({
   responseFormat,
   response_format,
@@ -297,7 +270,7 @@ const normalizeResponseFormat = ({
 };
 
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
-  assertApiKey();
+  assertLlmApiKey();
 
   const {
     messages,
@@ -353,7 +326,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   let response: Response;
 
   try {
-    response = await fetch(resolveApiUrl(), {
+    response = await fetch(resolveChatCompletionsApiUrl(), {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -381,60 +354,4 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   }
 
   return (await response.json()) as InvokeResult;
-}
-
-type EmbeddingResult = {
-  data?: Array<{ embedding?: number[] }>;
-};
-
-export async function createEmbedding(input: string): Promise<number[]> {
-  assertApiKey();
-
-  const cleanedInput = input.trim();
-  if (!cleanedInput) {
-    throw new Error("Embedding input cannot be empty");
-  }
-
-  const request = withTimeoutSignal(ENV.llmTimeoutMs);
-  let response: Response;
-
-  try {
-    response = await fetch(resolveEmbeddingsApiUrl(), {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${ENV.llmApiKey}`,
-      },
-      body: JSON.stringify({
-        model: ENV.llmEmbeddingModel,
-        input: cleanedInput,
-      }),
-      signal: request.signal,
-    });
-  } catch (error) {
-    request.clear();
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error(
-        `Embedding create timed out after ${ENV.llmTimeoutMs}ms for model ${ENV.llmEmbeddingModel}`
-      );
-    }
-    throw error;
-  }
-  request.clear();
-
-  if (!response.ok) {
-    const errorText = await getErrorText(response);
-    throw new Error(
-      `Embedding create failed: ${response.status} ${response.statusText} – ${errorText}`
-    );
-  }
-
-  const payload = (await response.json()) as EmbeddingResult;
-  const embedding = payload.data?.[0]?.embedding;
-
-  if (!embedding || embedding.length === 0) {
-    throw new Error("Embedding response did not contain a valid vector");
-  }
-
-  return embedding;
 }
