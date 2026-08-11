@@ -16,11 +16,6 @@
       "phase": "5",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
-    "client/src/features/hospitals/components/HospitalsBrowser.tsx": {
-      "maxLines": 474,
-      "phase": "5",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
     "client/src/features/referrals/copy.ts": {
       "maxLines": 696,
       "phase": "5",

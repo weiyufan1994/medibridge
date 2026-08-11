@@ -4,6 +4,7 @@ import {
   buildDepartmentDoctorsInput,
   buildHospitalDepartmentsInput,
   buildHospitalsListInput,
+  filterHospitalBrowseItems,
   getHospitalBrowseText,
   matchesHospitalCityFilter,
 } from "@/features/hospitals/presentation";
@@ -68,5 +69,33 @@ describe("hospitals presentation", () => {
       })
     ).toBe("Translation in progress");
     expect(matchesHospitalCityFilter({ city, filter: "上海" })).toBe(true);
+  });
+
+  it("filters hospital cards by city and localized display text", () => {
+    const hospitals = [
+      {
+        id: 1,
+        name: { zh: "瑞金医院", en: "Ruijin Hospital" },
+        city: { zh: "上海", en: "Shanghai" },
+        level: { zh: "三级甲等", en: "Tertiary" },
+        imageUrl: null,
+      },
+      {
+        id: 2,
+        name: { zh: "北京医院", en: "Beijing Hospital" },
+        city: { zh: "北京", en: "Beijing" },
+        level: { zh: "三级甲等", en: "Tertiary" },
+        imageUrl: null,
+      },
+    ];
+
+    expect(
+      filterHospitalBrowseItems({
+        hospitals,
+        cityFilter: "上海",
+        searchQuery: " RUIJIN ",
+        lang: "en",
+      }).map(hospital => hospital.id)
+    ).toEqual([1]);
   });
 });
