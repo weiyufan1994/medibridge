@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getAppointmentSelectionScopeKey,
   parseOptionalNonNegativeInteger,
+  translateAdminConsoleError,
 } from "@/features/admin/hooks/adminConsoleHelpers";
 
 describe("parseOptionalNonNegativeInteger", () => {
@@ -58,5 +59,28 @@ describe("getAppointmentSelectionScopeKey", () => {
     expect(
       getAppointmentSelectionScopeKey({ ...baseScope, sortBy: "amount" })
     ).not.toBe(initial);
+  });
+});
+
+describe("translateAdminConsoleError", () => {
+  const tr = (zh: string, _en: string) => zh;
+
+  it("maps known storage and schema errors without exposing raw details", () => {
+    expect(
+      translateAdminConsoleError("RETENTION_STORAGE_UNAVAILABLE", tr)
+    ).toBe("数据保留策略表不可用。请先执行数据库迁移（含 0020）。");
+    expect(
+      translateAdminConsoleError("Unknown column 'imageUrl' in field list", tr)
+    ).toBe("医院封面字段不可用。请执行最新数据库迁移（含 0023）并重启服务。");
+    expect(translateAdminConsoleError("Failed query: select", tr)).toBe(
+      "数据库结构与当前代码不一致。请执行最新数据库迁移并重启服务。"
+    );
+  });
+
+  it("uses the generic fallback only for empty errors", () => {
+    expect(translateAdminConsoleError("  ", tr)).toBe("操作失败，请重试。");
+    expect(translateAdminConsoleError("upstream unavailable", tr)).toBe(
+      "upstream unavailable"
+    );
   });
 });
