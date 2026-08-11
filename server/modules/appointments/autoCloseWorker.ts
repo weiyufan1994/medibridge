@@ -2,13 +2,24 @@ import { and, eq, sql } from "drizzle-orm";
 import { appointmentMessages, appointments } from "../../../drizzle/schema";
 import { getDb } from "../../db";
 import * as appointmentsRepo from "./repo";
-import * as visitRepo from "../visit/repo";
 
 const DEFAULT_INTERVAL_MS = 60 * 60 * 1000;
 const INACTIVITY_WINDOW_MS = 48 * 60 * 60 * 1000;
 const BATCH_LIMIT = 200;
 const AUTO_CLOSE_SYSTEM_MESSAGE =
   "Consultation auto-closed due to inactivity. 会诊因长时间无活动已自动关闭。";
+
+export type CreateAutoCloseMessage = (input: {
+  appointmentId: number;
+  senderType: "system";
+  content: string;
+  originalContent: string;
+  translatedContent: string;
+  sourceLanguage: string;
+  targetLanguage: string;
+  translationProvider: string;
+  createdAt: Date;
+}) => Promise<unknown>;
 
 async function findInactiveActiveAppointmentIds(cutoff: Date) {
   const db = await getDb();
@@ -38,7 +49,9 @@ async function findInactiveActiveAppointmentIds(cutoff: Date) {
   return rows.map(row => row.id);
 }
 
-async function autoCloseInactiveAppointments() {
+async function autoCloseInactiveAppointments(
+  createSystemMessage: CreateAutoCloseMessage
+) {
   // Close consultations with no activity for 48 hours:
   // latest message timestamp is preferred, appointments.updatedAt is the fallback.
   const cutoff = new Date(Date.now() - INACTIVITY_WINDOW_MS);
@@ -64,7 +77,7 @@ async function autoCloseInactiveAppointments() {
       continue;
     }
 
-    await visitRepo.createMessage({
+    await createSystemMessage({
       appointmentId,
       senderType: "system",
       content: AUTO_CLOSE_SYSTEM_MESSAGE,
@@ -78,9 +91,10 @@ async function autoCloseInactiveAppointments() {
   }
 }
 
-export function startAppointmentAutoCloseWorker(options?: {
+export function startAppointmentAutoCloseWorker(options: {
   intervalMs?: number;
   runOnStart?: boolean;
+  createSystemMessage: CreateAutoCloseMessage;
 }) {
   const intervalMs = options?.intervalMs ?? DEFAULT_INTERVAL_MS;
   const runOnStart = options?.runOnStart ?? true;
@@ -93,7 +107,7 @@ export function startAppointmentAutoCloseWorker(options?: {
     }
     running = true;
     try {
-      await autoCloseInactiveAppointments();
+      await autoCloseInactiveAppointments(options.createSystemMessage);
     } catch (error) {
       console.warn("[AppointmentAutoCloseWorker] tick failed:", error);
     } finally {

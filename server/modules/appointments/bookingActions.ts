@@ -4,6 +4,7 @@ import { z } from "zod";
 import { aiTriageSessionApi as triageSessions } from "../ai/publicApi";
 import { schedulingSlotApi as slots } from "../scheduling/publicApi";
 import {
+  type AppointmentCheckoutCreator,
   createAppointmentCheckoutFlow,
   resolveCreateInputToStoredEmail,
 } from "./checkoutActions";
@@ -135,6 +136,7 @@ export async function createCheckoutFromCreateInput(input: {
   userId?: number;
   userEmail?: string | null;
   req: Request;
+  createCheckoutSession: AppointmentCheckoutCreator;
 }) {
   const prepared = await prepareCreateCheckout({
     createInput: input.createInput,
@@ -153,6 +155,7 @@ export async function createCheckoutFromCreateInput(input: {
     selectedPackage: prepared.selectedPackage,
     intake: prepared.intake,
     req: input.req,
+    createCheckoutSession: input.createCheckoutSession,
   });
 }
 
@@ -161,6 +164,7 @@ export async function createCheckoutFromCreateV2Input(input: {
   userId?: number;
   userEmail?: string | null;
   req: Request;
+  createCheckoutSession: AppointmentCheckoutCreator;
 }) {
   const prepared = await prepareCreateV2Checkout({
     createInput: input.createInput,
@@ -180,5 +184,6 @@ export async function createCheckoutFromCreateV2Input(input: {
     selectedPackage: prepared.selectedPackage,
     intake: prepared.intake,
     req: input.req,
+    createCheckoutSession: input.createCheckoutSession,
   });
 }

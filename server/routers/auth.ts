@@ -1,5 +1,9 @@
 import { publicProcedure, router } from "../_core/trpc";
 import { authActions, authSchemas } from "../modules/auth/routerApi";
+import {
+  verifyMagicLinkAction,
+  verifyOtpAndMergeAction,
+} from "../workflows/authGuestUpgrade/publicApi";
 
 export const authRouter = router({
   me: publicProcedure.query(opts => authActions.getMeUser(opts.ctx.user)),
@@ -13,7 +17,7 @@ export const authRouter = router({
     .input(authSchemas.verifyOtpInputSchema)
     .output(authSchemas.verifyOtpAndMergeOutputSchema)
     .mutation(({ input, ctx }) =>
-      authActions.verifyOtpAndMergeAction({
+      verifyOtpAndMergeAction({
         payload: input,
         req: ctx.req,
         res: ctx.res,
@@ -24,7 +28,7 @@ export const authRouter = router({
     .input(authSchemas.verifyMagicLinkInputSchema)
     .output(authSchemas.verifyMagicLinkOutputSchema)
     .mutation(({ input, ctx }) =>
-      authActions.verifyMagicLinkAction({
+      verifyMagicLinkAction({
         payload: input,
         req: ctx.req,
         res: ctx.res,

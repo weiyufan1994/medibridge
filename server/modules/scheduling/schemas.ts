@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { APPOINTMENT_TYPE_VALUES } from "../appointments/packageCatalog";
+import { APPOINTMENT_TYPE_VALUES } from "@shared/appointmentTypes";
 import {
   SCHEDULE_ACTOR_ROLE_VALUES,
   SCHEDULE_EXCEPTION_ACTION_VALUES,
