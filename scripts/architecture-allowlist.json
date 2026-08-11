@@ -31,11 +31,6 @@
       "phase": "4",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
-    "server/modules/chat/actions.ts": {
-      "maxLines": 987,
-      "phase": "4",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
     "server/modules/doctors/actions.ts": {
       "maxLines": 879,
       "phase": "4",
