@@ -260,18 +260,6 @@
       "phase": "5",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
-    "module-cross-deep-import:server/modules/referrals/actions.ts->../admin/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/referrals/actions.ts->../ai/historyResult": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/referrals/actions.ts->../ai/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
     "router-boundary-import:server/routers/appointments.ts->../_core/getPublicBaseUrl": {
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"

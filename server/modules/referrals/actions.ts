@@ -2,13 +2,8 @@ import { TRPCError } from "@trpc/server";
 import type { Request } from "express";
 import { z } from "zod";
 import type { User } from "../../../drizzle/schema";
-import * as adminRepo from "../admin/repo";
-import * as aiRepo from "../ai/repo";
-import {
-  TRIAGE_RESULT_FLAG_TYPE,
-  parseStoredHistoricalTriageResult,
-  rebuildHistoricalTriageResultFromSummary,
-} from "../ai/historyResult";
+import { adminStaffDirectoryApi } from "../admin/publicApi";
+import { aiHistoricalTriageApi } from "../ai/publicApi";
 import { getPublicBaseUrl } from "../../_core/getPublicBaseUrl";
 import {
   paymentProviderApi,
@@ -154,29 +149,18 @@ async function getOwnedTriageRecommendation(input: {
   triageSessionId: number;
   userId: number;
 }) {
-  const session = await aiRepo.getAiChatSessionById(input.triageSessionId);
-  if (!session || session.userId !== input.userId) {
+  const owned = await aiHistoricalTriageApi.getForUser({
+    sessionId: input.triageSessionId,
+    userId: input.userId,
+  });
+  if (!owned) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Triage session not found",
     });
   }
 
-  const storedResultFlag = await aiRepo.getLatestSessionFlagByType(
-    input.triageSessionId,
-    TRIAGE_RESULT_FLAG_TYPE
-  );
-  const storedResult = parseStoredHistoricalTriageResult(
-    storedResultFlag?.flagValue
-  );
-  const triageResult =
-    storedResult ??
-    (await rebuildHistoricalTriageResultFromSummary(session.summary));
-
-  return {
-    session,
-    triageResult,
-  };
+  return owned;
 }
 
 async function getOwnedOrder(input: { orderId: number; userId: number }) {
@@ -2012,16 +1996,7 @@ export async function listReferralDepartmentsForAdminAction(
 }
 
 export async function listAssignableAgentsAction() {
-  const rows = await adminRepo.listAdminUsers({ limit: 100 });
-
-  return rows
-    .filter(row => row.role === "admin" || row.role === "ops")
-    .map(row => ({
-      id: row.id,
-      email: row.email?.trim().toLowerCase() ?? null,
-      name: row.name ?? null,
-      role: row.role,
-    }));
+  return adminStaffDirectoryApi.listAssignableStaff();
 }
 
 export async function upsertHospitalAction(input: UpsertHospitalInput) {
