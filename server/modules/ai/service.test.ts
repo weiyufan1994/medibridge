@@ -297,4 +297,31 @@ describe("processTriageChat", () => {
       },
     });
   });
+
+  it("omits patient content from extraction failure logs", async () => {
+    vi.mocked(invokeLLM).mockRejectedValue(
+      new Error("private provider detail")
+    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    const result = await processTriageChat(
+      [{ role: "user", content: "private symptom narrative" }],
+      "en"
+    );
+
+    expect(result.isComplete).toBe(false);
+    const serialized = String(consoleError.mock.calls.at(-1)?.[0]);
+    expect(JSON.parse(serialized)).toMatchObject({
+      component: "ai-triage",
+      event: "draft_extraction_failed",
+      lang: "en",
+      messageCount: 1,
+      errorName: "Error",
+    });
+    expect(serialized).not.toContain("private symptom narrative");
+    expect(serialized).not.toContain("private provider detail");
+    consoleError.mockRestore();
+  });
 });

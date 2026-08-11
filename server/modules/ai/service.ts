@@ -1,5 +1,6 @@
 import type { InvokeResult } from "../../_core/llm";
 import { invokeLLM } from "../../_core/llm";
+import { createLogger } from "../../_core/logger";
 import type {
   TriageIntake,
   TriageIntakeGender,
@@ -27,6 +28,8 @@ import {
   TRIAGE_EXTRACTION_PROMPT_ZH,
   TRIAGE_EXTRACTION_SCHEMA,
 } from "./triageExtractionPrompt";
+
+const logger = createLogger("ai-triage");
 
 export type TriageChatMessage = {
   role: string;
@@ -260,7 +263,11 @@ export async function processTriageChat(
       intake,
     });
   } catch (error) {
-    console.error("[Triage] extractTriageDraft failed:", error);
+    logger.error("draft_extraction_failed", {
+      lang,
+      messageCount: sanitizedHistory.length,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
   }
 
   const merged = mergeTriageData({

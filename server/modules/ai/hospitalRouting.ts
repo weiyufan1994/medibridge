@@ -1,4 +1,5 @@
 import { doctorDirectoryApi } from "../doctors/publicApi";
+import { createLogger } from "../../_core/logger";
 import type {
   TriageRouting,
   TriageRoutingHospital,
@@ -19,6 +20,7 @@ type LocalHospitalMatch = Awaited<
 >[number];
 
 const MAX_HOSPITAL_RESULTS = 5;
+const logger = createLogger("triage-hospital-routing");
 
 const FUDAN_SPECIALTY_BY_KEY: Record<string, string> = {
   cardiology: "心血管病",
@@ -188,10 +190,11 @@ async function enhanceWithLocalRecords(input: {
   try {
     localHospitals = await doctorDirectoryApi.getAllHospitals();
   } catch (error) {
-    console.warn(
-      "[TriageHospitalRouting] local hospital enhancement skipped:",
-      error
-    );
+    logger.warn("hospital_enhancement_skipped", {
+      lang: input.lang,
+      hospitalCount: input.hospitals.length,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
     return input.hospitals;
   }
 
@@ -259,10 +262,10 @@ async function enhanceWithLocalRecords(input: {
             await doctorDirectoryApi.getDepartmentsByHospital(hospitalId);
           departmentsByHospitalId.set(hospitalId, departments);
         } catch (error) {
-          console.warn(
-            `[TriageHospitalRouting] local department enhancement skipped for hospital ${hospitalId}:`,
-            error
-          );
+          logger.warn("department_enhancement_skipped", {
+            hospitalId,
+            errorName: error instanceof Error ? error.name : "UnknownError",
+          });
         }
       })
   );

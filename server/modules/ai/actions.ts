@@ -10,6 +10,7 @@ import type { TrpcContext } from "../../_core/context";
 import { triageKnowledgeApi as knowledge } from "../triageKnowledge/publicApi";
 import { triageSafetyApi as safety } from "../triageSafety/publicApi";
 import type { ChatTriageInput, SendMessageInput } from "./schemas";
+import { createLogger } from "../../_core/logger";
 
 export {
   createSessionAction,
@@ -18,6 +19,7 @@ export {
 } from "./sessionActions";
 
 const SESSION_MESSAGE_LIMIT = 20;
+const logger = createLogger("ai-triage");
 const SESSION_LIMIT_REPLY =
   "本次基础问诊已达最大深度。由于病情可能较为复杂，AI 无法继续细分，请尽快查看建议专科和参考医院并线下就诊。";
 
@@ -155,7 +157,10 @@ export async function sendMessageAction(
       };
     }
   } catch (error) {
-    console.error("[TriageSafety] scanMessage failed:", error);
+    logger.error("safety_scan_failed", {
+      sessionId: session.id,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
   }
 
   let knowledgeContext:
@@ -175,7 +180,10 @@ export async function sendMessageAction(
       });
     }
   } catch (error) {
-    console.error("[TriageKnowledge] runRetrieval failed:", error);
+    logger.error("knowledge_retrieval_failed", {
+      sessionId: session.id,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
   }
 
   const triageResult = await processTriageChat(
@@ -231,7 +239,11 @@ export async function chatTriageAction(input: ChatTriageInput) {
   try {
     return await processTriageChat(input.messages, resolvedLang);
   } catch (error) {
-    console.error("[AI] chatTriage failed:", error);
+    logger.error("chat_failed", {
+      lang: resolvedLang,
+      messageCount: input.messages.length,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
     return {
       isComplete: false,
       reply:

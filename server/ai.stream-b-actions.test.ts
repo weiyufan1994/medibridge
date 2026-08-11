@@ -238,4 +238,53 @@ describe("ai.sendMessageAction stream b", () => {
       })
     );
   });
+
+  it("omits patient content from safety and retrieval failure logs", async () => {
+    vi.mocked(triageSafetyApi.scanMessage).mockImplementation(() => {
+      throw new Error("private safety detail");
+    });
+    vi.mocked(triageKnowledgeApi.runRetrieval).mockRejectedValue(
+      new Error("private retrieval detail")
+    );
+    vi.mocked(processTriageChat).mockResolvedValue({
+      isComplete: false,
+      reply: "Please provide more detail.",
+    });
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    const result = await sendMessageAction(
+      {
+        sessionId: 10,
+        content: "private symptom narrative",
+        lang: "en",
+      },
+      { id: 7 } as never
+    );
+
+    expect(result.isComplete).toBe(false);
+    const logs = consoleError.mock.calls.map(call =>
+      JSON.parse(String(call[0]))
+    );
+    expect(logs).toEqual([
+      expect.objectContaining({
+        component: "ai-triage",
+        event: "safety_scan_failed",
+        sessionId: 10,
+        errorName: "Error",
+      }),
+      expect.objectContaining({
+        component: "ai-triage",
+        event: "knowledge_retrieval_failed",
+        sessionId: 10,
+        errorName: "Error",
+      }),
+    ]);
+    const serialized = JSON.stringify(logs);
+    expect(serialized).not.toContain("private symptom narrative");
+    expect(serialized).not.toContain("private safety detail");
+    expect(serialized).not.toContain("private retrieval detail");
+    consoleError.mockRestore();
+  });
 });

@@ -157,4 +157,39 @@ describe("hospitalRouting", () => {
     expect(result.missingCriticalFields).toEqual(["gender"]);
     expect(result.possibilitySummary).toContain("关键信息不足");
   });
+
+  it("omits patient content from local enhancement failure logs", async () => {
+    vi.mocked(doctorDirectoryApi.getAllHospitals).mockRejectedValue(
+      new Error("private directory detail")
+    );
+    const consoleWarn = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    const result = await buildHospitalRouting({
+      lang: "en",
+      data: {
+        mainSymptomAndLocation: "private symptom narrative",
+        durationAndOnset: "two days",
+        traumaOrSurgery: "none",
+        chronicConditions: "none",
+        otherSymptoms: "",
+        age: 40,
+        gender: "male",
+        urgency: "medium",
+      },
+    });
+
+    expect(result.hospitals.length).toBeGreaterThan(0);
+    const serialized = String(consoleWarn.mock.calls.at(-1)?.[0]);
+    expect(JSON.parse(serialized)).toMatchObject({
+      component: "triage-hospital-routing",
+      event: "hospital_enhancement_skipped",
+      lang: "en",
+      errorName: "Error",
+    });
+    expect(serialized).not.toContain("private symptom narrative");
+    expect(serialized).not.toContain("private directory detail");
+    consoleWarn.mockRestore();
+  });
 });

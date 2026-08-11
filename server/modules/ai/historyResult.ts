@@ -8,8 +8,11 @@ import {
   type TriageIntakeGender,
 } from "../../../shared/triageIntake";
 import { buildHospitalRouting } from "./hospitalRouting";
+import { createLogger } from "../../_core/logger";
 import type { TriageCollectedData } from "./triageLogic";
 import type { TriageLang, TriageResponse } from "./service";
+
+const logger = createLogger("ai-triage-history");
 
 export const TRIAGE_RESULT_FLAG_TYPE = "triage_result_v1";
 
@@ -179,10 +182,10 @@ export async function rebuildHistoricalTriageResultFromSummary(
       lang,
     });
   } catch (error) {
-    console.warn(
-      "[HistoryTriageResult] failed to rebuild routing from summary:",
-      error
-    );
+    logger.warn("routing_rebuild_failed", {
+      lang,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
   }
 
   return {
