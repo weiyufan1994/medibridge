@@ -1,27 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/contexts/LanguageContext";
-import {
-  getReferralCopy,
-  getReferralStatusLabel,
-  getRefundStatusLabel,
-} from "@/features/referrals";
+import { getReferralCopy, getReferralStatusLabel } from "@/features/referrals";
 import { getLocalizedText } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
-import {
-  REFERRAL_REFUND_REASON_CODE_VALUES,
-  type ReferralOrderStatus,
+import type {
+  ReferralOrderStatus,
+  ReferralRefundReasonCode,
 } from "@shared/referrals";
 import {
   getReferralAdminManualStatusTargets,
   getReferralAdminPrimaryNextStatus,
-  getReferralStatusAdvanceMode,
 } from "@/features/admin/adminStatusTransitions";
 import {
   areReferralConsultationDraftsEqual,
@@ -38,12 +33,8 @@ import {
   readReferralStatusDraft,
   saveReferralStatusDraft,
 } from "@/features/admin/referralStatusDraft";
-import {
-  getReferralAdminStatusTone,
-  getReferralAdminTaskKind,
-} from "@/features/admin/referralAdminPresentation";
+import { getReferralAdminTaskKind } from "@/features/admin/referralAdminPresentation";
 import { useAdminActionConfirmation } from "@/features/admin/adminActionConfirmationContext";
-import { AdminStatusBadge } from "@/features/admin/components/AdminStatusBadge";
 import {
   getAdminConfirmationCopy,
   getAdminStatusGuidanceCopy,
@@ -53,10 +44,13 @@ import {
   SectionBox,
 } from "./referral-admin/ReferralAdminPrimitives";
 import { ReferralAdminFilters } from "./referral-admin/ReferralAdminFilters";
+import { ReferralCommunicationSections } from "./referral-admin/ReferralCommunicationSections";
 import { ReferralOrderDetailHeader } from "./referral-admin/ReferralOrderDetailHeader";
 import { ReferralOrderList } from "./referral-admin/ReferralOrderList";
 import { ReferralPatientSection } from "./referral-admin/ReferralPatientSection";
+import { ReferralRefundSection } from "./referral-admin/ReferralRefundSection";
 import { ReferralTimelineSection } from "./referral-admin/ReferralTimelineSection";
+import { ReferralWorkflowGuidance } from "./referral-admin/ReferralWorkflowGuidance";
 
 type ReferralAdminPanelProps = {
   currentUserId: number | null;
@@ -126,9 +120,7 @@ export function ReferralAdminPanel({
   const [consultationDraftBaseline, setConsultationDraftBaseline] =
     useState<ReferralConsultationDraft | null>(null);
   const [refundReasonCode, setRefundReasonCode] =
-    useState<(typeof REFERRAL_REFUND_REASON_CODE_VALUES)[number]>(
-      "contact_failed"
-    );
+    useState<ReferralRefundReasonCode>("contact_failed");
   const [refundReasonDetail, setRefundReasonDetail] = useState("");
   const [refundReviewNote, setRefundReviewNote] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
@@ -460,9 +452,6 @@ export function ReferralAdminPanel({
   const primaryNextStatus = orderState
     ? getReferralAdminPrimaryNextStatus(orderState.status)
     : null;
-  const advanceMode = orderState
-    ? getReferralStatusAdvanceMode(orderState.status)
-    : null;
   const manualStatusTargets = orderState
     ? getReferralAdminManualStatusTargets(orderState.status)
     : [];
@@ -718,83 +707,14 @@ export function ReferralAdminPanel({
                 className="min-h-0 overflow-y-auto p-4"
               >
                 {taskKind ? (
-                  <section className="mb-4 rounded-xl border border-admin-border-strong bg-admin-accent px-4 py-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-admin-accent-foreground">
-                      {statusGuidanceCopy.referral.title}
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-admin-muted-foreground">
-                      {statusGuidanceCopy.referral.description}
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <div className="space-y-1">
-                        <p className="text-[11px] font-medium text-admin-muted-foreground">
-                          {statusGuidanceCopy.referral.currentStatus}
-                        </p>
-                        <AdminStatusBadge
-                          label={getReferralStatusLabel(
-                            orderState.status,
-                            lang
-                          )}
-                          tone={getReferralAdminStatusTone(orderState.status)}
-                        />
-                      </div>
-                      <ArrowRight
-                        aria-hidden="true"
-                        className="mt-4 size-4 text-admin-accent-foreground"
-                      />
-                      <div className="space-y-1">
-                        <p className="text-[11px] font-medium text-admin-muted-foreground">
-                          {statusGuidanceCopy.referral.nextStatus}
-                        </p>
-                        {primaryNextStatus ? (
-                          <AdminStatusBadge
-                            label={getReferralStatusLabel(
-                              primaryNextStatus,
-                              lang
-                            )}
-                            tone={getReferralAdminStatusTone(primaryNextStatus)}
-                          />
-                        ) : (
-                          <span className="inline-flex min-h-6 items-center rounded-md border border-admin-border bg-admin-surface px-2 text-xs font-medium text-admin-foreground">
-                            {advanceMode === "terminal"
-                              ? statusGuidanceCopy.referral.noNextStatus
-                              : statusGuidanceCopy.referral.noFixedTarget}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <p className="mt-3 text-sm font-medium leading-6 text-admin-foreground">
-                      {copy.admin.nextStep}:{" "}
-                      {copy.admin.taskDescriptions[taskKind]}
-                    </p>
-                    {advanceMode ? (
-                      <p className="mt-1 text-xs leading-5 text-admin-muted-foreground">
-                        {statusGuidanceCopy.referral.advanceModes[advanceMode]}
-                      </p>
-                    ) : null}
-                    {taskKind === "refund_review" ? (
-                      <Button
-                        size="sm"
-                        className="mt-3"
-                        onClick={() => setDetailTab("refund")}
-                      >
-                        {copy.admin.refundTitle}
-                      </Button>
-                    ) : null}
-                    {orderState.paymentStatus === "paid" &&
-                    taskKind !== "refund_review" &&
-                    taskKind !== "refund_processing" &&
-                    taskKind !== "terminal" ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="mt-3"
-                        onClick={() => setDetailTab("refund")}
-                      >
-                        {copy.admin.moreActions}
-                      </Button>
-                    ) : null}
-                  </section>
+                  <ReferralWorkflowGuidance
+                    lang={lang}
+                    status={orderState.status}
+                    taskKind={taskKind}
+                    primaryNextStatus={primaryNextStatus}
+                    paymentStatus={orderState.paymentStatus}
+                    onOpenRefund={() => setDetailTab("refund")}
+                  />
                 ) : null}
                 <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
                   {taskKind === "assign" ? (
@@ -1243,170 +1163,54 @@ export function ReferralAdminPanel({
                     </SectionBox>
                   ) : null}
 
-                  {taskKind !== "terminal" ? (
-                    <SectionBox title={copy.admin.addNote} collapsible>
-                      <div className="space-y-2">
-                        <Textarea
-                          value={internalNote}
-                          onChange={event =>
-                            setInternalNote(event.target.value)
-                          }
-                          placeholder={copy.admin.note}
-                          className="min-h-24 px-2 py-1 text-sm leading-tight"
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={
-                            addNoteMutation.isPending ||
-                            internalNote.trim().length < 1
-                          }
-                          onClick={() => {
-                            void addNoteMutation.mutateAsync({
-                              orderId: orderState.id,
-                              note: internalNote.trim(),
-                            });
-                          }}
-                        >
-                          {copy.admin.addNote}
-                        </Button>
-                      </div>
-                    </SectionBox>
-                  ) : null}
-
-                  {taskKind !== "terminal" ? (
-                    <SectionBox
-                      title={copy.admin.patientProgressTitle}
-                      collapsible
-                    >
-                      <div className="space-y-2">
-                        <Textarea
-                          value={patientProgressUpdate}
-                          onChange={event =>
-                            setPatientProgressUpdate(event.target.value)
-                          }
-                          placeholder={copy.admin.patientProgressPlaceholder}
-                          className="min-h-24 px-2 py-1 text-sm leading-tight"
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={
-                            publishPatientProgressMutation.isPending ||
-                            patientProgressUpdate.trim().length < 1
-                          }
-                          onClick={() => {
-                            void publishPatientProgressMutation.mutateAsync({
-                              orderId: orderState.id,
-                              detail: patientProgressUpdate.trim(),
-                            });
-                          }}
-                        >
-                          {copy.admin.publishPatientProgress}
-                        </Button>
-                      </div>
-                    </SectionBox>
-                  ) : null}
-
-                  {taskKind === "contact" ? (
-                    <SectionBox title={copy.admin.contactAttemptTitle}>
-                      <div className="space-y-2">
-                        <select
-                          className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
-                          value={contactOutcome}
-                          onChange={event =>
-                            setContactOutcome(
-                              event.target.value as
-                                | "connected"
-                                | "no_response"
-                                | "failed"
-                            )
-                          }
-                        >
-                          {Object.entries(copy.admin.contactOutcomes).map(
-                            ([value, label]) => (
-                              <option key={value} value={value}>
-                                {label}
-                              </option>
-                            )
-                          )}
-                        </select>
-                        <Textarea
-                          value={contactNote}
-                          onChange={event => setContactNote(event.target.value)}
-                          placeholder={copy.admin.note}
-                          className="min-h-24 px-2 py-1 text-sm leading-tight"
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={
-                            contactAttemptMutation.isPending ||
-                            contactNote.trim().length < 1
-                          }
-                          onClick={() => {
-                            void contactAttemptMutation.mutateAsync({
-                              orderId: orderState.id,
-                              outcome: contactOutcome,
-                              note: contactNote.trim(),
-                            });
-                          }}
-                        >
-                          {copy.admin.contactAttemptTitle}
-                        </Button>
-                      </div>
-                    </SectionBox>
-                  ) : null}
-
-                  {taskKind === "booking" ? (
-                    <SectionBox title={copy.admin.bookingResultTitle}>
-                      <div className="space-y-2">
-                        <select
-                          className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
-                          value={bookingOutcome}
-                          onChange={event =>
-                            setBookingOutcome(
-                              event.target.value as
-                                | "progressing"
-                                | "failed"
-                                | "scheduled"
-                            )
-                          }
-                        >
-                          {Object.entries(copy.admin.bookingOutcomes).map(
-                            ([value, label]) => (
-                              <option key={value} value={value}>
-                                {label}
-                              </option>
-                            )
-                          )}
-                        </select>
-                        <Textarea
-                          value={bookingNote}
-                          onChange={event => setBookingNote(event.target.value)}
-                          placeholder={copy.admin.note}
-                          className="min-h-24 px-2 py-1 text-sm leading-tight"
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={
-                            bookingResultMutation.isPending ||
-                            bookingNote.trim().length < 1
-                          }
-                          onClick={() => {
-                            void bookingResultMutation.mutateAsync({
-                              orderId: orderState.id,
-                              outcome: bookingOutcome,
-                              note: bookingNote.trim(),
-                            });
-                          }}
-                        >
-                          {copy.admin.bookingResultTitle}
-                        </Button>
-                      </div>
-                    </SectionBox>
-                  ) : null}
+                  <ReferralCommunicationSections
+                    lang={lang}
+                    taskKind={taskKind}
+                    internalNote={internalNote}
+                    patientProgressUpdate={patientProgressUpdate}
+                    contactOutcome={contactOutcome}
+                    contactNote={contactNote}
+                    bookingOutcome={bookingOutcome}
+                    bookingNote={bookingNote}
+                    addNotePending={addNoteMutation.isPending}
+                    publishProgressPending={
+                      publishPatientProgressMutation.isPending
+                    }
+                    contactAttemptPending={contactAttemptMutation.isPending}
+                    bookingResultPending={bookingResultMutation.isPending}
+                    onInternalNoteChange={setInternalNote}
+                    onPatientProgressChange={setPatientProgressUpdate}
+                    onContactOutcomeChange={setContactOutcome}
+                    onContactNoteChange={setContactNote}
+                    onBookingOutcomeChange={setBookingOutcome}
+                    onBookingNoteChange={setBookingNote}
+                    onAddNote={() => {
+                      void addNoteMutation.mutateAsync({
+                        orderId: orderState.id,
+                        note: internalNote.trim(),
+                      });
+                    }}
+                    onPublishProgress={() => {
+                      void publishPatientProgressMutation.mutateAsync({
+                        orderId: orderState.id,
+                        detail: patientProgressUpdate.trim(),
+                      });
+                    }}
+                    onRecordContactAttempt={() => {
+                      void contactAttemptMutation.mutateAsync({
+                        orderId: orderState.id,
+                        outcome: contactOutcome,
+                        note: contactNote.trim(),
+                      });
+                    }}
+                    onRecordBookingResult={() => {
+                      void bookingResultMutation.mutateAsync({
+                        orderId: orderState.id,
+                        outcome: bookingOutcome,
+                        note: bookingNote.trim(),
+                      });
+                    }}
+                  />
                 </div>
               </TabsContent>
 
@@ -1421,177 +1225,63 @@ export function ReferralAdminPanel({
                 recommendationReason={selectedOrder.recommendationReason}
               />
 
-              <TabsContent
-                value="refund"
-                className="min-h-0 overflow-y-auto p-4"
-              >
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="mb-3"
-                  onClick={() => setDetailTab("operations")}
-                >
-                  {copy.admin.detailTabs.operations}
-                </Button>
-                <div className="grid gap-3 xl:grid-cols-2">
-                  <SectionBox title={copy.admin.initiateRefund}>
-                    <div className="space-y-2">
-                      <select
-                        className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
-                        value={refundReasonCode}
-                        onChange={event =>
-                          setRefundReasonCode(
-                            event.target
-                              .value as (typeof REFERRAL_REFUND_REASON_CODE_VALUES)[number]
-                          )
-                        }
-                      >
-                        {REFERRAL_REFUND_REASON_CODE_VALUES.map(reasonCode => (
-                          <option key={reasonCode} value={reasonCode}>
-                            {copy.admin.refundReasonCodes[reasonCode]}
-                          </option>
-                        ))}
-                      </select>
-                      <Textarea
-                        value={refundReasonDetail}
-                        onChange={event =>
-                          setRefundReasonDetail(event.target.value)
-                        }
-                        placeholder={copy.admin.refundReasonDetail}
-                        className="min-h-28 px-2 py-1 text-sm leading-tight"
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={
-                          initiateRefundMutation.isPending ||
-                          refundReasonDetail.trim().length < 1 ||
-                          orderState.paymentStatus !== "paid"
-                        }
-                        onClick={() => {
-                          const confirmation = getAdminConfirmationCopy(
-                            lang,
-                            "initiateReferralRefund"
-                          );
-                          requestConfirmation({
-                            title: confirmation.title,
-                            description: confirmation.description,
-                            confirmLabel: confirmation.confirmLabel,
-                            cancelLabel: confirmation.cancelLabel,
-                            tone: "danger",
-                            onConfirm: () =>
-                              initiateRefundMutation.mutateAsync({
-                                orderId: orderState.id,
-                                reasonCode: refundReasonCode,
-                                reasonDetail: refundReasonDetail.trim(),
-                              }),
-                          });
-                        }}
-                      >
-                        {copy.admin.initiateRefund}
-                      </Button>
-                    </div>
-                  </SectionBox>
-
-                  <SectionBox title={copy.admin.refundTitle}>
-                    <div className="rounded-lg border border-admin-border bg-admin-surface-muted px-3 py-3 text-sm text-muted-foreground">
-                      <p>
-                        {copy.orderDetail.refundStatus}:{" "}
-                        {selectedOrder.refundRequest
-                          ? getRefundStatusLabel(
-                              selectedOrder.refundRequest.status,
-                              lang
-                            )
-                          : copy.common.notAvailable}
-                      </p>
-                      <p className="mt-2">
-                        {copy.admin.reason}:{" "}
-                        {selectedOrder.refundRequest?.reasonDetail ||
-                          orderState.refundReason ||
-                          copy.common.notAvailable}
-                      </p>
-                    </div>
-                    <Textarea
-                      value={refundReviewNote}
-                      onChange={event =>
-                        setRefundReviewNote(event.target.value)
-                      }
-                      placeholder={copy.admin.refundReviewNote}
-                      className="mt-3 min-h-28 px-2 py-1 text-sm leading-tight"
-                    />
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        disabled={
-                          reviewRefundMutation.isPending ||
-                          !selectedOrder.refundRequest
-                        }
-                        onClick={() => {
-                          if (!selectedOrder.refundRequest) {
-                            return;
-                          }
-                          const confirmation = getAdminConfirmationCopy(
-                            lang,
-                            "approveReferralRefund"
-                          );
-                          requestConfirmation({
-                            title: confirmation.title,
-                            description: confirmation.description,
-                            confirmLabel: confirmation.confirmLabel,
-                            cancelLabel: confirmation.cancelLabel,
-                            tone: "danger",
-                            onConfirm: () =>
-                              reviewRefundMutation.mutateAsync({
-                                orderId: orderState.id,
-                                refundRequestId:
-                                  selectedOrder.refundRequest!.id,
-                                approve: true,
-                                note: refundReviewNote.trim() || undefined,
-                              }),
-                          });
-                        }}
-                      >
-                        {copy.admin.approveRefund}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={
-                          reviewRefundMutation.isPending ||
-                          !selectedOrder.refundRequest
-                        }
-                        onClick={() => {
-                          if (!selectedOrder.refundRequest) {
-                            return;
-                          }
-                          const confirmation = getAdminConfirmationCopy(
-                            lang,
-                            "rejectReferralRefund"
-                          );
-                          requestConfirmation({
-                            title: confirmation.title,
-                            description: confirmation.description,
-                            confirmLabel: confirmation.confirmLabel,
-                            cancelLabel: confirmation.cancelLabel,
-                            tone: "danger",
-                            onConfirm: () =>
-                              reviewRefundMutation.mutateAsync({
-                                orderId: orderState.id,
-                                refundRequestId:
-                                  selectedOrder.refundRequest!.id,
-                                approve: false,
-                                note: refundReviewNote.trim() || undefined,
-                              }),
-                          });
-                        }}
-                      >
-                        {copy.admin.rejectRefund}
-                      </Button>
-                    </div>
-                  </SectionBox>
-                </div>
-              </TabsContent>
+              <ReferralRefundSection
+                lang={lang}
+                paymentStatus={orderState.paymentStatus}
+                orderRefundReason={orderState.refundReason}
+                refundRequest={selectedOrder.refundRequest}
+                refundReasonCode={refundReasonCode}
+                refundReasonDetail={refundReasonDetail}
+                refundReviewNote={refundReviewNote}
+                initiatePending={initiateRefundMutation.isPending}
+                reviewPending={reviewRefundMutation.isPending}
+                onBack={() => setDetailTab("operations")}
+                onRefundReasonCodeChange={setRefundReasonCode}
+                onRefundReasonDetailChange={setRefundReasonDetail}
+                onRefundReviewNoteChange={setRefundReviewNote}
+                onInitiateRefund={() => {
+                  const confirmation = getAdminConfirmationCopy(
+                    lang,
+                    "initiateReferralRefund"
+                  );
+                  requestConfirmation({
+                    title: confirmation.title,
+                    description: confirmation.description,
+                    confirmLabel: confirmation.confirmLabel,
+                    cancelLabel: confirmation.cancelLabel,
+                    tone: "danger",
+                    onConfirm: () =>
+                      initiateRefundMutation.mutateAsync({
+                        orderId: orderState.id,
+                        reasonCode: refundReasonCode,
+                        reasonDetail: refundReasonDetail.trim(),
+                      }),
+                  });
+                }}
+                onReviewRefund={approve => {
+                  if (!selectedOrder.refundRequest) {
+                    return;
+                  }
+                  const confirmation = getAdminConfirmationCopy(
+                    lang,
+                    approve ? "approveReferralRefund" : "rejectReferralRefund"
+                  );
+                  requestConfirmation({
+                    title: confirmation.title,
+                    description: confirmation.description,
+                    confirmLabel: confirmation.confirmLabel,
+                    cancelLabel: confirmation.cancelLabel,
+                    tone: "danger",
+                    onConfirm: () =>
+                      reviewRefundMutation.mutateAsync({
+                        orderId: orderState.id,
+                        refundRequestId: selectedOrder.refundRequest!.id,
+                        approve,
+                        note: refundReviewNote.trim() || undefined,
+                      }),
+                  });
+                }}
+              />
 
               <ReferralTimelineSection
                 lang={lang}
