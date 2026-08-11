@@ -253,11 +253,9 @@ describe("payments router", () => {
     const access = await validateAppointmentAccessToken({
       token: "patient-room-token",
       action: "join_room",
-      req: {
-        ip: "127.0.0.1",
-        headers: {
-          "user-agent": "vitest-e2e",
-        },
+      requestMetadata: {
+        clientIp: "127.0.0.1",
+        userAgent: "vitest-e2e",
       } as never,
     });
 

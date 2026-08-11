@@ -112,7 +112,7 @@ const appointmentAccessProcedures = {
         appointmentId: input.appointmentId,
         token: input.token,
         lang: input.lang,
-        req: ctx.req,
+        requestMetadata: ctx.requestMetadata,
       })
     ),
   rescheduleByToken: publicProcedure
@@ -123,7 +123,7 @@ const appointmentAccessProcedures = {
         appointmentId: input.appointmentId,
         token: input.token,
         newScheduledAt: input.newScheduledAt,
-        req: ctx.req,
+        requestMetadata: ctx.requestMetadata,
       })
     ),
   joinInfoByToken: publicProcedure
@@ -133,7 +133,7 @@ const appointmentAccessProcedures = {
       appointmentActions.getJoinInfoByToken({
         appointmentId: input.appointmentId,
         token: input.token,
-        req: ctx.req,
+        requestMetadata: ctx.requestMetadata,
       })
     ),
   issueAccessLinks: protectedProcedure
@@ -162,7 +162,7 @@ const appointmentAccessProcedures = {
     .query(async ({ input, ctx }) =>
       appointmentCore.validateAccessTokenContext({
         token: input.token,
-        req: ctx.req,
+        requestMetadata: ctx.requestMetadata,
       })
     ),
   revokeAccessToken: protectedProcedure
@@ -215,7 +215,7 @@ const appointmentCompletionProcedures = {
         appointmentId: input.appointmentId,
         token: input.token,
         operatorId: ctx.user?.id ?? null,
-        req: ctx.req,
+        requestMetadata: ctx.requestMetadata,
       })
     ),
   generateMedicalSummaryDraft: publicProcedure
@@ -227,7 +227,7 @@ const appointmentCompletionProcedures = {
         token: input.token,
         lang: input.lang,
         forceRegenerate: input.forceRegenerate,
-        req: ctx.req,
+        requestMetadata: ctx.requestMetadata,
       })
     ),
   signMedicalSummary: publicProcedure
@@ -243,7 +243,7 @@ const appointmentCompletionProcedures = {
         pastMedicalHistory: input.pastMedicalHistory,
         assessmentDiagnosis: input.assessmentDiagnosis,
         planRecommendations: input.planRecommendations,
-        req: ctx.req,
+        requestMetadata: ctx.requestMetadata,
       })
     ),
 };

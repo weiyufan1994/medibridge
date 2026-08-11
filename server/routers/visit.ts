@@ -6,25 +6,27 @@ export const visitRouter = router({
     .input(visitSchemas.roomGetMessagesInputSchema)
     .output(visitSchemas.roomGetMessagesOutputSchema)
     .query(({ input, ctx }) =>
-      visitActions.roomGetMessagesByToken(input, ctx.req)
+      visitActions.roomGetMessagesByToken(input, ctx.requestMetadata)
     ),
 
   getMessagesByToken: publicProcedure
     .input(visitSchemas.getMessagesInputSchema)
     .output(visitSchemas.getMessagesOutputSchema)
-    .query(({ input, ctx }) => visitActions.getMessagesByToken(input, ctx.req)),
+    .query(({ input, ctx }) =>
+      visitActions.getMessagesByToken(input, ctx.requestMetadata)
+    ),
 
   sendMessageByToken: publicProcedure
     .input(visitSchemas.sendMessageInputSchema)
     .output(visitSchemas.sendMessageOutputSchema)
     .mutation(({ input, ctx }) =>
-      visitActions.sendMessageByToken(input, ctx.req)
+      visitActions.sendMessageByToken(input, ctx.requestMetadata)
     ),
 
   pollNewMessagesByToken: publicProcedure
     .input(visitSchemas.pollMessagesInputSchema)
     .output(visitSchemas.pollMessagesOutputSchema)
     .query(({ input, ctx }) =>
-      visitActions.pollNewMessagesByToken(input, ctx.req)
+      visitActions.pollNewMessagesByToken(input, ctx.requestMetadata)
     ),
 });

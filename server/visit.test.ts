@@ -35,6 +35,17 @@ import { translateVisitMessage } from "./modules/visit/translation";
 function createTestContext(): TrpcContext {
   return {
     user: null,
+    userId: null,
+    deviceId: null,
+    requestMetadata: {
+      clientIp: null,
+      forwardedHost: null,
+      forwardedProto: null,
+      host: "medibridge.test",
+      protocol: "https",
+      requestId: null,
+      userAgent: null,
+    },
     req: {
       protocol: "https",
       headers: { host: "medibridge.test" },

@@ -17,7 +17,8 @@ describe("request metadata", () => {
     const metadata = getRequestMetadata({
       headers: {
         host: "internal.medibridge.test",
-        "user-agent": "test-agent",
+        "user-agent": "test-agent, compatible",
+        "x-forwarded-for": "198.51.100.20, 10.0.0.2",
         "x-forwarded-host": "app.medibridge.test, proxy.internal",
         "x-forwarded-proto": "https, http",
         "x-request-id": "request-123",
@@ -28,13 +29,13 @@ describe("request metadata", () => {
     } as never);
 
     expect(metadata).toEqual({
-      clientIp: "203.0.113.10",
+      clientIp: "198.51.100.20",
       forwardedHost: "app.medibridge.test",
       forwardedProto: "https",
       host: "internal.medibridge.test",
       protocol: "http",
       requestId: "request-123",
-      userAgent: "test-agent",
+      userAgent: "test-agent, compatible",
     });
   });
 

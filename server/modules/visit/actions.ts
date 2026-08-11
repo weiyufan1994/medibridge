@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import type { Request } from "express";
+import type { RequestMetadata } from "@shared/requestMetadata";
 import { isDuplicateDbError, isForeignKeyDbError } from "../../_core/dbCompat";
 import { appointmentVisitApi } from "../appointments/publicApi";
 import * as visitRepo from "./repo";
@@ -106,12 +106,12 @@ function toMessageSenderType(value: unknown): "patient" | "doctor" | "system" {
 
 export async function roomGetMessagesByToken(
   input: RoomGetMessagesInput,
-  req?: Request
+  requestMetadata?: RequestMetadata
 ) {
   const validated = await appointmentVisitApi.validateAccessToken({
     token: input.token,
     action: "read_history",
-    req,
+    requestMetadata,
   });
   const appointment = validated.appointment;
   const touchedAt = new Date();
@@ -156,13 +156,13 @@ export async function roomGetMessagesByToken(
 
 export async function getMessagesByToken(
   input: GetMessagesInput,
-  req?: Request
+  requestMetadata?: RequestMetadata
 ) {
   const { appointment } = await appointmentVisitApi.validateToken(
     input.appointmentId,
     input.token,
     "read_history",
-    req
+    requestMetadata
   );
 
   const cursor =
@@ -198,13 +198,13 @@ export async function getMessagesByToken(
 
 export async function sendMessageByToken(
   input: SendMessageInput,
-  req?: Request
+  requestMetadata?: RequestMetadata
 ): Promise<SendMessageOutput> {
   const { appointment, role } = await appointmentVisitApi.validateToken(
     input.appointmentId,
     input.token,
     "send_message",
-    req
+    requestMetadata
   );
 
   const dedupeClientMessageId = input.clientMessageId ?? input.clientMsgId;
@@ -306,13 +306,13 @@ export async function sendMessageByToken(
 
 export async function pollNewMessagesByToken(
   input: PollMessagesInput,
-  req?: Request
+  requestMetadata?: RequestMetadata
 ) {
   const { appointment } = await appointmentVisitApi.validateToken(
     input.appointmentId,
     input.token,
     "read_history",
-    req
+    requestMetadata
   );
 
   if (!input.afterCreatedAt && !input.afterId) {

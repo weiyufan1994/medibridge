@@ -1,4 +1,4 @@
-import type { Request } from "express";
+import type { RequestMetadata } from "@shared/requestMetadata";
 import { validateAppointmentToken } from "./accessValidation";
 import { rescheduleAppointmentByToken } from "./rescheduleActions";
 import { toPublicAppointment } from "./serializers";
@@ -8,13 +8,13 @@ export async function rescheduleByTokenFlow(input: {
   appointmentId: number;
   token: string;
   newScheduledAt: Date;
-  req?: Request;
+  requestMetadata?: RequestMetadata;
 }) {
   const { appointment, role } = await validateAppointmentToken(
     input.appointmentId,
     input.token,
     "join_room",
-    input.req
+    input.requestMetadata
   );
   const updated = await rescheduleAppointmentByToken({
     appointmentId: appointment.id,
@@ -30,13 +30,13 @@ export async function completeAppointmentByTokenFlow(input: {
   appointmentId: number;
   token: string;
   operatorId: number | null;
-  req?: Request;
+  requestMetadata?: RequestMetadata;
 }) {
   const { appointment, role } = await validateAppointmentToken(
     input.appointmentId,
     input.token,
     "send_message",
-    input.req
+    input.requestMetadata
   );
 
   return completeAppointmentByDoctor({

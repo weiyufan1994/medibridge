@@ -1,4 +1,4 @@
-import type { Request } from "express";
+import type { RequestMetadata } from "@shared/requestMetadata";
 import {
   revokeAppointmentAccessToken,
   validateAppointmentAccessToken,
@@ -6,11 +6,11 @@ import {
 
 export async function validateAccessTokenContext(input: {
   token: string;
-  req?: Request;
+  requestMetadata?: RequestMetadata;
 }) {
   const result = await validateAppointmentAccessToken({
     token: input.token,
-    req: input.req,
+    requestMetadata: input.requestMetadata,
   });
 
   return {

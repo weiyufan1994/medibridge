@@ -1,4 +1,4 @@
-import type { IncomingMessage } from "http";
+import type { RequestMetadata } from "@shared/requestMetadata";
 import type { AppointmentMessage } from "../../../drizzle/schema";
 import { isDuplicateDbError, isForeignKeyDbError } from "../../_core/dbCompat";
 import { appointmentVisitApi } from "../appointments/publicApi";
@@ -68,13 +68,13 @@ export function createVisitRealtimeEventHandlers(
 
   async function handleRoomJoin(
     connection: RoomConnection,
-    req: IncomingMessage,
+    requestMetadata: RequestMetadata,
     token: string
   ) {
     const validated = await appointmentVisitApi.validateAccessToken({
       token,
       action: "join_room",
-      req: req as never,
+      requestMetadata,
     });
     const appointment = validated.appointment;
     const role = validated.role;
@@ -123,7 +123,7 @@ export function createVisitRealtimeEventHandlers(
 
   async function handleMessageSend(
     connection: RoomConnection,
-    req: IncomingMessage,
+    requestMetadata: RequestMetadata,
     payload: {
       textOriginal?: string;
       clientMessageId?: string;
@@ -161,7 +161,7 @@ export function createVisitRealtimeEventHandlers(
       token,
       action: "send_message",
       expectedAppointmentId: appointmentId,
-      req: req as never,
+      requestMetadata,
     });
     const appointment = validated.appointment;
     if (
@@ -271,7 +271,7 @@ export function createVisitRealtimeEventHandlers(
 
   async function handleTimerExtend(
     connection: RoomConnection,
-    req: IncomingMessage,
+    requestMetadata: RequestMetadata,
     payload: { requestId?: string; minutes?: number }
   ) {
     const appointmentId = connection.appointmentId;
@@ -297,7 +297,7 @@ export function createVisitRealtimeEventHandlers(
       appointmentId,
       token,
       extensionMinutes: minutes,
-      req: req as never,
+      requestMetadata,
     });
 
     callbacks.broadcastRoom(appointmentId, "room.timer", {

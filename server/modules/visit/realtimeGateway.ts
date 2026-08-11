@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import type { RequestMetadata } from "@shared/requestMetadata";
 import type { IncomingMessage } from "http";
 import type net from "net";
 import type { Duplex } from "stream";
@@ -20,6 +21,18 @@ import {
 export function createVisitRealtimeGateway() {
   const rooms = new Map<number, Set<RoomConnection>>();
   const connections = new Set<RoomConnection>();
+
+  function getRealtimeRequestMetadata(req: IncomingMessage): RequestMetadata {
+    return {
+      clientIp: getReqIp(req),
+      forwardedHost: null,
+      forwardedProto: null,
+      host: null,
+      protocol: null,
+      requestId: null,
+      userAgent: getReqUserAgent(req),
+    };
+  }
 
   function sendEvent(connection: RoomConnection, event: string, data: unknown) {
     if (connection.isClosed) {
@@ -110,6 +123,7 @@ export function createVisitRealtimeGateway() {
     connection: RoomConnection,
     req: IncomingMessage
   ) {
+    const requestMetadata = getRealtimeRequestMetadata(req);
     connection.heartbeatTimer = setInterval(() => {
       if (connection.isClosed) {
         return;
@@ -220,27 +234,33 @@ export function createVisitRealtimeGateway() {
               sendError(connection, "BAD_REQUEST", "token is required");
               continue;
             }
-            void handleRoomJoin(connection, req, nextToken).catch(error => {
+            void handleRoomJoin(connection, requestMetadata, nextToken).catch(
+              error => {
+                sendError(connection, asErrorCode(error));
+              }
+            );
+            continue;
+          }
+
+          if (envelope.event === "message.send") {
+            void handleMessageSend(
+              connection,
+              requestMetadata,
+              envelope.data ?? {}
+            ).catch(error => {
               sendError(connection, asErrorCode(error));
             });
             continue;
           }
 
-          if (envelope.event === "message.send") {
-            void handleMessageSend(connection, req, envelope.data ?? {}).catch(
-              error => {
-                sendError(connection, asErrorCode(error));
-              }
-            );
-            continue;
-          }
-
           if (envelope.event === "room.timer.extend") {
-            void handleTimerExtend(connection, req, envelope.data ?? {}).catch(
-              error => {
-                sendError(connection, asErrorCode(error));
-              }
-            );
+            void handleTimerExtend(
+              connection,
+              requestMetadata,
+              envelope.data ?? {}
+            ).catch(error => {
+              sendError(connection, asErrorCode(error));
+            });
             continue;
           }
 

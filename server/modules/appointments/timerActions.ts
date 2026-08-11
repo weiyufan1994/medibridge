@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import type { Request } from "express";
+import type { RequestMetadata } from "@shared/requestMetadata";
 import { validateAppointmentToken } from "./accessValidation";
 import {
   applyConsultationFreeExtensionToNotes,
@@ -11,13 +11,13 @@ export async function extendConsultationByDoctorTokenFlow(input: {
   appointmentId: number;
   token: string;
   extensionMinutes: number;
-  req?: Request;
+  requestMetadata?: RequestMetadata;
 }) {
   const validated = await validateAppointmentToken(
     input.appointmentId,
     input.token,
     "read_history",
-    input.req
+    input.requestMetadata
   );
   if (validated.role !== "doctor") {
     throw new TRPCError({

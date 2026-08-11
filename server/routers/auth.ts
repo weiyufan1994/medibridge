@@ -33,6 +33,7 @@ export const authRouter = router({
         req: ctx.req,
         res: ctx.res,
         deviceId: ctx.deviceId,
+        requestMetadata: ctx.requestMetadata,
       })
     ),
 
