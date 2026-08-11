@@ -46,11 +46,6 @@
       "phase": "4",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
-    "server/modules/visit/realtimeGateway.ts": {
-      "maxLines": 765,
-      "phase": "4",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
     "server/referrals.actions.test.ts": {
       "maxLines": 1408,
       "phase": "4",
