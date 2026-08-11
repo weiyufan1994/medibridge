@@ -76,11 +76,6 @@
       "phase": "4",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
-    "server/modules/doctors/repo.ts": {
-      "maxLines": 441,
-      "phase": "4",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
     "server/modules/referrals/actions.ts": {
       "maxLines": 2104,
       "phase": "4",
