@@ -1,19 +1,16 @@
-import { useCallback, useState } from "react";
-import { toast } from "sonner";
-import { trpc } from "@/lib/trpc";
-import type {
-  AdminBatchActionResult,
-  UseAdminConsoleResult,
-} from "@/features/admin/types";
+import { useCallback } from "react";
+import type { UseAdminConsoleResult } from "@/features/admin/types";
 import type {
   AdminConsoleSectionKey,
   AdminOperationsTabKey,
 } from "@/features/admin/adminConsoleLayout";
 import type { AdminConfirmationRequest } from "@/features/admin/adminActionConfirmationContext";
+import { translateAdminConsoleError } from "@/features/admin/hooks/adminConsoleHelpers";
 import { useAdminAppointmentDetailActions } from "@/features/admin/hooks/useAdminAppointmentDetailActions";
 import { useAdminAppointmentDetailState } from "@/features/admin/hooks/useAdminAppointmentDetailState";
 import { useAdminAppointmentFilters } from "@/features/admin/hooks/useAdminAppointmentFilters";
 import { useAdminAppointmentMutations } from "@/features/admin/hooks/useAdminAppointmentMutations";
+import { useAdminAppointmentOperations } from "@/features/admin/hooks/useAdminAppointmentOperations";
 import { useAdminOperations } from "@/features/admin/hooks/useAdminOperations";
 import { useAdminDirectory } from "@/features/admin/hooks/useAdminDirectory";
 import { useAdminUsers } from "@/features/admin/hooks/useAdminUsers";
@@ -36,61 +33,6 @@ type UseAdminConsoleParams = {
   requestConfirmation: (request: AdminConfirmationRequest) => void;
 };
 
-const DEFAULT_BATCH_RESULT: AdminBatchActionResult[] = [];
-const VALID_STATUS_VALUES = [
-  "draft",
-  "pending_payment",
-  "paid",
-  "active",
-  "ended",
-  "completed",
-  "expired",
-  "refunded",
-  "canceled",
-] as const;
-const VALID_PAYMENT_STATUS_VALUES = [
-  "unpaid",
-  "pending",
-  "paid",
-  "failed",
-  "expired",
-  "refunded",
-  "canceled",
-] as const;
-type AdminAppointmentStatus = (typeof VALID_STATUS_VALUES)[number];
-type AdminPaymentStatus = (typeof VALID_PAYMENT_STATUS_VALUES)[number];
-type ValidatedBatchInput = {
-  action: "resend_access_link" | "reinitiate_payment" | "update_status";
-  toStatus?: AdminAppointmentStatus;
-  toPaymentStatus?: AdminPaymentStatus;
-  reason?: string;
-  idempotencyKey?: string;
-};
-
-const toStatusValue = (
-  value: string | undefined
-): AdminAppointmentStatus | undefined => {
-  if (!value) {
-    return undefined;
-  }
-  if ((VALID_STATUS_VALUES as readonly string[]).includes(value)) {
-    return value as AdminAppointmentStatus;
-  }
-  return undefined;
-};
-const toPaymentStatusValue = (
-  value: string | undefined
-): AdminPaymentStatus | undefined => {
-  if (!value) {
-    return undefined;
-  }
-  if ((VALID_PAYMENT_STATUS_VALUES as readonly string[]).includes(value)) {
-    return value as AdminPaymentStatus;
-  }
-  return undefined;
-};
-const toArray = (values: number[]): number[] => Array.from(new Set(values));
-
 export function useAdminConsole({
   canReadAdmin,
   canMutateAdmin,
@@ -106,9 +48,6 @@ export function useAdminConsole({
   activeUsersTab,
   requestConfirmation,
 }: UseAdminConsoleParams): UseAdminConsoleResult {
-  const [batchLastResult, setBatchLastResult] = useState<
-    AdminBatchActionResult[] | null
-  >(DEFAULT_BATCH_RESULT);
   const {
     emailQuery,
     setEmailQuery,
@@ -181,31 +120,8 @@ export function useAdminConsole({
     suggestions,
   } = detailState;
 
-  const toUiError = (message?: string) => {
-    const raw = (message ?? "").trim();
-    if (!raw) {
-      return tr("操作失败，请重试。", "Operation failed. Please retry.");
-    }
-    if (raw === "RETENTION_STORAGE_UNAVAILABLE") {
-      return tr(
-        "数据保留策略表不可用。请先执行数据库迁移（含 0020）。",
-        "Retention storage is unavailable. Run database migrations (including 0020)."
-      );
-    }
-    if (raw.includes("Unknown column") && raw.includes("imageUrl")) {
-      return tr(
-        "医院封面字段不可用。请执行最新数据库迁移（含 0023）并重启服务。",
-        "Hospital cover field is unavailable. Run latest DB migrations (including 0023) and restart the server."
-      );
-    }
-    if (raw.includes("Failed query")) {
-      return tr(
-        "数据库结构与当前代码不一致。请执行最新数据库迁移并重启服务。",
-        "Database schema is out of sync with current code. Run latest migrations and restart the server."
-      );
-    }
-    return raw;
-  };
+  const toUiError = (message?: string) =>
+    translateAdminConsoleError(message, tr);
 
   const {
     operationAuditPage,
@@ -344,116 +260,15 @@ export function useAdminConsole({
     beforeIssueLinks,
     runSuggestedAction,
   } = detailActions;
-
-  const adminBatchMutation =
-    trpc.system.adminBatchAppointmentsAction.useMutation({
-      onSuccess: result => {
-        setBatchLastResult(result.results);
-        const msg = tr(
-          `批量处理完成：成功 ${result.summary.success}，跳过 ${result.summary.skipped}，失败 ${result.summary.failed}`,
-          `Batch done: ${result.summary.success} success, ${result.summary.skipped} skipped, ${result.summary.failed} failed`
-        );
-        toast.success(msg);
-        refreshAdminData().catch(() => {
-          toast.error(
-            tr(
-              "刷新列表失败，请重试。",
-              "Failed to refresh list. Please retry."
-            )
-          );
-        });
-      },
-      onError: error => {
-        toast.error(toUiError(error.message));
-      },
+  const { batchAppointmentsMutation, webhookReplayMutation } =
+    useAdminAppointmentOperations({
+      canMutateAdmin,
+      canResendAccessLink,
+      selectedAppointmentIds,
+      tr,
+      toUiError,
+      refreshAdminData,
     });
-  const webhookReplayMutation = trpc.system.adminWebhookReplay.useMutation({
-    onSuccess: result => {
-      if (result.ok) {
-        toast.success(tr("Webhook 重试成功。", "Webhook replay completed."));
-      } else {
-        toast.success(
-          tr("Webhook 重试已去重。", "Webhook replay skipped by idempotency.")
-        );
-      }
-      void refreshAdminData();
-    },
-    onError: error => {
-      toast.error(toUiError(error.message));
-    },
-  });
-  const executeBatch = (input: {
-    action: "resend_access_link" | "reinitiate_payment" | "update_status";
-    toStatus?: string;
-    toPaymentStatus?: string;
-    reason?: string;
-    idempotencyKey?: string;
-  }) => {
-    if (selectedAppointmentIds.length === 0) {
-      toast.error(
-        tr("请先选择至少一条预约。", "Select at least one appointment.")
-      );
-      return;
-    }
-    const validatedInput: ValidatedBatchInput = {
-      action: input.action,
-      toStatus: toStatusValue(input.toStatus),
-      toPaymentStatus: toPaymentStatusValue(input.toPaymentStatus),
-      reason: input.reason,
-      idempotencyKey: input.idempotencyKey,
-    };
-    if (validatedInput.action === "resend_access_link") {
-      if (!canResendAccessLink) {
-        toast.message(
-          tr(
-            "当前角色无权执行该批量动作。",
-            "Current role cannot execute this batch action."
-          )
-        );
-        return;
-      }
-    }
-
-    if (
-      validatedInput.action === "reinitiate_payment" ||
-      validatedInput.action === "update_status"
-    ) {
-      if (!canMutateAdmin) {
-        toast.message(
-          tr(
-            "当前角色无权执行该批量动作。",
-            "Current role cannot execute this batch action."
-          )
-        );
-        return;
-      }
-    }
-
-    const normalizedReason =
-      typeof validatedInput.reason === "string" &&
-      validatedInput.reason.trim().length
-        ? validatedInput.reason.trim()
-        : "admin_batch_action";
-    return adminBatchMutation.mutateAsync({
-      appointmentIds: toArray(selectedAppointmentIds),
-      action: validatedInput.action,
-      toStatus: validatedInput.toStatus,
-      toPaymentStatus: validatedInput.toPaymentStatus,
-      reason: normalizedReason,
-      idempotencyKey: validatedInput.idempotencyKey ?? randomUUID(),
-    });
-  };
-
-  const replayWebhookByEvent = (params: {
-    eventId?: string;
-    appointmentId?: number;
-  }) => {
-    webhookReplayMutation.mutate({
-      eventId: params.eventId,
-      appointmentId: params.appointmentId,
-      replayKey: randomUUID(),
-    });
-  };
 
   return {
     userSearchQuery,
@@ -549,15 +364,8 @@ export function useAdminConsole({
     updateRetentionPolicyMutation,
     updateUserRoleMutation,
     runRetentionCleanupMutation,
-    batchAppointmentsMutation: {
-      isPending: adminBatchMutation.isPending,
-      executeBatch,
-      lastResult: batchLastResult,
-    },
-    webhookReplayMutation: {
-      isPending: webhookReplayMutation.isPending,
-      replayByEvent: replayWebhookByEvent,
-    },
+    batchAppointmentsMutation,
+    webhookReplayMutation,
     exportAppointmentsMutation,
     selectedAppointmentIds,
     selectedCount: selectedAppointmentIds.length,
@@ -581,11 +389,4 @@ export function useAdminConsole({
     runSuggestedAction,
     toUiError,
   };
-}
-
-function randomUUID() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }

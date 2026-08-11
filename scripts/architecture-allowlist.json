@@ -41,11 +41,6 @@
       "phase": "5",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
-    "client/src/features/admin/hooks/useAdminConsole.ts": {
-      "maxLines": 592,
-      "phase": "5",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
     "client/src/features/admin/types.ts": {
       "maxLines": 480,
       "phase": "5",
