@@ -4,7 +4,6 @@ import {
   desc,
   eq,
   gt,
-  inArray,
   isNull,
   like,
   lt,
@@ -29,21 +28,30 @@ import {
   isAllowedStatusTransition,
 } from "./stateMachine";
 import { extractAffectedRows } from "../../_core/dbCompat";
+import {
+  resolveAppointmentRepoExecutor as resolveDbExecutor,
+  type AppointmentRepoExecutor,
+} from "./repoExecutor";
 
-export type AppointmentTokenRole = "patient" | "doctor";
+export {
+  getActiveAppointmentTokenByHash,
+  getAppointmentTokenByHash,
+  getAppointmentTokenCooldownRemainingSeconds,
+  getLatestAppointmentTokenIssuedAt,
+  listActiveAppointmentTokens,
+} from "./tokenReadRepo";
+export type { AppointmentTokenRole } from "./tokenReadRepo";
+export {
+  createAppointmentTokenIfMissing,
+  revokeAppointmentTokens,
+  saveTokenFirstSeen,
+  updateActiveAppointmentTokenExpiry,
+  updateTokenUsageIfAllowed,
+} from "./tokenWriteRepo";
+
 type PaymentProvider = "stripe" | "paypal";
-const ACTIVE_TOKEN_LIMIT_PER_ROLE = 5;
-type BaseDb = NonNullable<Awaited<ReturnType<typeof getDb>>>;
-type DbExecutor = Pick<BaseDb, "select" | "insert" | "update">;
-export type AppointmentRepoExecutor = DbExecutor;
-
-async function resolveDbExecutor(dbExecutor?: DbExecutor) {
-  const db = dbExecutor ?? (await getDb());
-  if (!db) {
-    throw new Error("Database not available");
-  }
-  return db;
-}
+type DbExecutor = AppointmentRepoExecutor;
+export type { AppointmentRepoExecutor };
 
 export async function getAppointmentById(appointmentId: number) {
   const db = await getDb();
@@ -97,396 +105,6 @@ export async function getCheckoutResultByStripeSessionId(
     .limit(1);
 
   return rows[0] ?? null;
-}
-
-export async function listActiveAppointmentTokens(input: {
-  appointmentId: number;
-  now?: Date;
-}) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  const now = input.now ?? new Date();
-  return db
-    .select({
-      id: appointmentTokens.id,
-      appointmentId: appointmentTokens.appointmentId,
-      role: appointmentTokens.role,
-      tokenHash: appointmentTokens.tokenHash,
-      expiresAt: appointmentTokens.expiresAt,
-      lastUsedAt: appointmentTokens.lastUsedAt,
-      useCount: appointmentTokens.useCount,
-      maxUses: appointmentTokens.maxUses,
-      revokedAt: appointmentTokens.revokedAt,
-      revokeReason: appointmentTokens.revokeReason,
-      ipFirstSeen: appointmentTokens.ipFirstSeen,
-      uaFirstSeen: appointmentTokens.uaFirstSeen,
-    })
-    .from(appointmentTokens)
-    .where(
-      and(
-        eq(appointmentTokens.appointmentId, input.appointmentId),
-        isNull(appointmentTokens.revokedAt),
-        gt(appointmentTokens.expiresAt, now)
-      )
-    );
-}
-
-export async function getActiveAppointmentTokenByHash(input: {
-  tokenHash: string;
-  role?: AppointmentTokenRole;
-  now?: Date;
-}) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  const now = input.now ?? new Date();
-  const whereClause = input.role
-    ? and(
-        eq(appointmentTokens.tokenHash, input.tokenHash),
-        eq(appointmentTokens.role, input.role),
-        isNull(appointmentTokens.revokedAt),
-        gt(appointmentTokens.expiresAt, now)
-      )
-    : and(
-        eq(appointmentTokens.tokenHash, input.tokenHash),
-        isNull(appointmentTokens.revokedAt),
-        gt(appointmentTokens.expiresAt, now)
-      );
-
-  const rows = await db
-    .select({
-      id: appointmentTokens.id,
-      appointmentId: appointmentTokens.appointmentId,
-      role: appointmentTokens.role,
-      tokenHash: appointmentTokens.tokenHash,
-      expiresAt: appointmentTokens.expiresAt,
-      lastUsedAt: appointmentTokens.lastUsedAt,
-      useCount: appointmentTokens.useCount,
-      maxUses: appointmentTokens.maxUses,
-      revokedAt: appointmentTokens.revokedAt,
-      revokeReason: appointmentTokens.revokeReason,
-      ipFirstSeen: appointmentTokens.ipFirstSeen,
-      uaFirstSeen: appointmentTokens.uaFirstSeen,
-    })
-    .from(appointmentTokens)
-    .where(whereClause)
-    .limit(1);
-
-  return rows[0] ?? null;
-}
-
-export async function getAppointmentTokenByHash(tokenHash: string) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  const rows = await db
-    .select({
-      id: appointmentTokens.id,
-      appointmentId: appointmentTokens.appointmentId,
-      role: appointmentTokens.role,
-      tokenHash: appointmentTokens.tokenHash,
-      expiresAt: appointmentTokens.expiresAt,
-      lastUsedAt: appointmentTokens.lastUsedAt,
-      useCount: appointmentTokens.useCount,
-      maxUses: appointmentTokens.maxUses,
-      revokedAt: appointmentTokens.revokedAt,
-      revokeReason: appointmentTokens.revokeReason,
-      ipFirstSeen: appointmentTokens.ipFirstSeen,
-      uaFirstSeen: appointmentTokens.uaFirstSeen,
-      createdAt: appointmentTokens.createdAt,
-    })
-    .from(appointmentTokens)
-    .where(eq(appointmentTokens.tokenHash, tokenHash))
-    .limit(1);
-
-  return rows[0] ?? null;
-}
-
-export async function getLatestAppointmentTokenIssuedAt(input: {
-  appointmentId: number;
-  role: AppointmentTokenRole;
-}) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  const rows = await db
-    .select({
-      createdAt: appointmentTokens.createdAt,
-    })
-    .from(appointmentTokens)
-    .where(
-      and(
-        eq(appointmentTokens.appointmentId, input.appointmentId),
-        eq(appointmentTokens.role, input.role)
-      )
-    )
-    .orderBy(desc(appointmentTokens.createdAt), desc(appointmentTokens.id))
-    .limit(1);
-
-  return rows[0]?.createdAt ?? null;
-}
-
-export async function getAppointmentTokenCooldownRemainingSeconds(input: {
-  appointmentId: number;
-  role: AppointmentTokenRole;
-  cooldownSeconds: number;
-}) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  const rows = await db
-    .select({
-      remainingSeconds: sql<number>`greatest(${input.cooldownSeconds} - cast(extract(epoch from (now() - ${appointmentTokens.createdAt})) as integer), 0)`,
-    })
-    .from(appointmentTokens)
-    .where(
-      and(
-        eq(appointmentTokens.appointmentId, input.appointmentId),
-        eq(appointmentTokens.role, input.role)
-      )
-    )
-    .orderBy(desc(appointmentTokens.createdAt), desc(appointmentTokens.id))
-    .limit(1);
-
-  return Number(rows[0]?.remainingSeconds ?? 0);
-}
-
-export async function updateActiveAppointmentTokenExpiry(input: {
-  appointmentId: number;
-  expiresAt: Date;
-}) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  const now = new Date();
-  await db
-    .update(appointmentTokens)
-    .set({
-      expiresAt: input.expiresAt,
-      updatedAt: now,
-    })
-    .where(
-      and(
-        eq(appointmentTokens.appointmentId, input.appointmentId),
-        isNull(appointmentTokens.revokedAt),
-        gt(appointmentTokens.expiresAt, now)
-      )
-    );
-}
-
-export async function createAppointmentTokenIfMissing(input: {
-  appointmentId: number;
-  role: AppointmentTokenRole;
-  tokenHash: string;
-  expiresAt: Date;
-  maxUses?: number;
-  createdBy?: string | null;
-  revokedAt?: Date | null;
-  dbExecutor?: DbExecutor;
-}) {
-  const db = await resolveDbExecutor(input.dbExecutor);
-
-  const existing = await db
-    .select({ id: appointmentTokens.id })
-    .from(appointmentTokens)
-    .where(
-      and(
-        eq(appointmentTokens.appointmentId, input.appointmentId),
-        eq(appointmentTokens.role, input.role),
-        eq(appointmentTokens.tokenHash, input.tokenHash)
-      )
-    )
-    .limit(1);
-
-  if (existing[0]) {
-    await revokeOldActiveTokensBeyondLimit({
-      db,
-      appointmentId: input.appointmentId,
-      role: input.role,
-    });
-    return;
-  }
-
-  await db.insert(appointmentTokens).values({
-    appointmentId: input.appointmentId,
-    role: input.role,
-    tokenHash: input.tokenHash,
-    expiresAt: input.expiresAt,
-    maxUses: input.maxUses ?? 1,
-    createdBy: input.createdBy ?? null,
-    revokedAt: input.revokedAt ?? null,
-  });
-
-  await revokeOldActiveTokensBeyondLimit({
-    db,
-    appointmentId: input.appointmentId,
-    role: input.role,
-  });
-}
-
-export async function updateTokenUsageIfAllowed(input: {
-  tokenId: number;
-  now?: Date;
-}) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  const now = input.now ?? new Date();
-  const result = await db
-    .update(appointmentTokens)
-    .set({
-      useCount: sql`${appointmentTokens.useCount} + 1`,
-      lastUsedAt: now,
-      updatedAt: now,
-    })
-    .where(
-      and(
-        eq(appointmentTokens.id, input.tokenId),
-        isNull(appointmentTokens.revokedAt),
-        gt(appointmentTokens.expiresAt, now),
-        lt(appointmentTokens.useCount, appointmentTokens.maxUses)
-      )
-    );
-
-  return extractAffectedRows(result);
-}
-
-export async function saveTokenFirstSeen(input: {
-  tokenId: number;
-  ip?: string | null;
-  userAgent?: string | null;
-}) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  const updates: Record<string, unknown> = {};
-  if (input.ip && input.ip.trim().length > 0) {
-    updates.ipFirstSeen = input.ip.trim().slice(0, 64);
-  }
-  if (input.userAgent && input.userAgent.trim().length > 0) {
-    updates.uaFirstSeen = input.userAgent.trim().slice(0, 512);
-  }
-
-  if (Object.keys(updates).length === 0) {
-    return;
-  }
-
-  await db
-    .update(appointmentTokens)
-    .set(updates)
-    .where(
-      and(
-        eq(appointmentTokens.id, input.tokenId),
-        or(
-          isNull(appointmentTokens.ipFirstSeen),
-          isNull(appointmentTokens.uaFirstSeen)
-        )
-      )
-    );
-}
-
-export async function revokeAppointmentTokens(input: {
-  appointmentId?: number;
-  role?: AppointmentTokenRole;
-  tokenHash?: string;
-  reason?: string | null;
-  now?: Date;
-  dbExecutor?: DbExecutor;
-}) {
-  const db = await resolveDbExecutor(input.dbExecutor);
-
-  const now = input.now ?? new Date();
-  const clauses = [isNull(appointmentTokens.revokedAt)];
-  if (typeof input.appointmentId === "number") {
-    clauses.push(eq(appointmentTokens.appointmentId, input.appointmentId));
-  }
-  if (input.role) {
-    clauses.push(eq(appointmentTokens.role, input.role));
-  }
-  if (input.tokenHash) {
-    clauses.push(eq(appointmentTokens.tokenHash, input.tokenHash));
-  }
-
-  const result = await db
-    .update(appointmentTokens)
-    .set({
-      revokedAt: now,
-      revokeReason: input.reason ?? "manual_revoke",
-      updatedAt: now,
-    })
-    .where(and(...clauses));
-
-  return extractAffectedRows(result);
-}
-
-async function revokeOldActiveTokensBeyondLimit(input: {
-  db: DbExecutor;
-  appointmentId: number;
-  role: AppointmentTokenRole;
-}) {
-  const db = input.db;
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  const now = new Date();
-  const activeRows = await db
-    .select({
-      id: appointmentTokens.id,
-      createdAt: appointmentTokens.createdAt,
-    })
-    .from(appointmentTokens)
-    .where(
-      and(
-        eq(appointmentTokens.appointmentId, input.appointmentId),
-        eq(appointmentTokens.role, input.role),
-        isNull(appointmentTokens.revokedAt),
-        gt(appointmentTokens.expiresAt, now)
-      )
-    )
-    .orderBy(desc(appointmentTokens.createdAt), desc(appointmentTokens.id));
-
-  if (activeRows.length <= ACTIVE_TOKEN_LIMIT_PER_ROLE) {
-    return;
-  }
-
-  const revokeIds = activeRows
-    .slice(ACTIVE_TOKEN_LIMIT_PER_ROLE)
-    .map(row => row.id);
-
-  if (revokeIds.length === 0) {
-    return;
-  }
-
-  await db
-    .update(appointmentTokens)
-    .set({
-      revokedAt: now,
-      updatedAt: now,
-    })
-    .where(
-      and(
-        inArray(appointmentTokens.id, revokeIds),
-        isNull(appointmentTokens.revokedAt)
-      )
-    );
 }
 
 export async function createAppointmentDraft(input: {
