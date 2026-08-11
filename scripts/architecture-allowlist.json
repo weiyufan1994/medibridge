@@ -27,7 +27,7 @@
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
     "client/src/features/admin/components/ReferralAdminPanel.tsx": {
-      "maxLines": 2074,
+      "maxLines": 1882,
       "phase": "5",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   formatReferralDateTime,
-  formatReferralMoney,
   getReferralCopy,
   getReferralStatusLabel,
   getRefundStatusLabel,
@@ -54,6 +53,13 @@ import {
   getAdminConfirmationCopy,
   getAdminStatusGuidanceCopy,
 } from "@/features/admin/copy";
+import {
+  FieldShell,
+  SectionBox,
+  SummaryPill,
+} from "./referral-admin/ReferralAdminPrimitives";
+import { ReferralPatientSection } from "./referral-admin/ReferralPatientSection";
+import { ReferralTimelineSection } from "./referral-admin/ReferralTimelineSection";
 
 type ReferralAdminPanelProps = {
   currentUserId: number | null;
@@ -73,19 +79,6 @@ function toLocalDateTimeInputValue(value: Date | string | null | undefined) {
 
   const shifted = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
   return shifted.toISOString().slice(0, 16);
-}
-
-function coercePayloadToString(value: unknown) {
-  if (!value) {
-    return null;
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
-  return String(value);
 }
 
 export function ReferralAdminPanel({
@@ -1690,59 +1683,16 @@ export function ReferralAdminPanel({
                 </div>
               </TabsContent>
 
-              <TabsContent
-                value="patient"
-                className="min-h-0 overflow-y-auto p-4"
-              >
-                <div className="grid gap-3 xl:grid-cols-[0.95fr_1.05fr]">
-                  <SectionBox title={copy.admin.triageSummary}>
-                    <div className="space-y-2 text-sm text-muted-foreground">
-                      <p>
-                        <span className="font-medium text-foreground">
-                          {copy.admin.patient}:{" "}
-                        </span>
-                        {selectedOrder.patient.email ??
-                          copy.common.notAvailable}
-                      </p>
-                      <p>
-                        <span className="font-medium text-foreground">
-                          {copy.orderDetail.selectedHospital}:{" "}
-                        </span>
-                        {selectedHospitalName}
-                      </p>
-                      <p>
-                        <span className="font-medium text-foreground">
-                          {copy.selection.recommendedDepartment}:{" "}
-                        </span>
-                        {selectedDepartmentName}
-                      </p>
-                      <p>
-                        <span className="font-medium text-foreground">
-                          {copy.orderDetail.serviceFee}:{" "}
-                        </span>
-                        {formatReferralMoney({
-                          amount: orderState.totalAmount ?? 0,
-                          currency: orderState.currency ?? "usd",
-                          lang,
-                        })}
-                      </p>
-                    </div>
-                    <div className="mt-3 rounded-lg border border-admin-border bg-admin-surface-muted px-3 py-3 text-sm leading-6 text-foreground">
-                      {selectedOrder.triageSummary || copy.common.notAvailable}
-                    </div>
-                  </SectionBox>
-
-                  <SectionBox title={copy.admin.recommendationReason}>
-                    <div className="rounded-lg border border-admin-border bg-admin-surface-muted px-3 py-3 text-sm leading-6 text-foreground">
-                      {selectedOrder.recommendationReason ||
-                        copy.common.notAvailable}
-                    </div>
-                    <div className="mt-3 rounded-lg border border-dashed border-admin-border px-3 py-6 text-center text-sm text-muted-foreground">
-                      {copy.admin.detailTabs.patient}
-                    </div>
-                  </SectionBox>
-                </div>
-              </TabsContent>
+              <ReferralPatientSection
+                lang={lang}
+                patientEmail={selectedOrder.patient.email}
+                hospitalName={selectedHospitalName}
+                departmentName={selectedDepartmentName}
+                totalAmount={orderState.totalAmount}
+                currency={orderState.currency}
+                triageSummary={selectedOrder.triageSummary}
+                recommendationReason={selectedOrder.recommendationReason}
+              />
 
               <TabsContent
                 value="refund"
@@ -1916,157 +1866,15 @@ export function ReferralAdminPanel({
                 </div>
               </TabsContent>
 
-              <TabsContent
-                value="timeline"
-                className="min-h-0 overflow-y-auto p-4"
-              >
-                <div className="grid gap-3 xl:grid-cols-2">
-                  <SectionBox title={copy.admin.timeline}>
-                    <div className="space-y-2">
-                      {selectedOrder.timeline.map(event => (
-                        <div
-                          key={event.id}
-                          className="rounded-lg border border-admin-border bg-admin-surface-muted px-3 py-2 text-sm"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="font-medium text-foreground">
-                              {getReferralStatusLabel(event.toStatus, lang)}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {formatReferralDateTime(event.createdAt, lang)}
-                            </span>
-                          </div>
-                          {event.reason ? (
-                            <p className="mt-1 text-xs leading-tight text-muted-foreground">
-                              {event.reason}
-                            </p>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  </SectionBox>
-
-                  <SectionBox title={copy.admin.operations}>
-                    <div className="space-y-2">
-                      {selectedOrder.operations.map(operation => (
-                        <div
-                          key={operation.id}
-                          className="rounded-lg border border-admin-border bg-admin-surface-muted px-3 py-2 text-sm"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="font-medium text-foreground">
-                              {operation.actionType}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {formatReferralDateTime(
-                                operation.createdAt,
-                                lang
-                              )}
-                            </span>
-                          </div>
-                          {operation.actionPayload ? (
-                            <p className="mt-1 whitespace-pre-wrap text-xs leading-tight text-muted-foreground">
-                              {coercePayloadToString(operation.actionPayload)}
-                            </p>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  </SectionBox>
-
-                  <SectionBox title={copy.admin.notificationFailures}>
-                    {selectedOrder.notificationFailures.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        {copy.admin.noNotificationFailures}
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {selectedOrder.notificationFailures.map(failure => (
-                          <div
-                            key={failure.id}
-                            className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm"
-                          >
-                            <p className="font-medium text-rose-900">
-                              {failure.eventType} · {failure.recipientType}
-                            </p>
-                            <p className="mt-1 text-xs text-rose-800">
-                              {failure.recipient} · {failure.attemptCount}
-                            </p>
-                            {failure.lastError ? (
-                              <p className="mt-1 text-xs leading-tight text-rose-700">
-                                {failure.lastError}
-                              </p>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </SectionBox>
-                </div>
-              </TabsContent>
+              <ReferralTimelineSection
+                lang={lang}
+                timeline={selectedOrder.timeline}
+                operations={selectedOrder.operations}
+                notificationFailures={selectedOrder.notificationFailures}
+              />
             </Tabs>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function FieldShell({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <label className="flex min-w-0 flex-col gap-1">
-      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-function SectionBox({
-  title,
-  children,
-  collapsible = false,
-}: {
-  title: string;
-  children: ReactNode;
-  collapsible?: boolean;
-}) {
-  if (collapsible) {
-    return (
-      <details className="rounded-xl border border-admin-border bg-admin-surface">
-        <summary className="cursor-pointer px-3 py-3 text-sm font-semibold text-admin-foreground">
-          {title}
-        </summary>
-        <div className="border-t border-admin-border px-3 py-3">{children}</div>
-      </details>
-    );
-  }
-
-  return (
-    <section className="rounded-xl border border-admin-border bg-admin-surface px-3 py-3">
-      <div className="mb-2 text-sm font-semibold text-admin-foreground">
-        {title}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function SummaryPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-admin-border bg-admin-surface-muted px-2 py-1">
-      <div className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
-        {label}
-      </div>
-      <div className="truncate text-xs font-medium text-foreground">
-        {value}
       </div>
     </div>
   );
