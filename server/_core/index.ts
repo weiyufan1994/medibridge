@@ -15,6 +15,7 @@ import { startAppointmentAutoCloseWorker } from "../workflows/appointmentAutoClo
 import { startReferralFulfillmentWorker } from "../modules/referrals/fulfillmentWorker";
 import { startReferralNotificationWorker } from "../modules/referrals/notificationWorker";
 import { authOAuthApi, authSessionApi } from "../modules/auth/publicApi";
+import { requestIdMiddleware } from "./requestId";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -43,6 +44,7 @@ async function startServer() {
   const stopReferralFulfillmentWorker = startReferralFulfillmentWorker();
   const stopReferralNotificationWorker = startReferralNotificationWorker();
   app.set("trust proxy", true);
+  app.use(requestIdMiddleware);
   app.use("/uploads", express.static(getLocalUploadDir()));
   app.post(
     "/api/payments/stripe/webhook",
