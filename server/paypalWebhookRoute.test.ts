@@ -46,6 +46,7 @@ function createReqRes(rawPayload: string) {
       "paypal-transmission-time": "t",
       "paypal-cert-url": "https://example",
       "paypal-auth-algo": "SHA256withRSA",
+      "x-request-id": "request-paypal-webhook",
     },
   } as Req as never;
 
@@ -129,8 +130,13 @@ describe("paypalWebhookRoute", () => {
   });
 
   it("signature failure records paypal webhook error", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     vi.mocked(verifyPaypalWebhookSignature).mockImplementation(() => {
-      throw new Error("Missing PayPal-transmission-sig header");
+      throw new Error(
+        "Missing PayPal-transmission-sig header token=must-not-appear-in-log"
+      );
     });
 
     const { req, res, resPayload } = createReqRes('{"id":"evt_bad_sig"}');
@@ -145,5 +151,15 @@ describe("paypalWebhookRoute", () => {
         }),
       ])
     );
+    const log = JSON.parse(String(consoleError.mock.calls.at(-1)?.[0]));
+    expect(log).toMatchObject({
+      component: "paypal-webhook",
+      event: "processing_failed",
+      requestId: "request-paypal-webhook",
+      failureType: "signature_verification_failed",
+      errorName: "Error",
+    });
+    expect(JSON.stringify(log)).not.toContain("must-not-appear-in-log");
+    consoleError.mockRestore();
   });
 });

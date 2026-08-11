@@ -60,6 +60,7 @@ function createReqRes(rawPayload: string) {
     body: Buffer.from(rawPayload, "utf8"),
     headers: {
       "stripe-signature": "t=123,v1=sig",
+      "x-request-id": "request-stripe-webhook",
     },
   } as never;
 
@@ -158,8 +159,13 @@ describe("stripeWebhookRoute", () => {
   });
 
   it("signature failure records classified failure metric", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     vi.mocked(verifyStripeWebhookSignature).mockImplementation(() => {
-      throw new Error("Missing Stripe-Signature header");
+      throw new Error(
+        "Missing Stripe-Signature header token=must-not-appear-in-log"
+      );
     });
 
     const { req, res, resPayload } = createReqRes('{"id":"evt_bad_sig"}');
@@ -174,6 +180,16 @@ describe("stripeWebhookRoute", () => {
         }),
       ])
     );
+    const log = JSON.parse(String(consoleError.mock.calls.at(-1)?.[0]));
+    expect(log).toMatchObject({
+      component: "stripe-webhook",
+      event: "processing_failed",
+      requestId: "request-stripe-webhook",
+      failureType: "signature_invalid",
+      errorName: "Error",
+    });
+    expect(JSON.stringify(log)).not.toContain("must-not-appear-in-log");
+    consoleError.mockRestore();
   });
 
   it("duplicate webhook event increments duplicate metric and returns ok", async () => {

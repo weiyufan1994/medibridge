@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import type { Request, Response } from "express";
+import { createLogger } from "./_core/logger";
 import { incrementMetric } from "./_core/metrics";
+import { getRequestMetadata } from "./_core/requestMetadata";
 import { getDb } from "./db";
 import * as appointmentsRepo from "./modules/appointments/repo";
 import {
@@ -9,6 +11,8 @@ import {
 } from "./modules/payments/stripe";
 import { buildStripeWebhookContext } from "./stripeWebhookContext";
 import { processStripeWebhookEvent } from "./stripeWebhookProcessor";
+
+const logger = createLogger("stripe-webhook");
 
 function sendJson(
   res: Response,
@@ -29,7 +33,7 @@ async function recordStripeWebhookFailure(input: {
   type: string;
   stripeSessionId?: string | null;
   payloadHash?: string | null;
-  error: string;
+  requestId?: string | null;
 }) {
   incrementMetric("stripe_webhook_failure_total", {
     type: input.type,
@@ -50,10 +54,11 @@ async function recordStripeWebhookFailure(input: {
       dbExecutor: db,
     });
   } catch (error) {
-    console.warn(
-      "[StripeWebhook] failed to persist webhook failure audit:",
-      error
-    );
+    logger.warn("failure_audit_persist_failed", {
+      requestId: input.requestId,
+      failureType: input.type,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
   }
 }
 
@@ -81,6 +86,7 @@ function classifyWebhookError(error: unknown): string {
 }
 
 export async function handleStripeWebhook(req: Request, res: Response) {
+  const requestId = getRequestMetadata(req).requestId;
   try {
     const rawBody = readRawBody(req);
 
@@ -105,7 +111,7 @@ export async function handleStripeWebhook(req: Request, res: Response) {
         type: "webhook_error_missing_session_id",
         stripeSessionId: null,
         payloadHash: crypto.createHash("sha256").update(rawBody).digest("hex"),
-        error: "checkout.session.completed missing session id",
+        requestId,
       });
       return sendJson(res, 400, {
         ok: false,
@@ -139,17 +145,22 @@ export async function handleStripeWebhook(req: Request, res: Response) {
     return sendJson(res, 200, { ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Webhook failed";
-    console.error("[StripeWebhook]", message);
+    const failureType = classifyWebhookError(error);
+    logger.error("processing_failed", {
+      requestId,
+      failureType,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
     const rawBody = readRawBody(req);
     const payloadHash =
       rawBody.length > 0
         ? crypto.createHash("sha256").update(rawBody).digest("hex")
         : null;
     await recordStripeWebhookFailure({
-      type: classifyWebhookError(error),
+      type: failureType,
       stripeSessionId: null,
       payloadHash,
-      error: message,
+      requestId,
     });
     return sendJson(res, 400, {
       ok: false,

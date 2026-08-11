@@ -12,6 +12,10 @@ import * as schedulingRepo from "./modules/scheduling/repo";
 import { APPOINTMENT_INVALID_TRANSITION_ERROR } from "./modules/appointments/stateMachine";
 import { incrementMetric } from "./_core/metrics";
 import { isDuplicateDbError } from "./_core/dbCompat";
+import { createLogger } from "./_core/logger";
+import { getRequestMetadata } from "./_core/requestMetadata";
+
+const logger = createLogger("paypal-webhook");
 
 function sendJson(
   res: Response,
@@ -26,7 +30,7 @@ async function recordPaypalWebhookFailure(input: {
   type: string;
   sessionId?: string | null;
   payloadHash?: string | null;
-  error: string;
+  requestId?: string | null;
 }) {
   incrementMetric("paypal_webhook_failure_total", {
     type: input.type,
@@ -47,10 +51,11 @@ async function recordPaypalWebhookFailure(input: {
       dbExecutor: db,
     });
   } catch (error) {
-    console.warn(
-      "[PayPalWebhook] failed to persist webhook failure audit:",
-      error
-    );
+    logger.warn("failure_audit_persist_failed", {
+      requestId: input.requestId,
+      failureType: input.type,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
   }
 }
 
@@ -148,6 +153,7 @@ function isRefundEvent(eventType: string) {
 }
 
 export async function handlePaypalWebhook(req: Request, res: Response) {
+  const requestId = getRequestMetadata(req).requestId;
   try {
     const rawBody = Buffer.isBuffer(req.body)
       ? req.body
@@ -178,7 +184,7 @@ export async function handlePaypalWebhook(req: Request, res: Response) {
         type: "webhook_error_missing_session_id",
         sessionId: null,
         payloadHash: crypto.createHash("sha256").update(rawBody).digest("hex"),
-        error: "required session id missing from PayPal webhook",
+        requestId,
       });
       return sendJson(res, 400, {
         ok: false,
@@ -320,7 +326,12 @@ export async function handlePaypalWebhook(req: Request, res: Response) {
     return sendJson(res, 200, { ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Webhook failed";
-    console.error("[PayPalWebhook]", message);
+    const failureType = classifyWebhookError(error);
+    logger.error("processing_failed", {
+      requestId,
+      failureType,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
     const rawBody = Buffer.isBuffer(req.body)
       ? req.body
       : Buffer.from(typeof req.body === "string" ? req.body : "", "utf8");
@@ -329,10 +340,10 @@ export async function handlePaypalWebhook(req: Request, res: Response) {
         ? crypto.createHash("sha256").update(rawBody).digest("hex")
         : null;
     await recordPaypalWebhookFailure({
-      type: classifyWebhookError(error),
+      type: failureType,
       sessionId: null,
       payloadHash,
-      error: message,
+      requestId,
     });
     return sendJson(res, 400, {
       ok: false,
