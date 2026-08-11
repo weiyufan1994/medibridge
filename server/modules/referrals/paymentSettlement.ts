@@ -7,6 +7,21 @@ import {
 import { toReferralDisplayHospital } from "./presentation";
 import type { ReferralActorType } from "../../../shared/referrals";
 
+export async function settleReferralOrderPaymentBySessionId(input: {
+  paymentSessionId: string;
+  paymentProviderTransactionId?: string | null;
+  actorType: ReferralActorType;
+  reason: string;
+}) {
+  const settlement = await settleReferralPaymentTransition({
+    paymentSessionId: input.paymentSessionId,
+    paymentProviderTransactionId: input.paymentProviderTransactionId ?? null,
+    actorType: input.actorType,
+    reason: input.reason,
+  });
+  return publishReferralPaymentSettlement(settlement.orderId);
+}
+
 export async function settleReferralPaymentTransition(input: {
   paymentSessionId: string;
   paymentProviderTransactionId?: string | null;
