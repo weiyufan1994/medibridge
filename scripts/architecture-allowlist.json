@@ -6,11 +6,6 @@
       "phase": "5",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
-    "client/src/features/admin/components/AppointmentsCard.tsx": {
-      "maxLines": 414,
-      "phase": "5",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
     "client/src/features/admin/components/ReferralCatalogCard.tsx": {
       "maxLines": 722,
       "phase": "5",
