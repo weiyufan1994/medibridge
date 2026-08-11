@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, lte, or } from "drizzle-orm";
+import { and, asc, eq, inArray, lte, or } from "drizzle-orm";
 import {
   departments,
   hospitals,
@@ -6,10 +6,8 @@ import {
   referralOrderOperations,
   referralOrders,
   referralOrderStatusEvents,
-  refundRequests,
   users,
   type InsertReferralOrder,
-  type InsertRefundRequest,
 } from "../../../drizzle/schema";
 import { getDb } from "../../db";
 import { extractAffectedRows } from "../../_core/dbCompat";
@@ -102,6 +100,12 @@ export {
   markReferralNotificationFailed,
   markReferralNotificationSent,
 } from "./notificationOutboxRepo";
+export {
+  createRefundRequest,
+  getLatestRefundRequestByOrderId,
+  listRefundProcessingOrders,
+  updateRefundRequestById,
+} from "./refundRepo";
 
 export async function createReferralOrder(input: {
   values: InsertReferralOrder;
@@ -451,61 +455,4 @@ export async function listExpiredReferralSlaOrders(input: {
     )
     .orderBy(asc(referralOrders.fulfillmentDeadlineAt), asc(referralOrders.id))
     .limit(input.limit);
-}
-
-export async function listRefundProcessingOrders(limit: number) {
-  const db = await resolveDbExecutor();
-  return db
-    .select()
-    .from(referralOrders)
-    .where(
-      and(
-        eq(referralOrders.status, "refund_processing"),
-        eq(referralOrders.paymentStatus, "paid")
-      )
-    )
-    .orderBy(asc(referralOrders.updatedAt), asc(referralOrders.id))
-    .limit(limit);
-}
-
-export async function getLatestRefundRequestByOrderId(orderId: number) {
-  const db = await resolveDbExecutor();
-  const rows = await db
-    .select()
-    .from(refundRequests)
-    .where(eq(refundRequests.orderId, orderId))
-    .orderBy(desc(refundRequests.createdAt), desc(refundRequests.id))
-    .limit(1);
-
-  return rows[0] ?? null;
-}
-
-export async function createRefundRequest(input: {
-  values: InsertRefundRequest;
-  dbExecutor?: DbExecutor;
-}) {
-  const db = await resolveDbExecutor(input.dbExecutor);
-  const rows = await db
-    .insert(refundRequests)
-    .values(input.values)
-    .returning({ id: refundRequests.id });
-
-  return rows[0]?.id ?? null;
-}
-
-export async function updateRefundRequestById(input: {
-  refundRequestId: number;
-  update: Partial<InsertRefundRequest>;
-  dbExecutor?: DbExecutor;
-}) {
-  const db = await resolveDbExecutor(input.dbExecutor);
-  const result = await db
-    .update(refundRequests)
-    .set({
-      ...input.update,
-      updatedAt: new Date(),
-    })
-    .where(eq(refundRequests.id, input.refundRequestId));
-
-  return extractAffectedRows(result);
 }
