@@ -1,6 +1,6 @@
 import crypto from "crypto";
+import type { RequestMetadata } from "@shared/requestMetadata";
 import { TRPCError } from "@trpc/server";
-import type { Request } from "express";
 import { getPublicBaseUrl } from "../../_core/getPublicBaseUrl";
 import { sendDoctorInviteEmail } from "../../_core/mailer";
 import { getDb } from "../../db";
@@ -16,8 +16,8 @@ function buildInviteToken() {
   return crypto.randomBytes(24).toString("hex");
 }
 
-function buildClaimUrl(token: string, req?: Request) {
-  const baseUrl = getPublicBaseUrl(req);
+function buildClaimUrl(token: string, requestMetadata?: RequestMetadata) {
+  const baseUrl = getPublicBaseUrl(requestMetadata);
   return `${baseUrl}/doctor/claim?token=${encodeURIComponent(token)}`;
 }
 
@@ -96,7 +96,7 @@ export async function inviteDoctorAccount(input: {
   doctorId: number;
   email: string;
   createdByUserId: number;
-  req?: Request;
+  requestMetadata?: RequestMetadata;
 }) {
   const token = buildInviteToken();
   const tokenHash = hashToken(token);
@@ -158,7 +158,7 @@ export async function inviteDoctorAccount(input: {
   });
 
   const createdInvite = assertBinding(invite, "Failed to create doctor invite");
-  const claimUrl = buildClaimUrl(token, input.req);
+  const claimUrl = buildClaimUrl(token, input.requestMetadata);
   await sendDoctorInviteEmail(input.email, claimUrl, {
     expiresAt,
   });
@@ -172,7 +172,7 @@ export async function inviteDoctorAccount(input: {
 export async function resendDoctorInvite(input: {
   inviteId: number;
   actorUserId: number;
-  req?: Request;
+  requestMetadata?: RequestMetadata;
 }) {
   const invite = assertBinding(
     await repo.getInviteById(input.inviteId),
@@ -189,7 +189,7 @@ export async function resendDoctorInvite(input: {
     doctorId: invite.doctorId,
     email: invite.email,
     createdByUserId: input.actorUserId,
-    req: input.req,
+    requestMetadata: input.requestMetadata,
   });
 }
 

@@ -34,6 +34,7 @@ import {
 describe("doctor account actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("APP_BASE_URL", "");
     vi.mocked(getDb).mockResolvedValue({
       transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
         callback({}),
@@ -65,6 +66,15 @@ describe("doctor account actions", () => {
       doctorId: 11,
       email: "doctor@example.com",
       createdByUserId: 2,
+      requestMetadata: {
+        clientIp: "203.0.113.11",
+        forwardedHost: "accounts.medibridge.test",
+        forwardedProto: "https",
+        host: "internal.medibridge.test",
+        protocol: "http",
+        requestId: "request-11",
+        userAgent: "vitest",
+      },
     });
 
     expect(repo.createInvite).toHaveBeenCalledTimes(1);
@@ -74,7 +84,9 @@ describe("doctor account actions", () => {
       email: "doctor@example.com",
       status: "sent",
     });
-    expect(result.claimUrl).toContain("/doctor/claim?token=");
+    expect(result.claimUrl).toContain(
+      "https://accounts.medibridge.test/doctor/claim?token="
+    );
   });
 
   it("claimDoctorInvite activates the doctor binding for the invited email", async () => {
