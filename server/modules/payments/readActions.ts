@@ -1,9 +1,9 @@
 import { TRPCError } from "@trpc/server";
-import * as appointmentsRepo from "../appointments/repo";
 import {
+  appointmentPaymentApi,
   type AppointmentStatus,
   type PaymentStatus,
-} from "../appointments/stateMachine";
+} from "../appointments/publicApi";
 
 const RESEND_ALLOWED_STATUS: AppointmentStatus[] = ["paid", "active"];
 
@@ -58,7 +58,7 @@ function createCheckoutResultMessage(input: {
 export async function getCheckoutResultByStripeSession(input: {
   stripeSessionId: string;
 }) {
-  const appointment = await appointmentsRepo.getCheckoutResultByStripeSessionId(
+  const appointment = await appointmentPaymentApi.getCheckoutResultBySessionId(
     input.stripeSessionId
   );
 
@@ -96,9 +96,7 @@ export async function getPaymentStatusByAppointmentForUser(input: {
   userId: number;
   userEmail?: string | null;
 }) {
-  const appointment = await appointmentsRepo.getAppointmentById(
-    input.appointmentId
-  );
+  const appointment = await appointmentPaymentApi.getById(input.appointmentId);
   if (!appointment) {
     throw new TRPCError({
       code: "NOT_FOUND",

@@ -296,18 +296,6 @@
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
-    "module-cross-deep-import:server/modules/payments/readActions.ts->../appointments/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/payments/readActions.ts->../appointments/stateMachine": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/payments/schemas.ts->../appointments/stateMachine": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
     "module-cross-deep-import:server/modules/referrals/actions.ts->../admin/repo": {
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
