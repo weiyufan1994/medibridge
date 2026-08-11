@@ -3,7 +3,6 @@ import {
   appointmentTokens,
   appointments,
   stripeWebhookEvents,
-  type InsertAppointment,
 } from "../../../drizzle/schema";
 import { getDb } from "../../db";
 import { type AppointmentStatus, type PaymentStatus } from "./stateMachine";
@@ -63,23 +62,9 @@ export {
   listAppointmentsByUserScope,
 } from "./listReadRepo";
 export { createAppointmentDraft } from "./draftWriteRepo";
+export { updateAppointmentById } from "./updateWriteRepo";
 
 export type { AppointmentRepoExecutor };
-
-export async function updateAppointmentById(
-  appointmentId: number,
-  update: Partial<InsertAppointment>
-) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  await db
-    .update(appointments)
-    .set(update)
-    .where(eq(appointments.id, appointmentId));
-}
 
 export async function updateAppointmentNotesIfMatch(input: {
   appointmentId: number;
