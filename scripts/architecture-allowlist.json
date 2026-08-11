@@ -1,11 +1,6 @@
 {
   "dependencyViolations": {},
   "fileBudgets": {
-    "client/src/components/ui/sidebar.tsx": {
-      "maxLines": 734,
-      "phase": "5",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
     "client/src/sandbox/ComponentShowcase.tsx": {
       "maxLines": 1444,
       "phase": "5",
