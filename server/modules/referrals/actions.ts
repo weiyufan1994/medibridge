@@ -36,6 +36,12 @@ import {
   settleReferralPaymentTransition,
 } from "./paymentSettlement";
 import { resolveReferralPaymentMode } from "./paymentMode";
+import {
+  getOwnedOrder,
+  requireFormalUser,
+  requireUser,
+  resolveActorTypeFromUser,
+} from "./accessControl";
 import type {
   addInternalNoteInputSchema,
   adminReferralOrderDetailOutputSchema,
@@ -63,7 +69,6 @@ export {
 } from "./triageActions";
 export { createOrderDraftAction } from "./orderDraftActions";
 
-type CurrentUser = User;
 type CreatePaymentSessionInput = z.infer<
   typeof createPaymentSessionInputSchema
 >;
@@ -99,45 +104,6 @@ type NullableLocalHospital = Awaited<
 type NullableLocalDepartment = Awaited<
   ReturnType<typeof referralRepo.getDepartmentById>
 > | null;
-
-function requireUser(user: User | null): CurrentUser {
-  if (!user) {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "Please sign in to continue.",
-    });
-  }
-
-  return user;
-}
-
-function requireFormalUser(user: User | null): CurrentUser {
-  const currentUser = requireUser(user);
-  if (currentUser.isGuest === 1) {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "FORMAL_ACCOUNT_REQUIRED",
-    });
-  }
-
-  return currentUser;
-}
-
-function resolveActorTypeFromUser(user: User): ReferralActorType {
-  return user.role === "ops" ? "ops" : "admin";
-}
-
-async function getOwnedOrder(input: { orderId: number; userId: number }) {
-  const order = await referralRepo.getReferralOrderById(input.orderId);
-  if (!order || !referralRepo.isOrderOwnedByUser(order, input.userId)) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Referral order not found",
-    });
-  }
-
-  return order;
-}
 
 function buildOrderDisplayContext(input: {
   order: {
