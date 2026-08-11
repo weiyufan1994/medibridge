@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { appointments } from "../../../drizzle/schema";
 import { sendMagicLinkEmail } from "../../_core/mailer";
+import { createLogger } from "../../_core/logger";
 import { setCachedPatientAccessToken } from "./tokenCache";
 import { buildAppointmentAccessLink } from "./linkService";
 import * as appointmentsRepo from "./repo";
@@ -10,6 +11,8 @@ import {
   assertAppointmentBelongsToCurrentUser,
   getAppointmentByIdOrThrow,
 } from "./accessValidation";
+
+const logger = createLogger("appointment-access");
 
 const TOKEN_RESEND_COOLDOWN_MS = 60_000;
 const RESEND_ALLOWED_STATUS = new Set<string>(["paid", "active"]);
@@ -38,13 +41,6 @@ function hasConsultationStarted(scheduledAt: Date | null, now: Date) {
     return true;
   }
   return now.getTime() >= scheduledAt.getTime();
-}
-
-function getDevAppointmentAccessLink(
-  appointmentId: number,
-  token: string
-): string {
-  return `http://localhost:3000/visit/${appointmentId}?t=${encodeURIComponent(token)}`;
 }
 
 async function assertResendCooldown(input: {
@@ -254,10 +250,11 @@ export async function resendPatientAccessLink(input: {
   const link = issued.patientLink;
   await sendMagicLinkEmail(appointment.email, link);
   if (process.env.NODE_ENV === "development") {
-    console.log("DEV ACCESS LINK:");
-    console.log(
-      getDevAppointmentAccessLink(appointment.id, issued.patient.token)
-    );
+    logger.info("patient_link_issued", {
+      appointmentId: appointment.id,
+      delivery: "email",
+      devMode: true,
+    });
   }
 
   return {
@@ -311,7 +308,11 @@ export async function resendDoctorAccessLinkInDev(input: {
   });
 
   const doctorLink = issued.doctorLink;
-  console.log(`[Appointments][DEV] Doctor link: ${doctorLink}`);
+  logger.info("doctor_link_issued", {
+    appointmentId: appointment.id,
+    delivery: "api_response",
+    devMode: true,
+  });
 
   return {
     ok: true as const,

@@ -6,6 +6,9 @@ import { getTokenAutoRevokeThreshold } from "./tokenService";
 import { throwTokenError, type TokenErrorCode } from "./tokenErrors";
 import { canJoinRoom, canSendMessage } from "./chatPolicy";
 import { incrementMetric } from "../../_core/metrics";
+import { createLogger } from "../../_core/logger";
+
+const logger = createLogger("appointment-token");
 
 export type VisitAccessAction = "join_room" | "read_history" | "send_message";
 
@@ -96,10 +99,10 @@ async function handleFailedAttempt(input: {
   }
 
   if (process.env.NODE_ENV !== "test") {
-    console.warn("[AppointmentToken] validation failed", {
+    logger.warn("validation_failed", {
       reason: input.reason,
-      ip,
-      tokenHashPrefix: input.tokenHash?.slice(0, 8) ?? null,
+      clientIp: ip,
+      requestId: input.requestMetadata?.requestId ?? null,
     });
   }
 }
@@ -262,11 +265,12 @@ export async function validateAppointmentAccessToken(input: {
   tokenFailureCounts.delete(tokenHash);
   incrementMetric("appointment_token_validation_success_total");
   if (process.env.NODE_ENV !== "test") {
-    console.info("[AppointmentToken] validation success", {
+    logger.info("validation_succeeded", {
       appointmentId: appointment.id,
       role: tokenRow.role,
       tokenId: tokenRow.id,
-      ip,
+      clientIp: ip,
+      requestId: input.requestMetadata?.requestId ?? null,
     });
   }
 
