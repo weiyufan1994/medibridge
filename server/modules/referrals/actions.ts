@@ -5,10 +5,7 @@ import { type ReferralOrderStatus } from "../../../shared/referrals";
 import * as referralRepo from "./repo";
 import { notifyPatientReferralUpdate } from "./notifications";
 import { toPublicReferralContactOrNull } from "./presentation";
-import {
-  REFERRAL_INVALID_TRANSITION_ERROR,
-  isReferralTerminalStatus,
-} from "./stateMachine";
+import { REFERRAL_INVALID_TRANSITION_ERROR } from "./stateMachine";
 import {
   getOwnedOrder,
   requireUser,
@@ -16,15 +13,12 @@ import {
 } from "./accessControl";
 import type {
   addInternalNoteInputSchema,
-  assignOrderInputSchema,
-  assignOrderContactInputSchema,
   beginTimeCoordinationInputSchema,
   listMineOrdersInputSchema,
   publishPatientProgressUpdateInputSchema,
   referralOrderDetailOutputSchema,
   setConsultationTimeInputSchema,
 } from "./schemas";
-import { isPositiveInteger } from "./triageActions";
 import { mapBundleToOrderSummary } from "./orderSummary";
 import {
   buildOrderDisplayContext,
@@ -45,14 +39,17 @@ export { createPaymentSessionAction } from "./paymentSessionActions";
 export { confirmReturnedPaymentSessionAction } from "./returnedPaymentActions";
 export { confirmMockPaymentAction } from "./mockPaymentActions";
 export { getAdminOrderDetailAction, listOrdersForAdminAction };
+export {
+  assignOrderAction,
+  assignOrderContactAction,
+  claimOrderAction,
+} from "./assignmentActions";
 export { recordBookingResultAction } from "./bookingResultActions";
 export { recordContactAttemptAction } from "./contactAttemptActions";
 export { initiateRefundAction } from "./refundRequestActions";
 export { reviewRefundAction } from "./refundReviewActions";
 export { updateOrderStatusAction } from "./manualStatusActions";
 type ListMineOrdersInput = z.infer<typeof listMineOrdersInputSchema>;
-type AssignOrderInput = z.infer<typeof assignOrderInputSchema>;
-type AssignOrderContactInput = z.infer<typeof assignOrderContactInputSchema>;
 type BeginTimeCoordinationInput = z.infer<
   typeof beginTimeCoordinationInputSchema
 >;
@@ -214,155 +211,6 @@ export async function getOrderDetailAction(
         }
       : null,
   };
-}
-
-export async function claimOrderAction(
-  user: User | null,
-  input: { orderId: number }
-) {
-  const currentUser = requireUser(user);
-  const order = await referralRepo.getReferralOrderById(input.orderId);
-  if (!order) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Referral order not found",
-    });
-  }
-  if (order.assignedAgentId && order.assignedAgentId !== currentUser.id) {
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message: "Referral order is already assigned",
-    });
-  }
-
-  await referralRepo.updateReferralOrderById({
-    orderId: order.id,
-    update: {
-      assignedAgentId: currentUser.id,
-    },
-  });
-  if (order.status === "paid_pending_assignment") {
-    await changeOrderStatus({
-      orderId: order.id,
-      toStatus: "assigned",
-      toPaymentStatus: "paid",
-      actorType: resolveActorTypeFromUser(currentUser),
-      actorId: currentUser.id,
-      reason: "order_claimed",
-    });
-  }
-  await referralRepo.insertOperation({
-    orderId: order.id,
-    operatorType: resolveActorTypeFromUser(currentUser),
-    operatorId: currentUser.id,
-    actionType: "order_claimed",
-    actionPayload: {
-      assignedAgentId: currentUser.id,
-    },
-  });
-
-  return getAdminOrderDetailAction(currentUser, order.id);
-}
-
-export async function assignOrderAction(
-  user: User | null,
-  input: AssignOrderInput
-) {
-  const currentUser = requireUser(user);
-  const order = await referralRepo.getReferralOrderById(input.orderId);
-  if (!order) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Referral order not found",
-    });
-  }
-
-  await referralRepo.updateReferralOrderById({
-    orderId: order.id,
-    update: {
-      assignedAgentId: input.assigneeId,
-    },
-  });
-  if (order.status === "paid_pending_assignment") {
-    await changeOrderStatus({
-      orderId: order.id,
-      toStatus: "assigned",
-      toPaymentStatus: "paid",
-      actorType: resolveActorTypeFromUser(currentUser),
-      actorId: currentUser.id,
-      reason: "order_assigned",
-    });
-  }
-  await referralRepo.insertOperation({
-    orderId: order.id,
-    operatorType: resolveActorTypeFromUser(currentUser),
-    operatorId: currentUser.id,
-    actionType: "order_assigned",
-    actionPayload: {
-      assigneeId: input.assigneeId,
-    },
-  });
-
-  return getAdminOrderDetailAction(currentUser, order.id);
-}
-
-export async function assignOrderContactAction(
-  user: User | null,
-  input: AssignOrderContactInput
-) {
-  const currentUser = requireUser(user);
-  const order = await referralRepo.getReferralOrderById(input.orderId);
-  if (!order) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Referral order not found",
-    });
-  }
-  if (isReferralTerminalStatus(order.status as ReferralOrderStatus)) {
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message: "Terminal referral orders cannot be modified.",
-    });
-  }
-  if (!isPositiveInteger(order.hospitalId)) {
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message: "This order has no local hospital mapping yet.",
-    });
-  }
-
-  const contact = await referralRepo.getContactById(input.contactId);
-  if (
-    !contact ||
-    contact.isActive !== 1 ||
-    contact.hospitalId !== order.hospitalId
-  ) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "Selected contact is invalid",
-    });
-  }
-
-  await referralRepo.updateReferralOrderById({
-    orderId: order.id,
-    update: {
-      departmentId: contact.departmentId,
-      contactId: contact.id,
-      manualFulfillmentRequired: 0,
-    },
-  });
-  await referralRepo.insertOperation({
-    orderId: order.id,
-    operatorType: resolveActorTypeFromUser(currentUser),
-    operatorId: currentUser.id,
-    actionType: "contact_assigned",
-    actionPayload: {
-      contactId: contact.id,
-      contactName: contact.name,
-    },
-  });
-
-  return getAdminOrderDetailAction(currentUser, order.id);
 }
 
 export async function addInternalNoteAction(
