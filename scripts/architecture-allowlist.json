@@ -260,26 +260,6 @@
       "phase": "5",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
-    "module-cross-deep-import:server/modules/appointments/autoCloseWorker.ts->../visit/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/appointments/workflowActions.ts->../visit/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/auth/actions.ts->../appointments/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/auth/actions.ts->../appointments/tokenValidation": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/auth/actions.ts->../doctorAccounts/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
     "module-cross-deep-import:server/modules/chat/actions.test.ts->../doctors/repo": {
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
@@ -305,10 +285,6 @@
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
     "module-cross-deep-import:server/modules/referrals/actions.ts->../ai/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/scheduling/schemas.ts->../appointments/packageCatalog": {
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
@@ -353,10 +329,6 @@
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
     "module-cross-deep-import:server/modules/visit/status.ts->../appointments/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cycle:ai,appointments,auth,payments,scheduling,visit": {
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },

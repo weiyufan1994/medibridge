@@ -11,7 +11,7 @@ import { getLocalUploadDir } from "../storage";
 import { handleStripeWebhook } from "../stripeWebhookRoute";
 import { handlePaypalWebhook } from "../paypalWebhookRoute";
 import { createVisitRealtimeGateway } from "../modules/visit/realtimeGateway";
-import { startAppointmentAutoCloseWorker } from "../modules/appointments/autoCloseWorker";
+import { startAppointmentAutoCloseWorker } from "../workflows/appointmentAutoClose/publicApi";
 import { startReferralFulfillmentWorker } from "../modules/referrals/fulfillmentWorker";
 import { startReferralNotificationWorker } from "../modules/referrals/notificationWorker";
 

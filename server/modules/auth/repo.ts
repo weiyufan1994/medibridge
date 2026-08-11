@@ -1,12 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import {
-  aiChatSessions,
-  appointmentMessages,
-  appointments,
-  InsertUser,
-  patientSessions,
-  users,
-} from "../../../drizzle/schema";
+import { InsertUser, users } from "../../../drizzle/schema";
 import { getDb } from "../../db";
 
 export async function upsertUser(user: InsertUser): Promise<void> {
@@ -243,38 +236,4 @@ export async function findOrCreateFormalUserByEmail(input: {
   }
 
   return undefined;
-}
-
-export async function mergeGuestDataIntoFormalUser(input: {
-  guestUserId: number;
-  formalUserId: number;
-}) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  if (input.guestUserId === input.formalUserId) {
-    return;
-  }
-
-  await db
-    .update(appointments)
-    .set({ userId: input.formalUserId })
-    .where(eq(appointments.userId, input.guestUserId));
-
-  await db
-    .update(patientSessions)
-    .set({ userId: input.formalUserId })
-    .where(eq(patientSessions.userId, input.guestUserId));
-
-  await db
-    .update(appointmentMessages)
-    .set({ userId: input.formalUserId })
-    .where(eq(appointmentMessages.userId, input.guestUserId));
-
-  await db
-    .update(aiChatSessions)
-    .set({ userId: input.formalUserId })
-    .where(eq(aiChatSessions.userId, input.guestUserId));
 }

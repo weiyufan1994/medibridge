@@ -1,11 +1,11 @@
 import { TRPCError } from "@trpc/server";
+import {
+  APPOINTMENT_TYPE_VALUES,
+  type AppointmentType,
+} from "@shared/appointmentTypes";
 import type { LocalizedText } from "@shared/types";
 
-export const APPOINTMENT_TYPE_VALUES = [
-  "online_chat",
-  "video_call",
-  "in_person",
-] as const;
+export { APPOINTMENT_TYPE_VALUES, type AppointmentType };
 
 export const APPOINTMENT_PACKAGE_VALUES = [
   "chat_quick_30m",
@@ -17,7 +17,6 @@ export const APPOINTMENT_PACKAGE_VALUES = [
 ] as const;
 
 export type AppointmentPackageId = (typeof APPOINTMENT_PACKAGE_VALUES)[number];
-export type AppointmentType = (typeof APPOINTMENT_TYPE_VALUES)[number];
 
 export type AppointmentPackageDefinition = {
   id: AppointmentPackageId;

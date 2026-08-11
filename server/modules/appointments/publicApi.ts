@@ -1,4 +1,41 @@
 import * as repo from "./repo";
+import * as guestAssetRepo from "./guestAssetRepo";
+import {
+  createCheckoutFromCreateInput,
+  createCheckoutFromCreateV2Input,
+} from "./bookingActions";
+import { generateMedicalSummaryDraftByTokenFlow } from "./workflowActions";
+import { startAppointmentAutoCloseWorker } from "./autoCloseWorker";
+import { validateAppointmentAccessToken } from "./tokenValidation";
+
+export const appointmentAuthApi = {
+  get bindAppointmentsToUserByEmail() {
+    return repo.bindAppointmentsToUserByEmail;
+  },
+  get getAppointmentById() {
+    return repo.getAppointmentById;
+  },
+  get reassignAppointmentsFromGuest() {
+    return guestAssetRepo.reassignAppointmentsFromGuest;
+  },
+  get updateAppointmentById() {
+    return repo.updateAppointmentById;
+  },
+  validateAppointmentAccessToken,
+};
+
+export const appointmentBookingApi = {
+  createCheckoutFromCreateInput,
+  createCheckoutFromCreateV2Input,
+};
+
+export const appointmentMedicalSummaryApi = {
+  generateMedicalSummaryDraftByTokenFlow,
+};
+
+export const appointmentAutomationApi = {
+  startAutoCloseWorker: startAppointmentAutoCloseWorker,
+};
 
 export const appointmentsAdminApi = {
   get getAppointmentById() {

@@ -23,8 +23,8 @@ vi.mock("crypto", () => {
 vi.mock("./modules/auth/repo", () => ({
   findOrCreateFormalUserByEmail: vi.fn(),
   getGuestUserByDeviceId: vi.fn(),
-  mergeGuestDataIntoFormalUser: vi.fn(),
   getFormalUserByEmail: vi.fn(),
+  getUserById: vi.fn(),
 }));
 vi.mock("./modules/doctorAccounts/repo", () => ({
   getActiveBindingByUserId: vi.fn(),
@@ -34,6 +34,18 @@ vi.mock("./modules/appointments/repo", () => ({
   bindAppointmentsToUserByEmail: vi.fn(),
   getAppointmentById: vi.fn(),
   updateAppointmentById: vi.fn(),
+}));
+
+vi.mock("./modules/appointments/guestAssetRepo", () => ({
+  reassignAppointmentsFromGuest: vi.fn(),
+}));
+
+vi.mock("./modules/visit/guestAssetRepo", () => ({
+  reassignVisitAssetsFromGuest: vi.fn(),
+}));
+
+vi.mock("./modules/ai/guestAssetRepo", () => ({
+  reassignTriageSessionsFromGuest: vi.fn(),
 }));
 
 vi.mock("./modules/appointments/tokenValidation", () => ({
@@ -59,6 +71,9 @@ vi.mock("./_core/cookies", () => ({
 import * as authRepo from "./modules/auth/repo";
 import * as doctorAccountRepo from "./modules/doctorAccounts/repo";
 import * as appointmentsRepo from "./modules/appointments/repo";
+import * as appointmentGuestAssetRepo from "./modules/appointments/guestAssetRepo";
+import * as visitGuestAssetRepo from "./modules/visit/guestAssetRepo";
+import * as aiGuestAssetRepo from "./modules/ai/guestAssetRepo";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { authRouter } from "./routers/auth";
 
@@ -123,11 +138,19 @@ describe("auth.verifyOtpAndMerge", () => {
       deviceId: "device-abc-123456",
     });
 
-    expect(authRepo.mergeGuestDataIntoFormalUser).toHaveBeenCalledTimes(1);
-    expect(authRepo.mergeGuestDataIntoFormalUser).toHaveBeenCalledWith({
+    const reassignment = {
       guestUserId: 100,
       formalUserId: 200,
-    });
+    };
+    expect(
+      appointmentGuestAssetRepo.reassignAppointmentsFromGuest
+    ).toHaveBeenCalledWith(reassignment);
+    expect(
+      visitGuestAssetRepo.reassignVisitAssetsFromGuest
+    ).toHaveBeenCalledWith(reassignment);
+    expect(
+      aiGuestAssetRepo.reassignTriageSessionsFromGuest
+    ).toHaveBeenCalledWith(reassignment);
     expect(appointmentsRepo.bindAppointmentsToUserByEmail).toHaveBeenCalledWith(
       "merge@example.com",
       200

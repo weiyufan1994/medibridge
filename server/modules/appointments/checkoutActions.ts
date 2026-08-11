@@ -1,7 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import type { Request } from "express";
 import * as appointmentsRepo from "./repo";
-import { paymentProviderApi } from "../payments/publicApi";
 import { APPOINTMENT_INVALID_TRANSITION_ERROR } from "./stateMachine";
 import { getPublicBaseUrl } from "../../_core/getPublicBaseUrl";
 import { getDb } from "../../db";
@@ -23,6 +22,18 @@ type IntakeInput = {
   ageGroup?: string;
   otherSymptoms?: string;
 };
+
+export type AppointmentCheckoutCreator = (input: {
+  appointmentId: number;
+  amount: number;
+  currency: string;
+  successUrl: string;
+  cancelUrl: string;
+}) => Promise<{
+  provider: "stripe" | "paypal";
+  id: string;
+  url: string;
+}>;
 
 function readInsertedId(value: unknown) {
   if (typeof value === "number" && Number.isInteger(value) && value > 0) {
@@ -97,6 +108,7 @@ export async function createAppointmentCheckoutFlow(input: {
   selectedPackage: CheckoutPackage;
   intake?: IntakeInput;
   req: Request;
+  createCheckoutSession: AppointmentCheckoutCreator;
 }) {
   const slotId = input.slotId ?? null;
   const holdKey =
@@ -214,7 +226,7 @@ export async function createAppointmentCheckoutFlow(input: {
 
   try {
     const publicUrlBase = getPublicBaseUrl(input.req);
-    const checkout = await paymentProviderApi.createCheckoutSession({
+    const checkout = await input.createCheckoutSession({
       appointmentId,
       amount: input.selectedPackage.amount,
       currency: input.selectedPackage.currency,

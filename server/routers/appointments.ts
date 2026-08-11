@@ -5,9 +5,10 @@ import {
 } from "../modules/appointments/routerApi";
 import { getPublicBaseUrl } from "../_core/getPublicBaseUrl";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import * as appointmentBookingWorkflow from "../workflows/appointmentBooking/publicApi";
+import { generateMedicalSummaryDraft } from "../workflows/appointmentMedicalSummary/publicApi";
 import { reinitiateCheckoutForAppointment } from "../workflows/appointmentPayments/publicApi";
-export const validateAppointmentToken =
-  appointmentCore.validateAppointmentToken;
+export const { validateAppointmentToken } = appointmentCore;
 
 const appointmentQueryProcedures = {
   listPackages: publicProcedure
@@ -63,7 +64,7 @@ const appointmentCheckoutProcedures = {
     .input(appointmentSchemas.createInputSchema)
     .output(appointmentSchemas.createOutputSchema)
     .mutation(async ({ input, ctx }) =>
-      appointmentActions.createCheckoutFromCreateInput({
+      appointmentBookingWorkflow.createAppointmentCheckout({
         createInput: input,
         userId: ctx.user?.id,
         userEmail: ctx.user?.email,
@@ -74,7 +75,7 @@ const appointmentCheckoutProcedures = {
     .input(appointmentSchemas.createV2InputSchema)
     .output(appointmentSchemas.createOutputSchema)
     .mutation(async ({ input, ctx }) =>
-      appointmentActions.createCheckoutFromCreateV2Input({
+      appointmentBookingWorkflow.createAppointmentCheckoutV2({
         createInput: input,
         userId: ctx.user?.id,
         userEmail: ctx.user?.email,
@@ -224,7 +225,7 @@ const appointmentCompletionProcedures = {
     .input(appointmentSchemas.generateMedicalSummaryDraftInputSchema)
     .output(appointmentSchemas.medicalSummaryDraftOutputSchema)
     .mutation(async ({ input, ctx }) =>
-      appointmentActions.generateMedicalSummaryDraftByTokenFlow({
+      generateMedicalSummaryDraft({
         appointmentId: input.appointmentId,
         token: input.token,
         lang: input.lang,
