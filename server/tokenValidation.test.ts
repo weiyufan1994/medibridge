@@ -18,12 +18,10 @@ import {
   validateAppointmentAccessToken,
 } from "./modules/appointments/tokenValidation";
 
-function makeReq(ip = "1.2.3.4") {
+function makeRequestMetadata(ip = "1.2.3.4") {
   return {
-    ip,
-    headers: {
-      "user-agent": "vitest-agent",
-    },
+    clientIp: ip,
+    userAgent: "vitest-agent",
   } as never;
 }
 
@@ -90,7 +88,7 @@ describe("token validation", () => {
 
     const result = await validateAppointmentAccessToken({
       token: "token-1234567890abcdef",
-      req: makeReq(),
+      requestMetadata: makeRequestMetadata(),
     });
 
     expect(result.role).toBe("patient");
@@ -123,7 +121,7 @@ describe("token validation", () => {
     await expect(
       validateAppointmentAccessToken({
         token: "token-1234567890abcdef",
-        req: makeReq(),
+        requestMetadata: makeRequestMetadata(),
       })
     ).rejects.toMatchObject<Partial<TRPCError>>({
       code: "UNAUTHORIZED",
@@ -154,7 +152,7 @@ describe("token validation", () => {
     await expect(
       validateAppointmentAccessToken({
         token: "token-1234567890abcdef",
-        req: makeReq(),
+        requestMetadata: makeRequestMetadata(),
       })
     ).rejects.toMatchObject<Partial<TRPCError>>({
       code: "UNAUTHORIZED",
@@ -187,11 +185,11 @@ describe("token validation", () => {
     const [a, b] = await Promise.allSettled([
       validateAppointmentAccessToken({
         token: "token-1234567890abcdef",
-        req: makeReq(),
+        requestMetadata: makeRequestMetadata(),
       }),
       validateAppointmentAccessToken({
         token: "token-1234567890abcdef",
-        req: makeReq(),
+        requestMetadata: makeRequestMetadata(),
       }),
     ]);
 
@@ -212,7 +210,7 @@ describe("token validation", () => {
     await expect(
       validateAppointmentAccessToken({
         token: "token-1234567890abcdef",
-        req: makeReq(),
+        requestMetadata: makeRequestMetadata(),
       })
     ).rejects.toMatchObject<Partial<TRPCError>>({
       code: "UNAUTHORIZED",
@@ -240,7 +238,7 @@ describe("token validation", () => {
     await expect(
       validateAppointmentAccessToken({
         token: "token-1234567890abcdef",
-        req: makeReq(),
+        requestMetadata: makeRequestMetadata(),
       })
     ).rejects.toMatchObject<Partial<TRPCError>>({
       code: "FORBIDDEN",
@@ -276,7 +274,7 @@ describe("token validation", () => {
       await expect(
         validateAppointmentAccessToken({
           token: "token-1234567890abcdef",
-          req: makeReq(),
+          requestMetadata: makeRequestMetadata(),
           action: "join_room",
         })
       ).rejects.toMatchObject<Partial<TRPCError>>({
@@ -310,7 +308,7 @@ describe("token validation", () => {
     await expect(
       validateAppointmentAccessToken({
         token: "token-1234567890abcdef",
-        req: makeReq(),
+        requestMetadata: makeRequestMetadata(),
         action: "join_room",
       })
     ).resolves.toBeTruthy();
@@ -318,7 +316,7 @@ describe("token validation", () => {
     await expect(
       validateAppointmentAccessToken({
         token: "token-1234567890abcdef",
-        req: makeReq(),
+        requestMetadata: makeRequestMetadata(),
         action: "send_message",
       })
     ).resolves.toMatchObject({
@@ -354,7 +352,7 @@ describe("token validation", () => {
     await expect(
       validateAppointmentAccessToken({
         token: "token-1234567890abcdef",
-        req: makeReq(),
+        requestMetadata: makeRequestMetadata(),
         action: "join_room",
       })
     ).resolves.toBeTruthy();
@@ -388,7 +386,7 @@ describe("token validation", () => {
     await expect(
       validateAppointmentAccessToken({
         token: "token-1234567890abcdef",
-        req: makeReq(),
+        requestMetadata: makeRequestMetadata(),
         action: "send_message",
       })
     ).resolves.toMatchObject({
@@ -423,7 +421,7 @@ describe("token validation", () => {
     await expect(
       validateAppointmentAccessToken({
         token: "token-1234567890abcdef",
-        req: makeReq(),
+        requestMetadata: makeRequestMetadata(),
         action: "send_message",
       })
     ).resolves.toMatchObject({
@@ -453,7 +451,7 @@ describe("token validation", () => {
       await expect(
         validateAppointmentAccessToken({
           token: "token-1234567890abcdef",
-          req: makeReq(),
+          requestMetadata: makeRequestMetadata(),
           action,
         })
       ).rejects.toMatchObject<Partial<TRPCError>>({
@@ -490,7 +488,7 @@ describe("token validation", () => {
       await expect(
         validateAppointmentAccessToken({
           token: "token-1234567890abcdef",
-          req: makeReq(),
+          requestMetadata: makeRequestMetadata(),
           action: "join_room",
         })
       ).resolves.toBeTruthy();
@@ -518,19 +516,19 @@ describe("token validation", () => {
     await expect(
       validateAppointmentAccessToken({
         token: "token-1234567890abcdef",
-        req: makeReq(),
+        requestMetadata: makeRequestMetadata(),
       })
     ).rejects.toMatchObject({ message: "TOKEN_INVALID" });
     await expect(
       validateAppointmentAccessToken({
         token: "token-1234567890abcdef",
-        req: makeReq(),
+        requestMetadata: makeRequestMetadata(),
       })
     ).rejects.toMatchObject({ message: "TOKEN_INVALID" });
     await expect(
       validateAppointmentAccessToken({
         token: "token-1234567890abcdef",
-        req: makeReq(),
+        requestMetadata: makeRequestMetadata(),
       })
     ).rejects.toMatchObject<Partial<TRPCError>>({
       code: "TOO_MANY_REQUESTS",
@@ -555,14 +553,14 @@ describe("token validation", () => {
     await expect(
       validateAppointmentAccessToken({
         token: "token-1234567890abcdef",
-        req: makeReq(),
+        requestMetadata: makeRequestMetadata(),
         expectedRole: "doctor",
       })
     ).rejects.toThrow();
     await expect(
       validateAppointmentAccessToken({
         token: "token-1234567890abcdef",
-        req: makeReq(),
+        requestMetadata: makeRequestMetadata(),
         expectedRole: "doctor",
       })
     ).rejects.toThrow();

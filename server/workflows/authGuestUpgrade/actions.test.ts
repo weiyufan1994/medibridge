@@ -52,6 +52,15 @@ import { mergeGuestAssetsIntoFormalUser } from "./guestAssets";
 
 const req = { headers: {}, protocol: "https" } as never;
 const res = { cookie: vi.fn(), clearCookie: vi.fn() } as never;
+const requestMetadata = {
+  clientIp: "203.0.113.10",
+  forwardedHost: null,
+  forwardedProto: null,
+  host: "medibridge.test",
+  protocol: "https",
+  requestId: null,
+  userAgent: "vitest-agent",
+};
 
 function formalUser(id = 200) {
   return {
@@ -211,12 +220,16 @@ describe("auth guest upgrade workflow", () => {
       req,
       res,
       deviceId: null,
+      requestMetadata,
     });
 
     expect(
       appointmentAuthApi.validateAppointmentAccessToken
     ).toHaveBeenCalledWith(
-      expect.objectContaining({ token: "magic-token-value" })
+      expect.objectContaining({
+        token: "magic-token-value",
+        requestMetadata,
+      })
     );
     expect(
       appointmentAuthApi.reassignAppointmentsFromGuest
@@ -257,6 +270,7 @@ describe("auth guest upgrade workflow", () => {
       req,
       res,
       deviceId: "device-12345678",
+      requestMetadata,
     });
 
     expect(
@@ -290,6 +304,7 @@ describe("auth guest upgrade workflow", () => {
         req,
         res,
         deviceId: null,
+        requestMetadata,
       })
     ).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
     expect(
@@ -305,6 +320,7 @@ describe("auth guest upgrade workflow", () => {
         req,
         res,
         deviceId: null,
+        requestMetadata,
       })
     ).rejects.toBeInstanceOf(TRPCError);
     expect(

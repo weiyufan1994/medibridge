@@ -1,4 +1,4 @@
-import type { Request } from "express";
+import type { RequestMetadata } from "@shared/requestMetadata";
 import * as appointmentsRepo from "./repo";
 import { checkIpFailureRateLimit, recordIpFailure } from "./rateLimit";
 import { hashToken } from "../../_core/appointmentToken";
@@ -68,45 +68,12 @@ function canReuseJoinWithoutIncrement(input: {
   );
 }
 
-function getClientIp(req?: Request): string | null {
-  if (!req) {
-    return null;
-  }
-
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string" && forwarded.trim().length > 0) {
-    return forwarded.split(",")[0].trim();
-  }
-
-  if (Array.isArray(forwarded) && forwarded[0]?.trim()) {
-    return forwarded[0].split(",")[0].trim();
-  }
-
-  return req.ip || null;
-}
-
-function getUserAgent(req?: Request): string | null {
-  if (!req) {
-    return null;
-  }
-
-  const raw = req.headers["user-agent"];
-  if (typeof raw === "string" && raw.trim().length > 0) {
-    return raw.trim();
-  }
-  if (Array.isArray(raw) && raw[0]?.trim()) {
-    return raw[0].trim();
-  }
-
-  return null;
-}
-
 async function handleFailedAttempt(input: {
   tokenHash?: string;
   reason: TokenErrorCode;
-  req?: Request;
+  requestMetadata?: RequestMetadata;
 }) {
-  const ip = getClientIp(input.req);
+  const ip = input.requestMetadata?.clientIp ?? null;
   recordIpFailure(ip);
   incrementMetric("appointment_token_validation_failed_total", {
     reason: input.reason,
@@ -142,7 +109,7 @@ export async function validateAppointmentAccessToken(input: {
   action?: VisitAccessAction;
   expectedRole?: "patient" | "doctor";
   expectedAppointmentId?: number;
-  req?: Request;
+  requestMetadata?: RequestMetadata;
 }): Promise<AppointmentAccessContext> {
   const action = input.action ?? "join_room";
   const token = input.token.trim();
@@ -150,9 +117,12 @@ export async function validateAppointmentAccessToken(input: {
     throwTokenError("TOKEN_MISSING");
   }
 
-  const ip = getClientIp(input.req);
+  const ip = input.requestMetadata?.clientIp ?? null;
   if (checkIpFailureRateLimit(ip)) {
-    await handleFailedAttempt({ reason: "RATE_LIMITED", req: input.req });
+    await handleFailedAttempt({
+      reason: "RATE_LIMITED",
+      requestMetadata: input.requestMetadata,
+    });
     throwTokenError("RATE_LIMITED");
   }
 
@@ -162,7 +132,7 @@ export async function validateAppointmentAccessToken(input: {
     await handleFailedAttempt({
       tokenHash,
       reason: "TOKEN_INVALID",
-      req: input.req,
+      requestMetadata: input.requestMetadata,
     });
     throwTokenError("TOKEN_INVALID");
   }
@@ -172,7 +142,7 @@ export async function validateAppointmentAccessToken(input: {
     await handleFailedAttempt({
       tokenHash,
       reason: "TOKEN_REVOKED",
-      req: input.req,
+      requestMetadata: input.requestMetadata,
     });
     throwTokenError("TOKEN_REVOKED");
   }
@@ -181,7 +151,7 @@ export async function validateAppointmentAccessToken(input: {
     await handleFailedAttempt({
       tokenHash,
       reason: "TOKEN_EXPIRED",
-      req: input.req,
+      requestMetadata: input.requestMetadata,
     });
     throwTokenError("TOKEN_EXPIRED");
   }
@@ -202,7 +172,7 @@ export async function validateAppointmentAccessToken(input: {
     await handleFailedAttempt({
       tokenHash,
       reason: "TOKEN_MAX_USES",
-      req: input.req,
+      requestMetadata: input.requestMetadata,
     });
     throwTokenError("TOKEN_MAX_USES");
   }
@@ -211,7 +181,7 @@ export async function validateAppointmentAccessToken(input: {
     await handleFailedAttempt({
       tokenHash,
       reason: "TOKEN_INVALID",
-      req: input.req,
+      requestMetadata: input.requestMetadata,
     });
     throwTokenError("TOKEN_INVALID");
   }
@@ -223,7 +193,7 @@ export async function validateAppointmentAccessToken(input: {
     await handleFailedAttempt({
       tokenHash,
       reason: "TOKEN_INVALID",
-      req: input.req,
+      requestMetadata: input.requestMetadata,
     });
     throwTokenError("TOKEN_INVALID");
   }
@@ -235,7 +205,7 @@ export async function validateAppointmentAccessToken(input: {
     await handleFailedAttempt({
       tokenHash,
       reason: "APPOINTMENT_NOT_FOUND",
-      req: input.req,
+      requestMetadata: input.requestMetadata,
     });
     throwTokenError("APPOINTMENT_NOT_FOUND");
   }
@@ -244,7 +214,7 @@ export async function validateAppointmentAccessToken(input: {
     await handleFailedAttempt({
       tokenHash,
       reason: "APPOINTMENT_NOT_STARTED",
-      req: input.req,
+      requestMetadata: input.requestMetadata,
     });
     throwTokenError("APPOINTMENT_NOT_STARTED");
   }
@@ -263,7 +233,7 @@ export async function validateAppointmentAccessToken(input: {
     await handleFailedAttempt({
       tokenHash,
       reason: "APPOINTMENT_NOT_ALLOWED",
-      req: input.req,
+      requestMetadata: input.requestMetadata,
     });
     throwTokenError("APPOINTMENT_NOT_ALLOWED");
   }
@@ -277,7 +247,7 @@ export async function validateAppointmentAccessToken(input: {
       await handleFailedAttempt({
         tokenHash,
         reason: "TOKEN_MAX_USES",
-        req: input.req,
+        requestMetadata: input.requestMetadata,
       });
       throwTokenError("TOKEN_MAX_USES");
     }
@@ -286,7 +256,7 @@ export async function validateAppointmentAccessToken(input: {
   await appointmentsRepo.saveTokenFirstSeen({
     tokenId: tokenRow.id,
     ip,
-    userAgent: getUserAgent(input.req),
+    userAgent: input.requestMetadata?.userAgent ?? null,
   });
 
   tokenFailureCounts.delete(tokenHash);

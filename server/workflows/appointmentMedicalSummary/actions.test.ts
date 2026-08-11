@@ -27,7 +27,15 @@ describe("appointment medical summary workflow", () => {
       token: "doctor-token-value",
       lang: "zh" as const,
       forceRegenerate: true,
-      req: { headers: {} },
+      requestMetadata: {
+        clientIp: null,
+        forwardedHost: null,
+        forwardedProto: null,
+        host: null,
+        protocol: null,
+        requestId: null,
+        userAgent: null,
+      },
     } as never;
 
     await generateMedicalSummaryDraft(input);

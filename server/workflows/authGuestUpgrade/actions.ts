@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import type { RequestMetadata } from "@shared/requestMetadata";
 import crypto from "crypto";
 import { appointmentAuthApi } from "../../modules/appointments/publicApi";
 import {
@@ -94,13 +95,14 @@ export async function verifyMagicLinkAction(input: {
   req: CookieRequest;
   res: CookieResponse;
   deviceId: string | null | undefined;
+  requestMetadata: RequestMetadata;
 }) {
   const validated = await appointmentAuthApi.validateAppointmentAccessToken({
     token: parseMagicToken(input.payload.token),
     expectedRole: "patient",
     expectedAppointmentId: input.payload.appointmentId,
     action: "join_room",
-    req: input.req,
+    requestMetadata: input.requestMetadata,
   });
   const appointment = validated.appointment;
 

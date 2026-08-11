@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
+import type { RequestMetadata } from "@shared/requestMetadata";
 import { parse as parseCookieHeader } from "cookie";
-import type { Request } from "express";
 import type { TrpcContext } from "../../_core/context";
 import * as appointmentsRepo from "./repo";
 import type { VisitAccessAction } from "./tokenValidation";
@@ -61,13 +61,13 @@ export async function validateAppointmentToken(
   appointmentId: number,
   token: string,
   action: VisitAccessAction = "join_room",
-  req?: Request
+  requestMetadata?: RequestMetadata
 ) {
   const validated = await validateAppointmentAccessToken({
     token,
     action,
     expectedAppointmentId: appointmentId,
-    req,
+    requestMetadata,
   });
 
   const touchedAt = new Date();

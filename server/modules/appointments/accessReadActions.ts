@@ -1,4 +1,4 @@
-import type { Request } from "express";
+import type { RequestMetadata } from "@shared/requestMetadata";
 import { aiTriageSessionApi as triageSessions } from "../ai/publicApi";
 import * as appointmentsRepo from "./repo";
 import { buildAppointmentAccessLink } from "./linkService";
@@ -20,14 +20,14 @@ export async function getAppointmentAccessByToken<
   appointmentId: number;
   token: string;
   lang: "en" | "zh";
-  req?: Request;
+  requestMetadata?: RequestMetadata;
   parseIntake: (input: unknown) => IntakeSafeParseResult<TIntake>;
 }) {
   const { appointment, role } = await validateAppointmentToken(
     input.appointmentId,
     input.token,
     "read_history",
-    input.req
+    input.requestMetadata
   );
 
   const triageSession = await triageSessions.getById(
@@ -99,13 +99,13 @@ export async function getAppointmentAccessByTokenWithDefaultIntake(input: {
   appointmentId: number;
   token: string;
   lang: "en" | "zh";
-  req?: Request;
+  requestMetadata?: RequestMetadata;
 }) {
   return getAppointmentAccessByToken({
     appointmentId: input.appointmentId,
     token: input.token,
     lang: input.lang,
-    req: input.req,
+    requestMetadata: input.requestMetadata,
     parseIntake: value => appointmentIntakeSchema.safeParse(value),
   });
 }
@@ -113,13 +113,13 @@ export async function getAppointmentAccessByTokenWithDefaultIntake(input: {
 export async function getJoinInfoByToken(input: {
   appointmentId: number;
   token: string;
-  req?: Request;
+  requestMetadata?: RequestMetadata;
 }) {
   const { appointment, role } = await validateAppointmentToken(
     input.appointmentId,
     input.token,
     "join_room",
-    input.req
+    input.requestMetadata
   );
 
   return {

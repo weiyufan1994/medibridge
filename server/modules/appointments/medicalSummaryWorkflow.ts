@@ -1,4 +1,4 @@
-import type { Request } from "express";
+import type { RequestMetadata } from "@shared/requestMetadata";
 import { TRPCError } from "@trpc/server";
 import { invokeLLM } from "../../_core/llm";
 import { aiTriageSessionApi as triageSessions } from "../ai/publicApi";
@@ -263,14 +263,14 @@ export async function generateMedicalSummaryDraftByTokenFlow(input: {
   token: string;
   lang: "en" | "zh";
   forceRegenerate?: boolean;
-  req?: Request;
+  requestMetadata?: RequestMetadata;
   loadRecentMessages: LoadRecentConsultationMessages;
 }) {
   const { appointment, role } = await validateAppointmentToken(
     input.appointmentId,
     input.token,
     "read_history",
-    input.req
+    input.requestMetadata
   );
 
   if (role !== "doctor") {
@@ -319,13 +319,13 @@ export async function signMedicalSummaryByTokenFlow(input: {
   pastMedicalHistory: string;
   assessmentDiagnosis: string;
   planRecommendations: string;
-  req?: Request;
+  requestMetadata?: RequestMetadata;
 }) {
   const { appointment, role } = await validateAppointmentToken(
     input.appointmentId,
     input.token,
     "read_history",
-    input.req
+    input.requestMetadata
   );
 
   if (role !== "doctor") {
