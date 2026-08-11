@@ -1,7 +1,10 @@
 import { and, eq, sql } from "drizzle-orm";
 import { appointmentMessages, appointments } from "../../../drizzle/schema";
 import { getDb } from "../../db";
+import { createLogger } from "../../_core/logger";
 import * as appointmentsRepo from "./repo";
+
+const logger = createLogger("appointment-auto-close-worker");
 
 const DEFAULT_INTERVAL_MS = 60 * 60 * 1000;
 const INACTIVITY_WINDOW_MS = 48 * 60 * 60 * 1000;
@@ -109,7 +112,9 @@ export function startAppointmentAutoCloseWorker(options: {
     try {
       await autoCloseInactiveAppointments(options.createSystemMessage);
     } catch (error) {
-      console.warn("[AppointmentAutoCloseWorker] tick failed:", error);
+      logger.warn("tick_failed", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
     } finally {
       running = false;
     }
