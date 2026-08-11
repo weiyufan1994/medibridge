@@ -139,6 +139,7 @@ describe("registerOAuthRoutes", () => {
 
     await route.handler?.(
       {
+        headers: { "x-request-id": "oauth-request-1" },
         query: { code: "oauth-code", state: "oauth-state" },
       } as unknown as Request,
       response,

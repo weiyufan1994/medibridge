@@ -3,11 +3,13 @@ import { TRPCError } from "@trpc/server";
 import crypto from "crypto";
 import type { TrpcContext } from "../../_core/context";
 import { getSessionCookieOptions } from "../../_core/cookies";
+import { createLogger } from "../../_core/logger";
 import { sdk } from "../../_core/sdk";
 import { doctorAccountAccessApi } from "../doctorAccounts/publicApi";
 import type { RequestOtpInput } from "./schemas";
 
 const OTP_TTL_MS = 10 * 60 * 1000;
+const logger = createLogger("auth");
 const otpStore = new Map<
   string,
   {
@@ -68,10 +70,10 @@ export async function getMeUser(user: TrpcContext["user"]) {
         user.id
       );
     } catch (error) {
-      console.warn(
-        `[Auth] Failed to load doctor binding for user ${user.id}:`,
-        error
-      );
+      logger.warn("doctor_binding.lookup_failed", {
+        userId: user.id,
+        error,
+      });
     }
   }
 
@@ -95,8 +97,7 @@ export function requestOtpAction(input: RequestOtpInput) {
   const expiresAtMs = Date.now() + OTP_TTL_MS;
   otpStore.set(input.email, { code, expiresAtMs });
 
-  // Temporary delivery strategy during migration phase.
-  console.log(`[Auth][OTP][DEV] email=${input.email}, code=${code}`);
+  logger.info("otp.generated", { expiresInMs: OTP_TTL_MS });
 
   return {
     success: true as const,
