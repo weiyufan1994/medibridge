@@ -32,7 +32,7 @@
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
     "server/modules/referrals/repo.ts": {
-      "maxLines": 962,
+      "maxLines": 459,
       "phase": "4",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
