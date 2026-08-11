@@ -12,10 +12,7 @@ import {
   REFERRAL_INVALID_TRANSITION_ERROR,
   isReferralTerminalStatus,
 } from "./stateMachine";
-import {
-  initiateAutomaticReferralRefund,
-  processReferralRefund,
-} from "./refunds";
+import { initiateAutomaticReferralRefund } from "./refunds";
 import {
   getOwnedOrder,
   requireUser,
@@ -31,7 +28,6 @@ import type {
   recordBookingResultInputSchema,
   recordContactAttemptInputSchema,
   referralOrderDetailOutputSchema,
-  reviewRefundInputSchema,
   setConsultationTimeInputSchema,
   updateOrderStatusInputSchema,
 } from "./schemas";
@@ -57,6 +53,7 @@ export { confirmReturnedPaymentSessionAction } from "./returnedPaymentActions";
 export { confirmMockPaymentAction } from "./mockPaymentActions";
 export { getAdminOrderDetailAction, listOrdersForAdminAction };
 export { initiateRefundAction } from "./refundRequestActions";
+export { reviewRefundAction } from "./refundReviewActions";
 type ListMineOrdersInput = z.infer<typeof listMineOrdersInputSchema>;
 type AssignOrderInput = z.infer<typeof assignOrderInputSchema>;
 type AssignOrderContactInput = z.infer<typeof assignOrderContactInputSchema>;
@@ -73,7 +70,6 @@ type RecordContactAttemptInput = z.infer<
 >;
 type RecordBookingResultInput = z.infer<typeof recordBookingResultInputSchema>;
 type SetConsultationTimeInput = z.infer<typeof setConsultationTimeInputSchema>;
-type ReviewRefundInput = z.infer<typeof reviewRefundInputSchema>;
 type ReferralOrderDetailOutput = z.infer<
   typeof referralOrderDetailOutputSchema
 >;
@@ -739,130 +735,6 @@ export async function setConsultationTimeAction(
     detailByLanguage: {
       zh: `线上面诊已安排：${input.consultationTime.toISOString()}（${input.timeZone}），平台：${input.platform}。请登录订单页查看加入链接和操作说明。`,
       en: `Your online consultation is scheduled for ${input.consultationTime.toISOString()} (${input.timeZone}) on ${input.platform}. Sign in to the order page for the joining link and instructions.`,
-    },
-  });
-
-  return getAdminOrderDetailAction(currentUser, order.id);
-}
-
-function deriveRefundResumeStatus(
-  order: Awaited<ReturnType<typeof referralRepo.getReferralOrderById>>
-) {
-  if (!order) {
-    return "paid_pending_assignment" as const;
-  }
-  if (order.consultationTime) {
-    return "scheduled" as const;
-  }
-  if (order.assignedAgentId) {
-    return "assigned" as const;
-  }
-  return "paid_pending_assignment" as const;
-}
-
-export async function reviewRefundAction(
-  user: User | null,
-  input: ReviewRefundInput
-) {
-  const currentUser = requireUser(user);
-  const order = await referralRepo.getReferralOrderById(input.orderId);
-  if (!order) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Referral order not found",
-    });
-  }
-  const refundRequest = await referralRepo.getLatestRefundRequestByOrderId(
-    order.id
-  );
-  if (!refundRequest || refundRequest.id !== input.refundRequestId) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Refund request not found",
-    });
-  }
-  if (refundRequest.status === "refunded") {
-    return getAdminOrderDetailAction(currentUser, order.id);
-  }
-
-  if (!input.approve) {
-    await referralRepo.updateRefundRequestById({
-      refundRequestId: refundRequest.id,
-      update: {
-        status: "rejected",
-        reviewedBy: currentUser.id,
-      },
-    });
-    await changeOrderStatus({
-      orderId: order.id,
-      toStatus: deriveRefundResumeStatus(order),
-      toPaymentStatus: "paid",
-      actorType: resolveActorTypeFromUser(currentUser),
-      actorId: currentUser.id,
-      reason: input.note?.trim() || "refund_rejected",
-      update: {
-        refundReason: null,
-      },
-    });
-    await referralRepo.insertOperation({
-      orderId: order.id,
-      operatorType: resolveActorTypeFromUser(currentUser),
-      operatorId: currentUser.id,
-      actionType: "refund_rejected",
-      actionPayload: {
-        note: input.note ?? null,
-      },
-    });
-    return getAdminOrderDetailAction(currentUser, order.id);
-  }
-
-  await referralRepo.updateRefundRequestById({
-    refundRequestId: refundRequest.id,
-    update: {
-      status: "approved",
-      reviewedBy: currentUser.id,
-      approvedAt: new Date(),
-    },
-  });
-  if (order.status !== "refund_processing") {
-    await changeOrderStatus({
-      orderId: order.id,
-      toStatus: "refund_processing",
-      toPaymentStatus: "paid",
-      actorType: resolveActorTypeFromUser(currentUser),
-      actorId: currentUser.id,
-      reason: input.note?.trim() || "refund_approved",
-    });
-  }
-  await referralRepo.updateRefundRequestById({
-    refundRequestId: refundRequest.id,
-    update: {
-      status: "processing",
-    },
-  });
-  await referralRepo.insertOperation({
-    orderId: order.id,
-    operatorType: resolveActorTypeFromUser(currentUser),
-    operatorId: currentUser.id,
-    actionType: "refund_approved",
-    actionPayload: {
-      note: input.note ?? null,
-    },
-  });
-  await recordPatientNotification({
-    orderId: order.id,
-    detail: "Your full refund is being processed.",
-  });
-  await notifyPatientReferralUpdate({
-    orderId: order.id,
-    event: "refund_processing",
-    detail: "Your full refund is being processed.",
-  });
-  await processReferralRefund({
-    orderId: order.id,
-    actor: {
-      type: resolveActorTypeFromUser(currentUser),
-      id: currentUser.id,
     },
   });
 
