@@ -1,6 +1,7 @@
 import { consumeOtpCode, setSessionCookieByUser } from "./actions";
 import { findOrCreateGuestSessionOwnerAction } from "./guestIdentityActions";
 import * as repo from "./repo";
+import { authenticateRequest } from "./sessionAuthentication";
 
 export type { GuestSessionOwner } from "./guestIdentityActions";
 export type { CookieRequest, CookieResponse, SessionUser } from "./actions";
@@ -22,4 +23,17 @@ export const authAccountApi = {
 
 export const authGuestIdentityApi = {
   findOrCreateGuestSessionOwner: findOrCreateGuestSessionOwnerAction,
+};
+
+export const authSessionApi = {
+  authenticateRequest,
+  get getGuestUserByDeviceId() {
+    return repo.getGuestUserByDeviceId;
+  },
+};
+
+export const authOAuthApi = {
+  get upsertUser() {
+    return repo.upsertUser;
+  },
 };

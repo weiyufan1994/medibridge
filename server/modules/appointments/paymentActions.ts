@@ -1,4 +1,3 @@
-import type { Request } from "express";
 import { appointments } from "../../../drizzle/schema";
 import { getAppointmentByIdOrThrow } from "./accessValidation";
 
@@ -22,15 +21,13 @@ type ReinitiateCheckoutFn = (input: {
 export async function resendPaymentLinkByPatient(input: {
   appointmentId: number;
   operatorId: number | null;
-  req: Request;
-  getBaseUrl: (req: Request) => string;
+  baseUrl: string;
   reinitiateCheckout: ReinitiateCheckoutFn;
 }) {
   const appointment = await getAppointmentByIdOrThrow(input.appointmentId);
-  const publicUrlBase = input.getBaseUrl(input.req);
   const result = await input.reinitiateCheckout({
     appointment,
-    baseUrl: publicUrlBase,
+    baseUrl: input.baseUrl,
     operatorType: "patient",
     operatorId: input.operatorId,
   });

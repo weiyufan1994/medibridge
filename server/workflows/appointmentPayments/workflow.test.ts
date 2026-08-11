@@ -11,6 +11,9 @@ vi.mock("../../modules/appointments/publicApi", () => ({
     issueAccessLinks: vi.fn(),
     cachePatientAccessToken: vi.fn(),
   },
+  appointmentPaymentLinkApi: {
+    resendPaymentLinkByPatient: vi.fn(),
+  },
 }));
 
 vi.mock("../../modules/payments/publicApi", () => ({
@@ -26,7 +29,10 @@ vi.mock("../../_core/mailer", () => ({
 }));
 
 import { sendMagicLinkEmail } from "../../_core/mailer";
-import { appointmentPaymentApi } from "../../modules/appointments/publicApi";
+import {
+  appointmentPaymentApi,
+  appointmentPaymentLinkApi,
+} from "../../modules/appointments/publicApi";
 import { paymentProviderApi } from "../../modules/payments/publicApi";
 import { schedulingSlotApi } from "../../modules/scheduling/publicApi";
 import {
@@ -34,6 +40,7 @@ import {
   confirmMockCheckoutByAppointmentAction,
   createCheckoutSessionForAppointmentAction,
   reinitiateCheckoutForAppointment,
+  resendPaymentLinkForPatient,
   settleStripePaymentBySessionId,
 } from "./publicApi";
 
@@ -152,6 +159,28 @@ describe("appointment payment workflow", () => {
       message: "APP_BASE_URL_MISSING",
     });
     expect(paymentProviderApi.createCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it("resolves the public base URL before delegating a patient payment link", async () => {
+    vi.mocked(
+      appointmentPaymentLinkApi.resendPaymentLinkByPatient
+    ).mockResolvedValue({ appointmentId: 51 } as never);
+    const req = { headers: {}, protocol: "https", get: vi.fn() } as never;
+
+    await resendPaymentLinkForPatient({
+      appointmentId: 51,
+      operatorId: 7,
+      req,
+    });
+
+    expect(
+      appointmentPaymentLinkApi.resendPaymentLinkByPatient
+    ).toHaveBeenCalledWith({
+      appointmentId: 51,
+      operatorId: 7,
+      baseUrl: "https://medibridge.test",
+      reinitiateCheckout: reinitiateCheckoutForAppointment,
+    });
   });
 
   it("disables mock confirmation in production", async () => {

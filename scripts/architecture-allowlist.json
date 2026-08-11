@@ -1,17 +1,5 @@
 {
   "dependencyViolations": {
-    "core-business-import:server/_core/context.ts->../modules/auth/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "core-business-import:server/_core/oauth.ts->../modules/auth/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "core-business-import:server/_core/sdk.ts->../modules/auth/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
     "frontend-feature-deep-import:client/src/App.tsx->@/features/auth/components/LoginModal": {
       "phase": "5",
       "reason": "Existing dependency to remove in the assigned hardening phase"
@@ -258,22 +246,6 @@
     },
     "frontend-feature-deep-import:client/src/sandbox/ComponentShowcase.tsx->@/features/triage/components/AIChatBox": {
       "phase": "5",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "router-boundary-import:server/routers/appointments.ts->../_core/getPublicBaseUrl": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "router-boundary-import:server/routers/consultation.ts->../../drizzle/schema": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "router-boundary-import:server/routers/consultation.ts->../modules/ai/historyResult": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "router-boundary-import:server/routers/consultation.ts->../modules/ai/repo": {
-      "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
     "ui-boundary-import:client/src/components/ui/input.tsx->@/hooks/useComposition": {

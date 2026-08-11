@@ -1,4 +1,14 @@
-import * as aiActions from "./actions";
-import * as aiSchemas from "./schemas";
+import * as baseAiActions from "./actions";
+import * as aiConsultationActions from "./consultationActions";
+import * as aiConsultationSchemas from "./consultationSchemas";
+import * as baseAiSchemas from "./schemas";
 
-export { aiActions, aiSchemas };
+export const aiActions = {
+  ...baseAiActions,
+  ...aiConsultationActions,
+};
+
+export const aiSchemas = {
+  ...baseAiSchemas,
+  ...aiConsultationSchemas,
+};

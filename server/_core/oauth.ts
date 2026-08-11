@@ -1,15 +1,27 @@
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import type { Express, Request, Response } from "express";
-import * as authRepo from "../modules/auth/repo";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
+
+type OAuthRouteDependencies = {
+  upsertUser: (user: {
+    openId: string;
+    name: string | null;
+    email: string | null;
+    loginMethod: string | null;
+    lastSignedIn: Date;
+  }) => Promise<void>;
+};
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
   return typeof value === "string" ? value : undefined;
 }
 
-export function registerOAuthRoutes(app: Express) {
+export function registerOAuthRoutes(
+  app: Express,
+  dependencies: OAuthRouteDependencies
+) {
   app.get("/api/oauth/callback", async (req: Request, res: Response) => {
     const code = getQueryParam(req, "code");
     const state = getQueryParam(req, "state");
@@ -28,7 +40,7 @@ export function registerOAuthRoutes(app: Express) {
         return;
       }
 
-      await authRepo.upsertUser({
+      await dependencies.upsertUser({
         openId: userInfo.openId,
         name: userInfo.name || null,
         email: userInfo.email ?? null,

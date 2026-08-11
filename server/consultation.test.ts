@@ -73,6 +73,28 @@ describe("consultation.getHistory", () => {
     ]);
   });
 
+  it("normalizes a stored summary before using it as the title", async () => {
+    vi.mocked(aiRepo.listAiChatSessionsByUser).mockResolvedValue([
+      {
+        id: 13,
+        userId: 7,
+        status: "completed",
+        summary: "  胸闷   两天  ",
+        createdAt: new Date("2026-03-18T02:00:00.000Z"),
+        updatedAt: new Date("2026-03-18T02:05:00.000Z"),
+      },
+    ] as never);
+    vi.mocked(aiRepo.listFirstUserMessagesBySessionIds).mockResolvedValue(
+      new Map([[13, "ignored first message"]]) as never
+    );
+
+    const caller = consultationRouter.createCaller(createTestContext());
+
+    await expect(caller.getHistory()).resolves.toEqual([
+      expect.objectContaining({ id: 13, title: "胸闷 两天" }),
+    ]);
+  });
+
   it("falls back to session ids when title lookup fails", async () => {
     vi.mocked(aiRepo.listAiChatSessionsByUser).mockResolvedValue([
       {
@@ -187,5 +209,39 @@ describe("consultation.getHistory", () => {
         }),
       }),
     });
+  });
+
+  it("returns an empty message result for anonymous callers", async () => {
+    const context = createTestContext();
+    context.user = null;
+    context.userId = null;
+    const caller = consultationRouter.createCaller(context);
+
+    await expect(
+      caller.getMessagesBySessionId({ sessionId: 11 })
+    ).resolves.toEqual({
+      messages: [],
+      summary: null,
+      triageResult: null,
+    });
+    expect(aiRepo.getAiChatSessionById).not.toHaveBeenCalled();
+  });
+
+  it("does not expose another user's consultation session", async () => {
+    vi.mocked(aiRepo.getAiChatSessionById).mockResolvedValue({
+      id: 11,
+      userId: 99,
+      summary: null,
+    } as never);
+    const caller = consultationRouter.createCaller(createTestContext());
+
+    await expect(
+      caller.getMessagesBySessionId({ sessionId: 11 })
+    ).resolves.toEqual({
+      messages: [],
+      summary: null,
+      triageResult: null,
+    });
+    expect(aiRepo.getAiChatMessagesBySessionId).not.toHaveBeenCalled();
   });
 });

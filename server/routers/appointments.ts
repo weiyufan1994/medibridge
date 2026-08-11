@@ -3,11 +3,10 @@ import {
   appointmentCore,
   appointmentSchemas,
 } from "../modules/appointments/routerApi";
-import { getPublicBaseUrl } from "../_core/getPublicBaseUrl";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import * as appointmentBookingWorkflow from "../workflows/appointmentBooking/publicApi";
 import { generateMedicalSummaryDraft } from "../workflows/appointmentMedicalSummary/publicApi";
-import { reinitiateCheckoutForAppointment } from "../workflows/appointmentPayments/publicApi";
+import { resendPaymentLinkForPatient } from "../workflows/appointmentPayments/publicApi";
 export const { validateAppointmentToken } = appointmentCore;
 
 const appointmentQueryProcedures = {
@@ -86,12 +85,10 @@ const appointmentCheckoutProcedures = {
     .input(appointmentSchemas.appointmentStatusInputSchema)
     .output(appointmentSchemas.createOutputSchema)
     .mutation(async ({ input, ctx }) =>
-      appointmentActions.resendPaymentLinkByPatient({
+      resendPaymentLinkForPatient({
         appointmentId: input.appointmentId,
         operatorId: ctx.user?.id ?? null,
         req: ctx.req,
-        getBaseUrl: getPublicBaseUrl,
-        reinitiateCheckout: reinitiateCheckoutForAppointment,
       })
     ),
   cancel: publicProcedure

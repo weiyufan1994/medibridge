@@ -15,6 +15,7 @@ import {
   markAppointmentInSessionAfterFirstMessage,
   touchAppointmentVisitAccess,
 } from "./visitIntegrationActions";
+import { resendPaymentLinkByPatient } from "./paymentActions";
 
 export const appointmentAuthApi = {
   get bindAppointmentsToUserByEmail() {
@@ -35,6 +36,10 @@ export const appointmentAuthApi = {
 export const appointmentBookingApi = {
   createCheckoutFromCreateInput,
   createCheckoutFromCreateV2Input,
+};
+
+export const appointmentPaymentLinkApi = {
+  resendPaymentLinkByPatient,
 };
 
 export const appointmentMedicalSummaryApi = {
