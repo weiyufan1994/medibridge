@@ -6,10 +6,7 @@ import {
   type ReferralPaymentStatus,
 } from "../../../shared/referrals";
 import * as referralRepo from "./repo";
-import {
-  notifyInternalActionRequired,
-  notifyPatientReferralUpdate,
-} from "./notifications";
+import { notifyPatientReferralUpdate } from "./notifications";
 import { toPublicReferralContactOrNull } from "./presentation";
 import {
   REFERRAL_INVALID_TRANSITION_ERROR,
@@ -29,7 +26,6 @@ import type {
   assignOrderInputSchema,
   assignOrderContactInputSchema,
   beginTimeCoordinationInputSchema,
-  initiateRefundInputSchema,
   listMineOrdersInputSchema,
   publishPatientProgressUpdateInputSchema,
   recordBookingResultInputSchema,
@@ -60,6 +56,7 @@ export { createPaymentSessionAction } from "./paymentSessionActions";
 export { confirmReturnedPaymentSessionAction } from "./returnedPaymentActions";
 export { confirmMockPaymentAction } from "./mockPaymentActions";
 export { getAdminOrderDetailAction, listOrdersForAdminAction };
+export { initiateRefundAction } from "./refundRequestActions";
 type ListMineOrdersInput = z.infer<typeof listMineOrdersInputSchema>;
 type AssignOrderInput = z.infer<typeof assignOrderInputSchema>;
 type AssignOrderContactInput = z.infer<typeof assignOrderContactInputSchema>;
@@ -76,7 +73,6 @@ type RecordContactAttemptInput = z.infer<
 >;
 type RecordBookingResultInput = z.infer<typeof recordBookingResultInputSchema>;
 type SetConsultationTimeInput = z.infer<typeof setConsultationTimeInputSchema>;
-type InitiateRefundInput = z.infer<typeof initiateRefundInputSchema>;
 type ReviewRefundInput = z.infer<typeof reviewRefundInputSchema>;
 type ReferralOrderDetailOutput = z.infer<
   typeof referralOrderDetailOutputSchema
@@ -744,95 +740,6 @@ export async function setConsultationTimeAction(
       zh: `线上面诊已安排：${input.consultationTime.toISOString()}（${input.timeZone}），平台：${input.platform}。请登录订单页查看加入链接和操作说明。`,
       en: `Your online consultation is scheduled for ${input.consultationTime.toISOString()} (${input.timeZone}) on ${input.platform}. Sign in to the order page for the joining link and instructions.`,
     },
-  });
-
-  return getAdminOrderDetailAction(currentUser, order.id);
-}
-
-export async function initiateRefundAction(
-  user: User | null,
-  input: InitiateRefundInput
-) {
-  const currentUser = requireUser(user);
-  const order = await referralRepo.getReferralOrderById(input.orderId);
-  if (!order) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Referral order not found",
-    });
-  }
-  if (order.paymentStatus !== "paid") {
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message: "Only paid referral orders can enter refund review.",
-    });
-  }
-
-  const latestRefund = await referralRepo.getLatestRefundRequestByOrderId(
-    order.id
-  );
-  if (
-    latestRefund &&
-    latestRefund.status !== "refunded" &&
-    latestRefund.status !== "rejected"
-  ) {
-    return getAdminOrderDetailAction(currentUser, order.id);
-  }
-
-  if (order.status !== "refund_pending_review") {
-    await changeOrderStatus({
-      orderId: order.id,
-      toStatus: "refund_pending_review",
-      toPaymentStatus: "paid",
-      actorType: resolveActorTypeFromUser(currentUser),
-      actorId: currentUser.id,
-      reason: `refund_requested:${input.reasonCode}`,
-      update: {
-        refundReason: input.reasonDetail,
-      },
-    });
-  }
-
-  const refundRequestId = await referralRepo.createRefundRequest({
-    values: {
-      orderId: order.id,
-      reasonCode: input.reasonCode,
-      reasonDetail: input.reasonDetail,
-      status: "pending_review",
-      requestedBy: currentUser.id,
-    },
-  });
-
-  if (!refundRequestId) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Failed to create refund request",
-    });
-  }
-
-  await referralRepo.insertOperation({
-    orderId: order.id,
-    operatorType: resolveActorTypeFromUser(currentUser),
-    operatorId: currentUser.id,
-    actionType: "refund_requested",
-    actionPayload: {
-      reasonCode: input.reasonCode,
-      reasonDetail: input.reasonDetail,
-    },
-  });
-  await recordPatientNotification({
-    orderId: order.id,
-    detail: "Refund review initiated.",
-  });
-  await notifyPatientReferralUpdate({
-    orderId: order.id,
-    event: "refund_initiated",
-    detail: input.reasonCode,
-  });
-  await notifyInternalActionRequired({
-    orderId: order.id,
-    status: "refund_pending_review",
-    reason: input.reasonDetail,
   });
 
   return getAdminOrderDetailAction(currentUser, order.id);
