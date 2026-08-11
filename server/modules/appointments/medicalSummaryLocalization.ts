@@ -1,4 +1,7 @@
 import { invokeLLM } from "../../_core/llm";
+import { createLogger } from "../../_core/logger";
+
+const logger = createLogger("medical-summary-localization");
 
 type MedicalSummaryLocalizationInput = {
   chiefComplaint: string;
@@ -223,7 +226,10 @@ export async function localizeMedicalSummaryContent<
 
     return merged;
   } catch (error) {
-    console.warn("[appointments] medical summary localization failed:", error);
+    logger.warn("translation_failed", {
+      targetLang: input.targetLang,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
     return mergeLocalizedMedicalSummary({
       current: normalizedSummary,
       localized: null,

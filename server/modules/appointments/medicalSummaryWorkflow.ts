@@ -1,6 +1,7 @@
 import type { RequestMetadata } from "@shared/requestMetadata";
 import { TRPCError } from "@trpc/server";
 import { invokeLLM } from "../../_core/llm";
+import { createLogger } from "../../_core/logger";
 import { aiTriageSessionApi as triageSessions } from "../ai/publicApi";
 import * as appointmentsRepo from "./repo";
 import { validateAppointmentToken } from "./accessValidation";
@@ -17,6 +18,8 @@ import {
   PENDING_MEDICAL_SUMMARY_DRAFT,
   toFallbackDraft,
 } from "./medicalSummaryDraft";
+
+const logger = createLogger("medical-summary");
 
 type ValidatedAppointment = Awaited<
   ReturnType<typeof validateAppointmentToken>
@@ -50,10 +53,11 @@ async function persistMedicalSummaryDraft(input: {
     });
   } catch (error) {
     if (process.env.NODE_ENV !== "test") {
-      console.warn(
-        "[appointments] failed to persist medical summary draft",
-        error
-      );
+      logger.warn("draft_persist_failed", {
+        appointmentId: input.appointmentId,
+        source: input.source,
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
     }
   }
 }
@@ -245,10 +249,11 @@ function startMedicalSummaryDraftGenerationTask(input: {
     .then(() => undefined)
     .catch(error => {
       if (process.env.NODE_ENV !== "test") {
-        console.warn(
-          "[appointments] medical summary draft background task failed",
-          error
-        );
+        logger.warn("background_task_failed", {
+          appointmentId: input.appointment.id,
+          lang: input.lang,
+          errorName: error instanceof Error ? error.name : "UnknownError",
+        });
       }
     })
     .finally(() => {
