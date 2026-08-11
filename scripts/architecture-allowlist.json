@@ -61,11 +61,6 @@
       "phase": "4",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
-    "server/modules/appointments/workflowActions.ts": {
-      "maxLines": 486,
-      "phase": "4",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
     "server/modules/chat/actions.ts": {
       "maxLines": 987,
       "phase": "4",
