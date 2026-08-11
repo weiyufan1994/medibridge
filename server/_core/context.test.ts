@@ -43,7 +43,7 @@ describe("createContext", () => {
     const result = await createContext(
       createOptions({
         "x-device-id": " header-device ",
-        cookie: "x-device-id=cookie-device",
+        cookie: "x-device-id=cookie-device; app_session_id=session-token",
       }),
       auth
     );
@@ -53,6 +53,7 @@ describe("createContext", () => {
       userId: 7,
       deviceId: "header-device",
     });
+    expect(auth.authenticateRequest).toHaveBeenCalledWith("session-token");
     expect(auth.getGuestUserByDeviceId).not.toHaveBeenCalled();
   });
 

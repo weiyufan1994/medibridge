@@ -30,12 +30,6 @@ const user = {
   lastSignedIn: new Date("2026-08-10T00:00:00.000Z"),
 };
 
-function requestWithSession(value = "session-token") {
-  return {
-    headers: { cookie: `app_session_id=${value}` },
-  } as never;
-}
-
 describe("authenticateRequest", () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -44,9 +38,7 @@ describe("authenticateRequest", () => {
   it("preserves the invalid-cookie error", async () => {
     vi.mocked(sdk.verifySession).mockResolvedValue(null);
 
-    await expect(
-      authenticateRequest(requestWithSession())
-    ).rejects.toMatchObject({
+    await expect(authenticateRequest("session-token")).rejects.toMatchObject({
       message: "Invalid session cookie",
       statusCode: 403,
     });
@@ -61,9 +53,7 @@ describe("authenticateRequest", () => {
     });
     vi.mocked(repo.getUserByOpenId).mockResolvedValue(user as never);
 
-    await expect(authenticateRequest(requestWithSession())).resolves.toEqual(
-      user
-    );
+    await expect(authenticateRequest("session-token")).resolves.toEqual(user);
     expect(repo.upsertUser).toHaveBeenCalledOnce();
     expect(repo.upsertUser).toHaveBeenCalledWith({
       openId: "openid-7",
@@ -87,9 +77,7 @@ describe("authenticateRequest", () => {
       loginMethod: "google",
     } as never);
 
-    await expect(authenticateRequest(requestWithSession())).resolves.toEqual(
-      user
-    );
+    await expect(authenticateRequest("session-token")).resolves.toEqual(user);
     expect(sdk.getUserInfoWithJwt).toHaveBeenCalledWith("session-token");
     expect(repo.upsertUser).toHaveBeenNthCalledWith(1, {
       openId: "openid-7",
@@ -115,9 +103,7 @@ describe("authenticateRequest", () => {
       new Error("upstream unavailable")
     );
 
-    await expect(
-      authenticateRequest(requestWithSession())
-    ).rejects.toMatchObject({
+    await expect(authenticateRequest("session-token")).rejects.toMatchObject({
       message: "Failed to sync user info",
       statusCode: 403,
     });
@@ -135,9 +121,7 @@ describe("authenticateRequest", () => {
       name: "Patient",
     } as never);
 
-    await expect(
-      authenticateRequest(requestWithSession())
-    ).rejects.toMatchObject({
+    await expect(authenticateRequest("session-token")).rejects.toMatchObject({
       message: "User not found",
       statusCode: 403,
     });

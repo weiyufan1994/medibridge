@@ -1,14 +1,11 @@
-import { COOKIE_NAME } from "@shared/const";
 import { ForbiddenError } from "@shared/_core/errors";
-import { parse as parseCookieHeader } from "cookie";
-import type { Request } from "express";
 import type { User } from "../../../drizzle/schema";
 import { sdk } from "../../_core/sdk";
 import * as repo from "./repo";
 
-export async function authenticateRequest(req: Request): Promise<User> {
-  const cookies = parseCookieHeader(req.headers.cookie ?? "");
-  const sessionCookie = cookies[COOKIE_NAME];
+export async function authenticateRequest(
+  sessionCookie: string | undefined
+): Promise<User> {
   const session = await sdk.verifySession(sessionCookie);
 
   if (!session) {
