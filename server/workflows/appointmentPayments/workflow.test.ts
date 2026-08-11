@@ -162,15 +162,24 @@ describe("appointment payment workflow", () => {
   });
 
   it("resolves the public base URL before delegating a patient payment link", async () => {
+    vi.stubEnv("APP_BASE_URL", "");
     vi.mocked(
       appointmentPaymentLinkApi.resendPaymentLinkByPatient
     ).mockResolvedValue({ appointmentId: 51 } as never);
-    const req = { headers: {}, protocol: "https", get: vi.fn() } as never;
+    const requestMetadata = {
+      clientIp: "203.0.113.10",
+      forwardedHost: "payments.medibridge.test",
+      forwardedProto: "https",
+      host: "internal.medibridge.test",
+      protocol: "http",
+      requestId: "request-51",
+      userAgent: "vitest",
+    };
 
     await resendPaymentLinkForPatient({
       appointmentId: 51,
       operatorId: 7,
-      req,
+      requestMetadata,
     });
 
     expect(
@@ -178,7 +187,7 @@ describe("appointment payment workflow", () => {
     ).toHaveBeenCalledWith({
       appointmentId: 51,
       operatorId: 7,
-      baseUrl: "https://medibridge.test",
+      baseUrl: "https://payments.medibridge.test",
       reinitiateCheckout: reinitiateCheckoutForAppointment,
     });
   });
