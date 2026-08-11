@@ -2,230 +2,20 @@ import crypto from "crypto";
 import type { IncomingMessage } from "http";
 import type net from "net";
 import type { Duplex } from "stream";
-import type { AppointmentMessage } from "../../../drizzle/schema";
-import { isDuplicateDbError, isForeignKeyDbError } from "../../_core/dbCompat";
 import { appointmentVisitApi } from "../appointments/publicApi";
-import * as visitRepo from "./repo";
-import { translateVisitMessage } from "./translation";
-
-type VisitRole = "patient" | "doctor";
-type VisitSender = "patient" | "doctor" | "system";
-
-type RoomConnection = {
-  id: string;
-  socket: net.Socket;
-  buffer: Buffer;
-  isClosed: boolean;
-  token: string | null;
-  appointmentId: number | null;
-  role: VisitRole | null;
-  status: string | null;
-  canSendMessage: boolean;
-  lastPongAtMs: number;
-  heartbeatTimer: NodeJS.Timeout | null;
-  statusTimer: NodeJS.Timeout | null;
-};
-
-type ClientEnvelope =
-  | { event: "room.join"; data?: { token?: string } }
-  | {
-      event: "message.send";
-      data?: {
-        textOriginal?: string;
-        clientMessageId?: string;
-        targetLanguage?: string;
-      };
-    }
-  | {
-      event: "room.timer.extend";
-      data?: { requestId?: string; minutes?: number };
-    };
-
-function encodeCursor(createdAt: Date, id: number) {
-  return Buffer.from(`${createdAt.toISOString()}|${id}`, "utf8").toString(
-    "base64url"
-  );
-}
-
-function toWireMessage(message: AppointmentMessage) {
-  return {
-    id: message.id,
-    appointmentId: message.appointmentId,
-    senderRole: message.senderType,
-    textOriginal: message.originalContent ?? message.content ?? "",
-    textTranslated: message.translatedContent ?? message.content ?? "",
-    sourceLanguage: message.sourceLanguage ?? "auto",
-    targetLanguage: message.targetLanguage ?? "auto",
-    clientMessageId: message.clientMessageId ?? null,
-    createdAt: message.createdAt.toISOString(),
-  };
-}
-
-function jsonToTextFrame(payload: unknown) {
-  const text = JSON.stringify(payload);
-  const body = Buffer.from(text, "utf8");
-  const header =
-    body.length < 126
-      ? Buffer.from([0x81, body.length])
-      : body.length < 65536
-        ? Buffer.from([0x81, 126, (body.length >> 8) & 255, body.length & 255])
-        : null;
-
-  if (header) {
-    return Buffer.concat([header, body]);
-  }
-
-  const longHeader = Buffer.alloc(10);
-  longHeader[0] = 0x81;
-  longHeader[1] = 127;
-  longHeader.writeBigUInt64BE(BigInt(body.length), 2);
-  return Buffer.concat([longHeader, body]);
-}
-
-function pingFrame() {
-  return Buffer.from([0x89, 0x00]);
-}
-
-function closeFrame() {
-  return Buffer.from([0x88, 0x00]);
-}
-
-function acceptWebSocket(req: IncomingMessage) {
-  const key = req.headers["sec-websocket-key"];
-  const upgrade = req.headers.upgrade;
-  const connection = req.headers.connection;
-  const version = req.headers["sec-websocket-version"];
-
-  if (
-    typeof key !== "string" ||
-    typeof upgrade !== "string" ||
-    typeof connection !== "string" ||
-    version !== "13"
-  ) {
-    return null;
-  }
-
-  if (upgrade.toLowerCase() !== "websocket") {
-    return null;
-  }
-  if (!connection.toLowerCase().includes("upgrade")) {
-    return null;
-  }
-
-  const acceptKey = crypto
-    .createHash("sha1")
-    .update(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
-    .digest("base64");
-
-  return [
-    "HTTP/1.1 101 Switching Protocols",
-    "Upgrade: websocket",
-    "Connection: Upgrade",
-    `Sec-WebSocket-Accept: ${acceptKey}`,
-    "\r\n",
-  ].join("\r\n");
-}
-
-function parseFrames(buffer: Buffer) {
-  const frames: Array<{ opcode: number; payload: Buffer }> = [];
-  let offset = 0;
-
-  while (offset + 2 <= buffer.length) {
-    const first = buffer[offset];
-    const second = buffer[offset + 1];
-    const opcode = first & 0x0f;
-    const masked = (second & 0x80) !== 0;
-    let payloadLength = second & 0x7f;
-    let cursor = offset + 2;
-
-    if (payloadLength === 126) {
-      if (cursor + 2 > buffer.length) {
-        break;
-      }
-      payloadLength = buffer.readUInt16BE(cursor);
-      cursor += 2;
-    } else if (payloadLength === 127) {
-      if (cursor + 8 > buffer.length) {
-        break;
-      }
-      const longLength = Number(buffer.readBigUInt64BE(cursor));
-      if (!Number.isSafeInteger(longLength)) {
-        throw new Error("Unsupported frame length");
-      }
-      payloadLength = longLength;
-      cursor += 8;
-    }
-
-    const maskBytes = masked ? 4 : 0;
-    const frameLength = cursor + maskBytes + payloadLength;
-    if (frameLength > buffer.length) {
-      break;
-    }
-
-    const payloadStart = cursor + maskBytes;
-    const payload = Buffer.from(
-      buffer.subarray(payloadStart, payloadStart + payloadLength)
-    );
-
-    if (masked) {
-      const mask = buffer.subarray(cursor, cursor + 4);
-      for (let i = 0; i < payload.length; i += 1) {
-        payload[i] = payload[i] ^ mask[i % 4];
-      }
-    }
-
-    frames.push({ opcode, payload });
-    offset = frameLength;
-  }
-
-  return {
-    frames,
-    remaining: buffer.subarray(offset),
-  };
-}
-
-function getReqIp(req: IncomingMessage) {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string" && forwarded.trim().length > 0) {
-    return forwarded.split(",")[0].trim();
-  }
-  return req.socket.remoteAddress ?? null;
-}
-
-function getReqUserAgent(req: IncomingMessage) {
-  const raw = req.headers["user-agent"];
-  if (typeof raw === "string") {
-    return raw;
-  }
-  return null;
-}
-
-function asErrorCode(error: unknown) {
-  return error instanceof Error && error.message.trim().length > 0
-    ? error.message
-    : "INTERNAL_SERVER_ERROR";
-}
-
-function toRoomTimerPayload(notes: string | null | undefined) {
-  const timer = appointmentVisitApi.resolveConsultationTimerState(notes);
-  return {
-    baseDurationMinutes: timer.baseDurationMinutes,
-    extensionMinutes: timer.extensionMinutes,
-    totalDurationMinutes: timer.totalDurationMinutes,
-  };
-}
-
-function getInsertedMessageId(
-  result: Awaited<ReturnType<typeof visitRepo.createMessage>>
-) {
-  const insertedId = Number(
-    (result as { id?: number })?.id ??
-      (result as { insertId?: number })?.insertId ??
-      Number.NaN
-  );
-
-  return Number.isInteger(insertedId) && insertedId > 0 ? insertedId : null;
-}
+import { createVisitRealtimeEventHandlers } from "./realtimeEventHandlers";
+import {
+  acceptWebSocket,
+  asErrorCode,
+  closeFrame,
+  getReqIp,
+  getReqUserAgent,
+  jsonToTextFrame,
+  parseFrames,
+  pingFrame,
+  type ClientEnvelope,
+  type RoomConnection,
+} from "./realtimeProtocol";
 
 export function createVisitRealtimeGateway() {
   const rooms = new Map<number, Set<RoomConnection>>();
@@ -263,6 +53,15 @@ export function createVisitRealtimeGateway() {
     }
   }
 
+  function addToRoom(appointmentId: number, connection: RoomConnection) {
+    let room = rooms.get(appointmentId);
+    if (!room) {
+      room = new Set<RoomConnection>();
+      rooms.set(appointmentId, room);
+    }
+    room.add(connection);
+  }
+
   function closeConnection(connection: RoomConnection) {
     if (connection.isClosed) {
       return;
@@ -294,260 +93,18 @@ export function createVisitRealtimeGateway() {
     });
   }
 
-  async function pushRoomStatus(input: {
-    connection: RoomConnection;
-    appointmentId: number;
-    role: VisitRole;
-    status: string;
-    paymentStatus: string;
-  }) {
-    const canSend = appointmentVisitApi.canSendMessage({
-      status: input.status,
-      paymentStatus: input.paymentStatus,
-    });
-    input.connection.status = input.status;
-    input.connection.canSendMessage = canSend;
-    broadcastRoom(input.appointmentId, "room.status", {
-      appointmentId: input.appointmentId,
-      role: input.role,
-      currentStatus: input.status,
-      canSendMessage: canSend,
-    });
-  }
-
-  async function handleRoomJoin(
-    connection: RoomConnection,
-    req: IncomingMessage,
-    token: string
-  ) {
-    const validated = await appointmentVisitApi.validateAccessToken({
-      token,
-      action: "join_room",
-      req: req as never,
-    });
-    const appointment = validated.appointment;
-    const role = validated.role;
-    const appointmentId = appointment.id;
-    if (
-      !appointmentVisitApi.canJoinRoom({
-        status: appointment.status,
-        paymentStatus: appointment.paymentStatus,
-      })
-    ) {
-      sendError(connection, "APPOINTMENT_NOT_ALLOWED");
-      return;
-    }
-    const canSend = appointmentVisitApi.canSendMessage({
-      status: appointment.status,
-      paymentStatus: appointment.paymentStatus,
-    });
-    const latestCursorRow =
-      await visitRepo.getLatestMessageCursor(appointmentId);
-    const recentCursor = latestCursorRow
-      ? encodeCursor(latestCursorRow.createdAt, latestCursorRow.id)
-      : null;
-
-    removeFromRoom(connection);
-    connection.token = token;
-    connection.appointmentId = appointmentId;
-    connection.role = role;
-    connection.status = appointment.status;
-    connection.canSendMessage = canSend;
-
-    let room = rooms.get(appointmentId);
-    if (!room) {
-      room = new Set<RoomConnection>();
-      rooms.set(appointmentId, room);
-    }
-    room.add(connection);
-
-    sendEvent(connection, "room.joined", {
-      appointmentId,
-      role,
-      currentStatus: appointment.status,
-      canSendMessage: canSend,
-      recentCursor,
-    });
-    sendEvent(connection, "room.timer", toRoomTimerPayload(appointment.notes));
-  }
-
-  async function handleMessageSend(
-    connection: RoomConnection,
-    req: IncomingMessage,
-    payload: {
-      textOriginal?: string;
-      clientMessageId?: string;
-      targetLanguage?: string;
-    }
-  ) {
-    const appointmentId = connection.appointmentId;
-    const role = connection.role;
-    const token = connection.token;
-    if (!appointmentId || !role || !token) {
-      sendError(connection, "ROOM_NOT_JOINED");
-      return;
-    }
-
-    const textOriginal = (payload.textOriginal ?? "").trim();
-    const clientMessageId = (payload.clientMessageId ?? "").trim();
-    if (!textOriginal || !clientMessageId) {
-      sendError(
-        connection,
-        "BAD_REQUEST",
-        "textOriginal and clientMessageId are required"
-      );
-      return;
-    }
-    if (textOriginal.length > 4000 || clientMessageId.length > 128) {
-      sendError(connection, "BAD_REQUEST", "message payload too large");
-      return;
-    }
-
-    const validated = await appointmentVisitApi.validateAccessToken({
-      token,
-      action: "send_message",
-      expectedAppointmentId: appointmentId,
-      req: req as never,
-    });
-    const appointment = validated.appointment;
-    if (
-      !appointmentVisitApi.canSendMessage({
-        status: appointment.status,
-        paymentStatus: appointment.paymentStatus,
-      })
-    ) {
-      await pushRoomStatus({
-        connection,
-        appointmentId,
-        role,
-        status: appointment.status,
-        paymentStatus: appointment.paymentStatus,
-      });
-      sendError(connection, "APPOINTMENT_NOT_ALLOWED");
-      return;
-    }
-
-    let messageRow: AppointmentMessage | null = null;
-    const senderType: VisitSender = role === "doctor" ? "doctor" : "patient";
-    const messageUserId =
-      role === "patient" ? (appointment.userId ?? null) : null;
-    const createdAt = new Date();
-    let translatedMessage: Awaited<ReturnType<typeof translateVisitMessage>>;
-    try {
-      translatedMessage = await translateVisitMessage({
-        content: textOriginal,
-        sourceLanguage: "auto",
-        // Force opposite-language translation regardless of client locale payload,
-        // so stale clients that send same-language targets cannot disable translation.
-        targetLanguage: "auto",
-      });
-    } catch (error) {
-      sendError(
-        connection,
-        "INTERNAL_SERVER_ERROR",
-        (error as Error).message || "translation failed"
-      );
-      return;
-    }
-
-    try {
-      const insertedMessage = await visitRepo.createMessage({
-        appointmentId,
-        userId: messageUserId,
-        senderType,
-        content: translatedMessage.translatedContent,
-        originalContent: translatedMessage.originalContent,
-        translatedContent: translatedMessage.translatedContent,
-        sourceLanguage: translatedMessage.sourceLanguage,
-        targetLanguage: translatedMessage.targetLanguage,
-        translationProvider: translatedMessage.translationProvider,
-        clientMessageId,
-        createdAt,
-      });
-      const insertedMessageId = getInsertedMessageId(insertedMessage);
-      if (insertedMessageId) {
-        messageRow = await visitRepo.getMessageById(insertedMessageId);
-      }
-    } catch (error) {
-      if (isDuplicateDbError(error)) {
-        messageRow = await visitRepo.getMessageByClientMessageId(
-          appointmentId,
-          clientMessageId
-        );
-      } else if (isForeignKeyDbError(error)) {
-        const retryInsertResult = await visitRepo.createMessage({
-          appointmentId,
-          userId: null,
-          senderType,
-          content: translatedMessage.translatedContent,
-          originalContent: translatedMessage.originalContent,
-          translatedContent: translatedMessage.translatedContent,
-          sourceLanguage: translatedMessage.sourceLanguage,
-          targetLanguage: translatedMessage.targetLanguage,
-          translationProvider: translatedMessage.translationProvider,
-          clientMessageId,
-          createdAt,
-        });
-        const retryInsertId = getInsertedMessageId(retryInsertResult);
-        if (retryInsertId) {
-          messageRow = await visitRepo.getMessageById(retryInsertId);
-        }
-      } else {
-        throw error;
-      }
-    }
-
-    await appointmentVisitApi.markInSessionAfterFirstMessage(appointmentId);
-
-    if (!messageRow) {
-      sendError(
-        connection,
-        "INTERNAL_SERVER_ERROR",
-        "failed to resolve message row"
-      );
-      return;
-    }
-
-    broadcastRoom(appointmentId, "message.new", toWireMessage(messageRow));
-  }
-
-  async function handleTimerExtend(
-    connection: RoomConnection,
-    req: IncomingMessage,
-    payload: { requestId?: string; minutes?: number }
-  ) {
-    const appointmentId = connection.appointmentId;
-    const token = connection.token;
-    if (!appointmentId || !token) {
-      sendError(connection, "ROOM_NOT_JOINED");
-      return;
-    }
-
-    const requestId = (payload.requestId ?? "").trim();
-    if (!requestId || requestId.length > 128) {
-      sendError(connection, "BAD_REQUEST", "requestId is required");
-      return;
-    }
-
-    const minutes = Number(payload.minutes);
-    if (!Number.isInteger(minutes)) {
-      sendError(connection, "BAD_REQUEST", "minutes must be integer");
-      return;
-    }
-
-    const extended = await appointmentVisitApi.extendConsultationByDoctorToken({
-      appointmentId,
-      token,
-      extensionMinutes: minutes,
-      req: req as never,
-    });
-
-    broadcastRoom(appointmentId, "room.timer", {
-      baseDurationMinutes: extended.baseDurationMinutes,
-      extensionMinutes: extended.extensionMinutes,
-      totalDurationMinutes: extended.totalDurationMinutes,
-    });
-  }
+  const {
+    handleMessageSend,
+    handleRoomJoin,
+    handleTimerExtend,
+    pushRoomStatus,
+  } = createVisitRealtimeEventHandlers({
+    addToRoom,
+    broadcastRoom,
+    removeFromRoom,
+    sendError,
+    sendEvent,
+  });
 
   function startConnectionTimers(
     connection: RoomConnection,
