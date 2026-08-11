@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import type { Request } from "express";
+import type { RequestMetadata } from "@shared/requestMetadata";
 import { z } from "zod";
 import type { User } from "../../../drizzle/schema";
 import {
@@ -55,7 +55,7 @@ function throwReferralPaymentCreationError(input: {
 export async function createPaymentSessionAction(input: {
   user: User | null;
   createInput: CreatePaymentSessionInput;
-  req: Request;
+  requestMetadata: RequestMetadata;
 }) {
   const currentUser = requireFormalUser(input.user);
   const order = await getOwnedOrder({
@@ -73,7 +73,7 @@ export async function createPaymentSessionAction(input: {
     });
   }
 
-  const publicBaseUrl = getPublicBaseUrl(input.req);
+  const publicBaseUrl = getPublicBaseUrl(input.requestMetadata);
   const paymentMode = resolveReferralPaymentMode();
   const checkoutInput = {
     resource: {

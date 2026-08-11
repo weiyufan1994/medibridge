@@ -1,6 +1,8 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
+import type { RequestMetadata } from "@shared/requestMetadata";
 import { parse as parseCookieHeader } from "cookie";
 import type { User } from "../../drizzle/schema";
+import { getRequestMetadata } from "./requestMetadata";
 
 export type ContextAuthDependencies = {
   authenticateRequest: (
@@ -15,6 +17,7 @@ export type TrpcContext = {
   user: User | null;
   userId: number | null;
   deviceId: string | null;
+  requestMetadata: RequestMetadata;
 };
 
 function getHeaderValue(
@@ -76,5 +79,6 @@ export async function createContext(
     user,
     userId: user?.id ?? null,
     deviceId,
+    requestMetadata: getRequestMetadata(opts.req),
   };
 }

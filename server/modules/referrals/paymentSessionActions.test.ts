@@ -36,7 +36,15 @@ const order = {
   totalAmount: 19900,
   currency: "cny",
 };
-const request = {} as never;
+const requestMetadata = {
+  clientIp: null,
+  forwardedHost: null,
+  forwardedProto: null,
+  host: "app.medibridge.test",
+  protocol: "https",
+  requestId: null,
+  userAgent: null,
+};
 
 describe("referral payment session actions", () => {
   beforeEach(() => {
@@ -60,7 +68,7 @@ describe("referral payment session actions", () => {
     const result = await createPaymentSessionAction({
       user: user as never,
       createInput: { orderId: 107 },
-      req: request,
+      requestMetadata,
     });
 
     expect(requireFormalUser).toHaveBeenCalledWith(user);
@@ -68,6 +76,7 @@ describe("referral payment session actions", () => {
       orderId: 107,
       userId: 501,
     });
+    expect(getPublicBaseUrl).toHaveBeenCalledWith(requestMetadata);
     expect(paymentProviderApi.createCheckoutSession).toHaveBeenCalledWith({
       resource: { type: "referral_order", id: 107 },
       amount: 19900,
@@ -100,7 +109,7 @@ describe("referral payment session actions", () => {
     await createPaymentSessionAction({
       user: user as never,
       createInput: { orderId: 107 },
-      req: request,
+      requestMetadata,
     });
 
     expect(paymentProviderApi.createCheckoutSession).toHaveBeenCalledWith(
@@ -122,7 +131,7 @@ describe("referral payment session actions", () => {
       createPaymentSessionAction({
         user: user as never,
         createInput: { orderId: 107 },
-        req: request,
+        requestMetadata,
       })
     ).resolves.toMatchObject({ paymentStatus: "pending" });
     expect(referralRepo.markOrderPendingPayment).toHaveBeenCalledTimes(2);
@@ -147,7 +156,7 @@ describe("referral payment session actions", () => {
       createPaymentSessionAction({
         user: user as never,
         createInput: { orderId: 107 },
-        req: request,
+        requestMetadata,
       })
     ).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",
@@ -166,7 +175,7 @@ describe("referral payment session actions", () => {
       createPaymentSessionAction({
         user: user as never,
         createInput: { orderId: 107 },
-        req: request,
+        requestMetadata,
       })
     ).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",
@@ -205,7 +214,7 @@ describe("referral payment session actions", () => {
         createPaymentSessionAction({
           user: user as never,
           createInput: { orderId: 107 },
-          req: request,
+          requestMetadata,
         })
       ).rejects.toMatchObject({ code: "PRECONDITION_FAILED", message });
       expect(paymentProviderApi.createCheckoutSession).not.toHaveBeenCalled();
