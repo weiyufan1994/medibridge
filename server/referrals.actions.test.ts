@@ -447,12 +447,15 @@ describe("referral actions", () => {
     const result = await createPaymentSessionAction({
       user: patientUser,
       createInput: { orderId: 107 },
-      req: {
+      requestMetadata: {
+        clientIp: null,
+        forwardedHost: null,
+        forwardedProto: null,
+        host: "app.medibridge.test",
         protocol: "https",
-        headers: {},
-        get: (name: string) =>
-          name === "host" ? "app.medibridge.test" : undefined,
-      } as never,
+        requestId: null,
+        userAgent: null,
+      },
     });
 
     expect(paymentProviderApi.createCheckoutSession).toHaveBeenCalledWith(
@@ -518,12 +521,15 @@ describe("referral actions", () => {
       const result = await createPaymentSessionAction({
         user: patientUser,
         createInput: { orderId: 111 },
-        req: {
+        requestMetadata: {
+          clientIp: null,
+          forwardedHost: null,
+          forwardedProto: null,
+          host: "app.medibridge.test",
           protocol: "https",
-          headers: {},
-          get: (name: string) =>
-            name === "host" ? "app.medibridge.test" : undefined,
-        } as never,
+          requestId: null,
+          userAgent: null,
+        },
       });
 
       expect(paymentProviderApi.createCheckoutSession).toHaveBeenCalledWith(
@@ -658,12 +664,15 @@ describe("referral actions", () => {
     const result = await createPaymentSessionAction({
       user: patientUser,
       createInput: { orderId: 109 },
-      req: {
+      requestMetadata: {
+        clientIp: null,
+        forwardedHost: null,
+        forwardedProto: null,
+        host: "app.medibridge.test",
         protocol: "https",
-        headers: {},
-        get: (name: string) =>
-          name === "host" ? "app.medibridge.test" : undefined,
-      } as never,
+        requestId: null,
+        userAgent: null,
+      },
     });
 
     expect(paymentProviderApi.createCheckoutSession).toHaveBeenCalledWith(
@@ -697,11 +706,15 @@ describe("referral actions", () => {
       createPaymentSessionAction({
         user: patientUser,
         createInput: { orderId: 108 },
-        req: {
+        requestMetadata: {
+          clientIp: null,
+          forwardedHost: null,
+          forwardedProto: null,
+          host: "app.medibridge.test",
           protocol: "https",
-          headers: {},
-          get: () => "app.medibridge.test",
-        } as never,
+          requestId: null,
+          userAgent: null,
+        },
       })
     ).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",
@@ -724,11 +737,15 @@ describe("referral actions", () => {
       createPaymentSessionAction({
         user: patientUser,
         createInput: { orderId: 110 },
-        req: {
+        requestMetadata: {
+          clientIp: null,
+          forwardedHost: null,
+          forwardedProto: null,
+          host: "app.medibridge.test",
           protocol: "https",
-          headers: {},
-          get: () => "app.medibridge.test",
-        } as never,
+          requestId: null,
+          userAgent: null,
+        },
       })
     ).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",

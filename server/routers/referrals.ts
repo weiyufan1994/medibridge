@@ -39,7 +39,7 @@ export const referralsRouter = router({
       referralActions.createPaymentSessionAction({
         user: ctx.user,
         createInput: input,
-        req: ctx.req,
+        requestMetadata: ctx.requestMetadata,
       })
     ),
 
