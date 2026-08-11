@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import type { Request } from "express";
+import type { RequestMetadata } from "@shared/requestMetadata";
 import * as appointmentsRepo from "./repo";
 import { APPOINTMENT_INVALID_TRANSITION_ERROR } from "./stateMachine";
 import { getPublicBaseUrl } from "../../_core/getPublicBaseUrl";
@@ -107,7 +107,7 @@ export async function createAppointmentCheckoutFlow(input: {
   userId?: number | null;
   selectedPackage: CheckoutPackage;
   intake?: IntakeInput;
-  req: Request;
+  requestMetadata: RequestMetadata;
   createCheckoutSession: AppointmentCheckoutCreator;
 }) {
   const slotId = input.slotId ?? null;
@@ -225,7 +225,7 @@ export async function createAppointmentCheckoutFlow(input: {
   });
 
   try {
-    const publicUrlBase = getPublicBaseUrl(input.req);
+    const publicUrlBase = getPublicBaseUrl(input.requestMetadata);
     const checkout = await input.createCheckoutSession({
       appointmentId,
       amount: input.selectedPackage.amount,

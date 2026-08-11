@@ -67,7 +67,7 @@ const appointmentCheckoutProcedures = {
         createInput: input,
         userId: ctx.user?.id,
         userEmail: ctx.user?.email,
-        req: ctx.req,
+        requestMetadata: ctx.requestMetadata,
       })
     ),
   createV2: publicProcedure
@@ -78,7 +78,7 @@ const appointmentCheckoutProcedures = {
         createInput: input,
         userId: ctx.user?.id,
         userEmail: ctx.user?.email,
-        req: ctx.req,
+        requestMetadata: ctx.requestMetadata,
       })
     ),
   resendPaymentLink: publicProcedure

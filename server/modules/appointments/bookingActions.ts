@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import type { Request } from "express";
+import type { RequestMetadata } from "@shared/requestMetadata";
 import { z } from "zod";
 import { aiTriageSessionApi as triageSessions } from "../ai/publicApi";
 import { schedulingSlotApi as slots } from "../scheduling/publicApi";
@@ -135,7 +135,7 @@ export async function createCheckoutFromCreateInput(input: {
   createInput: CreateInput;
   userId?: number;
   userEmail?: string | null;
-  req: Request;
+  requestMetadata: RequestMetadata;
   createCheckoutSession: AppointmentCheckoutCreator;
 }) {
   const prepared = await prepareCreateCheckout({
@@ -154,7 +154,7 @@ export async function createCheckoutFromCreateInput(input: {
     userId: input.userId,
     selectedPackage: prepared.selectedPackage,
     intake: prepared.intake,
-    req: input.req,
+    requestMetadata: input.requestMetadata,
     createCheckoutSession: input.createCheckoutSession,
   });
 }
@@ -163,7 +163,7 @@ export async function createCheckoutFromCreateV2Input(input: {
   createInput: CreateV2Input;
   userId?: number;
   userEmail?: string | null;
-  req: Request;
+  requestMetadata: RequestMetadata;
   createCheckoutSession: AppointmentCheckoutCreator;
 }) {
   const prepared = await prepareCreateV2Checkout({
@@ -183,7 +183,7 @@ export async function createCheckoutFromCreateV2Input(input: {
     userId: input.userId,
     selectedPackage: prepared.selectedPackage,
     intake: prepared.intake,
-    req: input.req,
+    requestMetadata: input.requestMetadata,
     createCheckoutSession: input.createCheckoutSession,
   });
 }
