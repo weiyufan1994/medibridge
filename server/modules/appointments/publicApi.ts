@@ -45,3 +45,8 @@ export {
 } from "./stateMachine";
 export { setCachedPatientAccessToken } from "./tokenCache";
 export { issueAppointmentAccessLinks } from "./tokenService";
+export { appointmentPaymentApi } from "./paymentLifecycleActions";
+export type {
+  AppointmentCheckoutSnapshot,
+  AppointmentPaymentDbExecutor,
+} from "./paymentLifecycleActions";

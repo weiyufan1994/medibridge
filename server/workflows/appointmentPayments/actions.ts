@@ -1,6 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import type { Request } from "express";
-import * as appointmentsRepo from "../appointments/repo";
+import { appointmentPaymentApi } from "../../modules/appointments/publicApi";
 import { reinitiateCheckoutForAppointment } from "./reinitiateCheckout";
 import { settleStripePaymentBySessionId } from "./settlement";
 
@@ -18,9 +17,7 @@ export async function createCheckoutSessionForAppointmentAction(input: {
   operatorId: number | null;
   baseUrl?: string;
 }) {
-  const appointment = await appointmentsRepo.getAppointmentById(
-    input.appointmentId
-  );
+  const appointment = await appointmentPaymentApi.getById(input.appointmentId);
   if (!appointment) {
     throw new TRPCError({
       code: "NOT_FOUND",
@@ -46,13 +43,11 @@ export async function createCheckoutSessionForAppointmentAction(input: {
 
 export async function confirmMockCheckoutAction(input: {
   stripeSessionId: string;
-  req?: Request;
 }) {
   assertMockCheckoutEnabled();
   const result = await settleStripePaymentBySessionId({
     stripeSessionId: input.stripeSessionId,
     source: "mock",
-    req: input.req,
   });
 
   return {
@@ -68,13 +63,10 @@ export async function confirmMockCheckoutAction(input: {
 
 export async function confirmMockCheckoutByAppointmentAction(input: {
   appointmentId: number;
-  req?: Request;
 }) {
   assertMockCheckoutEnabled();
 
-  const appointment = await appointmentsRepo.getAppointmentById(
-    input.appointmentId
-  );
+  const appointment = await appointmentPaymentApi.getById(input.appointmentId);
   if (!appointment) {
     throw new TRPCError({
       code: "NOT_FOUND",
@@ -91,7 +83,6 @@ export async function confirmMockCheckoutByAppointmentAction(input: {
   const result = await settleStripePaymentBySessionId({
     stripeSessionId: appointment.stripeSessionId,
     source: "mock",
-    req: input.req,
   });
 
   return {
@@ -105,9 +96,3 @@ export async function confirmMockCheckoutByAppointmentAction(input: {
       process.env.NODE_ENV === "development" ? result.doctorLink : null,
   };
 }
-
-export {
-  getCheckoutResultByStripeSession,
-  getPaymentStatusByAppointmentForUser,
-} from "./readActions";
-export { reinitiateCheckoutForAppointment, settleStripePaymentBySessionId };

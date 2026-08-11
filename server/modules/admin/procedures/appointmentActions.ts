@@ -9,8 +9,8 @@ import {
   setCachedPatientAccessToken,
 } from "../../appointments/publicApi";
 import { doctorsAdminApi } from "../../doctors/publicApi";
-import { reinitiateCheckoutForAppointment } from "../../payments/publicApi";
 import { visitAdminApi } from "../../visit/publicApi";
+import { reinitiateCheckoutForAppointment } from "../../../workflows/appointmentPayments/publicApi";
 import {
   adminAppointmentActionInputSchema,
   adminAppointmentScheduleUpdateSchema,

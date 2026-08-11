@@ -40,10 +40,8 @@ import * as appointmentsRepo from "./modules/appointments/repo";
 import { schedulingSlotApi } from "./modules/scheduling/publicApi";
 import { sendMagicLinkEmail } from "./_core/mailer";
 import { issueAppointmentAccessLinks } from "./modules/appointments/tokenService";
-import {
-  paymentsRouter,
-  settleStripePaymentBySessionId,
-} from "./routers/payments";
+import { paymentsRouter } from "./routers/payments";
+import { settleStripePaymentBySessionId } from "./workflows/appointmentPayments/publicApi";
 import {
   clearTokenValidationStateForTests,
   validateAppointmentAccessToken,

@@ -4,7 +4,7 @@ import {
   parseStripeWebhookEvent,
   verifyStripeWebhookSignature,
 } from "./modules/payments/stripe";
-import { settleStripePaymentBySessionId } from "./modules/payments/settlement";
+import { settleStripePaymentBySessionId } from "./workflows/appointmentPayments/publicApi";
 import { getDb } from "./db";
 import * as appointmentsRepo from "./modules/appointments/repo";
 import * as schedulingRepo from "./modules/scheduling/repo";
@@ -284,7 +284,6 @@ export async function handleStripeWebhook(req: Request, res: Response) {
           stripeSessionId: stripeSessionId!,
           source: "webhook",
           eventId: event.id,
-          req,
           dbExecutor: tx,
         });
         return;

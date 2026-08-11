@@ -18,7 +18,7 @@ vi.mock("./modules/appointments/repo", () => ({
   revokeAppointmentTokens: vi.fn(),
 }));
 
-vi.mock("./modules/payments/settlement", () => ({
+vi.mock("./workflows/appointmentPayments/publicApi", () => ({
   settleStripePaymentBySessionId: vi.fn(),
 }));
 
@@ -29,7 +29,7 @@ import {
   verifyPaypalWebhookSignature,
 } from "./modules/payments/providers/paypalAdapter";
 import { clearMetricsForTests, getMetricsSnapshot } from "./_core/metrics";
-import { settleStripePaymentBySessionId } from "./modules/payments/settlement";
+import { settleStripePaymentBySessionId } from "./workflows/appointmentPayments/publicApi";
 import { handlePaypalWebhook } from "./paypalWebhookRoute";
 
 type Req = {

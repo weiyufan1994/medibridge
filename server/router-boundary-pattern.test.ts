@@ -40,7 +40,6 @@ describe("router boundary pattern", () => {
     ]);
     expect(Object.keys(paymentRouterApi).sort()).toEqual([
       "paymentActions",
-      "paymentCore",
       "paymentSchemas",
     ]);
     expect(Object.keys(visitRouterApi).sort()).toEqual([

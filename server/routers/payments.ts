@@ -1,21 +1,17 @@
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { paymentActions, paymentSchemas } from "../modules/payments/routerApi";
 import {
-  paymentActions,
-  paymentCore,
-  paymentSchemas,
-} from "../modules/payments/routerApi";
-
-export const reinitiateCheckoutForAppointment =
-  paymentCore.reinitiateCheckoutForAppointment;
-export const settleStripePaymentBySessionId =
-  paymentCore.settleStripePaymentBySessionId;
+  confirmMockCheckoutAction,
+  confirmMockCheckoutByAppointmentAction,
+  createCheckoutSessionForAppointmentAction,
+} from "../workflows/appointmentPayments/publicApi";
 
 export const paymentsRouter = router({
   createCheckoutSessionForAppointment: publicProcedure
     .input(paymentSchemas.createCheckoutSessionForAppointmentInputSchema)
     .output(paymentSchemas.createCheckoutSessionForAppointmentOutputSchema)
     .mutation(async ({ input, ctx }) =>
-      paymentActions.createCheckoutSessionForAppointmentAction({
+      createCheckoutSessionForAppointmentAction({
         appointmentId: input.appointmentId,
         operatorId: ctx.user?.id ?? null,
       })
@@ -45,9 +41,8 @@ export const paymentsRouter = router({
     .input(paymentSchemas.confirmMockInputSchema)
     .output(paymentSchemas.confirmMockOutputSchema)
     .mutation(async ({ input, ctx }) =>
-      paymentActions.confirmMockCheckoutAction({
+      confirmMockCheckoutAction({
         stripeSessionId: input.stripeSessionId,
-        req: ctx.req,
       })
     ),
 
@@ -55,9 +50,8 @@ export const paymentsRouter = router({
     .input(paymentSchemas.confirmMockByAppointmentInputSchema)
     .output(paymentSchemas.confirmMockByAppointmentOutputSchema)
     .mutation(async ({ input, ctx }) =>
-      paymentActions.confirmMockCheckoutByAppointmentAction({
+      confirmMockCheckoutByAppointmentAction({
         appointmentId: input.appointmentId,
-        req: ctx.req,
       })
     ),
 });
