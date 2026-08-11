@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getReferralCopy, getReferralStatusLabel } from "@/features/referrals";
+import { getReferralCopy } from "@/features/referrals";
 import { getLocalizedText } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
@@ -25,7 +22,6 @@ import {
   readReferralConsultationDraft,
   saveReferralConsultationDraft,
   type ReferralConsultationDraft,
-  type ReferralConsultationDraftIssue,
 } from "@/features/admin/referralConsultationDraft";
 import {
   clearReferralStatusDraft,
@@ -35,20 +31,16 @@ import {
 } from "@/features/admin/referralStatusDraft";
 import { getReferralAdminTaskKind } from "@/features/admin/referralAdminPresentation";
 import { useAdminActionConfirmation } from "@/features/admin/adminActionConfirmationContext";
-import {
-  getAdminConfirmationCopy,
-  getAdminStatusGuidanceCopy,
-} from "@/features/admin/copy";
-import {
-  FieldShell,
-  SectionBox,
-} from "./referral-admin/ReferralAdminPrimitives";
+import { getAdminConfirmationCopy } from "@/features/admin/copy";
 import { ReferralAdminFilters } from "./referral-admin/ReferralAdminFilters";
+import { ReferralAssignmentSections } from "./referral-admin/ReferralAssignmentSections";
 import { ReferralCommunicationSections } from "./referral-admin/ReferralCommunicationSections";
+import { ReferralConsultationSection } from "./referral-admin/ReferralConsultationSection";
 import { ReferralOrderDetailHeader } from "./referral-admin/ReferralOrderDetailHeader";
 import { ReferralOrderList } from "./referral-admin/ReferralOrderList";
 import { ReferralPatientSection } from "./referral-admin/ReferralPatientSection";
 import { ReferralRefundSection } from "./referral-admin/ReferralRefundSection";
+import { ReferralStatusSection } from "./referral-admin/ReferralStatusSection";
 import { ReferralTimelineSection } from "./referral-admin/ReferralTimelineSection";
 import { ReferralWorkflowGuidance } from "./referral-admin/ReferralWorkflowGuidance";
 
@@ -81,7 +73,6 @@ export function ReferralAdminPanel({
   const { resolved } = useLanguage();
   const lang = resolved as "en" | "zh";
   const copy = getReferralCopy(lang);
-  const statusGuidanceCopy = getAdminStatusGuidanceCopy(lang);
   const utils = trpc.useUtils();
   const [statusFilter, setStatusFilter] = useState<ReferralOrderStatus | "all">(
     "all"
@@ -455,7 +446,6 @@ export function ReferralAdminPanel({
   const manualStatusTargets = orderState
     ? getReferralAdminManualStatusTargets(orderState.status)
     : [];
-  const statusReasonIsValid = statusReason.trim().length >= 3;
   const activeStatusDraftContext = orderState
     ? `${orderState.id}:${orderState.status}`
     : null;
@@ -520,10 +510,6 @@ export function ReferralAdminPanel({
     () => getReferralConsultationDraftIssues(consultationDraft),
     [consultationDraft]
   );
-  const consultationIssueMessages: Record<
-    ReferralConsultationDraftIssue,
-    string
-  > = copy.admin.consultationValidationIssues;
   const consultationDraftIsDirty =
     consultationDraftOrderId === selectedOrderId &&
     consultationDraftBaseline !== null &&
@@ -717,451 +703,125 @@ export function ReferralAdminPanel({
                   />
                 ) : null}
                 <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
-                  {taskKind === "assign" ? (
-                    <SectionBox title={copy.admin.claimOrder}>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          disabled={
-                            claimOrderMutation.isPending ||
-                            !currentUserId ||
-                            (orderState.assignedAgentId !== null &&
-                              orderState.assignedAgentId !== currentUserId)
-                          }
-                          onClick={() => {
-                            void claimOrderMutation.mutateAsync({
-                              orderId: orderState.id,
-                            });
-                          }}
-                        >
-                          {copy.admin.claimOrder}
-                        </Button>
-                        <select
-                          className="h-8 min-w-[160px] rounded-md border border-input bg-background px-2 text-sm"
-                          value={assigneeId}
-                          onChange={event => setAssigneeId(event.target.value)}
-                        >
-                          <option value="">
-                            {copy.admin.assignPlaceholder}
-                          </option>
-                          {(assignableAgentsQuery.data ?? []).map(user => (
-                            <option key={user.id} value={String(user.id)}>
-                              {user.email || user.name || user.id}
-                            </option>
-                          ))}
-                        </select>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={
-                            assignOrderMutation.isPending ||
-                            Number(assigneeId) <= 0
-                          }
-                          onClick={() => {
-                            void assignOrderMutation.mutateAsync({
-                              orderId: orderState.id,
-                              assigneeId: Number(assigneeId),
-                            });
-                          }}
-                        >
-                          {copy.admin.assignOrder}
-                        </Button>
-                      </div>
-                    </SectionBox>
-                  ) : null}
+                  <ReferralAssignmentSections
+                    lang={lang}
+                    taskKind={taskKind}
+                    currentUserId={currentUserId}
+                    assignedAgentId={orderState.assignedAgentId}
+                    assigneeId={assigneeId}
+                    agents={assignableAgentsQuery.data ?? []}
+                    selectedContactId={selectedContactId}
+                    hasLocalHospitalMapping={Boolean(selectedOrder.hospital.id)}
+                    contactsLoading={contactsQuery.isLoading}
+                    contactsHaveError={Boolean(contactsQuery.error)}
+                    contactsErrorMessage={contactsQuery.error?.message}
+                    contacts={contactsQuery.data ?? []}
+                    claimPending={claimOrderMutation.isPending}
+                    assignPending={assignOrderMutation.isPending}
+                    assignContactPending={assignOrderContactMutation.isPending}
+                    onAssigneeIdChange={setAssigneeId}
+                    onSelectedContactIdChange={setSelectedContactId}
+                    onClaim={() => {
+                      void claimOrderMutation.mutateAsync({
+                        orderId: orderState.id,
+                      });
+                    }}
+                    onAssign={() => {
+                      void assignOrderMutation.mutateAsync({
+                        orderId: orderState.id,
+                        assigneeId: Number(assigneeId),
+                      });
+                    }}
+                    onAssignContact={() => {
+                      void assignOrderContactMutation.mutateAsync({
+                        orderId: orderState.id,
+                        contactId: Number(selectedContactId),
+                      });
+                    }}
+                  />
 
-                  {taskKind === "assign" ? (
-                    <SectionBox title={copy.admin.assignContactTitle}>
-                      {!selectedOrder.hospital.id ? (
-                        <p className="text-sm text-muted-foreground">
-                          {copy.admin.noLocalHospitalMapping}
-                        </p>
-                      ) : contactsQuery.isLoading ? (
-                        <p className="text-sm text-muted-foreground">
-                          {copy.common.loading}
-                        </p>
-                      ) : contactsQuery.error ? (
-                        <p className="text-sm text-rose-600">
-                          {contactsQuery.error.message}
-                        </p>
-                      ) : contactsQuery.data &&
-                        contactsQuery.data.length > 0 ? (
-                        <div className="space-y-2">
-                          <select
-                            className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
-                            value={selectedContactId}
-                            onChange={event =>
-                              setSelectedContactId(event.target.value)
-                            }
-                          >
-                            <option value="">
-                              {copy.admin.assignContactPlaceholder}
-                            </option>
-                            {contactsQuery.data.map(contact => (
-                              <option
-                                key={contact.id}
-                                value={String(contact.id)}
-                              >
-                                {contact.name} · {contact.roleType}
-                              </option>
-                            ))}
-                          </select>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={
-                              assignOrderContactMutation.isPending ||
-                              Number(selectedContactId) <= 0
-                            }
-                            onClick={() => {
-                              void assignOrderContactMutation.mutateAsync({
-                                orderId: orderState.id,
-                                contactId: Number(selectedContactId),
-                              });
-                            }}
-                          >
-                            {copy.admin.assignContact}
-                          </Button>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          {copy.admin.noContactsForHospital}
-                        </p>
-                      )}
-                    </SectionBox>
-                  ) : null}
-
-                  {manualStatusTargets.length > 0 ? (
-                    <SectionBox
-                      title={
+                  <ReferralStatusSection
+                    lang={lang}
+                    manualStatusTargets={manualStatusTargets}
+                    isScheduledCompletion={isScheduledCompletion}
+                    selectedStatus={selectedStatus}
+                    statusReason={statusReason}
+                    statusDraftIsDirty={statusDraftIsDirty}
+                    updatePending={updateStatusMutation.isPending}
+                    onSelectedStatusChange={setSelectedStatus}
+                    onStatusReasonChange={setStatusReason}
+                    onSubmit={() => {
+                      const confirmation = getAdminConfirmationCopy(
+                        lang,
                         isScheduledCompletion
-                          ? statusGuidanceCopy.referral.completionTitle
-                          : statusGuidanceCopy.referral.manualCorrectionTitle
-                      }
-                      collapsible={!isScheduledCompletion}
-                    >
-                      <div className="space-y-2">
-                        <p className="text-xs leading-5 text-muted-foreground">
-                          {isScheduledCompletion
-                            ? statusGuidanceCopy.referral.completionDescription
-                            : statusGuidanceCopy.referral
-                                .manualCorrectionDescription}
-                        </p>
-                        {isScheduledCompletion ? (
-                          <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
-                            {statusGuidanceCopy.referral.completionNoAutoNotice}
-                          </p>
-                        ) : (
-                          <select
-                            className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
-                            value={selectedStatus}
-                            onChange={event =>
-                              setSelectedStatus(
-                                event.target.value as ReferralOrderStatus
-                              )
-                            }
-                          >
-                            {manualStatusTargets.map(status => (
-                              <option key={status} value={status}>
-                                {getReferralStatusLabel(status, lang)}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                        <FieldShell
-                          label={
-                            isScheduledCompletion
-                              ? statusGuidanceCopy.referral
-                                  .completionReasonLabel
-                              : copy.admin.reason
-                          }
-                        >
-                          <Textarea
-                            className="min-h-20 px-2 py-1 text-sm leading-tight"
-                            value={statusReason}
-                            onChange={event =>
-                              setStatusReason(event.target.value)
-                            }
-                            placeholder={
-                              isScheduledCompletion
-                                ? statusGuidanceCopy.referral
-                                    .completionReasonLabel
-                                : copy.admin.reason
-                            }
-                          />
-                        </FieldShell>
-                        {statusDraftIsDirty ? (
-                          <p className="text-xs leading-5 text-muted-foreground">
-                            {statusGuidanceCopy.referral.statusDraftSaved}
-                          </p>
-                        ) : null}
-                        <Button
-                          size="sm"
-                          variant={
-                            isScheduledCompletion ? "default" : "outline"
-                          }
-                          disabled={
-                            updateStatusMutation.isPending ||
-                            !manualStatusTargets.includes(selectedStatus) ||
-                            !statusReasonIsValid
-                          }
-                          onClick={() => {
-                            const confirmation = getAdminConfirmationCopy(
-                              lang,
-                              isScheduledCompletion
-                                ? "completeReferralConsultation"
-                                : "updateReferralStatus"
-                            );
-                            requestConfirmation({
-                              title: confirmation.title,
-                              description: confirmation.description,
-                              confirmLabel: confirmation.confirmLabel,
-                              cancelLabel: confirmation.cancelLabel,
-                              tone:
-                                selectedStatus === "cancelled"
-                                  ? "danger"
-                                  : "default",
-                              onConfirm: () =>
-                                updateStatusMutation.mutateAsync({
-                                  orderId: orderState.id,
-                                  toStatus: selectedStatus,
-                                  reason: statusReason.trim(),
-                                }),
-                            });
-                          }}
-                        >
-                          {isScheduledCompletion
-                            ? statusGuidanceCopy.referral.completionAction
-                            : copy.admin.updateStatus}
-                        </Button>
-                        <p
-                          className={cn(
-                            "text-xs leading-5",
-                            statusReasonIsValid
-                              ? "text-muted-foreground"
-                              : "text-amber-700 dark:text-amber-300"
-                          )}
-                        >
-                          {statusGuidanceCopy.reasonRequirement}
-                        </p>
-                      </div>
-                    </SectionBox>
-                  ) : null}
+                          ? "completeReferralConsultation"
+                          : "updateReferralStatus"
+                      );
+                      requestConfirmation({
+                        title: confirmation.title,
+                        description: confirmation.description,
+                        confirmLabel: confirmation.confirmLabel,
+                        cancelLabel: confirmation.cancelLabel,
+                        tone:
+                          selectedStatus === "cancelled" ? "danger" : "default",
+                        onConfirm: () =>
+                          updateStatusMutation.mutateAsync({
+                            orderId: orderState.id,
+                            toStatus: selectedStatus,
+                            reason: statusReason.trim(),
+                          }),
+                      });
+                    }}
+                  />
 
-                  {taskKind === "coordinate_time" ||
-                  taskKind === "schedule" ||
-                  taskKind === "complete" ? (
-                    <SectionBox title={copy.admin.consultationTimeTitle}>
-                      <div className="space-y-2">
-                        {taskKind === "coordinate_time" ? (
-                          <>
-                            <Textarea
-                              value={consultationNote}
-                              onChange={event =>
-                                setConsultationNote(event.target.value)
-                              }
-                              placeholder={copy.admin.consultationTimeNote}
-                              className="min-h-24 px-2 py-1 text-sm leading-tight"
-                            />
-                            <Button
-                              size="sm"
-                              disabled={
-                                beginTimeCoordinationMutation.isPending ||
-                                consultationNote.trim().length < 1
-                              }
-                              onClick={() => {
-                                void beginTimeCoordinationMutation.mutateAsync({
-                                  orderId: orderState.id,
-                                  note: consultationNote.trim(),
-                                });
-                              }}
-                            >
-                              {copy.admin.beginTimeCoordination}
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100">
-                              {copy.admin.consultationScheduleHint}
-                            </p>
-                            <FieldShell
-                              label={copy.admin.consultationTimeInput}
-                            >
-                              <Input
-                                className="h-8"
-                                type="datetime-local"
-                                value={consultationTimeInput}
-                                aria-invalid={
-                                  consultationDraftIssues.includes(
-                                    "consultation_time_required"
-                                  ) ||
-                                  consultationDraftIssues.includes(
-                                    "consultation_time_invalid"
-                                  )
-                                }
-                                onChange={event =>
-                                  setConsultationTimeInput(event.target.value)
-                                }
-                              />
-                            </FieldShell>
-                            <FieldShell label={copy.admin.consultationTimeZone}>
-                              <Input
-                                className="h-8"
-                                value={consultationTimeZone}
-                                aria-invalid={consultationDraftIssues.includes(
-                                  "time_zone_required"
-                                )}
-                                onChange={event =>
-                                  setConsultationTimeZone(event.target.value)
-                                }
-                                placeholder={copy.admin.consultationTimeZone}
-                              />
-                            </FieldShell>
-                            <FieldShell
-                              label={copy.admin.consultationProviderName}
-                            >
-                              <Input
-                                className="h-8"
-                                value={consultationProviderName}
-                                aria-invalid={consultationDraftIssues.includes(
-                                  "provider_required"
-                                )}
-                                onChange={event =>
-                                  setConsultationProviderName(
-                                    event.target.value
-                                  )
-                                }
-                                placeholder={
-                                  copy.admin.consultationProviderName
-                                }
-                              />
-                            </FieldShell>
-                            <FieldShell label={copy.admin.consultationPlatform}>
-                              <Input
-                                className="h-8"
-                                value={consultationPlatform}
-                                aria-invalid={consultationDraftIssues.includes(
-                                  "platform_required"
-                                )}
-                                onChange={event =>
-                                  setConsultationPlatform(event.target.value)
-                                }
-                                placeholder={copy.admin.consultationPlatform}
-                              />
-                            </FieldShell>
-                            <FieldShell label={copy.admin.consultationJoinUrl}>
-                              <Input
-                                className="h-8"
-                                type="url"
-                                value={consultationJoinUrl}
-                                aria-invalid={
-                                  consultationDraftIssues.includes(
-                                    "join_url_required"
-                                  ) ||
-                                  consultationDraftIssues.includes(
-                                    "join_url_https_required"
-                                  )
-                                }
-                                onChange={event =>
-                                  setConsultationJoinUrl(event.target.value)
-                                }
-                                placeholder={copy.admin.consultationJoinUrl}
-                              />
-                            </FieldShell>
-                            <FieldShell
-                              label={copy.admin.consultationInstructions}
-                            >
-                              <Textarea
-                                value={consultationInstructions}
-                                aria-invalid={consultationDraftIssues.includes(
-                                  "instructions_required"
-                                )}
-                                onChange={event =>
-                                  setConsultationInstructions(
-                                    event.target.value
-                                  )
-                                }
-                                placeholder={
-                                  copy.admin.consultationInstructions
-                                }
-                                className="min-h-24 px-2 py-1 text-sm leading-tight"
-                              />
-                            </FieldShell>
-                            <FieldShell label={copy.admin.consultationTimeNote}>
-                              <Textarea
-                                value={consultationNote}
-                                onChange={event =>
-                                  setConsultationNote(event.target.value)
-                                }
-                                placeholder={copy.admin.consultationTimeNote}
-                                className="min-h-24 px-2 py-1 text-sm leading-tight"
-                              />
-                            </FieldShell>
-                            {consultationDraftIssues.length > 0 ? (
-                              <div
-                                id={`referral-consultation-validation-${orderState.id}`}
-                                role="status"
-                                className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
-                              >
-                                <p className="font-medium">
-                                  {copy.admin.consultationValidationTitle}
-                                </p>
-                                <ul className="mt-1 list-disc pl-4">
-                                  {consultationDraftIssues.map(issue => (
-                                    <li key={issue}>
-                                      {consultationIssueMessages[issue]}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ) : null}
-                            {consultationDraftIsDirty ? (
-                              <p className="text-xs leading-5 text-muted-foreground">
-                                {copy.admin.consultationDraftSaved}
-                              </p>
-                            ) : null}
-                            <Button
-                              size="sm"
-                              variant={
-                                orderState.status === "time_coordination"
-                                  ? "default"
-                                  : "outline"
-                              }
-                              aria-describedby={
-                                consultationDraftIssues.length > 0
-                                  ? `referral-consultation-validation-${orderState.id}`
-                                  : undefined
-                              }
-                              disabled={
-                                consultationTimeMutation.isPending ||
-                                (orderState.status !== "time_coordination" &&
-                                  orderState.status !== "scheduled") ||
-                                consultationDraftIssues.length > 0
-                              }
-                              onClick={() => {
-                                void consultationTimeMutation.mutateAsync({
-                                  orderId: orderState.id,
-                                  consultationTime: new Date(
-                                    consultationTimeInput
-                                  ),
-                                  timeZone: consultationTimeZone.trim(),
-                                  providerName: consultationProviderName.trim(),
-                                  platform: consultationPlatform.trim(),
-                                  joinUrl: consultationJoinUrl.trim(),
-                                  instructions: consultationInstructions.trim(),
-                                  note: consultationNote.trim() || undefined,
-                                });
-                              }}
-                            >
-                              {orderState.status === "time_coordination"
-                                ? copy.admin.saveAndScheduleConsultation
-                                : copy.admin.saveConsultationArrangement}
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </SectionBox>
-                  ) : null}
+                  <ReferralConsultationSection
+                    lang={lang}
+                    orderId={orderState.id}
+                    orderStatus={orderState.status}
+                    taskKind={taskKind}
+                    consultationTimeInput={consultationTimeInput}
+                    consultationTimeZone={consultationTimeZone}
+                    consultationProviderName={consultationProviderName}
+                    consultationPlatform={consultationPlatform}
+                    consultationJoinUrl={consultationJoinUrl}
+                    consultationInstructions={consultationInstructions}
+                    consultationNote={consultationNote}
+                    consultationDraftIssues={consultationDraftIssues}
+                    consultationDraftIsDirty={consultationDraftIsDirty}
+                    beginCoordinationPending={
+                      beginTimeCoordinationMutation.isPending
+                    }
+                    saveConsultationPending={consultationTimeMutation.isPending}
+                    onConsultationTimeInputChange={setConsultationTimeInput}
+                    onConsultationTimeZoneChange={setConsultationTimeZone}
+                    onConsultationProviderNameChange={
+                      setConsultationProviderName
+                    }
+                    onConsultationPlatformChange={setConsultationPlatform}
+                    onConsultationJoinUrlChange={setConsultationJoinUrl}
+                    onConsultationInstructionsChange={
+                      setConsultationInstructions
+                    }
+                    onConsultationNoteChange={setConsultationNote}
+                    onBeginCoordination={() => {
+                      void beginTimeCoordinationMutation.mutateAsync({
+                        orderId: orderState.id,
+                        note: consultationNote.trim(),
+                      });
+                    }}
+                    onSaveConsultation={() => {
+                      void consultationTimeMutation.mutateAsync({
+                        orderId: orderState.id,
+                        consultationTime: new Date(consultationTimeInput),
+                        timeZone: consultationTimeZone.trim(),
+                        providerName: consultationProviderName.trim(),
+                        platform: consultationPlatform.trim(),
+                        joinUrl: consultationJoinUrl.trim(),
+                        instructions: consultationInstructions.trim(),
+                        note: consultationNote.trim() || undefined,
+                      });
+                    }}
+                  />
 
                   <ReferralCommunicationSections
                     lang={lang}
