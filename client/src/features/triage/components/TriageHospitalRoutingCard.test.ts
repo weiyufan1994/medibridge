@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPrimaryReferralEntryHref } from "./TriageHospitalRoutingCard";
+import { buildPrimaryReferralEntryHref } from "./triageReferralNavigation";
 
 describe("buildPrimaryReferralEntryHref", () => {
   it("preserves the first ranked hospital selection", () => {
