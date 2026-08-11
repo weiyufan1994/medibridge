@@ -29,15 +29,10 @@ vi.mock("./modules/referrals/repo", () => ({
   listReferralOrdersForAdmin: vi.fn(),
 }));
 
-vi.mock("./modules/ai/repo", () => ({
-  getAiChatSessionById: vi.fn(),
-  getLatestSessionFlagByType: vi.fn(),
-}));
-
-vi.mock("./modules/ai/historyResult", () => ({
-  TRIAGE_RESULT_FLAG_TYPE: "triage_result",
-  parseStoredHistoricalTriageResult: vi.fn(),
-  rebuildHistoricalTriageResultFromSummary: vi.fn(),
+vi.mock("./modules/ai/publicApi", () => ({
+  aiHistoricalTriageApi: {
+    getForUser: vi.fn(),
+  },
 }));
 
 vi.mock("./modules/payments/publicApi", () => ({
@@ -54,11 +49,7 @@ vi.mock("./modules/referrals/notifications", () => ({
   notifyPatientReferralUpdate: vi.fn(),
 }));
 
-import * as aiRepo from "./modules/ai/repo";
-import {
-  parseStoredHistoricalTriageResult,
-  rebuildHistoricalTriageResultFromSummary,
-} from "./modules/ai/historyResult";
+import { aiHistoricalTriageApi } from "./modules/ai/publicApi";
 import { paymentProviderApi } from "./modules/payments/publicApi";
 import * as referralRepo from "./modules/referrals/repo";
 import {
@@ -246,22 +237,10 @@ describe("referral actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.REFERRAL_PAYMENT_MODE = "provider";
-    vi.mocked(aiRepo.getAiChatSessionById).mockResolvedValue(
-      createSession() as never
-    );
-    vi.mocked(aiRepo.getLatestSessionFlagByType).mockResolvedValue({
-      id: 1,
-      sessionId: 77,
-      flagType: "triage_result",
-      flagValue: "{}",
-      createdAt: new Date("2026-04-11T08:50:00.000Z"),
+    vi.mocked(aiHistoricalTriageApi.getForUser).mockResolvedValue({
+      session: createSession(),
+      triageResult: createTriageResult(),
     } as never);
-    vi.mocked(parseStoredHistoricalTriageResult).mockReturnValue(
-      createTriageResult() as never
-    );
-    vi.mocked(rebuildHistoricalTriageResultFromSummary).mockResolvedValue(
-      null as never
-    );
     vi.mocked(referralRepo.getHospitalById).mockResolvedValue(null as never);
     vi.mocked(referralRepo.getDepartmentById).mockResolvedValue(null as never);
     vi.mocked(referralRepo.getContactById).mockResolvedValue(null as never);
@@ -820,15 +799,16 @@ describe("referral actions", () => {
   it("creates a manual-fulfillment order when the ranked hospital has no local department mapping", async () => {
     const patientUser = { id: 501, role: "free" } as never;
 
-    vi.mocked(parseStoredHistoricalTriageResult).mockReturnValue(
-      createTriageResult({
+    vi.mocked(aiHistoricalTriageApi.getForUser).mockResolvedValue({
+      session: createSession(),
+      triageResult: createTriageResult({
         hospitals: [
           createRankedHospital({
             matchedDepartmentId: null,
           }),
         ],
-      }) as never
-    );
+      }),
+    } as never);
     vi.mocked(referralRepo.getHospitalById).mockResolvedValue(
       createHospitalRow() as never
     );
@@ -887,8 +867,9 @@ describe("referral actions", () => {
       manualFulfillmentRequired: 1,
     });
 
-    vi.mocked(parseStoredHistoricalTriageResult).mockReturnValue(
-      createTriageResult({
+    vi.mocked(aiHistoricalTriageApi.getForUser).mockResolvedValue({
+      session: createSession(),
+      triageResult: createTriageResult({
         hospitals: [
           createRankedHospital({
             hospitalName: "上海市第一人民医院",
@@ -897,8 +878,8 @@ describe("referral actions", () => {
             reason: "Digestive symptoms require further evaluation.",
           }),
         ],
-      }) as never
-    );
+      }),
+    } as never);
     vi.mocked(referralRepo.listHospitalsForReferralCatalog).mockResolvedValue(
       [] as never
     );
