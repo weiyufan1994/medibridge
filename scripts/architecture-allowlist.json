@@ -1,11 +1,6 @@
 {
   "dependencyViolations": {},
   "fileBudgets": {
-    "client/src/sandbox/ComponentShowcase.tsx": {
-      "maxLines": 1444,
-      "phase": "5",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
     "scripts/import-doctors.mjs": {
       "maxLines": 619,
       "phase": "6",
