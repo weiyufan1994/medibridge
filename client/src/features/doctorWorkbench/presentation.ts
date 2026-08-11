@@ -13,6 +13,18 @@ export function countSignedDoctorWorkbenchAppointments(
   ).length;
 }
 
+export function shouldStartDoctorWorkbenchBeforeOpeningRoom(
+  status: string | undefined
+) {
+  return status === "paid";
+}
+
+export function shouldCompleteDoctorWorkbenchBeforeSummary(
+  status: string | undefined
+) {
+  return status === "paid" || status === "active";
+}
+
 export function buildDoctorWorkbenchSummaryModalCopy(copy: VisitCopy) {
   return {
     title: copy.reviewMedicalSummaryTitle,

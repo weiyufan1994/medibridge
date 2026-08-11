@@ -9,6 +9,8 @@ import {
   maskDoctorWorkbenchEmail,
   normalizeDoctorWorkbenchError,
   parseDoctorWorkbenchToken,
+  shouldCompleteDoctorWorkbenchBeforeSummary,
+  shouldStartDoctorWorkbenchBeforeOpeningRoom,
 } from "@/features/doctorWorkbench";
 import { getVisitCopy } from "@/features/visit";
 
@@ -75,6 +77,17 @@ describe("doctor workbench presentation", () => {
         { status: "completed" },
       ])
     ).toBe(2);
+  });
+
+  it("preserves the status gates for room start and summary completion", () => {
+    expect(shouldStartDoctorWorkbenchBeforeOpeningRoom("paid")).toBe(true);
+    expect(shouldStartDoctorWorkbenchBeforeOpeningRoom("active")).toBe(false);
+    expect(shouldStartDoctorWorkbenchBeforeOpeningRoom(undefined)).toBe(false);
+
+    expect(shouldCompleteDoctorWorkbenchBeforeSummary("paid")).toBe(true);
+    expect(shouldCompleteDoctorWorkbenchBeforeSummary("active")).toBe(true);
+    expect(shouldCompleteDoctorWorkbenchBeforeSummary("ended")).toBe(false);
+    expect(shouldCompleteDoctorWorkbenchBeforeSummary(undefined)).toBe(false);
   });
 
   it("masks valid emails while preserving malformed values", () => {

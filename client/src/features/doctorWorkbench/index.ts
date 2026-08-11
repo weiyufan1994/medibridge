@@ -15,7 +15,10 @@ export {
   maskDoctorWorkbenchEmail,
   normalizeDoctorWorkbenchError,
   parseDoctorWorkbenchToken,
+  shouldCompleteDoctorWorkbenchBeforeSummary,
+  shouldStartDoctorWorkbenchBeforeOpeningRoom,
 } from "./presentation";
+export { useDoctorWorkbenchController } from "./useDoctorWorkbenchController";
 export type {
   DoctorWorkbenchItem,
   DoctorWorkbenchLanguage,
