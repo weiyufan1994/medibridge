@@ -1,8 +1,10 @@
 import AppLayout from "@/components/layout/AppLayout";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ReferralPaymentSuccessScreen } from "@/features/referrals/components/ReferralPaymentSuccessScreen";
-import { getReferralCopy } from "@/features/referrals/copy";
-import { parsePositiveNumberParam } from "@/features/referrals/presentation";
+import {
+  getReferralCopy,
+  parsePositiveNumberParam,
+  ReferralPaymentSuccessScreen,
+} from "@/features/referrals";
 
 function readPaymentReturnParams() {
   if (typeof window === "undefined") {

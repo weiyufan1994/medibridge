@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { getOrCreateDeviceId } from "@/features/auth/deviceId";
+import { getOrCreateDeviceId } from "@/features/auth";
 import { trpc } from "@/lib/trpc";
 import { getAppointmentCopy } from "@/features/appointment/copy";
 import {

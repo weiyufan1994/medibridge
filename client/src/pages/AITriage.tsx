@@ -1,4 +1,4 @@
-import AITriageChat from "@/features/triage/components/AITriageChat";
+import { AITriageChat } from "@/features/triage";
 import TopHeader from "@/components/layout/TopHeader";
 
 export default function AITriagePage() {

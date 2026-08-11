@@ -5,13 +5,13 @@ import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getReferralCopy } from "@/features/referrals/copy";
 import {
   buildReferralOrderHref,
   buildReferralPaymentCancelHref,
   buildReferralPaymentSuccessHref,
+  getReferralCopy,
   parsePositiveNumberParam,
-} from "@/features/referrals/presentation";
+} from "@/features/referrals";
 import { trpc } from "@/lib/trpc";
 
 export default function ReferralMockCheckoutPage() {

@@ -1,12 +1,12 @@
 import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ReferralSelectionScreen } from "@/features/referrals/components/ReferralSelectionScreen";
-import { getReferralCopy } from "@/features/referrals/copy";
 import {
+  getReferralCopy,
   parseNonNegativeNumberParam,
   parsePositiveNumberParam,
-} from "@/features/referrals/presentation";
+  ReferralSelectionScreen,
+} from "@/features/referrals";
 
 function readSelectionParams() {
   if (typeof window === "undefined") {

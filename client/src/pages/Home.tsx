@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowRight, CheckCircle2, Hospital, Stethoscope } from "lucide-react";
 import { DisclaimerDialog } from "@/components/disclaimer/DisclaimerDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getHomeCopy } from "@/features/home/copy";
+import { getHomeCopy } from "@/features/home";
 import TopHeader from "@/components/layout/TopHeader";
 
 const DISCLAIMER_KEY = "medibridge_disclaimer_accepted_v1";

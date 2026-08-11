@@ -16,9 +16,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useAuth } from "@/features/auth";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getHomeCopy } from "@/features/home/copy";
+import { getHomeCopy } from "@/features/home";
 import { toast } from "sonner";
 
 type TopHeaderProps = {

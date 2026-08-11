@@ -1,8 +1,10 @@
 import AppLayout from "@/components/layout/AppLayout";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ReferralPaymentCancelScreen } from "@/features/referrals/components/ReferralPaymentCancelScreen";
-import { getReferralCopy } from "@/features/referrals/copy";
-import { parsePositiveNumberParam } from "@/features/referrals/presentation";
+import {
+  getReferralCopy,
+  parsePositiveNumberParam,
+  ReferralPaymentCancelScreen,
+} from "@/features/referrals";
 
 function readOrderId() {
   if (typeof window === "undefined") {

@@ -2,9 +2,11 @@ import { ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import TopHeader from "@/components/layout/TopHeader";
-import { HospitalsBrowser } from "@/features/hospitals/components/HospitalsBrowser";
-import { useHospitals } from "@/features/hospitals/hooks/useHospitals";
-import { getHospitalsCopy } from "@/features/hospitals/copy";
+import {
+  getHospitalsCopy,
+  HospitalsBrowser,
+  useHospitals,
+} from "@/features/hospitals";
 
 export default function Hospitals() {
   const {

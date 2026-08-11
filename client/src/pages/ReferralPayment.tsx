@@ -1,9 +1,11 @@
 import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ReferralPaymentScreen } from "@/features/referrals/components/ReferralPaymentScreen";
-import { getReferralCopy } from "@/features/referrals/copy";
-import { parsePositiveNumberParam } from "@/features/referrals/presentation";
+import {
+  getReferralCopy,
+  parsePositiveNumberParam,
+  ReferralPaymentScreen,
+} from "@/features/referrals";
 
 function readOrderId() {
   if (typeof window === "undefined") {

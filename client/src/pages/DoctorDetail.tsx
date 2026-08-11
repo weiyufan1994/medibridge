@@ -3,11 +3,13 @@ import { useRoute, Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import AppLayout from "@/components/layout/AppLayout";
-import { AppointmentModal } from "@/features/appointment/components/AppointmentModal";
+import { AppointmentModal } from "@/features/appointment";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { DoctorDetailContent } from "@/features/hospitals/components/DoctorDetailContent";
-import { useDoctorDetail } from "@/features/hospitals/hooks/useDoctorDetail";
-import { getHospitalsCopy } from "@/features/hospitals/copy";
+import {
+  DoctorDetailContent,
+  getHospitalsCopy,
+  useDoctorDetail,
+} from "@/features/hospitals";
 
 type TranslationFn = (key: string, fallback?: string) => string;
 
