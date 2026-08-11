@@ -288,50 +288,6 @@
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"
     },
-    "module-cross-deep-import:server/modules/visit/actions.ts->../appointments/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/visit/actions.ts->../appointments/routerApi": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/visit/actions.ts->../appointments/tokenValidation": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/visit/realtimeGateway.test.ts->../appointments/chatPolicy": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/visit/realtimeGateway.test.ts->../appointments/tokenValidation": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/visit/realtimeGateway.ts->../appointments/chatPolicy": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/visit/realtimeGateway.ts->../appointments/consultationTimer": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/visit/realtimeGateway.ts->../appointments/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/visit/realtimeGateway.ts->../appointments/timerActions": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/visit/realtimeGateway.ts->../appointments/tokenValidation": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
-    "module-cross-deep-import:server/modules/visit/status.ts->../appointments/repo": {
-      "phase": "4",
-      "reason": "Existing dependency to remove in the assigned hardening phase"
-    },
     "router-boundary-import:server/routers/appointments.ts->../_core/getPublicBaseUrl": {
       "phase": "4",
       "reason": "Existing dependency to remove in the assigned hardening phase"

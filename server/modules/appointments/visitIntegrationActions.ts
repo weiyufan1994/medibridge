@@ -1,6 +1,21 @@
-import * as appointmentsRepo from "../appointments/repo";
+import * as appointmentsRepo from "./repo";
 
-export async function markInSessionIfTransitioned(appointmentId: number) {
+export async function touchAppointmentVisitAccess(input: {
+  appointmentId: number;
+  role: "patient" | "doctor";
+  touchedAt: Date;
+}) {
+  await appointmentsRepo.updateAppointmentById(
+    input.appointmentId,
+    input.role === "doctor"
+      ? { doctorLastAccessAt: input.touchedAt }
+      : { lastAccessAt: input.touchedAt }
+  );
+}
+
+export async function markAppointmentInSessionAfterFirstMessage(
+  appointmentId: number
+) {
   try {
     const fromStatus =
       await appointmentsRepo.markAppointmentInSessionIfNeeded(appointmentId);

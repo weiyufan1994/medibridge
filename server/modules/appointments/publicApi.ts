@@ -7,6 +7,14 @@ import {
 import { generateMedicalSummaryDraftByTokenFlow } from "./workflowActions";
 import { startAppointmentAutoCloseWorker } from "./autoCloseWorker";
 import { validateAppointmentAccessToken } from "./tokenValidation";
+import { validateAppointmentToken } from "./accessValidation";
+import { canJoinRoom, canSendMessage } from "./chatPolicy";
+import { resolveConsultationTimerState } from "./consultationTimer";
+import { extendConsultationByDoctorTokenFlow } from "./timerActions";
+import {
+  markAppointmentInSessionAfterFirstMessage,
+  touchAppointmentVisitAccess,
+} from "./visitIntegrationActions";
 
 export const appointmentAuthApi = {
   get bindAppointmentsToUserByEmail() {
@@ -35,6 +43,20 @@ export const appointmentMedicalSummaryApi = {
 
 export const appointmentAutomationApi = {
   startAutoCloseWorker: startAppointmentAutoCloseWorker,
+};
+
+export const appointmentVisitApi = {
+  canJoinRoom,
+  canSendMessage,
+  extendConsultationByDoctorToken: extendConsultationByDoctorTokenFlow,
+  get getAppointmentById() {
+    return repo.getAppointmentById;
+  },
+  markInSessionAfterFirstMessage: markAppointmentInSessionAfterFirstMessage,
+  resolveConsultationTimerState,
+  touchVisitAccess: touchAppointmentVisitAccess,
+  validateAccessToken: validateAppointmentAccessToken,
+  validateToken: validateAppointmentToken,
 };
 
 export const appointmentsAdminApi = {

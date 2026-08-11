@@ -1,9 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import type { Request } from "express";
 import { isDuplicateDbError, isForeignKeyDbError } from "../../_core/dbCompat";
-import * as appointmentsRepo from "../appointments/repo";
-import { appointmentCore } from "../appointments/routerApi";
-import { validateAppointmentAccessToken } from "../appointments/tokenValidation";
+import { appointmentVisitApi } from "../appointments/publicApi";
 import * as visitRepo from "./repo";
 import type {
   GetMessagesInput,
@@ -12,7 +10,6 @@ import type {
   SendMessageInput,
   SendMessageOutput,
 } from "./schemas";
-import { markInSessionIfTransitioned } from "./status";
 import { translateVisitMessage } from "./translation";
 
 type VisitMessageRow = Awaited<
@@ -111,22 +108,18 @@ export async function roomGetMessagesByToken(
   input: RoomGetMessagesInput,
   req?: Request
 ) {
-  const validated = await validateAppointmentAccessToken({
+  const validated = await appointmentVisitApi.validateAccessToken({
     token: input.token,
     action: "read_history",
     req,
   });
   const appointment = validated.appointment;
   const touchedAt = new Date();
-  if (validated.role === "doctor") {
-    await appointmentsRepo.updateAppointmentById(appointment.id, {
-      doctorLastAccessAt: touchedAt,
-    });
-  } else {
-    await appointmentsRepo.updateAppointmentById(appointment.id, {
-      lastAccessAt: touchedAt,
-    });
-  }
+  await appointmentVisitApi.touchVisitAccess({
+    appointmentId: appointment.id,
+    role: validated.role,
+    touchedAt,
+  });
 
   const cursor =
     typeof input.beforeCursor === "string" &&
@@ -165,7 +158,7 @@ export async function getMessagesByToken(
   input: GetMessagesInput,
   req?: Request
 ) {
-  const { appointment } = await appointmentCore.validateAppointmentToken(
+  const { appointment } = await appointmentVisitApi.validateToken(
     input.appointmentId,
     input.token,
     "read_history",
@@ -207,7 +200,7 @@ export async function sendMessageByToken(
   input: SendMessageInput,
   req?: Request
 ): Promise<SendMessageOutput> {
-  const { appointment, role } = await appointmentCore.validateAppointmentToken(
+  const { appointment, role } = await appointmentVisitApi.validateToken(
     input.appointmentId,
     input.token,
     "send_message",
@@ -289,7 +282,7 @@ export async function sendMessageByToken(
     }
   }
 
-  await markInSessionIfTransitioned(appointment.id);
+  await appointmentVisitApi.markInSessionAfterFirstMessage(appointment.id);
 
   const inserted = readInsertedMessage(insertedMessage);
   if (inserted) {
@@ -315,7 +308,7 @@ export async function pollNewMessagesByToken(
   input: PollMessagesInput,
   req?: Request
 ) {
-  const { appointment } = await appointmentCore.validateAppointmentToken(
+  const { appointment } = await appointmentVisitApi.validateToken(
     input.appointmentId,
     input.token,
     "read_history",
