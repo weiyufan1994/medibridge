@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, lte, or } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import {
   departments,
   hospitals,
@@ -54,6 +54,7 @@ export {
   listRefundProcessingOrders,
   updateRefundRequestById,
 } from "./refundRepo";
+export { listExpiredReferralSlaOrders } from "./fulfillmentRepo";
 export {
   insertOperation,
   insertStatusEvent,
@@ -182,28 +183,4 @@ export async function getReferralOrderBundleById(orderId: number) {
     .limit(1);
 
   return rows[0] ?? null;
-}
-
-export async function listExpiredReferralSlaOrders(input: {
-  now: Date;
-  limit: number;
-}) {
-  const db = await resolveDbExecutor();
-  return db
-    .select()
-    .from(referralOrders)
-    .where(
-      and(
-        inArray(referralOrders.status, [
-          "paid_pending_assignment",
-          "assigned",
-          "contacting",
-          "booking_in_progress",
-        ]),
-        eq(referralOrders.paymentStatus, "paid"),
-        lte(referralOrders.fulfillmentDeadlineAt, input.now)
-      )
-    )
-    .orderBy(asc(referralOrders.fulfillmentDeadlineAt), asc(referralOrders.id))
-    .limit(input.limit);
 }
