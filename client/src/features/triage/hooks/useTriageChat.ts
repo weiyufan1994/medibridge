@@ -4,37 +4,18 @@ import { trpc } from "@/lib/trpc";
 import { getTriageCopy } from "@/features/triage/copy";
 import { shouldLockInputForReportGeneration } from "@/features/triage/hooks/triageReportState";
 import { TRPCClientError } from "@trpc/client";
-import type { LocalizedText } from "@shared/types";
 import type { TriageIntake } from "@shared/triageIntake";
-import type { TriageRouting } from "@shared/triageRouting";
+import {
+  detectTriageLanguage,
+  getInitialAssistantMessage,
+  getLocalizedDraftMessages,
+  isSessionAccessDeniedError,
+  normalizeTriageResponse,
+  shouldRefreshInitialAssistantMessage,
+} from "./triageChatNormalization";
+import type { ChatMessage, TriageResult } from "./triageChatTypes";
 
-export type ChatRole = "user" | "assistant";
-
-export type ChatMessage = {
-  role: ChatRole;
-  content: string;
-};
-
-export type TriageResult = {
-  isComplete: boolean;
-  reply: string;
-  interrupted?: boolean;
-  riskCodes?: string[];
-  interruptionMessage?: LocalizedText;
-  summary?: string;
-  keywords?: string[];
-  routing?: TriageRouting;
-  extraction?: {
-    symptoms: string;
-    duration: string;
-    age: number | null;
-    gender?: string | null;
-    medicalHistory?: string | null;
-    traumaOrSurgery?: string | null;
-    otherSymptoms?: string | null;
-    urgency: "low" | "medium" | "high";
-  };
-};
+export type { ChatMessage, TriageResult } from "./triageChatTypes";
 
 type PendingSubmission = {
   content: string;
@@ -48,130 +29,6 @@ type UseTriageChatParams = {
 
 const DISCLAIMER_KEY = "medibridge_disclaimer_accepted_v1";
 const TRIAGE_SESSION_KEY = "medibridge_triage_chat_v2";
-const SESSION_LIMIT_REPLY =
-  "本次基础问诊已达最大深度。由于病情可能较为复杂，AI 无法继续细分，请尽快查看推荐专科和医院并线下就诊。";
-
-const getInitialAssistantMessage = (lang: "en" | "zh"): ChatMessage => {
-  const t = getTriageCopy(lang);
-  return { role: "assistant", content: t.initialAssistantMessage };
-};
-
-const shouldRefreshInitialAssistantMessage = (messages: ChatMessage[]) =>
-  messages.length === 1 && messages[0]?.role === "assistant";
-
-const getLocalizedDraftMessages = (
-  messages: ChatMessage[] | undefined,
-  lang: "en" | "zh"
-) => {
-  if (!Array.isArray(messages) || messages.length === 0) {
-    return [getInitialAssistantMessage(lang)];
-  }
-
-  if (shouldRefreshInitialAssistantMessage(messages)) {
-    return [getInitialAssistantMessage(lang)];
-  }
-
-  return messages;
-};
-
-const detectTriageLanguage = (text: string): "en" | "zh" =>
-  /[\u4e00-\u9fff]/.test(text) ? "zh" : "en";
-
-const isSessionAccessDeniedError = (error: TRPCClientError<any>) =>
-  error.data?.code === "FORBIDDEN" &&
-  typeof error.message === "string" &&
-  error.message.includes("not allowed to access this triage session");
-
-const normalizeRouting = (value: unknown): TriageRouting | undefined => {
-  if (!value || typeof value !== "object") {
-    return undefined;
-  }
-
-  const input = value as Record<string, unknown>;
-  const recommendedDepartment = input.recommendedDepartment;
-  if (
-    typeof input.possibilitySummary !== "string" ||
-    !recommendedDepartment ||
-    typeof recommendedDepartment !== "object"
-  ) {
-    return undefined;
-  }
-
-  const department = recommendedDepartment as Record<string, unknown>;
-  if (typeof department.zh !== "string" || typeof department.en !== "string") {
-    return undefined;
-  }
-
-  const hospitals = Array.isArray(input.hospitals)
-    ? input.hospitals
-        .map(item => {
-          if (!item || typeof item !== "object") {
-            return null;
-          }
-
-          const hospital = item as Record<string, unknown>;
-          if (
-            typeof hospital.hospitalName !== "string" ||
-            typeof hospital.reason !== "string"
-          ) {
-            return null;
-          }
-
-          return {
-            hospitalName: hospital.hospitalName,
-            city: typeof hospital.city === "string" ? hospital.city : null,
-            specialtyRank:
-              typeof hospital.specialtyRank === "number"
-                ? hospital.specialtyRank
-                : null,
-            specialtyScore:
-              typeof hospital.specialtyScore === "number"
-                ? hospital.specialtyScore
-                : null,
-            generalGrade:
-              typeof hospital.generalGrade === "string"
-                ? hospital.generalGrade
-                : null,
-            stemRank:
-              typeof hospital.stemRank === "number" ? hospital.stemRank : null,
-            matchedHospitalId:
-              typeof hospital.matchedHospitalId === "number"
-                ? hospital.matchedHospitalId
-                : null,
-            matchedDepartmentId:
-              typeof hospital.matchedDepartmentId === "number"
-                ? hospital.matchedDepartmentId
-                : null,
-            reason: hospital.reason,
-          };
-        })
-        .filter(
-          (hospital): hospital is TriageRouting["hospitals"][number] =>
-            hospital !== null
-        )
-    : [];
-
-  return {
-    possibilitySummary: input.possibilitySummary,
-    recommendedDepartment: {
-      zh: department.zh,
-      en: department.en,
-      matchedSpecialtyKey:
-        typeof department.matchedSpecialtyKey === "string"
-          ? department.matchedSpecialtyKey
-          : null,
-    },
-    hospitals,
-    confidence: input.confidence === "reduced" ? "reduced" : "standard",
-    missingCriticalFields: Array.isArray(input.missingCriticalFields)
-      ? input.missingCriticalFields.filter(
-          (field): field is TriageRouting["missingCriticalFields"][number] =>
-            field === "age" || field === "gender"
-        )
-      : [],
-  };
-};
-
 export function useTriageChat({ resolved, reportInput }: UseTriageChatParams) {
   const utils = trpc.useUtils();
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -402,117 +259,16 @@ export function useTriageChat({ resolved, reportInput }: UseTriageChatParams) {
         }
       }
 
-      const normalizedResult = result as {
-        isComplete: boolean;
-        reply: string;
-        summary?: string;
-        keywords?: string[];
-        extraction?: {
-          symptoms: string;
-          duration: string;
-          age: number | null;
-          gender?: string | null;
-          medicalHistory?: string | null;
-          traumaOrSurgery?: string | null;
-          otherSymptoms?: string | null;
-          urgency: "low" | "medium" | "high";
-        };
-        routing?: TriageRouting;
-        hitMessageLimit?: boolean;
-        interrupted?: boolean;
-        riskCodes?: string[];
-        interruptionMessage?: LocalizedText;
-      };
-
-      const safeReply =
-        typeof normalizedResult.reply === "string" &&
-        normalizedResult.reply.trim().length > 0
-          ? normalizedResult.reply.trim()
-          : inputText.fallbackReply;
-      const hitLimit =
-        normalizedResult.hitMessageLimit === true ||
-        safeReply.includes(SESSION_LIMIT_REPLY);
-      const nextMessagesWithReply: ChatMessage[] = [
-        ...nextMessages,
-        { role: "assistant", content: safeReply },
-      ];
-      const shouldLockForReportGeneration = shouldLockInputForReportGeneration({
-        triageResult: { isComplete: Boolean(normalizedResult.isComplete) },
-        messages: nextMessagesWithReply,
+      const normalized = normalizeTriageResponse({
+        value: result,
+        fallbackReply: inputText.fallbackReply,
+        messagesBeforeReply: nextMessages,
       });
 
-      pushAssistantMessage(safeReply);
-      setMessageLimitReached(hitLimit);
-      setReportGenerationLocked(shouldLockForReportGeneration);
-      setTriageResult({
-        isComplete: Boolean(normalizedResult.isComplete),
-        reply: safeReply,
-        interrupted: normalizedResult.interrupted === true,
-        riskCodes: Array.isArray(normalizedResult.riskCodes)
-          ? normalizedResult.riskCodes.filter(
-              item => typeof item === "string" && item.trim().length > 0
-            )
-          : undefined,
-        interruptionMessage:
-          normalizedResult.interruptionMessage &&
-          typeof normalizedResult.interruptionMessage === "object" &&
-          typeof normalizedResult.interruptionMessage.zh === "string" &&
-          typeof normalizedResult.interruptionMessage.en === "string"
-            ? normalizedResult.interruptionMessage
-            : undefined,
-        summary:
-          typeof normalizedResult.summary === "string" &&
-          normalizedResult.summary.trim().length > 0
-            ? normalizedResult.summary.trim()
-            : undefined,
-        keywords: Array.isArray(normalizedResult.keywords)
-          ? normalizedResult.keywords.filter(
-              item => typeof item === "string" && item.trim().length > 0
-            )
-          : undefined,
-        routing: normalizeRouting(normalizedResult.routing),
-        extraction:
-          normalizedResult.extraction &&
-          typeof normalizedResult.extraction === "object" &&
-          typeof normalizedResult.extraction.symptoms === "string" &&
-          typeof normalizedResult.extraction.duration === "string" &&
-          (normalizedResult.extraction.urgency === "low" ||
-            normalizedResult.extraction.urgency === "medium" ||
-            normalizedResult.extraction.urgency === "high")
-            ? {
-                symptoms: normalizedResult.extraction.symptoms,
-                duration: normalizedResult.extraction.duration,
-                age:
-                  typeof normalizedResult.extraction.age === "number"
-                    ? normalizedResult.extraction.age
-                    : null,
-                gender:
-                  typeof normalizedResult.extraction.gender === "string" &&
-                  normalizedResult.extraction.gender.trim().length > 0
-                    ? normalizedResult.extraction.gender.trim()
-                    : null,
-                medicalHistory:
-                  typeof normalizedResult.extraction.medicalHistory ===
-                    "string" &&
-                  normalizedResult.extraction.medicalHistory.trim().length > 0
-                    ? normalizedResult.extraction.medicalHistory.trim()
-                    : null,
-                traumaOrSurgery:
-                  typeof normalizedResult.extraction.traumaOrSurgery ===
-                    "string" &&
-                  normalizedResult.extraction.traumaOrSurgery.trim().length > 0
-                    ? normalizedResult.extraction.traumaOrSurgery.trim()
-                    : null,
-                otherSymptoms:
-                  typeof normalizedResult.extraction.otherSymptoms ===
-                    "string" &&
-                  normalizedResult.extraction.otherSymptoms.trim().length > 0
-                    ? normalizedResult.extraction.otherSymptoms.trim()
-                    : null,
-                urgency: normalizedResult.extraction.urgency,
-              }
-            : undefined,
-      });
+      pushAssistantMessage(normalized.safeReply);
+      setMessageLimitReached(normalized.hitMessageLimit);
+      setReportGenerationLocked(normalized.reportGenerationLocked);
+      setTriageResult(normalized.result);
     } catch (error) {
       console.error("[AITriageChat] sendMessage error:", error);
       const inputLang = detectTriageLanguage(content);
