@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("./repo", () => ({
   getAllHospitals: vi.fn(),
   getDepartmentsByHospital: vi.fn(),
+  searchDoctors: vi.fn(),
+  searchDoctorsByEmbedding: vi.fn(),
 }));
 
-import { doctorDirectoryApi } from "./publicApi";
+import { doctorDirectoryApi, doctorSearchApi } from "./publicApi";
 import * as repo from "./repo";
 
 describe("doctorDirectoryApi", () => {
@@ -51,5 +53,14 @@ describe("doctorDirectoryApi", () => {
       doctorDirectoryApi.getDepartmentsByHospital(17)
     ).resolves.toEqual([{ id: 23, name: "心内科" }]);
     expect(repo.getDepartmentsByHospital).toHaveBeenCalledWith(17);
+  });
+});
+
+describe("doctorSearchApi", () => {
+  it("exposes the owned keyword and embedding searches", () => {
+    expect(doctorSearchApi.search).toBe(repo.searchDoctors);
+    expect(doctorSearchApi.searchByEmbedding).toBe(
+      repo.searchDoctorsByEmbedding
+    );
   });
 });

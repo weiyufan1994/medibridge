@@ -19,6 +19,15 @@ export const visitAutomationApi = {
   },
 };
 
+export const visitChatSessionApi = {
+  get getSession() {
+    return repo.getPatientSession;
+  },
+  get upsertSession() {
+    return repo.upsertPatientSession;
+  },
+};
+
 export const visitAdminApi = {
   get getRecentMessages() {
     return repo.getRecentMessages;

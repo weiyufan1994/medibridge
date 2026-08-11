@@ -43,6 +43,15 @@ export const doctorDirectoryApi = {
   },
 };
 
+export const doctorSearchApi = {
+  get search() {
+    return repo.searchDoctors;
+  },
+  get searchByEmbedding() {
+    return repo.searchDoctorsByEmbedding;
+  },
+};
+
 export const doctorsAdminApi = {
   get getAllHospitals() {
     return repo.getAllHospitals;
