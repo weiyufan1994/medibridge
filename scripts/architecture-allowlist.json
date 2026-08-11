@@ -66,11 +66,6 @@
       "phase": "5",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
-    "client/src/features/visit/components/MedicalSummaryModal.tsx": {
-      "maxLines": 541,
-      "phase": "5",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
     "client/src/sandbox/ComponentShowcase.tsx": {
       "maxLines": 1444,
       "phase": "5",
