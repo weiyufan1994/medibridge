@@ -6,6 +6,7 @@ import {
   getSearchableText,
 } from "@/lib/i18n";
 import type { LocalizedText } from "@shared/types";
+import type { HospitalItem } from "@/features/hospitals/hospitalBrowserTypes";
 
 type HospitalsLang = ResolvedLanguage;
 
@@ -75,4 +76,32 @@ export function matchesHospitalCityFilter(input: {
   }
 
   return cityValues.includes(normalizedFilter);
+}
+
+export function filterHospitalBrowseItems(input: {
+  hospitals?: HospitalItem[];
+  cityFilter: string;
+  searchQuery: string;
+  lang: HospitalsLang;
+}) {
+  if (!input.hospitals) return [];
+  const normalizedSearchQuery = input.searchQuery.trim().toLowerCase();
+
+  return input.hospitals.filter(hospital => {
+    if (
+      !matchesHospitalCityFilter({
+        city: hospital.city,
+        filter: input.cityFilter,
+      })
+    ) {
+      return false;
+    }
+    if (!normalizedSearchQuery) return true;
+
+    return [hospital.name, hospital.city, hospital.level].some(value =>
+      getHospitalBrowseText({ lang: input.lang, value })
+        .toLowerCase()
+        .includes(normalizedSearchQuery)
+    );
+  });
 }
