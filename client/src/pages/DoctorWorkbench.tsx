@@ -15,12 +15,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/features/auth";
-import { DoctorWorkbenchAppointmentSheet } from "@/features/doctorWorkbench";
+import {
+  DoctorWorkbenchAccessState,
+  DoctorWorkbenchAppointmentSheet,
+  formatDoctorWorkbenchDateTime,
+  getDoctorWorkbenchAppointmentTypeLabel,
+  getDoctorWorkbenchHeading,
+  getDoctorWorkbenchStatusLabel,
+  maskDoctorWorkbenchEmail,
+  normalizeDoctorWorkbenchError,
+  parseDoctorWorkbenchToken,
+} from "@/features/doctorWorkbench";
 import { getVisitCopy, MedicalSummaryModal } from "@/features/visit";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getDisplayLocale, getLocalizedText } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
-import type { LocalizedText } from "@shared/types";
 import { toast } from "sonner";
 
 type WorkbenchItem = {
@@ -36,86 +45,6 @@ type WorkbenchItem = {
   packageId: string | null;
   createdAt: Date | string;
 };
-
-function formatDateTime(value: Date | string | null, locale: string) {
-  if (!value) return "-";
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString(locale, {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function maskEmail(email: string) {
-  const [name, domain] = email.split("@");
-  if (!name || !domain) {
-    return email;
-  }
-  if (name.length <= 2) {
-    return `${name[0] ?? "*"}*@${domain}`;
-  }
-  return `${name[0]}***${name[name.length - 1]}@${domain}`;
-}
-
-function statusLabel(status: string, lang: "zh" | "en") {
-  const labels: Record<string, { zh: string; en: string }> = {
-    pending_payment: { zh: "待支付", en: "Pending Payment" },
-    paid: { zh: "待接诊", en: "Ready" },
-    active: { zh: "进行中", en: "In Progress" },
-    ended: { zh: "已结束", en: "Ended" },
-    completed: { zh: "已完成", en: "Completed" },
-    canceled: { zh: "已取消", en: "Canceled" },
-    expired: { zh: "已过期", en: "Expired" },
-  };
-  return labels[status]?.[lang] ?? status;
-}
-
-function appointmentTypeLabel(type: string, lang: "zh" | "en") {
-  const labels: Record<string, { zh: string; en: string }> = {
-    online_chat: { zh: "图文问诊", en: "Online Chat" },
-    video_call: { zh: "视频问诊", en: "Video Call" },
-    in_person: { zh: "线下面诊", en: "In Person" },
-  };
-  return labels[type]?.[lang] ?? type;
-}
-
-function parseDoctorToken(doctorLink: string) {
-  try {
-    const url = new URL(doctorLink);
-    return (
-      url.searchParams.get("t")?.trim() ||
-      url.searchParams.get("token")?.trim() ||
-      null
-    );
-  } catch {
-    return null;
-  }
-}
-
-function normalizeErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-  return fallback;
-}
-
-type DoctorWorkbenchHeadingInput = {
-  lang: "zh" | "en";
-  doctorName?: LocalizedText | null;
-  tr: (zh: string, en: string) => string;
-};
-
-export function getDoctorWorkbenchHeading(input: DoctorWorkbenchHeadingInput) {
-  return getLocalizedText({
-    lang: input.lang,
-    value: input.doctorName,
-    placeholder: input.tr("医生工作台", "Doctor Workbench"),
-  });
-}
 
 export default function DoctorWorkbenchPage() {
   const [isCompatRoute, compatParams] = useRoute("/doctor/:id/workbench");
@@ -249,7 +178,7 @@ export default function DoctorWorkbenchPage() {
   const ensureDoctorAccessToken = useCallback(
     async (appointmentId: number) => {
       const issued = await issueLinksMutation.mutateAsync({ appointmentId });
-      const token = parseDoctorToken(issued.doctorLink);
+      const token = parseDoctorWorkbenchToken(issued.doctorLink);
       if (!token) {
         throw new Error(
           tr("无法解析医生房间 token。", "Failed to parse doctor room token.")
@@ -289,7 +218,7 @@ export default function DoctorWorkbenchPage() {
         window.location.href = issued.doctorLink;
       } catch (error) {
         toast.error(
-          normalizeErrorMessage(
+          normalizeDoctorWorkbenchError(
             error,
             tr("无法打开医生房间。", "Unable to open doctor room.")
           )
@@ -312,7 +241,7 @@ export default function DoctorWorkbenchPage() {
               token: access.token,
             });
           } catch (error) {
-            const message = normalizeErrorMessage(
+            const message = normalizeDoctorWorkbenchError(
               error,
               tr("结束问诊失败。", "Failed to end consultation.")
             );
@@ -329,7 +258,7 @@ export default function DoctorWorkbenchPage() {
         await refreshWorkbenchData();
       } catch (error) {
         toast.error(
-          normalizeErrorMessage(
+          normalizeDoctorWorkbenchError(
             error,
             tr(
               "无法打开病历摘要流程。",
@@ -373,99 +302,30 @@ export default function DoctorWorkbenchPage() {
   );
 
   if (loading) {
-    return (
-      <AppLayout title={tr("医生工作台", "Doctor Workbench")}>
-        <div className="flex min-h-[50vh] w-full items-center justify-center">
-          <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
-        </div>
-      </AppLayout>
-    );
+    return <DoctorWorkbenchAccessState kind="loading" tr={tr} />;
   }
 
   if (!isAuthenticated) {
     return (
-      <AppLayout title={tr("医生工作台", "Doctor Workbench")}>
-        <div className="mx-auto flex min-h-[60vh] max-w-3xl items-center justify-center px-4">
-          <Card className="w-full max-w-xl">
-            <CardHeader>
-              <CardTitle>{tr("需要先登录", "Login Required")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-slate-600">
-              <p>
-                {tr(
-                  "医生工作台当前要求已登录后访问。",
-                  "The doctor workbench currently requires authentication."
-                )}
-              </p>
-              <Button onClick={openLoginModal}>
-                {tr("登录后继续", "Sign In to Continue")}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </AppLayout>
+      <DoctorWorkbenchAccessState
+        kind="login_required"
+        tr={tr}
+        onLogin={openLoginModal}
+      />
     );
   }
 
   if (bindingMismatch) {
-    return (
-      <AppLayout title={tr("医生工作台", "Doctor Workbench")}>
-        <div className="mx-auto flex min-h-[60vh] max-w-3xl items-center justify-center px-4">
-          <Card className="w-full max-w-xl">
-            <CardHeader>
-              <CardTitle>
-                {tr("工作台访问被拒绝", "Workbench Access Denied")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-slate-600">
-              <p>
-                {tr(
-                  "当前登录账号已绑定到其他医生档案，不能访问这个 doctorId 的工作台。",
-                  "The current account is bound to a different doctor and cannot access this workbench URL."
-                )}
-              </p>
-              <Link href="/doctor/workbench">
-                <Button>{tr("进入我的工作台", "Open My Workbench")}</Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
-      </AppLayout>
-    );
+    return <DoctorWorkbenchAccessState kind="access_denied" tr={tr} />;
   }
 
   if (!boundDoctorId) {
     return (
-      <AppLayout title={tr("医生工作台", "Doctor Workbench")}>
-        <div className="mx-auto flex min-h-[60vh] max-w-3xl items-center justify-center px-4">
-          <Card className="w-full max-w-xl">
-            <CardHeader>
-              <CardTitle>
-                {tr("尚未开通工作台", "Workbench Not Enabled")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-slate-600">
-              <p>
-                {tr(
-                  "当前邮箱还没有绑定医生工作台。请让管理员发送邀请，并使用受邀邮箱登录后完成认领。",
-                  "This account is not bound to a doctor workbench yet. Ask an admin to send an invite, then claim it with the invited email."
-                )}
-              </p>
-              <p className="text-xs text-slate-500">
-                {user?.email
-                  ? tr(
-                      `当前登录邮箱：${user.email}`,
-                      `Signed in as: ${user.email}`
-                    )
-                  : tr(
-                      "当前账号没有绑定邮箱。",
-                      "The current account does not have a bound email."
-                    )}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </AppLayout>
+      <DoctorWorkbenchAccessState
+        kind="not_enabled"
+        tr={tr}
+        userEmail={user?.email}
+      />
     );
   }
 
@@ -596,7 +456,7 @@ export default function DoctorWorkbenchPage() {
                           <div className="min-w-0 flex-1 space-y-2">
                             <div className="flex flex-wrap items-center gap-2">
                               <Badge className="border-0 bg-slate-900 text-white">
-                                {appointmentTypeLabel(
+                                {getDoctorWorkbenchAppointmentTypeLabel(
                                   item.appointmentType,
                                   lang
                                 )}
@@ -605,7 +465,10 @@ export default function DoctorWorkbenchPage() {
                                 variant="outline"
                                 className="border-slate-300 bg-white text-slate-700"
                               >
-                                {statusLabel(item.status, lang)}
+                                {getDoctorWorkbenchStatusLabel(
+                                  item.status,
+                                  lang
+                                )}
                               </Badge>
                               {item.packageId ? (
                                 <Badge
@@ -617,10 +480,13 @@ export default function DoctorWorkbenchPage() {
                               ) : null}
                             </div>
                             <p className="text-sm font-medium text-slate-900">
-                              {formatDateTime(item.scheduledAt, locale)}
+                              {formatDoctorWorkbenchDateTime(
+                                item.scheduledAt,
+                                locale
+                              )}
                             </p>
                             <p className="text-xs text-slate-500">
-                              {maskEmail(item.patientEmail)} ·{" "}
+                              {maskDoctorWorkbenchEmail(item.patientEmail)} ·{" "}
                               {item.paymentStatus}
                             </p>
                             <p className="line-clamp-2 text-sm text-slate-700">
@@ -712,7 +578,10 @@ export default function DoctorWorkbenchPage() {
                           <div className="space-y-1">
                             <p className="flex items-center gap-2 text-sm font-medium text-slate-900">
                               <Calendar className="h-4 w-4 text-teal-600" />
-                              {formatDateTime(slot.startAt, locale)}
+                              {formatDoctorWorkbenchDateTime(
+                                slot.startAt,
+                                locale
+                              )}
                             </p>
                             <p className="flex items-center gap-2 text-xs text-slate-500">
                               <Clock3 className="h-3.5 w-3.5" />
