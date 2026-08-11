@@ -1,7 +1,11 @@
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import type { Express, Request, Response } from "express";
 import { getSessionCookieOptions } from "./cookies";
+import { createLogger } from "./logger";
+import { getRequestMetadata } from "./requestMetadata";
 import { sdk } from "./sdk";
+
+const logger = createLogger("oauth");
 
 type OAuthRouteDependencies = {
   upsertUser: (user: {
@@ -61,7 +65,10 @@ export function registerOAuthRoutes(
 
       res.redirect(302, "/");
     } catch (error) {
-      console.error("[OAuth] Callback failed", error);
+      logger.error("callback.failed", {
+        requestId: getRequestMetadata(req).requestId,
+        error,
+      });
       res.status(500).json({ error: "OAuth callback failed" });
     }
   });

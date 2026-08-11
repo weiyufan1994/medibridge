@@ -2,6 +2,7 @@ import { AXIOS_TIMEOUT_MS, ONE_YEAR_MS } from "@shared/const";
 import axios, { type AxiosInstance } from "axios";
 import { SignJWT, jwtVerify } from "jose";
 import { ENV } from "./env";
+import { createLogger } from "./logger";
 import type {
   ExchangeTokenRequest,
   ExchangeTokenResponse,
@@ -20,6 +21,8 @@ export type SessionPayload = {
 };
 
 const LOCAL_SESSION_APP_ID = "medibridge-local";
+const authLogger = createLogger("auth_session");
+const oauthLogger = createLogger("oauth");
 
 const EXCHANGE_TOKEN_PATH = `/webdev.v1.WebDevAuthPublicService/ExchangeToken`;
 const GET_USER_INFO_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfo`;
@@ -27,11 +30,13 @@ const GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserI
 
 class OAuthService {
   constructor(private client: ReturnType<typeof axios.create>) {
-    console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl);
+    oauthLogger.info("client.initialized", {
+      configured: Boolean(ENV.oAuthServerUrl),
+    });
     if (!ENV.oAuthServerUrl) {
-      console.error(
-        "[OAuth] ERROR: OAUTH_SERVER_URL is not configured! Set OAUTH_SERVER_URL environment variable."
-      );
+      oauthLogger.error("configuration.missing", {
+        variable: "OAUTH_SERVER_URL",
+      });
     }
   }
 
@@ -203,7 +208,7 @@ class SDKServer {
     cookieValue: string | undefined | null
   ): Promise<{ openId: string; appId: string; name: string } | null> {
     if (!cookieValue) {
-      console.debug("[Auth] Missing session cookie");
+      authLogger.debug("cookie.missing");
       return null;
     }
 
@@ -215,7 +220,7 @@ class SDKServer {
       const { openId, appId, name } = payload as Record<string, unknown>;
 
       if (!isNonEmptyString(openId)) {
-        console.warn("[Auth] Session payload missing required fields");
+        authLogger.warn("payload.invalid");
         return null;
       }
 
@@ -230,7 +235,7 @@ class SDKServer {
         name: normalizedName,
       };
     } catch (error) {
-      console.warn("[Auth] Session verification failed", String(error));
+      authLogger.warn("verification.failed", { error });
       return null;
     }
   }

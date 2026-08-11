@@ -130,7 +130,14 @@ describe("auth.verifyOtpAndMerge", () => {
       lastSignedIn: new Date(),
     } as never);
 
+    const logOutput = vi.spyOn(console, "info").mockImplementation(() => {});
     await caller.requestOtp({ email: "merge@example.com" });
+
+    const otpLog = logOutput.mock.calls.map(call => String(call[0])).join("\n");
+    expect(otpLog).toContain("otp.generated");
+    expect(otpLog).not.toContain("merge@example.com");
+    expect(otpLog).not.toContain("123456");
+    logOutput.mockRestore();
 
     const result = await caller.verifyOtpAndMerge({
       email: "merge@example.com",

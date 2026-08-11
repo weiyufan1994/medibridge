@@ -1,7 +1,10 @@
 import { ForbiddenError } from "@shared/_core/errors";
 import type { User } from "../../../drizzle/schema";
+import { createLogger } from "../../_core/logger";
 import { sdk } from "../../_core/sdk";
 import * as repo from "./repo";
+
+const logger = createLogger("auth_session");
 
 export async function authenticateRequest(
   sessionCookie: string | undefined
@@ -27,7 +30,7 @@ export async function authenticateRequest(
       });
       user = await repo.getUserByOpenId(userInfo.openId);
     } catch (error) {
-      console.error("[Auth] Failed to sync user from OAuth:", error);
+      logger.error("oauth_user_sync.failed", { error });
       throw ForbiddenError("Failed to sync user info");
     }
   }

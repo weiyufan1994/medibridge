@@ -1,6 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import { InsertUser, users } from "../../../drizzle/schema";
+import { createLogger } from "../../_core/logger";
 import { getDb } from "../../db";
+
+const logger = createLogger("auth_repository");
 
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) {
@@ -9,7 +12,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot upsert user: database not available");
+    logger.warn("user.upsert_skipped", { reason: "database_unavailable" });
     return;
   }
 
@@ -54,7 +57,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       set: updateSet,
     });
   } catch (error) {
-    console.error("[Database] Failed to upsert user:", error);
+    logger.error("user.upsert_failed", { error });
     throw error;
   }
 }
@@ -62,7 +65,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot get user: database not available");
+    logger.warn("user.lookup_skipped", { reason: "database_unavailable" });
     return undefined;
   }
 
@@ -78,7 +81,9 @@ export async function getUserByOpenId(openId: string) {
 export async function getUserById(userId: number) {
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot get user by id: database not available");
+    logger.warn("user.lookup_by_id_skipped", {
+      reason: "database_unavailable",
+    });
     return undefined;
   }
 
@@ -94,7 +99,9 @@ export async function getUserById(userId: number) {
 export async function getGuestUserByDeviceId(deviceId: string) {
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot get guest user: database not available");
+    logger.warn("guest_user.lookup_skipped", {
+      reason: "database_unavailable",
+    });
     return undefined;
   }
 
@@ -149,7 +156,9 @@ export async function findOrCreateGuestUserByDeviceId(deviceId: string) {
 export async function getFormalUserByEmail(email: string) {
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot get formal user: database not available");
+    logger.warn("formal_user.lookup_skipped", {
+      reason: "database_unavailable",
+    });
     return undefined;
   }
 
