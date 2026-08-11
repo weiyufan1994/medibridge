@@ -131,6 +131,7 @@ export default function DoctorWorkbenchPage() {
         isLoading={controller.detailQuery.isLoading}
         errorMessage={controller.detailQuery.error?.message ?? null}
         locale={locale}
+        lang={lang}
         tr={tr}
         onStartConsultation={appointmentId => {
           void controller.startConsultation(appointmentId);

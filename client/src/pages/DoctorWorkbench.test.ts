@@ -4,11 +4,13 @@ import {
   countSignedDoctorWorkbenchAppointments,
   formatDoctorWorkbenchDateTime,
   getDoctorWorkbenchAppointmentTypeLabel,
+  getDoctorWorkbenchEndButtonText,
   getDoctorWorkbenchHeading,
   getDoctorWorkbenchStatusLabel,
   maskDoctorWorkbenchEmail,
   normalizeDoctorWorkbenchError,
   parseDoctorWorkbenchToken,
+  renderDoctorWorkbenchDetailValue,
   shouldCompleteDoctorWorkbenchBeforeSummary,
   shouldStartDoctorWorkbenchBeforeOpeningRoom,
 } from "@/features/doctorWorkbench";
@@ -128,5 +130,29 @@ describe("doctor workbench presentation", () => {
     );
     expect(formatDoctorWorkbenchDateTime(null, "en-US")).toBe("-");
     expect(formatDoctorWorkbenchDateTime("invalid", "en-US")).toBe("-");
+  });
+
+  it("preserves appointment detail fallbacks and summary action labels", () => {
+    expect(renderDoctorWorkbenchDetailValue("  value  ")).toBe("value");
+    expect(renderDoctorWorkbenchDetailValue("  ")).toBe("-");
+    expect(renderDoctorWorkbenchDetailValue(null)).toBe("-");
+    expect(
+      getDoctorWorkbenchEndButtonText(
+        { hasSignedMedicalSummary: true, canCompleteConsultation: true },
+        tr
+      )
+    ).toBe("Review Summary");
+    expect(
+      getDoctorWorkbenchEndButtonText(
+        { hasSignedMedicalSummary: false, canCompleteConsultation: true },
+        tr
+      )
+    ).toBe("End Visit & Sign Summary");
+    expect(
+      getDoctorWorkbenchEndButtonText(
+        { hasSignedMedicalSummary: false, canCompleteConsultation: false },
+        tr
+      )
+    ).toBe("Continue Summary");
   });
 });

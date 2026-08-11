@@ -1,7 +1,12 @@
 import { getLocalizedText } from "@/lib/i18n";
 import type { getVisitCopy } from "@/features/visit";
 import type { LocalizedText } from "@shared/types";
-import type { DoctorWorkbenchItem, DoctorWorkbenchLanguage } from "./types";
+import type {
+  DoctorWorkbenchAppointmentDetail,
+  DoctorWorkbenchItem,
+  DoctorWorkbenchLanguage,
+  DoctorWorkbenchTranslate,
+} from "./types";
 
 type VisitCopy = ReturnType<typeof getVisitCopy>;
 
@@ -124,6 +129,29 @@ export function normalizeDoctorWorkbenchError(
     return error.message;
   }
   return fallback;
+}
+
+export function renderDoctorWorkbenchDetailValue(
+  value: string | null | undefined
+) {
+  const normalized = value?.trim();
+  return normalized && normalized.length > 0 ? normalized : "-";
+}
+
+export function getDoctorWorkbenchEndButtonText(
+  detail: Pick<
+    DoctorWorkbenchAppointmentDetail,
+    "hasSignedMedicalSummary" | "canCompleteConsultation"
+  >,
+  tr: DoctorWorkbenchTranslate
+) {
+  if (detail.hasSignedMedicalSummary) {
+    return tr("查看或更新摘要", "Review Summary");
+  }
+  if (detail.canCompleteConsultation) {
+    return tr("结束问诊并签摘要", "End Visit & Sign Summary");
+  }
+  return tr("继续完善摘要", "Continue Summary");
 }
 
 export function getDoctorWorkbenchHeading(input: {
