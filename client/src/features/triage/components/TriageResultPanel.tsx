@@ -1,7 +1,7 @@
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getLocalizedTriageText, getTriageCopy } from "../copy";
-import type { TriageResult } from "../hooks/useTriageChat";
+import type { TriageResult } from "../hooks/triageChatTypes";
 import { getTriageResultContainerClass } from "./aiTriageMessagePresentation";
 import { LightTriageSummaryFormCard } from "./LightTriageSummaryFormCard";
 import { TriageHospitalRoutingCard } from "./TriageHospitalRoutingCard";

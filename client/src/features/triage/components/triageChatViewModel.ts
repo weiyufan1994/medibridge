@@ -1,5 +1,5 @@
 import { getLocalizedInterruptionDetail, type getTriageCopy } from "../copy";
-import type { TriageResult, ChatMessage } from "../hooks/useTriageChat";
+import type { ChatMessage, TriageResult } from "../hooks/triageChatTypes";
 import {
   buildLightTriageResultFormDefaults,
   buildLightTriageResultSummary,

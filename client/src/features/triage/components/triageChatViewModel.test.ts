@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getTriageCopy } from "../copy";
-import type { TriageResult } from "../hooks/useTriageChat";
+import type { TriageResult } from "../hooks/triageChatTypes";
 import { EMPTY_LIGHT_TRIAGE_RESULT_FORM } from "@shared/triageRouting";
 import {
   buildTriageChatViewModel,
