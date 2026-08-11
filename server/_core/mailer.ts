@@ -1,9 +1,13 @@
+import { createLogger } from "./logger";
+
 export type MailPayload = {
   to: string;
   subject: string;
   text: string;
   html: string;
 };
+
+const logger = createLogger("mailer");
 
 type ResendConfig = {
   apiKey: string;
@@ -96,12 +100,21 @@ async function sendViaSmtp(
 ): Promise<void> {
   // SMTP placeholder kept for local debugging and future expansion.
   // Production path now prefers Resend API and does not use SMTP.
-  console.warn(
-    "[Mailer] SMTP config is present but SMTP transport is not implemented."
-  );
-  console.log(
-    `[Mailer] Prepared SMTP message to ${payload.to} with subject: ${payload.subject}`
-  );
+  logger.warn("smtp.transport_unimplemented");
+  logger.info("smtp.message_prepared");
+}
+
+async function sendConfiguredMail(
+  payload: MailPayload,
+  config: ResendConfig,
+  messageType: "magic_link" | "transactional" | "doctor_invite"
+) {
+  try {
+    await sendViaResend(payload, config);
+  } catch (error) {
+    logger.error("send.failed", { provider: "resend", messageType });
+    throw error;
+  }
 }
 
 export async function sendMagicLinkEmail(
@@ -113,32 +126,30 @@ export async function sendMagicLinkEmail(
   const html = `<p>Use this secure link to view and manage your appointment:</p><p><a href=\"${link}\">${link}</a></p>`;
 
   if (process.env.NODE_ENV !== "production") {
-    console.log(`[Mailer][DEV] To: ${to}`);
-    console.log(`[Mailer][DEV] Magic link: ${link}`);
+    logger.info("magic_link.preview_suppressed");
     return;
   }
 
   const config = getResendConfig();
   if (!config) {
-    console.warn("[Mailer] Resend is not configured for production.");
+    logger.warn("configuration.missing", { provider: "resend" });
     if (getSmtpConfig()) {
-      console.warn(
-        "[Mailer] SMTP config exists, but production currently uses Resend API first."
-      );
+      logger.warn("smtp.fallback_unavailable");
     }
     throw new Error(
       "Email provider is not configured for production. Set RESEND_API_KEY."
     );
   }
 
-  await sendViaResend(
+  await sendConfiguredMail(
     {
       to,
       subject,
       text,
       html,
     },
-    config
+    config,
+    "magic_link"
   );
 }
 
@@ -146,19 +157,19 @@ export async function sendTransactionalEmail(
   payload: MailPayload
 ): Promise<void> {
   if (process.env.NODE_ENV !== "production") {
-    console.log(`[Mailer][DEV] To: ${payload.to}`);
-    console.log(`[Mailer][DEV] Subject: ${payload.subject}`);
+    logger.info("transactional.preview_suppressed");
     return;
   }
 
   const config = getResendConfig();
   if (!config) {
+    logger.warn("configuration.missing", { provider: "resend" });
     throw new Error(
       "Email provider is not configured for production. Set RESEND_API_KEY."
     );
   }
 
-  await sendViaResend(payload, config);
+  await sendConfiguredMail(payload, config, "transactional");
 }
 
 export async function sendDoctorInviteEmail(
@@ -179,31 +190,29 @@ export async function sendDoctorInviteEmail(
     `<p>This invite expires at ${expiresAt}.</p>`;
 
   if (process.env.NODE_ENV !== "production") {
-    console.log(`[Mailer][DEV] To: ${to}`);
-    console.log(`[Mailer][DEV] Doctor invite: ${claimUrl}`);
+    logger.info("doctor_invite.preview_suppressed", { expiresAt });
     return;
   }
 
   const config = getResendConfig();
   if (!config) {
-    console.warn("[Mailer] Resend is not configured for production.");
+    logger.warn("configuration.missing", { provider: "resend" });
     if (getSmtpConfig()) {
-      console.warn(
-        "[Mailer] SMTP config exists, but production currently uses Resend API first."
-      );
+      logger.warn("smtp.fallback_unavailable");
     }
     throw new Error(
       "Email provider is not configured for production. Set RESEND_API_KEY."
     );
   }
 
-  await sendViaResend(
+  await sendConfiguredMail(
     {
       to,
       subject,
       text,
       html,
     },
-    config
+    config,
+    "doctor_invite"
   );
 }
