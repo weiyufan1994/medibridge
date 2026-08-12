@@ -10,6 +10,12 @@
 
 - `docs/changelog/REFACTOR_CHANGELOG.md` — 重构与发布记录
 
+## docs/adr/
+
+- `docs/adr/0001-module-public-boundaries.md` — `routerApi` 与 `publicApi` 边界
+- `docs/adr/0002-cross-domain-workflows.md` — 跨域 application workflow 归属
+- `docs/adr/0003-dependency-security-baseline.md` — 生产依赖安全基线
+
 ## docs/implementation/
 
 - `docs/implementation/appointment_state_machine.md` — 预约与支付状态机
