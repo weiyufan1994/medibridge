@@ -3,6 +3,7 @@ import type { RequestMetadata } from "@shared/requestMetadata";
 import type { IncomingMessage } from "http";
 import type net from "net";
 import type { Duplex } from "stream";
+import { createLogger } from "../../_core/logger";
 import { appointmentVisitApi } from "../appointments/publicApi";
 import { createVisitRealtimeEventHandlers } from "./realtimeEventHandlers";
 import {
@@ -17,6 +18,8 @@ import {
   type ClientEnvelope,
   type RoomConnection,
 } from "./realtimeProtocol";
+
+const logger = createLogger("visit-realtime");
 
 export function createVisitRealtimeGateway() {
   const rooms = new Map<number, Set<RoomConnection>>();
@@ -311,10 +314,8 @@ export function createVisitRealtimeGateway() {
     connections.add(connection);
 
     if (process.env.NODE_ENV !== "test") {
-      console.info("[VisitRealtime] client connected", {
+      logger.info("client_connected", {
         connectionId: connection.id,
-        ip: getReqIp(req),
-        userAgent: getReqUserAgent(req),
       });
     }
 
