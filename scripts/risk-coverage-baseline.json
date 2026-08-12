@@ -9,12 +9,6 @@
       "cleanupBatch": "2-payments-refunds-webhooks"
     },
     {
-      "file": "server/modules/referrals/refunds.ts",
-      "currentLineCoverage": 47.17,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "2-payments-refunds-webhooks"
-    },
-    {
       "file": "server/routers/referrals.ts",
       "currentLineCoverage": 79.46,
       "targetLineCoverage": 90,
