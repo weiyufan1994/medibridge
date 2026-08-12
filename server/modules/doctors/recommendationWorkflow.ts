@@ -1,4 +1,5 @@
 import { invokeLLM } from "../../_core/llm";
+import { createLogger } from "../../_core/logger";
 import * as doctorsRepo from "./repo";
 import type { RecommendDoctorsInput } from "./schemas";
 import {
@@ -15,8 +16,10 @@ import {
   type DoctorResult,
 } from "./recommendationSupport";
 
+const logger = createLogger("doctor-recommendation");
+
 function logRecommendationTelemetry(payload: Record<string, unknown>) {
-  console.info("[Doctors] recommend telemetry", JSON.stringify(payload));
+  logger.info("completed", payload);
 }
 
 export async function recommendDoctors(input: RecommendDoctorsInput) {
@@ -98,7 +101,9 @@ export async function recommendDoctors(input: RecommendDoctorsInput) {
           .filter(keyword => keyword.length > 0)
           .slice(0, 8);
       } catch (error) {
-        console.warn("[Doctors] keyword translation failed:", error);
+        logger.warn("keyword_translation_failed", {
+          errorName: error instanceof Error ? error.name : "UnknownError",
+        });
       }
     }
 
@@ -344,8 +349,8 @@ export async function recommendDoctors(input: RecommendDoctorsInput) {
       looksEnglish,
       keywordCount: normalizedKeywords.length,
       translatedKeywordCount: translatedZhKeywords.length,
-      matchedIntents: matchedIntents.map(intent => intent.id),
-      tagHints,
+      matchedIntentCount: matchedIntents.length,
+      tagHintCount: tagHints.length,
       candidatePoolCount: candidatePool.length,
       usedUnrestrictedFallback,
       usedRankFallback,
@@ -357,7 +362,9 @@ export async function recommendDoctors(input: RecommendDoctorsInput) {
 
     return finalResults;
   } catch (error) {
-    console.error("[Doctors] recommend failed:", error);
+    logger.error("failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
     return [];
   }
 }
