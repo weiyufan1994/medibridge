@@ -1,12 +1,15 @@
 import { initTRPC } from "@trpc/server";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import express, { type Express, type RequestHandler } from "express";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { registerHttpMiddleware } from "./httpMiddleware";
 import { registerOAuthRoutes } from "./oauth";
-import { setupVite } from "./vite";
+import { serveStatic, setupVite } from "./vite";
 
 type TestServer = {
   baseUrl: string;
@@ -182,6 +185,24 @@ describe("Express HTTP compatibility", () => {
       );
     } finally {
       await closeTestServer(server);
+    }
+  });
+
+  it("preserves the production static SPA fallback", async () => {
+    const distPath = await mkdtemp(path.join(tmpdir(), "medibridge-static-"));
+    await writeFile(path.join(distPath, "index.html"), "production-spa");
+    const app = express();
+    serveStatic(app, distPath);
+    const { baseUrl, server } = await startTestServer(app);
+
+    try {
+      const response = await fetch(`${baseUrl}/patient/appointments`);
+
+      expect(response.status).toBe(200);
+      expect(await response.text()).toBe("production-spa");
+    } finally {
+      await closeTestServer(server);
+      await rm(distPath, { recursive: true });
     }
   });
 });
