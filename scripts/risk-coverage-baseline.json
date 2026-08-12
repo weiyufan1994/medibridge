@@ -3,12 +3,6 @@
   "highRiskLinesTarget": 90,
   "exceptions": [
     {
-      "file": "server/modules/admin/procedures/webhookReplay.ts",
-      "currentLineCoverage": 33.07,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "2-payments-refunds-webhooks"
-    },
-    {
       "file": "server/routers/referrals.ts",
       "currentLineCoverage": 79.46,
       "targetLineCoverage": 90,
