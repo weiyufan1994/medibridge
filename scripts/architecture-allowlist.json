@@ -5,11 +5,6 @@
       "maxLines": 2521,
       "phase": "6",
       "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
-    "scripts/translate-triage-hospital-reference.ts": {
-      "maxLines": 697,
-      "phase": "6",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
     }
   }
 }
