@@ -1,4 +1,5 @@
 import { createEmbedding, invokeLLM } from "../../_core/llm";
+import { createLogger } from "../../_core/logger";
 import { doctorSearchApi as doctors } from "../doctors/publicApi";
 import {
   detectIntentDepartments,
@@ -16,6 +17,8 @@ import {
   getEnglishGroundedDisplayFields,
   type GroundedDoctorRecommendation,
 } from "./doctorRecommendationPresentation";
+
+const logger = createLogger("chat-doctor-recommendation");
 
 export type ChatMedicalExtraction = {
   keywords: string[];
@@ -60,10 +63,9 @@ export async function buildDoctorRecommendation(input: {
       vectorResults = await doctors.searchByEmbedding(queryEmbedding, 10);
     }
   } catch (error) {
-    console.warn(
-      "[RAG] Vector search failed, falling back to keyword search:",
-      error
-    );
+    logger.warn("vector_search_failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
   }
 
   let keywordResults = await doctors.search(extraction.keywords, 10, {
