@@ -1,16 +1,12 @@
 import "../server/_core/loadEnv";
 import { Pool } from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
 import { and, asc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { departments, doctors, hospitals } from "../drizzle/schema";
-import { extractAffectedRows } from "../server/_core/dbCompat";
 import {
   HOSPITAL_CITY_TRANSLATIONS,
   HOSPITAL_LEVEL_TRANSLATIONS,
-  clampText,
   computeSourceHash,
   delay,
-  isFilled,
   missingTranslatedFields,
   normalizeSourceText,
   parseArgs,
@@ -37,13 +33,11 @@ import {
 import {
   DOCTOR_TRANSLATION_FIELDS,
   buildDoctorPartialInput,
-  doctorTranslationIsComplete,
   emptyDoctorTranslationSnapshot,
   getMissingDoctorFields,
   type DoctorBatchInput,
   type DoctorBatchTranslation,
   type DoctorSourceText,
-  type DoctorTranslatedField,
   type DoctorTranslationSnapshot,
 } from "./translate-bilingual-doctor-support";
 import {
@@ -55,303 +49,28 @@ import {
   type DepartmentBatchInput,
   type HospitalBatchInput,
 } from "./translate-bilingual-hospital-department-llm";
+import {
+  applyDepartmentTranslation as applyDepartmentTranslationPersisted,
+  applyDoctorTranslation as applyDoctorTranslationPersisted,
+  applyHospitalTranslation as applyHospitalTranslationPersisted,
+  createTranslationDb as createTranslationDbPersisted,
+  departmentTranslationIsComplete as departmentTranslationIsCompletePersisted,
+  hospitalTranslationIsComplete as hospitalTranslationIsCompletePersisted,
+  markDepartmentFailed as markDepartmentFailedPersisted,
+  markDoctorFailed as markDoctorFailedPersisted,
+  markHospitalFailed as markHospitalFailedPersisted,
+  reconcileInconsistentDoneRows as reconcileInconsistentDoneRowsPersisted,
+  type DepartmentRow,
+  type DoctorRow,
+  type HospitalRow,
+  type TranslationDb,
+} from "./translate-bilingual-persistence";
 
 const DEFAULT_TRANSLATION_PROVIDER = "forge/gemini-2.5-flash";
 let translationModelOverride: string | undefined;
 
 const getTranslationProviderName = () =>
   translationModelOverride?.trim() || DEFAULT_TRANSLATION_PROVIDER;
-
-type HospitalRow = typeof hospitals.$inferSelect;
-type DepartmentRow = typeof departments.$inferSelect;
-type DoctorRow = typeof doctors.$inferSelect;
-
-const createTranslationDb = (pool: Pool) => drizzle(pool);
-type TranslationDb = ReturnType<typeof createTranslationDb>;
-
-const reconcileInconsistentDoneRows = async (
-  pool: Pool,
-  entities: string[]
-) => {
-  const updates: Array<{ entity: string; affectedRows: number }> = [];
-
-  if (entities.includes("hospitals")) {
-    const result = await pool.query(
-      `
-      UPDATE hospitals
-      SET "translationStatus" = 'pending', "translatedAt" = NULL, "lastTranslationError" = 'Requeued: incomplete English fields'
-      WHERE "translationStatus" = 'done'
-        AND (
-          (name IS NOT NULL AND TRIM(name) <> '' AND ("nameEn" IS NULL OR TRIM("nameEn") = '' OR "nameEn" ~ '[一-龥]'))
-          OR (city IS NOT NULL AND TRIM(city) <> '' AND ("cityEn" IS NULL OR TRIM("cityEn") = '' OR "cityEn" ~ '[一-龥]'))
-          OR (level IS NOT NULL AND TRIM(level) <> '' AND ("levelEn" IS NULL OR TRIM("levelEn") = '' OR "levelEn" ~ '[一-龥]'))
-          OR (address IS NOT NULL AND TRIM(address) <> '' AND ("addressEn" IS NULL OR TRIM("addressEn") = '' OR "addressEn" ~ '[一-龥]'))
-          OR (description IS NOT NULL AND TRIM(description) <> '' AND ("descriptionEn" IS NULL OR TRIM("descriptionEn") = '' OR "descriptionEn" ~ '[一-龥]'))
-        )
-      `
-    );
-    updates.push({
-      entity: "hospitals",
-      affectedRows: extractAffectedRows(result),
-    });
-  }
-
-  if (entities.includes("departments")) {
-    const result = await pool.query(
-      `
-      UPDATE departments
-      SET "translationStatus" = 'pending', "translatedAt" = NULL, "lastTranslationError" = 'Requeued: incomplete English fields'
-      WHERE "translationStatus" = 'done'
-        AND (
-          (name IS NOT NULL AND TRIM(name) <> '' AND ("nameEn" IS NULL OR TRIM("nameEn") = '' OR "nameEn" ~ '[一-龥]'))
-          OR (description IS NOT NULL AND TRIM(description) <> '' AND ("descriptionEn" IS NULL OR TRIM("descriptionEn") = '' OR "descriptionEn" ~ '[一-龥]'))
-        )
-      `
-    );
-    updates.push({
-      entity: "departments",
-      affectedRows: extractAffectedRows(result),
-    });
-  }
-
-  if (entities.includes("doctors")) {
-    updates.push({
-      entity: "doctors",
-      affectedRows: 0,
-    });
-  }
-
-  for (const update of updates) {
-    console.log(
-      `[Precheck] ${update.entity}: requeued ${update.affectedRows} inconsistent done rows`
-    );
-  }
-};
-
-const hospitalTranslationIsComplete = (
-  row: Pick<HospitalRow, "city" | "level" | "address" | "description">,
-  translated: Pick<
-    HospitalBatchTranslation,
-    "nameEn" | "cityEn" | "levelEn" | "addressEn" | "descriptionEn"
-  >
-) =>
-  isFilled(translated.nameEn) &&
-  (!row.city || isFilled(translated.cityEn)) &&
-  (!row.level || isFilled(translated.levelEn)) &&
-  (!row.address || isFilled(translated.addressEn)) &&
-  (!row.description || isFilled(translated.descriptionEn));
-
-type HospitalBatchTranslation = {
-  id: number;
-  sourceHash: string;
-  nameEn: string | null;
-  cityEn: string | null;
-  levelEn: string | null;
-  addressEn: string | null;
-  descriptionEn: string | null;
-};
-
-const departmentTranslationIsComplete = (
-  row: Pick<DepartmentRow, "description">,
-  translated: Pick<DepartmentBatchTranslation, "nameEn" | "descriptionEn">
-) =>
-  isFilled(translated.nameEn) &&
-  (!row.description || isFilled(translated.descriptionEn));
-
-type DepartmentBatchTranslation = {
-  id: number;
-  sourceHash: string;
-  nameEn: string | null;
-  descriptionEn: string | null;
-};
-
-const markHospitalFailed = async (
-  db: TranslationDb,
-  id: number,
-  error: unknown
-) => {
-  await db
-    .update(hospitals)
-    .set({
-      translationStatus: "failed",
-      lastTranslationError: getErrorMessage(error),
-    })
-    .where(eq(hospitals.id, id));
-};
-
-const markDepartmentFailed = async (
-  db: TranslationDb,
-  id: number,
-  error: unknown
-) => {
-  await db
-    .update(departments)
-    .set({
-      translationStatus: "failed",
-      lastTranslationError: getErrorMessage(error),
-    })
-    .where(eq(departments.id, id));
-};
-
-const markDoctorFailed = async (
-  db: TranslationDb,
-  id: number,
-  error: unknown
-) => {
-  await db
-    .update(doctors)
-    .set({
-      translationStatus: "failed",
-      lastTranslationError: getErrorMessage(error),
-    })
-    .where(eq(doctors.id, id));
-};
-
-const applyHospitalTranslation = async (
-  db: TranslationDb,
-  row: HospitalRow,
-  translated: HospitalBatchTranslation,
-  stats: EntityRunStats
-) => {
-  const nameEn = pickEnglish(row.nameEn, translated.nameEn);
-  const cityEn = pickEnglish(row.cityEn, translated.cityEn);
-  const levelEn = pickEnglish(row.levelEn, translated.levelEn);
-  const addressEn = pickEnglish(row.addressEn, translated.addressEn);
-  const descriptionEn = pickEnglish(
-    row.descriptionEn,
-    translated.descriptionEn
-  );
-  const isComplete = hospitalTranslationIsComplete(row, {
-    nameEn,
-    cityEn,
-    levelEn,
-    addressEn,
-    descriptionEn,
-  });
-
-  await db
-    .update(hospitals)
-    .set({
-      nameEn,
-      cityEn,
-      levelEn,
-      addressEn,
-      descriptionEn,
-      translationStatus: isComplete ? "done" : "pending",
-      translatedAt: isComplete ? new Date() : null,
-      lastTranslationError: isComplete ? null : "Missing English fields",
-      translationProvider: getTranslationProviderName(),
-    })
-    .where(eq(hospitals.id, row.id));
-
-  if (isComplete) {
-    stats.done += 1;
-  } else {
-    stats.pending += 1;
-  }
-};
-
-const applyDepartmentTranslation = async (
-  db: TranslationDb,
-  row: DepartmentRow,
-  translated: DepartmentBatchTranslation,
-  stats: EntityRunStats
-) => {
-  const nameEn = pickEnglish(row.nameEn, translated.nameEn);
-  const descriptionEn = pickEnglish(
-    row.descriptionEn,
-    translated.descriptionEn
-  );
-  const isComplete = departmentTranslationIsComplete(row, {
-    nameEn,
-    descriptionEn,
-  });
-
-  await db
-    .update(departments)
-    .set({
-      nameEn,
-      descriptionEn,
-      translationStatus: isComplete ? "done" : "pending",
-      translatedAt: isComplete ? new Date() : null,
-      lastTranslationError: isComplete ? null : "Missing English fields",
-      translationProvider: getTranslationProviderName(),
-    })
-    .where(eq(departments.id, row.id));
-
-  if (isComplete) {
-    stats.done += 1;
-  } else {
-    stats.pending += 1;
-  }
-};
-
-const applyDoctorTranslation = async (
-  db: TranslationDb,
-  row: DoctorRow,
-  translated: DoctorBatchTranslation,
-  source: DoctorSourceText,
-  stats: EntityRunStats
-) => {
-  const nameEn = pickEnglish(row.nameEn, translated.nameEn);
-  const titleEn = pickEnglish(row.titleEn, translated.titleEn);
-  const specialtyEn = pickEnglish(row.specialtyEn, translated.specialtyEn);
-  const expertiseEn = pickEnglish(row.expertiseEn, translated.expertiseEn);
-  const onlineConsultationEn = pickEnglish(
-    row.onlineConsultationEn,
-    translated.onlineConsultationEn
-  );
-  const appointmentAvailableEn = pickEnglish(
-    row.appointmentAvailableEn,
-    translated.appointmentAvailableEn
-  );
-  const satisfactionRateEn = pickEnglish(
-    row.satisfactionRateEn,
-    translated.satisfactionRateEn
-  );
-  const attitudeScoreEn = pickEnglish(
-    row.attitudeScoreEn,
-    translated.attitudeScoreEn
-  );
-  const snapshot = {
-    nameEn,
-    titleEn,
-    specialtyEn,
-    expertiseEn,
-    onlineConsultationEn,
-    appointmentAvailableEn,
-    satisfactionRateEn,
-    attitudeScoreEn,
-  };
-  const isComplete = doctorTranslationIsComplete(source, snapshot);
-  const missingFields = getMissingDoctorFields(source, snapshot);
-
-  await db
-    .update(doctors)
-    .set({
-      nameEn: clampText(nameEn, 100),
-      titleEn: clampText(titleEn, 100),
-      specialtyEn,
-      expertiseEn,
-      onlineConsultationEn: clampText(onlineConsultationEn, 50),
-      appointmentAvailableEn,
-      satisfactionRateEn,
-      attitudeScoreEn,
-      translationStatus: isComplete ? "done" : "pending",
-      translatedAt: isComplete ? new Date() : null,
-      lastTranslationError: isComplete
-        ? null
-        : `Missing English fields: ${missingFields.join(", ")}`,
-      translationProvider: getTranslationProviderName(),
-    })
-    .where(eq(doctors.id, row.id));
-
-  if (isComplete) {
-    stats.done += 1;
-  } else {
-    stats.pending += 1;
-  }
-};
 
 const completeHospitalTranslation = async (
   row: HospitalRow,
@@ -367,7 +86,7 @@ const completeHospitalTranslation = async (
     descriptionEn: pickEnglish(row.descriptionEn, translated.descriptionEn),
   };
 
-  if (hospitalTranslationIsComplete(row, current)) {
+  if (hospitalTranslationIsCompletePersisted(row, current)) {
     return current;
   }
 
@@ -436,7 +155,7 @@ const completeDepartmentTranslation = async (
     current.nameEn = pickEnglish(current.nameEn, translatedName);
   }
 
-  if (departmentTranslationIsComplete(row, current)) {
+  if (departmentTranslationIsCompletePersisted(row, current)) {
     return current;
   }
 
@@ -650,7 +369,13 @@ const translateHospitals = async (
 
         const cached = config.cacheEnabled ? cache.get(sourceHash) : undefined;
         if (cached) {
-          await applyHospitalTranslation(db, row, cached, stats);
+          await applyHospitalTranslationPersisted(
+            db,
+            row,
+            cached,
+            stats,
+            getTranslationProviderName()
+          );
           stats.batchedApplied += 1;
           stats.cacheHits += 1;
           continue;
@@ -729,15 +454,16 @@ const translateHospitals = async (
                   descriptionEn: sanitizeTranslatedText(fallback.descriptionEn),
                 };
                 cache.set(sourceHash, fallbackTranslated);
-                await applyHospitalTranslation(
+                await applyHospitalTranslationPersisted(
                   db,
                   row,
                   fallbackTranslated,
-                  stats
+                  stats,
+                  getTranslationProviderName()
                 );
               } catch (fallbackError) {
                 recordFailure(stats, fallbackError);
-                await markHospitalFailed(db, row.id, fallbackError);
+                await markHospitalFailedPersisted(db, row.id, fallbackError);
               }
               await delay(config.rateLimitMs);
             }
@@ -777,7 +503,13 @@ const translateHospitals = async (
 
           cache.set(sourceHash, finalTranslated);
           for (const row of group) {
-            await applyHospitalTranslation(db, row, finalTranslated, stats);
+            await applyHospitalTranslationPersisted(
+              db,
+              row,
+              finalTranslated,
+              stats,
+              getTranslationProviderName()
+            );
             stats.batchedApplied += 1;
           }
         }
@@ -818,15 +550,16 @@ const translateHospitals = async (
                 descriptionEn: sanitizeTranslatedText(fallback.descriptionEn),
               };
               cache.set(sourceHash, fallbackTranslated);
-              await applyHospitalTranslation(
+              await applyHospitalTranslationPersisted(
                 db,
                 row,
                 fallbackTranslated,
-                stats
+                stats,
+                getTranslationProviderName()
               );
             } catch (fallbackError) {
               recordFailure(stats, fallbackError);
-              await markHospitalFailed(db, row.id, fallbackError);
+              await markHospitalFailedPersisted(db, row.id, fallbackError);
             }
             await delay(config.rateLimitMs);
           }
@@ -910,7 +643,13 @@ const translateDepartments = async (
 
         const cached = config.cacheEnabled ? cache.get(sourceHash) : undefined;
         if (cached) {
-          await applyDepartmentTranslation(db, row, cached, stats);
+          await applyDepartmentTranslationPersisted(
+            db,
+            row,
+            cached,
+            stats,
+            getTranslationProviderName()
+          );
           stats.batchedApplied += 1;
           stats.cacheHits += 1;
           continue;
@@ -980,15 +719,16 @@ const translateDepartments = async (
                   descriptionEn: sanitizeTranslatedText(fallback.descriptionEn),
                 };
                 cache.set(sourceHash, fallbackTranslated);
-                await applyDepartmentTranslation(
+                await applyDepartmentTranslationPersisted(
                   db,
                   row,
                   fallbackTranslated,
-                  stats
+                  stats,
+                  getTranslationProviderName()
                 );
               } catch (fallbackError) {
                 recordFailure(stats, fallbackError);
-                await markDepartmentFailed(db, row.id, fallbackError);
+                await markDepartmentFailedPersisted(db, row.id, fallbackError);
               }
               await delay(config.rateLimitMs);
             }
@@ -1019,7 +759,13 @@ const translateDepartments = async (
 
           cache.set(sourceHash, finalTranslated);
           for (const row of group) {
-            await applyDepartmentTranslation(db, row, finalTranslated, stats);
+            await applyDepartmentTranslationPersisted(
+              db,
+              row,
+              finalTranslated,
+              stats,
+              getTranslationProviderName()
+            );
             stats.batchedApplied += 1;
           }
         }
@@ -1054,15 +800,16 @@ const translateDepartments = async (
                 descriptionEn: sanitizeTranslatedText(fallback.descriptionEn),
               };
               cache.set(sourceHash, fallbackTranslated);
-              await applyDepartmentTranslation(
+              await applyDepartmentTranslationPersisted(
                 db,
                 row,
                 fallbackTranslated,
-                stats
+                stats,
+                getTranslationProviderName()
               );
             } catch (fallbackError) {
               recordFailure(stats, fallbackError);
-              await markDepartmentFailed(db, row.id, fallbackError);
+              await markDepartmentFailedPersisted(db, row.id, fallbackError);
             }
             await delay(config.rateLimitMs);
           }
@@ -1160,7 +907,7 @@ const translateDoctors = async (
 
         const cached = config.cacheEnabled ? cache.get(sourceHash) : undefined;
         if (cached) {
-          await applyDoctorTranslation(
+          await applyDoctorTranslationPersisted(
             db,
             row,
             cached,
@@ -1174,7 +921,8 @@ const translateDoctors = async (
               sourceSatisfactionRate,
               sourceAttitudeScore,
             },
-            stats
+            stats,
+            getTranslationProviderName()
           );
           stats.batchedApplied += 1;
           stats.cacheHits += 1;
@@ -1269,19 +1017,20 @@ const translateDoctors = async (
                   ...fallback,
                 };
                 cache.set(sourceHash, fallbackTranslated);
-                await applyDoctorTranslation(
+                await applyDoctorTranslationPersisted(
                   db,
                   row,
                   fallbackTranslated,
                   source,
-                  stats
+                  stats,
+                  getTranslationProviderName()
                 );
               } catch (fallbackError) {
                 const enrichedError = new Error(
                   `[doctors:missing-batch-row] ${getErrorMessage(fallbackError)}`
                 );
                 recordFailure(stats, enrichedError);
-                await markDoctorFailed(db, row.id, enrichedError);
+                await markDoctorFailedPersisted(db, row.id, enrichedError);
               }
               await delay(config.rateLimitMs);
             }
@@ -1339,12 +1088,13 @@ const translateDoctors = async (
 
           cache.set(sourceHash, finalTranslated);
           for (const row of group) {
-            await applyDoctorTranslation(
+            await applyDoctorTranslationPersisted(
               db,
               row,
               finalTranslated,
               source,
-              stats
+              stats,
+              getTranslationProviderName()
             );
             stats.batchedApplied += 1;
           }
@@ -1388,19 +1138,20 @@ const translateDoctors = async (
                 ...fallback,
               };
               cache.set(sourceHash, fallbackTranslated);
-              await applyDoctorTranslation(
+              await applyDoctorTranslationPersisted(
                 db,
                 row,
                 fallbackTranslated,
                 source,
-                stats
+                stats,
+                getTranslationProviderName()
               );
             } catch (fallbackError) {
               const enrichedError = new Error(
                 `[doctors:batch-fallback] ${getErrorMessage(fallbackError)}`
               );
               recordFailure(stats, enrichedError);
-              await markDoctorFailed(db, row.id, enrichedError);
+              await markDoctorFailedPersisted(db, row.id, enrichedError);
             }
             await delay(config.rateLimitMs);
           }
@@ -1420,7 +1171,7 @@ const run = async () => {
     connectionString: process.env.DATABASE_URL ?? "",
   });
   await pool.query("SET TIME ZONE 'UTC'");
-  const db = createTranslationDb(pool);
+  const db = createTranslationDbPersisted(pool);
   const runStats: EntityRunStats[] = [];
 
   try {
@@ -1429,7 +1180,7 @@ const run = async () => {
         `[Config] Translation model override: ${translationModelOverride}`
       );
     }
-    await reconcileInconsistentDoneRows(pool, config.entities);
+    await reconcileInconsistentDoneRowsPersisted(pool, config.entities);
 
     if (config.entities.includes("hospitals")) {
       runStats.push(await translateHospitals(db, config));
