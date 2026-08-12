@@ -3,12 +3,6 @@
   "highRiskLinesTarget": 90,
   "exceptions": [
     {
-      "file": "server/_core/appointmentToken.ts",
-      "currentLineCoverage": 88.24,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "3-appointment-state-token-visit"
-    },
-    {
       "file": "server/modules/admin/procedures/appointmentActions.ts",
       "currentLineCoverage": 79.84,
       "targetLineCoverage": 90,
@@ -45,20 +39,8 @@
       "cleanupBatch": "3-appointment-state-token-visit"
     },
     {
-      "file": "server/modules/appointments/chatPolicy.ts",
-      "currentLineCoverage": 86.96,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "3-appointment-state-token-visit"
-    },
-    {
       "file": "server/modules/appointments/lifecycleRepo.ts",
       "currentLineCoverage": 58.74,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "3-appointment-state-token-visit"
-    },
-    {
-      "file": "server/modules/appointments/stateMachine.ts",
-      "currentLineCoverage": 71.54,
       "targetLineCoverage": 90,
       "cleanupBatch": "3-appointment-state-token-visit"
     },

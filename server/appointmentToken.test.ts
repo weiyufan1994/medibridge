@@ -16,4 +16,14 @@ describe("appointment token utils", () => {
     expect(verifyToken(token, tokenHash)).toBe(true);
     expect(verifyToken(`${token}_wrong`, tokenHash)).toBe(false);
   });
+
+  it("rejects a malformed hash without attempting a timing comparison", () => {
+    expect(verifyToken("appointment-token", "too-short")).toBe(false);
+  });
+
+  it("hashes the exact UTF-8 token value", () => {
+    expect(hashToken("预约-token")).toBe(
+      "1d989bd26b43acb13a3bc8be34594605ed00b78797ecf17b5dff04e3a1d9e552"
+    );
+  });
 });
