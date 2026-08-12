@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./repo", () => ({
   insertStatusEvent: vi.fn(),
@@ -15,6 +15,11 @@ import {
 describe("appointment visit integration actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   it.each([
@@ -75,5 +80,27 @@ describe("appointment visit integration actions", () => {
       markAppointmentInSessionAfterFirstMessage(9001)
     ).resolves.toBeUndefined();
     expect(appointmentsRepo.insertStatusEvent).not.toHaveBeenCalled();
+  });
+
+  it("logs a safe structured event when production status synchronization fails", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.mocked(
+      appointmentsRepo.markAppointmentInSessionIfNeeded
+    ).mockRejectedValue(new Error("private database connection detail"));
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await expect(
+      markAppointmentInSessionAfterFirstMessage(9001)
+    ).resolves.toBeUndefined();
+
+    expect(consoleWarn).toHaveBeenCalledOnce();
+    const logged = String(consoleWarn.mock.calls[0]?.[0]);
+    expect(JSON.parse(logged)).toMatchObject({
+      component: "appointment-visit-integration",
+      event: "status_sync_failed",
+      appointmentId: 9001,
+      errorName: "Error",
+    });
+    expect(logged).not.toContain("private database connection detail");
   });
 });

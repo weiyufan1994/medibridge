@@ -1,4 +1,7 @@
+import { createLogger } from "../../_core/logger";
 import * as appointmentsRepo from "./repo";
+
+const logger = createLogger("appointment-visit-integration");
 
 export async function touchAppointmentVisitAccess(input: {
   appointmentId: number;
@@ -32,7 +35,10 @@ export async function markAppointmentInSessionAfterFirstMessage(
     });
   } catch (error) {
     if (process.env.NODE_ENV !== "test") {
-      console.warn("[Visit] failed to mark in_session:", error);
+      logger.warn("status_sync_failed", {
+        appointmentId,
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
     }
   }
 }
