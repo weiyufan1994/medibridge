@@ -1,5 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { ENV } from "./env";
+import { createLogger } from "./logger";
+
+const logger = createLogger("notification");
 
 export type NotificationPayload = {
   title: string;
@@ -95,18 +98,15 @@ export async function notifyOwner(
     });
 
     if (!response.ok) {
-      const detail = await response.text().catch(() => "");
-      console.warn(
-        `[Notification] Failed to notify owner (${response.status} ${response.statusText})${
-          detail ? `: ${detail}` : ""
-        }`
-      );
+      logger.warn("upstream_rejected", { status: response.status });
       return false;
     }
 
     return true;
   } catch (error) {
-    console.warn("[Notification] Error calling notification service:", error);
+    logger.warn("upstream_request_failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
     return false;
   }
 }
