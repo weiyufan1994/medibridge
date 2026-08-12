@@ -2,8 +2,9 @@
 
 ## 根目录
 
-- `README.md` — 项目总览（当前文档）
-- `CLAUDE.md` — 会话偏好与上下文规则（如存在）
+- `README.md` — 项目总览、启动方式与关键业务约束
+- `.context/architecture.md` — 唯一架构与依赖契约
+- `AGENTS.md` — 仓库维护与验证规则
 
 ## docs/changelog/
 
@@ -11,24 +12,23 @@
 
 ## docs/implementation/
 
-- `docs/implementation/Project_Folders_Structure_Blueprint.md` — 文件结构与组织约定
 - `docs/implementation/appointment_state_machine.md` — 预约与支付状态机
 - `docs/implementation/appointment-link-auth.md` — 预约入口鉴权流程
+- `docs/implementation/doctor-account-binding.md` — 医生账号绑定
+- `docs/implementation/referral-service-v2.md` — 转诊服务实现约束
 - `docs/implementation/visit-chat-mvp.md` — Visit chat 功能说明
 - `docs/implementation/router-boundary-pattern.md` — 路由边界层约定
 - `docs/implementation/bilingual-design.md` — 双语内容策略与字段规范
-- `docs/implementation/data-hospitals.md` — 医生/医院数据说明
 
 ## docs/ops/
 
 - `docs/ops/daily_scrape.md` — 每日医生信息抓取任务说明
-- `docs/ops/daily_scrape_prompt.md` — 抓取任务提示词模板
+- `docs/ops/production_deploy.md` — 生产部署 runbook
 - `docs/ops/resend_rate_limit.md` — Resend 限流规则
 
 ## docs/plans/
 
 - `docs/plans/PROJECT_MAP.md` — 系统结构速览
-- `docs/plans/todo.md` — 当前开发任务清单
 - `docs/plans/2026-Q2-commercialization-roadmap.md` — Q2 商业化执行计划
 - `docs/plans/doctor-scheduling-and-safety-design.md` — 医生排班与 AI 急症熔断设计草案
 - `docs/plans/2026-03-postgres-migration-audit.md` — MySQL 到 PostgreSQL 迁移审计历史记录（前置判断）
@@ -49,4 +49,5 @@
 ## 规则
 
 - 新文档优先放入 `docs/implementation`、`docs/ops`、`docs/plans`、`docs/changelog`。
+- 架构规则只在 `.context/architecture.md` 定义；其他文档应链接而不是复制一套规则。
 - 超过 400 行或超过 90 天未更新的内容优先归档。

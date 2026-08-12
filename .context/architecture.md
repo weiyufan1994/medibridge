@@ -68,8 +68,8 @@ components, hooks, copy, presentation helpers, and adapters are not public API.
 
 1. A leaf file in `server/routers/*` may import only `server/_core/trpc`, its
    owned module `routerApi.ts`, application workflows, and external packages.
-   `consultation` owns the `ai` router API; the future `system` router owns the
-   `admin` router API.
+   `consultation` owns the `ai` router API; `system` owns the `admin` router
+   API while preserving the public `trpc.system.*` contract.
 2. `server/routers/index.ts` is router composition only and may import other
    routers plus `server/_core/trpc`.
 3. Code inside a module may use its own internals. Cross-module imports must
