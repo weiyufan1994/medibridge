@@ -17,7 +17,7 @@
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
     "server/appointments.test.ts": {
-      "maxLines": 1276,
+      "maxLines": 949,
       "phase": "4",
       "reason": "Existing oversized file; edits may not increase this ceiling"
     },
