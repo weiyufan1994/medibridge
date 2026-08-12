@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../_core/llm", () => ({
   invokeLLM: vi.fn(),
@@ -10,6 +10,10 @@ import { localizeTriageContent } from "./accessQueryActions";
 describe("access query triage localization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("skips llm when summary and intake already match target language", async () => {
@@ -121,5 +125,34 @@ describe("access query triage localization", () => {
         medicalHistory: "",
       },
     });
+  });
+
+  it("logs localization failures without exposing medical content", async () => {
+    vi.mocked(invokeLLM).mockRejectedValue(
+      new Error("private diagnosis and medication detail")
+    );
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const localized = await localizeTriageContent({
+      summary: "患者的专用本地化失败测试摘要",
+      intake: { chiefComplaint: "专用测试症状" },
+      targetLang: "en",
+    });
+
+    expect(localized).toEqual({
+      summary: "患者的专用本地化失败测试摘要",
+      intake: { chiefComplaint: "专用测试症状" },
+    });
+    expect(consoleWarn).toHaveBeenCalledOnce();
+    const logged = String(consoleWarn.mock.calls[0]?.[0]);
+    expect(JSON.parse(logged)).toMatchObject({
+      component: "appointment-access-query",
+      event: "triage_localization_failed",
+      targetLang: "en",
+      errorName: "Error",
+    });
+    expect(logged).not.toContain("private diagnosis and medication detail");
+    expect(logged).not.toContain("患者");
+    expect(logged).not.toContain("症状");
   });
 });
