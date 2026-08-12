@@ -1,3 +1,4 @@
+import { createLogger } from "../../_core/logger";
 import {
   parseStoredHistoricalTriageResult,
   rebuildHistoricalTriageResultFromSummary,
@@ -5,6 +6,7 @@ import {
 } from "./historyResult";
 import * as repo from "./repo";
 
+const logger = createLogger("ai-consultation-history");
 const CONSULTATION_HISTORY_LIMIT = 50;
 
 function normalizeSessionTitleCandidate(value: string | null | undefined) {
@@ -55,10 +57,10 @@ export async function getConsultationHistory(userId: number | null) {
       sessions.map(session => session.id)
     );
   } catch (error) {
-    console.error(
-      "[consultation.getHistory] failed to resolve first user messages",
-      error
-    );
+    logger.error("title_lookup_failed", {
+      sessionCount: sessions.length,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
   }
 
   return sessions.map(session => ({
