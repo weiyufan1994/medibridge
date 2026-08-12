@@ -1,5 +1,8 @@
 import { invokeLLM } from "../../_core/llm";
+import { createLogger } from "../../_core/logger";
 import { doctorSearchApi as doctors } from "../doctors/publicApi";
+
+const logger = createLogger("chat-doctor-recommendation-presentation");
 
 export type GroundedDoctorRecommendation = {
   doctorId: number;
@@ -101,10 +104,11 @@ Requirements:
       return text;
     }
   } catch (error) {
-    console.warn(
-      "[Chat] Failed to generate natural grounded response, falling back:",
-      error
-    );
+    logger.warn("grounded_response_failed", {
+      language: isEnglish ? "en" : "zh",
+      recommendationCount: recommendations.length,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
   }
 
   return buildGroundedRecommendationMessageTemplate(isEnglish, recommendations);
