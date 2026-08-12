@@ -4,6 +4,9 @@
 import fs from "fs/promises";
 import path from "path";
 import { ENV } from "./_core/env";
+import { createLogger } from "./_core/logger";
+
+const logger = createLogger("storage");
 
 type ForgeStorageConfig = { mode: "forge"; baseUrl: string; apiKey: string };
 type LocalStorageConfig = { mode: "local"; localDir: string };
@@ -42,16 +45,14 @@ function getStorageConfig(): StorageConfig {
 
   if (hasPlaceholderValue && !didWarnForgePlaceholder) {
     didWarnForgePlaceholder = true;
-    console.warn(
-      "[storage] Forge env contains placeholder values; using local disk storage fallback."
-    );
+    logger.warn("placeholder_config_detected", { fallback: "local" });
   }
 
   if (!didWarnLocalStorageFallback) {
     didWarnLocalStorageFallback = true;
-    console.warn(
-      "[storage] Forge credentials not configured; using local disk storage fallback."
-    );
+    logger.warn("local_fallback_enabled", {
+      reason: hasPlaceholderValue ? "placeholder_config" : "missing_config",
+    });
   }
 
   return { mode: "local", localDir: getLocalUploadDir() };

@@ -1,5 +1,8 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { createLogger } from "./_core/logger";
+
+const logger = createLogger("database");
 
 let _db: ReturnType<typeof drizzle> | null = null;
 let _pool: Pool | null = null;
@@ -14,7 +17,9 @@ export async function getDb() {
       });
       _db = drizzle(_pool);
     } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
+      logger.warn("connection_failed", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
       _db = null;
       _pool = null;
     }
