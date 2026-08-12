@@ -16,6 +16,11 @@ import { startReferralFulfillmentWorker } from "../modules/referrals/fulfillment
 import { startReferralNotificationWorker } from "../modules/referrals/notificationWorker";
 import { authOAuthApi, authSessionApi } from "../modules/auth/publicApi";
 import { requestIdMiddleware } from "./requestId";
+import {
+  logPortFallback,
+  logServerStarted,
+  logServerStartFailed,
+} from "./runtimeLogging";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -88,11 +93,11 @@ async function startServer() {
   const port = await findAvailablePort(preferredPort);
 
   if (port !== preferredPort) {
-    console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
+    logPortFallback(preferredPort, port);
   }
 
   server.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}/`);
+    logServerStarted(port);
   });
 
   process.on("SIGTERM", () => {
@@ -104,4 +109,4 @@ async function startServer() {
   });
 }
 
-startServer().catch(console.error);
+startServer().catch(logServerStartFailed);
