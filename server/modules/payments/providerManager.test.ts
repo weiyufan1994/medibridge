@@ -7,6 +7,7 @@ vi.mock("./providers/stripeAdapter", () => ({
     verifyWebhook: vi.fn(),
     extractSessionId: vi.fn(),
     captureOrFinalize: vi.fn(),
+    refund: vi.fn(),
     provider: "stripe",
   },
 }));
@@ -19,7 +20,9 @@ vi.mock("./providers/paypalAdapter", () => ({
     parseWebhookEvent: vi.fn(),
     verifyWebhook: vi.fn(),
     extractSession: vi.fn(),
+    extractSessionId: vi.fn(),
     captureOrFinalize: vi.fn(),
+    refund: vi.fn(),
   },
   createPaypalCheckoutSession: vi.fn(),
   parsePaypalWebhookEvent: vi.fn(),
@@ -32,9 +35,11 @@ vi.mock("./providers/paypalAdapter", () => ({
 import {
   createPaymentCheckoutSession,
   refundPayment,
+  resolvePaymentAdapter,
   resolvePaymentProvider,
 } from "./providerManager";
 import { paypalAdapter } from "./providers/paypalAdapter";
+import { stripeAdapter } from "./providers/stripeAdapter";
 
 describe("providerManager", () => {
   beforeEach(() => {
@@ -74,6 +79,81 @@ describe("providerManager", () => {
     expect(() => resolvePaymentProvider()).toThrow(
       "Unsupported PAYMENT_PROVIDER"
     );
+  });
+
+  it("normalizes provider configuration and defaults adapter resolution", () => {
+    process.env.PAYMENT_PROVIDER = " PAYPAL ";
+    expect(resolvePaymentProvider()).toBe("paypal");
+    expect(resolvePaymentAdapter()).toMatchObject({ provider: "paypal" });
+    expect(resolvePaymentAdapter("mock")).toMatchObject({ provider: "mock" });
+  });
+
+  it("routes Stripe checkout, webhook, capture, and refund operations", async () => {
+    vi.mocked(stripeAdapter.createSession).mockResolvedValue({
+      provider: "stripe",
+      id: "cs_123",
+      url: "https://checkout.stripe.test/cs_123",
+    });
+    vi.mocked(stripeAdapter.extractSessionId).mockReturnValue("cs_123");
+    vi.mocked(stripeAdapter.captureOrFinalize).mockResolvedValue({
+      provider: "stripe",
+      providerSessionId: "cs_123",
+      paymentStatus: "paid",
+    });
+    vi.mocked(stripeAdapter.refund).mockResolvedValue({
+      provider: "stripe",
+      providerRefundId: "re_123",
+      status: "succeeded",
+    });
+    const adapter = resolvePaymentAdapter("stripe");
+    await createPaymentCheckoutSession({
+      appointmentId: 1,
+      amount: 4900,
+      currency: "usd",
+      successUrl: "https://app.test/success",
+      cancelUrl: "https://app.test/cancel",
+    });
+    adapter.verifyWebhook({
+      rawBody: Buffer.from("{}"),
+      headers: { "stripe-signature": "sig" },
+      webhookSecret: "secret",
+    });
+    expect(adapter.extractSessionIdFromWebhookEvent({ id: "evt" })).toBe(
+      "cs_123"
+    );
+    expect(adapter.getEventType({ type: "checkout.session.completed" })).toBe(
+      "checkout.session.completed"
+    );
+    expect(adapter.getEventType(null)).toBe("");
+    await expect(
+      adapter.captureOrFinalize({ providerSessionId: "cs_123" })
+    ).resolves.toMatchObject({ paymentStatus: "paid" });
+    await expect(
+      refundPayment({
+        provider: "stripe",
+        providerSessionId: "cs_123",
+        amount: 4900,
+        currency: "usd",
+        idempotencyKey: "appointment-1-refund",
+      })
+    ).resolves.toMatchObject({ providerRefundId: "re_123" });
+  });
+
+  it("adapts PayPal webhook event operations", () => {
+    vi.mocked(paypalAdapter.extractSessionId).mockReturnValue("order_123");
+    const adapter = resolvePaymentAdapter("paypal");
+    adapter.verifyWebhook({
+      rawBody: Buffer.from("{}"),
+      headers: { "paypal-transmission-id": "transmission" },
+      webhookSecret: "ignored",
+    });
+    expect(adapter.extractSessionIdFromWebhookEvent({ id: "evt" })).toBe(
+      "order_123"
+    );
+    expect(
+      adapter.getEventType({ event_type: "PAYMENT.CAPTURE.COMPLETED" })
+    ).toBe("PAYMENT.CAPTURE.COMPLETED");
+    expect(adapter.getEventType({})).toBe("");
   });
 
   it("routes explicit mock checkouts and refunds through the mock adapter", async () => {

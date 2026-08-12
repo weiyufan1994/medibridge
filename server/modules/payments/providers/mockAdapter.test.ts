@@ -58,4 +58,44 @@ describe("mock payment adapter", () => {
       })
     ).rejects.toThrow("Invalid mock payment session id");
   });
+
+  it("requires a resource and checkout URL", async () => {
+    expect(() =>
+      mockAdapter.createSession({
+        amount: 100,
+        currency: "usd",
+        successUrl: "https://app.test/success",
+        cancelUrl: "https://app.test/cancel",
+      })
+    ).toThrow("Mock payment resource is required");
+    expect(() =>
+      mockAdapter.createSession({
+        resource: { type: "appointment", id: 1 },
+        amount: 100,
+        currency: "usd",
+        successUrl: "https://app.test/success",
+        cancelUrl: "https://app.test/cancel",
+      })
+    ).toThrow("Mock checkout URL is required");
+  });
+
+  it("requires refund idempotency and rejects all webhook operations", async () => {
+    const providerSessionId = `mock_appointment_session_${"c".repeat(32)}`;
+    await expect(
+      mockAdapter.refund({
+        providerSessionId,
+        idempotencyKey: " ",
+        amount: 100,
+        currency: "usd",
+      })
+    ).rejects.toThrow("Mock refund idempotency key is required");
+    expect(() => mockAdapter.parseWebhookEvent(Buffer.from("{}"))).toThrow(
+      "Mock payments do not support webhooks"
+    );
+    expect(() =>
+      mockAdapter.verifyWebhook({ rawBody: Buffer.from("{}"), headers: {} })
+    ).toThrow("Mock payments do not support webhooks");
+    expect(mockAdapter.extractSessionIdFromWebhookEvent({})).toBeNull();
+    expect(mockAdapter.getEventType({})).toBe("");
+  });
 });
