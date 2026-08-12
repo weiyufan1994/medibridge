@@ -1,4 +1,7 @@
 import { invokeLLM } from "../../_core/llm";
+import { createLogger } from "../../_core/logger";
+
+const logger = createLogger("visit-translation");
 
 export type MessageTranslationInput = {
   content: string;
@@ -147,10 +150,11 @@ export async function translateVisitMessage(
     };
   } catch (error) {
     if (process.env.NODE_ENV !== "test") {
-      console.warn(
-        "[visit] message translation failed, fallback to original",
-        error
-      );
+      logger.warn("message_translation_failed", {
+        sourceLanguage,
+        targetLanguage,
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
     }
     return {
       originalContent,
