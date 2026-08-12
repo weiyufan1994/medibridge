@@ -89,6 +89,7 @@ function createHttpReq() {
       upgrade: "websocket",
       connection: "upgrade",
       "sec-websocket-version": "13",
+      "user-agent": "private-test-user-agent",
     },
     url: "/api/visit-room/ws",
     socket: { remoteAddress: "127.0.0.1" },
@@ -139,11 +140,35 @@ describe("visit realtime gateway", () => {
 
   afterEach(() => {
     vi.clearAllTimers();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   function flushAsync() {
     return new Promise<void>(resolve => setTimeout(resolve, 0));
   }
+
+  it("logs a connection without exposing network metadata", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const consoleInfo = vi.spyOn(console, "info").mockImplementation(() => {});
+    const gateway = createVisitRealtimeGateway();
+    const socket = new FakeSocket();
+
+    expect(
+      gateway.handleUpgrade(createHttpReq(), socket as never, Buffer.alloc(0))
+    ).toBe(true);
+
+    expect(consoleInfo).toHaveBeenCalledOnce();
+    const logged = String(consoleInfo.mock.calls[0]?.[0]);
+    expect(JSON.parse(logged)).toMatchObject({
+      component: "visit-realtime",
+      event: "client_connected",
+    });
+    expect(logged).not.toContain("127.0.0.1");
+    expect(logged).not.toContain("private-test-user-agent");
+
+    gateway.shutdown();
+  });
 
   it("broadcasts translated message.new after message.send", async () => {
     const gateway = createVisitRealtimeGateway();
