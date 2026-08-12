@@ -87,11 +87,9 @@ Repository secrets currently required:
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 
-Current fixed deployment targets:
-
-- region: `ap-southeast-1`
-- artifact bucket: `medibridge-deploy-artifacts-525164180577-ap-southeast-1`
-- EC2 instance: `i-0c9bfbb5287d85ccf`
+Production region, artifact bucket, and instance targets are owned by the
+protected deployment configuration. Runbooks and uploaded artifacts must refer
+to them by role and must not copy their account-specific identifiers.
 
 ## Do we need AWS CLI on the server?
 

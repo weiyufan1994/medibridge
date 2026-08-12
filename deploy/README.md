@@ -20,11 +20,9 @@ Required GitHub repository secrets:
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 
-Current deployment targets baked into the workflow:
-
-- AWS region: `ap-southeast-1`
-- S3 artifact bucket: `medibridge-deploy-artifacts-525164180577-ap-southeast-1`
-- EC2 instance id: `i-0c9bfbb5287d85ccf`
+Deployment targets are configured in the protected production workflow. Do not
+copy account-specific bucket names, instance IDs, parameter names, or command
+IDs into documentation or operational artifacts.
 
 The workflow packages a release archive, uploads it to S3, and asks SSM to:
 

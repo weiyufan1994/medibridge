@@ -17,19 +17,19 @@
 当前线上基础设施：
 
 - Region: `ap-southeast-1`
-- VPC: `vpc-01f086bc92995e9a3`
+- VPC: `<VPC_ID>`
 - 应用 EC2:
-  - instance id: `i-0c9bfbb5287d85ccf`
-  - name tag: `medibridge-new`
-  - subnet: `subnet-0ab3d239c91bcd0b2`
-  - security group: `sg-01c456f5d6c8d3580` (`medibridge-new-sg`)
+  - instance id: `<APP_INSTANCE_ID>`
+  - name tag: `<APP_INSTANCE_TAG>`
+  - subnet: `<APP_SUBNET_ID>`
+  - security group: `<APP_SECURITY_GROUP_ID>`
 - 当前生产 RDS:
-  - identifier: `medibridge-prod-db`
+  - identifier: `<CURRENT_DATABASE_INSTANCE_ID>`
   - engine: `mysql 8.4.7`
   - class: `db.t4g.micro`
   - storage: `20 GB gp3`
-  - subnet group: `medibridge-rds-subnet-group`
-  - security group: `sg-010de5dc74cf23ddb` (`medibridge-rds-sg`)
+  - subnet group: `<DATABASE_SUBNET_GROUP>`
+  - security group: `<CURRENT_DATABASE_SECURITY_GROUP_ID>`
   - publicly accessible: `false`
   - encrypted: `true`
   - backup retention: `7 days`
@@ -44,8 +44,8 @@
 
 当前相关 SSM 参数路径：
 
-- `/medibridge/prod/db/url`
-- `/medibridge/prod/db/master-password`
+- `<CURRENT_DATABASE_URL_PARAMETER>`
+- `<CURRENT_DATABASE_ADMIN_PASSWORD_PARAMETER>`
 
 ## Recommended Cutover Design
 
@@ -72,7 +72,7 @@
 - engine: PostgreSQL 16
 - class: `db.t4g.micro`
 - storage: `20 GB gp3`
-- subnet group: 继续使用 `medibridge-rds-subnet-group`
+- subnet group: 继续使用 `<DATABASE_SUBNET_GROUP>`
 - publicly accessible: `false`
 - encrypted: `true`
 - backup retention: `7 days`
@@ -81,32 +81,31 @@
 
 建议命名：
 
-- instance identifier: `medibridge-prod-pg`
-- database name: `medibridge_prod`
+- instance identifier: `<POSTGRES_DATABASE_INSTANCE_ID>`
+- database name: `<POSTGRES_DATABASE_NAME>`
 
 ### 2. PostgreSQL Security Group
 
 不要复用当前 MySQL 的 3306 规则。
 
-建议新建一个 PostgreSQL 专用 RDS SG，例如：
-
-- `medibridge-postgres-rds-sg`
+建议新建一个 PostgreSQL 专用 RDS SG，例如
+`<POSTGRES_DATABASE_SECURITY_GROUP_NAME>`。
 
 入站规则：
 
 - TCP `5432`
-- source security group: `sg-01c456f5d6c8d3580` (`medibridge-new-sg`)
+- source security group: `<APP_SECURITY_GROUP_ID>`
 
 ### 3. New SSM Parameters
 
 建议新增参数，不覆盖当前 MySQL 参数：
 
-- `/medibridge/prod/postgres/master-password`
-- `/medibridge/prod/postgres/url`
+- `<POSTGRES_ADMIN_PASSWORD_PARAMETER>`
+- `<POSTGRES_DATABASE_URL_PARAMETER>`
 
 不建议直接覆盖：
 
-- `/medibridge/prod/db/url`
+- `<CURRENT_DATABASE_URL_PARAMETER>`
 
 因为那会让回滚变成“重新写回旧值”，风险更高。
 
@@ -119,13 +118,14 @@
 1. 保持现有 MySQL 参数不变
 2. 新增 PostgreSQL 参数
 3. 更新 `/srv/medibridge/shared/.env.production` 中的：
-   - `DATABASE_URL_SSM_PARAMETER=/medibridge/prod/postgres/url`
+   - `DATABASE_URL_SSM_PARAMETER=<POSTGRES_DATABASE_URL_PARAMETER>`
 4. 重新发布或 `pm2 startOrReload`
 
 这样：
 
 - 应用逻辑不用改
-- rollback 时只需把 `DATABASE_URL_SSM_PARAMETER` 改回 `/medibridge/prod/db/url`
+- rollback 时只需把 `DATABASE_URL_SSM_PARAMETER` 改回
+  `<CURRENT_DATABASE_URL_PARAMETER>`
 
 ## Preparation Sequence
 
@@ -133,8 +133,8 @@
 
 需要完成：
 
-- 创建 `medibridge-prod-pg`
-- 挂上 `medibridge-rds-subnet-group`
+- 创建 `<POSTGRES_DATABASE_INSTANCE_ID>`
+- 挂上 `<DATABASE_SUBNET_GROUP>`
 - 绑定新的 PostgreSQL SG
 - 打开备份和删除保护
 
@@ -142,13 +142,13 @@
 
 创建：
 
-- `/medibridge/prod/postgres/master-password`
-- `/medibridge/prod/postgres/url`
+- `<POSTGRES_ADMIN_PASSWORD_PARAMETER>`
+- `<POSTGRES_DATABASE_URL_PARAMETER>`
 
 注意：
 
 - 文档里不要落明文密码
-- URL 中数据库名保持 `medibridge_prod`
+- URL 中数据库名使用 `<POSTGRES_DATABASE_NAME>`
 
 ### Step 3. Bootstrap Schema
 
@@ -191,7 +191,7 @@
 在正式切换前确保：
 
 - MySQL RDS 保持不动
-- `/medibridge/prod/db/url` 保持不动
+- `<CURRENT_DATABASE_URL_PARAMETER>` 保持不动
 - `/srv/medibridge/shared/.env.production` 当前值可回退
 
 ## Cutover-Day Command Targets
@@ -223,7 +223,8 @@
 
 回滚步骤：
 
-1. 把 `/srv/medibridge/shared/.env.production` 中的 `DATABASE_URL_SSM_PARAMETER` 改回 `/medibridge/prod/db/url`
+1. 把 `/srv/medibridge/shared/.env.production` 中的
+   `DATABASE_URL_SSM_PARAMETER` 改回 `<CURRENT_DATABASE_URL_PARAMETER>`
 2. `pm2 startOrReload /srv/medibridge/current/deploy/ecosystem.config.cjs --update-env`
 3. 重跑健康检查和核心 smoke test
 
@@ -246,14 +247,14 @@
 ```bash
 aws ec2 create-security-group \
   --region ap-southeast-1 \
-  --group-name medibridge-postgres-rds-sg \
+  --group-name <POSTGRES_DATABASE_SECURITY_GROUP_NAME> \
   --description "MediBridge PostgreSQL RDS security group" \
-  --vpc-id vpc-01f086bc92995e9a3
+  --vpc-id <VPC_ID>
 
 aws ec2 authorize-security-group-ingress \
   --region ap-southeast-1 \
   --group-id <NEW_POSTGRES_SG_ID> \
-  --ip-permissions '[{"IpProtocol":"tcp","FromPort":5432,"ToPort":5432,"UserIdGroupPairs":[{"GroupId":"sg-01c456f5d6c8d3580","Description":"MediBridge app instance"}]}]'
+  --ip-permissions '<POSTGRES_INGRESS_RULE_JSON>'
 ```
 
 ### 2. 创建 PostgreSQL RDS
@@ -261,17 +262,17 @@ aws ec2 authorize-security-group-ingress \
 ```bash
 aws rds create-db-instance \
   --region ap-southeast-1 \
-  --db-instance-identifier medibridge-prod-pg \
+  --db-instance-identifier <POSTGRES_DATABASE_INSTANCE_ID> \
   --engine postgres \
   --engine-version 16.4 \
   --db-instance-class db.t4g.micro \
   --allocated-storage 20 \
   --storage-type gp3 \
   --storage-encrypted \
-  --master-username medibridge_admin \
+  --master-username <POSTGRES_ADMIN_USER> \
   --master-user-password '<POSTGRES_MASTER_PASSWORD>' \
-  --db-name medibridge_prod \
-  --db-subnet-group-name medibridge-rds-subnet-group \
+  --db-name <POSTGRES_DATABASE_NAME> \
+  --db-subnet-group-name <DATABASE_SUBNET_GROUP> \
   --vpc-security-group-ids <NEW_POSTGRES_SG_ID> \
   --backup-retention-period 7 \
   --no-publicly-accessible \
@@ -283,17 +284,17 @@ aws rds create-db-instance \
 ```bash
 aws ssm put-parameter \
   --region ap-southeast-1 \
-  --name /medibridge/prod/postgres/master-password \
+  --name <POSTGRES_ADMIN_PASSWORD_PARAMETER> \
   --type SecureString \
   --overwrite \
   --value '<POSTGRES_MASTER_PASSWORD>'
 
 aws ssm put-parameter \
   --region ap-southeast-1 \
-  --name /medibridge/prod/postgres/url \
+  --name <POSTGRES_DATABASE_URL_PARAMETER> \
   --type SecureString \
   --overwrite \
-  --value 'postgresql://medibridge_admin:<POSTGRES_MASTER_PASSWORD>@<POSTGRES_ENDPOINT>:5432/medibridge_prod'
+  --value '<POSTGRES_DATABASE_URL>'
 ```
 
 ### 4. 切换生产应用读取的参数路径
@@ -301,13 +302,13 @@ aws ssm put-parameter \
 生产应用当前的切换点是 `/srv/medibridge/shared/.env.production` 里的：
 
 ```bash
-DATABASE_URL_SSM_PARAMETER=/medibridge/prod/db/url
+DATABASE_URL_SSM_PARAMETER=<CURRENT_DATABASE_URL_PARAMETER>
 ```
 
 切换到 PostgreSQL 时，改成：
 
 ```bash
-DATABASE_URL_SSM_PARAMETER=/medibridge/prod/postgres/url
+DATABASE_URL_SSM_PARAMETER=<POSTGRES_DATABASE_URL_PARAMETER>
 ```
 
 然后执行：

@@ -59,8 +59,8 @@ MediBridge 当前**适合做 PostgreSQL 迁移准备**，原因是：
 
 本次只读云端审计确认：
 
-- 应用运行在 EC2 `i-0c9bfbb5287d85ccf`
-- 数据库为 AWS RDS MySQL `medibridge-prod-db`
+- 应用运行在单一生产 EC2 实例
+- 数据库为私有 AWS RDS MySQL 实例
 - RDS 引擎版本：MySQL 8.4.7
 - 当前应用运行时 `DATABASE_URL` 指向该 RDS 实例
 - 当前生产资源占用较轻，具备底层替换窗口
