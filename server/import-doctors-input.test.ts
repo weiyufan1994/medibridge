@@ -1,10 +1,14 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "fs";
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import ExcelJS from "exceljs";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  assertWorkbookFileCount,
+  assertWorkbookLimits,
+  assertXlsxInputFile,
   computeSourceHash,
+  EXCEL_IMPORT_LIMITS,
   getAllXlsxFiles,
   getColumnMapping,
   loadDeptUrlMap,
@@ -96,6 +100,99 @@ describe("doctor import input helpers", () => {
 
     expect(loadDeptUrlMap(indexPath)).toEqual(
       new Map([["中山医院||消化内科", "https://example.test/departments/1"]])
+    );
+  });
+
+  it("accepts a real XLSX file inside the trusted root", async () => {
+    const root = createTemporaryDirectory();
+    const workbookPath = join(root, "doctors.xlsx");
+    const workbook = new ExcelJS.Workbook();
+    workbook.addWorksheet("doctors").addRow(["name"]);
+    await workbook.xlsx.writeFile(workbookPath);
+
+    expect(() => assertXlsxInputFile(workbookPath, root)).not.toThrow();
+  });
+
+  it("rejects disguised, oversized, linked, and out-of-root workbook inputs", () => {
+    const root = createTemporaryDirectory();
+    const outsideRoot = createTemporaryDirectory();
+    const wrongExtensionPath = join(root, "workbook.zip");
+    const emptyPath = join(root, "empty.xlsx");
+    const genericZipPath = join(root, "generic-zip.xlsx");
+    const disguisedPath = join(root, "disguised.xlsx");
+    const oversizedPath = join(root, "oversized.xlsx");
+    const outsidePath = join(outsideRoot, "outside.xlsx");
+    const linkedPath = join(root, "linked.xlsx");
+    writeFileSync(wrongExtensionPath, Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+    writeFileSync(emptyPath, "");
+    writeFileSync(genericZipPath, Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+    writeFileSync(disguisedPath, "not-an-xlsx");
+    writeFileSync(
+      oversizedPath,
+      Buffer.alloc(EXCEL_IMPORT_LIMITS.maxFileBytes + 1)
+    );
+    writeFileSync(outsidePath, Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+    symlinkSync(outsidePath, linkedPath);
+
+    expect(() => assertXlsxInputFile(wrongExtensionPath, root)).toThrow(
+      ".xlsx file extension"
+    );
+    expect(() => assertXlsxInputFile(emptyPath, root)).toThrow(
+      "Workbook file size"
+    );
+    expect(() => assertXlsxInputFile(genericZipPath, root)).toThrow(
+      "not a valid XLSX package"
+    );
+    expect(() => assertXlsxInputFile(disguisedPath, root)).toThrow(
+      "not a valid XLSX package"
+    );
+    expect(() => assertXlsxInputFile(oversizedPath, root)).toThrow(
+      "Workbook file size"
+    );
+    expect(() => assertXlsxInputFile(linkedPath, root)).toThrow(
+      "regular file, not a link"
+    );
+    expect(() => assertXlsxInputFile(outsidePath, root)).toThrow(
+      "trusted root"
+    );
+  });
+
+  it("enforces workbook, sheet, and row count limits", () => {
+    expect(() =>
+      assertWorkbookFileCount(
+        Array.from(
+          { length: EXCEL_IMPORT_LIMITS.maxWorkbookFiles + 1 },
+          (_, index) => `workbook-${index}.xlsx`
+        )
+      )
+    ).toThrow("Workbook file limit exceeded");
+
+    const tooManySheets = new ExcelJS.Workbook();
+    for (let index = 0; index <= EXCEL_IMPORT_LIMITS.maxSheets; index++) {
+      tooManySheets.addWorksheet(`sheet-${index}`);
+    }
+    expect(() => assertWorkbookLimits(tooManySheets)).toThrow(
+      "Workbook sheet limit exceeded"
+    );
+
+    const tooManyRows = new ExcelJS.Workbook();
+    tooManyRows
+      .addWorksheet("rows")
+      .getCell(`A${EXCEL_IMPORT_LIMITS.maxRowsPerSheet + 1}`).value = "doctor";
+    expect(() => assertWorkbookLimits(tooManyRows)).toThrow(
+      "Worksheet row limit exceeded"
+    );
+
+    const tooManyTotalRows = new ExcelJS.Workbook();
+    for (const [name, rowCount] of [
+      ["one", 20_000],
+      ["two", 20_000],
+      ["three", 10_001],
+    ]) {
+      tooManyTotalRows.addWorksheet(name).getCell(`A${rowCount}`).value = name;
+    }
+    expect(() => assertWorkbookLimits(tooManyTotalRows)).toThrow(
+      "Workbook row limit exceeded"
     );
   });
 });
