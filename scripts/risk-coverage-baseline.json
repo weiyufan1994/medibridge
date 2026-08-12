@@ -9,30 +9,6 @@
       "cleanupBatch": "2-payments-refunds-webhooks"
     },
     {
-      "file": "server/modules/appointments/paymentActions.ts",
-      "currentLineCoverage": 5.26,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "2-payments-refunds-webhooks"
-    },
-    {
-      "file": "server/modules/appointments/checkoutActions.ts",
-      "currentLineCoverage": 73.23,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "2-payments-refunds-webhooks"
-    },
-    {
-      "file": "server/modules/payments/providerManager.ts",
-      "currentLineCoverage": 70.51,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "2-payments-refunds-webhooks"
-    },
-    {
-      "file": "server/modules/payments/providers/mockAdapter.ts",
-      "currentLineCoverage": 86.57,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "2-payments-refunds-webhooks"
-    },
-    {
       "file": "server/modules/payments/providers/paypalAdapter.ts",
       "currentLineCoverage": 5.94,
       "targetLineCoverage": 90,
@@ -41,12 +17,6 @@
     {
       "file": "server/modules/payments/providers/stripeAdapter.ts",
       "currentLineCoverage": 47.87,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "2-payments-refunds-webhooks"
-    },
-    {
-      "file": "server/modules/payments/readActions.ts",
-      "currentLineCoverage": 48.96,
       "targetLineCoverage": 90,
       "cleanupBatch": "2-payments-refunds-webhooks"
     },
@@ -65,12 +35,6 @@
     {
       "file": "server/paypalWebhookRoute.ts",
       "currentLineCoverage": 53.54,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "2-payments-refunds-webhooks"
-    },
-    {
-      "file": "server/routers/payments.ts",
-      "currentLineCoverage": 82.61,
       "targetLineCoverage": 90,
       "cleanupBatch": "2-payments-refunds-webhooks"
     },
