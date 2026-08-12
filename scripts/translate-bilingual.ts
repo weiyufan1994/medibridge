@@ -31,6 +31,11 @@ import {
   withRetry,
   type EntityRunStats,
 } from "./translate-bilingual-runtime";
+import {
+  parseDepartmentBatchResponse,
+  parseDoctorBatchResponse,
+  parseHospitalBatchResponse,
+} from "./translate-bilingual-parsers";
 
 const DEFAULT_TRANSLATION_PROVIDER = "forge/gemini-2.5-flash";
 let translationModelOverride: string | undefined;
@@ -196,52 +201,6 @@ type HospitalBatchTranslation = {
   levelEn: string | null;
   addressEn: string | null;
   descriptionEn: string | null;
-};
-
-const parseHospitalBatchResponse = (text: string) => {
-  const parsed = JSON.parse(text);
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !Array.isArray((parsed as { items?: unknown }).items)
-  ) {
-    throw new Error("[Hospitals] Invalid batch response format");
-  }
-
-  const items = (parsed as { items: unknown[] }).items;
-  const results = new Map<string, HospitalBatchTranslation>();
-  let invalidEntries = 0;
-
-  for (const rawItem of items) {
-    if (!rawItem || typeof rawItem !== "object") {
-      invalidEntries += 1;
-      continue;
-    }
-
-    const item = rawItem as Record<string, unknown>;
-    const sourceHash =
-      typeof item.sourceHash === "string" ? item.sourceHash.trim() : "";
-    const id =
-      typeof item.id === "number"
-        ? item.id
-        : Number.parseInt(String(item.id), 10);
-    if (!sourceHash || !Number.isFinite(id) || id <= 0) {
-      invalidEntries += 1;
-      continue;
-    }
-
-    results.set(sourceHash, {
-      id,
-      sourceHash,
-      nameEn: sanitizeTranslatedText(item.nameEn),
-      cityEn: sanitizeTranslatedText(item.cityEn),
-      levelEn: sanitizeTranslatedText(item.levelEn),
-      addressEn: sanitizeTranslatedText(item.addressEn),
-      descriptionEn: sanitizeTranslatedText(item.descriptionEn),
-    });
-  }
-
-  return { items: results, invalidEntries };
 };
 
 const translateHospitalBatch = async (input: HospitalBatchInput[]) => {
@@ -413,48 +372,6 @@ type DepartmentBatchTranslation = {
   sourceHash: string;
   nameEn: string | null;
   descriptionEn: string | null;
-};
-
-const parseDepartmentBatchResponse = (text: string) => {
-  const parsed = JSON.parse(text);
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !Array.isArray((parsed as { items?: unknown }).items)
-  ) {
-    throw new Error("[Departments] Invalid batch response format");
-  }
-
-  const items = (parsed as { items: unknown[] }).items;
-  const results = new Map<string, DepartmentBatchTranslation>();
-  let invalidEntries = 0;
-
-  for (const rawItem of items) {
-    if (!rawItem || typeof rawItem !== "object") {
-      invalidEntries += 1;
-      continue;
-    }
-    const item = rawItem as Record<string, unknown>;
-    const sourceHash =
-      typeof item.sourceHash === "string" ? item.sourceHash.trim() : "";
-    const id =
-      typeof item.id === "number"
-        ? item.id
-        : Number.parseInt(String(item.id), 10);
-    if (!sourceHash || !Number.isFinite(id) || id <= 0) {
-      invalidEntries += 1;
-      continue;
-    }
-
-    results.set(sourceHash, {
-      id,
-      sourceHash,
-      nameEn: sanitizeTranslatedText(item.nameEn),
-      descriptionEn: sanitizeTranslatedText(item.descriptionEn),
-    });
-  }
-
-  return { items: results, invalidEntries };
 };
 
 const translateDepartmentBatch = async (input: DepartmentBatchInput[]) => {
@@ -650,56 +567,6 @@ type DoctorBatchTranslation = {
   appointmentAvailableEn: string | null;
   satisfactionRateEn: string | null;
   attitudeScoreEn: string | null;
-};
-
-const parseDoctorBatchResponse = (text: string) => {
-  const parsed = JSON.parse(text);
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !Array.isArray((parsed as { items?: unknown }).items)
-  ) {
-    throw new Error("[Doctors] Invalid batch response format");
-  }
-
-  const items = (parsed as { items: unknown[] }).items;
-  const results = new Map<string, DoctorBatchTranslation>();
-  let invalidEntries = 0;
-
-  for (const rawItem of items) {
-    if (!rawItem || typeof rawItem !== "object") {
-      invalidEntries += 1;
-      continue;
-    }
-    const item = rawItem as Record<string, unknown>;
-    const sourceHash =
-      typeof item.sourceHash === "string" ? item.sourceHash.trim() : "";
-    const id =
-      typeof item.id === "number"
-        ? item.id
-        : Number.parseInt(String(item.id), 10);
-    if (!sourceHash || !Number.isFinite(id) || id <= 0) {
-      invalidEntries += 1;
-      continue;
-    }
-
-    results.set(sourceHash, {
-      id,
-      sourceHash,
-      nameEn: sanitizeTranslatedText(item.nameEn),
-      titleEn: sanitizeTranslatedText(item.titleEn),
-      specialtyEn: sanitizeTranslatedText(item.specialtyEn),
-      expertiseEn: sanitizeTranslatedText(item.expertiseEn),
-      onlineConsultationEn: sanitizeTranslatedText(item.onlineConsultationEn),
-      appointmentAvailableEn: sanitizeTranslatedText(
-        item.appointmentAvailableEn
-      ),
-      satisfactionRateEn: sanitizeTranslatedText(item.satisfactionRateEn),
-      attitudeScoreEn: sanitizeTranslatedText(item.attitudeScoreEn),
-    });
-  }
-
-  return { items: results, invalidEntries };
 };
 
 const translateDoctorBatch = async (input: DoctorBatchInput[]) => {
