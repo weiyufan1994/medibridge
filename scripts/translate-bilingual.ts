@@ -2,18 +2,36 @@ import "../server/_core/loadEnv";
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { and, asc, eq, gt, isNull, or, sql } from "drizzle-orm";
-import { createHash } from "crypto";
 import { invokeLLM } from "../server/_core/llm";
 import { departments, doctors, hospitals } from "../drizzle/schema";
 import { extractAffectedRows } from "../server/_core/dbCompat";
+import {
+  HOSPITAL_CITY_TRANSLATIONS,
+  HOSPITAL_LEVEL_TRANSLATIONS,
+  clampText,
+  computeSourceHash,
+  delay,
+  isFilled,
+  missingTranslatedFields,
+  normalizeSourceText,
+  parseArgs,
+  pickEnglish,
+  readMessageText,
+  sanitizeTranslatedText,
+} from "./translate-bilingual-core";
+import {
+  createEntityRunStats,
+  createWorkerPool,
+  getErrorMessage,
+  logApiCall,
+  printEntitySummary,
+  printRunSummary,
+  recordFailure,
+  splitToChunks,
+  withRetry,
+  type EntityRunStats,
+} from "./translate-bilingual-runtime";
 
-const DEFAULT_BATCH_SIZE = 20;
-const DEFAULT_CONCURRENCY = 4;
-const DEFAULT_RATE_LIMIT_MS = 80;
-const DEFAULT_MAX_RETRIES = 3;
-const DEFAULT_LLM_BATCH_SIZE = 8;
-const DEFAULT_CACHE_ENABLED = true;
-const DEFAULT_API_CALL_LOG_INTERVAL = 25;
 const DEFAULT_TRANSLATION_PROVIDER = "forge/gemini-2.5-flash";
 let translationModelOverride: string | undefined;
 
@@ -24,220 +42,8 @@ type HospitalRow = typeof hospitals.$inferSelect;
 type DepartmentRow = typeof departments.$inferSelect;
 type DoctorRow = typeof doctors.$inferSelect;
 
-const SOURCE_EMPTY_MARKERS = new Set([
-  "（页面未显示）",
-  "(页面未显示)",
-  "页面未显示",
-  "暂无统计",
-  "暂无",
-  "无",
-  "未知",
-  "N/A",
-  "NA",
-  "n/a",
-  "-",
-  "--",
-]);
-
-const TRANSLATED_EMPTY_PATTERNS = [
-  /<empty/i,
-  /missing value/i,
-  /not specified/i,
-  /cannot be determined/i,
-  /not available/i,
-  /no information provided/i,
-  /empty_string_value_please_do_not_replace/i,
-];
-
-const HOSPITAL_CITY_TRANSLATIONS: Record<string, string> = {
-  上海: "Shanghai",
-};
-
-const HOSPITAL_LEVEL_TRANSLATIONS: Record<string, string> = {
-  三级甲等: "Grade III Class A",
-  三级乙等: "Grade III Class B",
-  二级甲等: "Grade II Class A",
-  二级乙等: "Grade II Class B",
-};
-
 const createTranslationDb = (pool: Pool) => drizzle(pool);
 type TranslationDb = ReturnType<typeof createTranslationDb>;
-
-const parsePositiveInt = (
-  value: string | number | undefined,
-  fallback: number
-) => {
-  const parsed =
-    typeof value === "number" ? value : Number.parseInt(String(value), 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return fallback;
-  }
-  return parsed;
-};
-
-const parseBoolean = (value: string | undefined, fallback: boolean) => {
-  if (!value) return fallback;
-  const normalized = value.toLowerCase();
-  if (["1", "true", "yes", "y", "on", "enabled"].includes(normalized))
-    return true;
-  if (["0", "false", "no", "n", "off", "disabled"].includes(normalized))
-    return false;
-  return fallback;
-};
-
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-const normalizeSourceText = (value: string | null | undefined) => {
-  if (value === undefined || value === null) return null;
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return null;
-  if (SOURCE_EMPTY_MARKERS.has(trimmed)) return null;
-  return trimmed;
-};
-
-const normalizeValue = (value: unknown) => {
-  if (value === undefined || value === null) return null;
-  if (typeof value === "string") {
-    return normalizeSourceText(value);
-  }
-  return value;
-};
-
-const hasCjk = (value: string | null | undefined) =>
-  Boolean(value && /[\u4e00-\u9fff]/.test(value));
-
-const computeSourceHash = (payload: Record<string, unknown>) => {
-  const normalized = Object.fromEntries(
-    Object.entries(payload).map(([key, val]) => [key, normalizeValue(val)])
-  );
-  return createHash("sha256").update(JSON.stringify(normalized)).digest("hex");
-};
-
-const pickEnglish = (
-  existing: string | null | undefined,
-  translated: string | null | undefined
-) => {
-  if (existing && !hasCjk(existing)) return existing;
-  if (translated && !hasCjk(translated)) return translated;
-  return null;
-};
-
-const isFilled = (value: string | null | undefined) =>
-  Boolean(value && !hasCjk(value));
-
-const missingTranslatedFields = (
-  fields: Array<{
-    source: string | null | undefined;
-    translated: string | null | undefined;
-  }>
-) =>
-  fields.reduce((count, field) => {
-    if (!field.source) return count;
-    return count + (isFilled(field.translated) ? 0 : 1);
-  }, 0);
-
-const readMessageText = (content: string | unknown) => {
-  if (typeof content === "string") {
-    return content;
-  }
-  if (Array.isArray(content)) {
-    return content
-      .map(item => {
-        if (typeof item === "string") return item;
-        if (item && typeof item === "object" && "text" in item) {
-          const textValue = (item as { text?: unknown }).text;
-          return typeof textValue === "string" ? textValue : "";
-        }
-        return "";
-      })
-      .join("\n")
-      .trim();
-  }
-  if (
-    content &&
-    typeof content === "object" &&
-    "text" in (content as { text?: unknown })
-  ) {
-    const textValue = (content as { text: unknown }).text;
-    if (typeof textValue === "string") {
-      return textValue;
-    }
-  }
-  return "";
-};
-
-const sanitizeTranslatedText = (value: unknown) => {
-  if (value === undefined || value === null) return null;
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (trimmed.length === 0) return null;
-    if (TRANSLATED_EMPTY_PATTERNS.some(pattern => pattern.test(trimmed))) {
-      return null;
-    }
-    return trimmed;
-  }
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  return null;
-};
-
-const clampText = (value: string | null | undefined, maxLength: number) => {
-  if (!value) return null;
-  return value.length <= maxLength ? value : value.slice(0, maxLength);
-};
-
-type EntityRunStats = {
-  entity: "hospitals" | "departments" | "doctors";
-  batches: number;
-  scanned: number;
-  attempted: number;
-  skippedUpToDate: number;
-  done: number;
-  pending: number;
-  failed: number;
-  batchedApplied: number;
-  fallbackCalls: number;
-  cacheHits: number;
-  llmCalls: number;
-  rowsPerCallTotal: number;
-  parseFailures: number;
-  apiCallsLogInterval: number;
-  errorCounts: Map<string, number>;
-};
-
-const parseArgs = () => {
-  const args = process.argv.slice(2);
-  const config: Record<string, string> = {};
-  for (const arg of args) {
-    const [key, value] = arg.split("=");
-    if (key && value) {
-      config[key.replace(/^--/, "")] = value;
-    }
-  }
-  const entities = (config.entities || "hospitals,departments,doctors")
-    .split(",")
-    .map(value => value.trim())
-    .filter(Boolean);
-
-  return {
-    entities,
-    batchSize: parsePositiveInt(config.batchSize, DEFAULT_BATCH_SIZE),
-    concurrency: parsePositiveInt(config.concurrency, DEFAULT_CONCURRENCY),
-    rateLimitMs: parsePositiveInt(config.rateLimitMs, DEFAULT_RATE_LIMIT_MS),
-    maxRetries: parsePositiveInt(config.maxRetries, DEFAULT_MAX_RETRIES),
-    llmBatchSize: parsePositiveInt(config.llmBatchSize, DEFAULT_LLM_BATCH_SIZE),
-    cacheEnabled: parseBoolean(config.cacheEnabled, DEFAULT_CACHE_ENABLED),
-    apiCallsLogInterval: parsePositiveInt(
-      config.apiCallsLogInterval,
-      DEFAULT_API_CALL_LOG_INTERVAL
-    ),
-    translationModel:
-      config.model?.trim() ||
-      process.env.TRANSLATION_LLM_MODEL?.trim() ||
-      undefined,
-  };
-};
 
 const reconcileInconsistentDoneRows = async (
   pool: Pool,
@@ -295,143 +101,6 @@ const reconcileInconsistentDoneRows = async (
     console.log(
       `[Precheck] ${update.entity}: requeued ${update.affectedRows} inconsistent done rows`
     );
-  }
-};
-
-const createEntityRunStats = (
-  entity: EntityRunStats["entity"],
-  config: ReturnType<typeof parseArgs>
-): EntityRunStats => ({
-  entity,
-  batches: 0,
-  scanned: 0,
-  attempted: 0,
-  skippedUpToDate: 0,
-  done: 0,
-  pending: 0,
-  failed: 0,
-  batchedApplied: 0,
-  fallbackCalls: 0,
-  cacheHits: 0,
-  llmCalls: 0,
-  rowsPerCallTotal: 0,
-  parseFailures: 0,
-  apiCallsLogInterval: config.apiCallsLogInterval,
-  errorCounts: new Map<string, number>(),
-});
-
-const getErrorMessage = (error: unknown) =>
-  error instanceof Error ? error.message : String(error);
-
-const recordFailure = (stats: EntityRunStats, error: unknown) => {
-  stats.failed += 1;
-  const message =
-    getErrorMessage(error).trim().slice(0, 280) || "Unknown error";
-  stats.errorCounts.set(message, (stats.errorCounts.get(message) ?? 0) + 1);
-};
-
-const logApiCall = (stats: EntityRunStats) => {
-  if (
-    stats.apiCallsLogInterval > 0 &&
-    stats.llmCalls % stats.apiCallsLogInterval === 0
-  ) {
-    const avgRowsPerCall =
-      stats.llmCalls === 0
-        ? 0
-        : Number((stats.rowsPerCallTotal / stats.llmCalls).toFixed(2));
-    console.log(
-      `[${stats.entity}] API calls=${stats.llmCalls}, avgRowsPerCall=${avgRowsPerCall}, batchedApplied=${stats.batchedApplied}, fallbackCalls=${stats.fallbackCalls}, cacheHits=${stats.cacheHits}, parseFailures=${stats.parseFailures}`
-    );
-  }
-};
-
-const printEntitySummary = (stats: EntityRunStats) => {
-  const avgRowsPerCall =
-    stats.llmCalls === 0
-      ? 0
-      : Number((stats.rowsPerCallTotal / stats.llmCalls).toFixed(2));
-  console.log(
-    `\n[Summary:${stats.entity}] batches=${stats.batches}, scanned=${stats.scanned}, attempted=${stats.attempted}, done=${stats.done}, pending=${stats.pending}, failed=${stats.failed}, skippedUpToDate=${stats.skippedUpToDate}, llmCalls=${stats.llmCalls}, avgRowsPerCall=${avgRowsPerCall}, batchedApplied=${stats.batchedApplied}, fallbackCalls=${stats.fallbackCalls}, cacheHits=${stats.cacheHits}, parseFailures=${stats.parseFailures}`
-  );
-
-  if (stats.errorCounts.size > 0) {
-    const topErrors = Array.from(stats.errorCounts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
-    console.log(`[Summary:${stats.entity}] Top failure reasons:`);
-    for (const [message, count] of topErrors) {
-      console.log(`  - x${count}: ${message}`);
-    }
-  }
-};
-
-const printRunSummary = (statsList: EntityRunStats[]) => {
-  console.log("\n========== Translation Run Summary ==========");
-  for (const stats of statsList) {
-    const avgRowsPerCall =
-      stats.llmCalls === 0
-        ? 0
-        : Number((stats.rowsPerCallTotal / stats.llmCalls).toFixed(2));
-    console.log(
-      `- ${stats.entity}: done=${stats.done}, pending=${stats.pending}, failed=${stats.failed}, attempted=${stats.attempted}, scanned=${stats.scanned}, llmCalls=${stats.llmCalls}, avgRowsPerCall=${avgRowsPerCall}, batchedApplied=${stats.batchedApplied}, fallbackCalls=${stats.fallbackCalls}, parseFailures=${stats.parseFailures}`
-    );
-  }
-
-  const totals = statsList.reduce(
-    (acc, stats) => {
-      acc.done += stats.done;
-      acc.pending += stats.pending;
-      acc.failed += stats.failed;
-      acc.attempted += stats.attempted;
-      acc.scanned += stats.scanned;
-      acc.llmCalls += stats.llmCalls;
-      acc.rowsPerCallTotal += stats.rowsPerCallTotal;
-      acc.batchedApplied += stats.batchedApplied;
-      acc.fallbackCalls += stats.fallbackCalls;
-      acc.parseFailures += stats.parseFailures;
-      return acc;
-    },
-    {
-      done: 0,
-      pending: 0,
-      failed: 0,
-      attempted: 0,
-      scanned: 0,
-      llmCalls: 0,
-      rowsPerCallTotal: 0,
-      batchedApplied: 0,
-      fallbackCalls: 0,
-      parseFailures: 0,
-    }
-  );
-  const avgRowsPerCall =
-    totals.llmCalls === 0
-      ? 0
-      : Number((totals.rowsPerCallTotal / totals.llmCalls).toFixed(2));
-  console.log(
-    `Total: done=${totals.done}, pending=${totals.pending}, failed=${totals.failed}, attempted=${totals.attempted}, scanned=${totals.scanned}, llmCalls=${totals.llmCalls}, avgRowsPerCall=${avgRowsPerCall}, batchedApplied=${totals.batchedApplied}, fallbackCalls=${totals.fallbackCalls}, parseFailures=${totals.parseFailures}`
-  );
-};
-
-const withRetry = async <T>(
-  fn: () => Promise<T>,
-  maxRetries: number,
-  onAttempt?: () => void
-) => {
-  let attempt = 0;
-  let delayMs = 500;
-  while (true) {
-    onAttempt?.();
-    try {
-      return await fn();
-    } catch (error) {
-      if (attempt >= maxRetries) {
-        throw error;
-      }
-      await delay(delayMs);
-      delayMs *= 2;
-      attempt += 1;
-    }
   }
 };
 
@@ -1100,31 +769,6 @@ const translateDoctorBatch = async (input: DoctorBatchInput[]) => {
   return parseDoctorBatchResponse(
     readMessageText(response.choices[0].message.content)
   );
-};
-
-const createWorkerPool = async <T>(
-  items: T[],
-  limit: number,
-  handler: (item: T) => Promise<void>
-) => {
-  let index = 0;
-  const workers = Array.from({ length: Math.max(1, limit) }, async () => {
-    while (index < items.length) {
-      const current = items[index];
-      index += 1;
-      await handler(current);
-    }
-  });
-  await Promise.all(workers);
-};
-
-const splitToChunks = <T>(items: T[], chunkSize: number): T[][] => {
-  const normalizedChunkSize = Math.max(1, chunkSize);
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += normalizedChunkSize) {
-    chunks.push(items.slice(i, i + normalizedChunkSize));
-  }
-  return chunks;
 };
 
 const markHospitalFailed = async (
