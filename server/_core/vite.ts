@@ -6,12 +6,26 @@ import path from "path";
 import { pathToFileURL } from "url";
 import { logBuildDirectoryMissing } from "./runtimeLogging";
 
-export async function setupVite(app: Express, server: Server) {
+type ViteRuntime = {
+  createViteServer: typeof import("vite").createServer;
+  viteConfig: object;
+};
+
+async function loadViteRuntime(): Promise<ViteRuntime> {
   const viteConfigUrl = pathToFileURL(
     path.resolve(import.meta.dirname, "../..", "vite.config.ts")
   ).href;
   const [{ createServer: createViteServer }, { default: viteConfig }] =
     await Promise.all([import("vite"), import(viteConfigUrl)]);
+  return { createViteServer, viteConfig };
+}
+
+export async function setupVite(
+  app: Express,
+  server: Server,
+  loadRuntime: () => Promise<ViteRuntime> = loadViteRuntime
+) {
+  const { createViteServer, viteConfig } = await loadRuntime();
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
