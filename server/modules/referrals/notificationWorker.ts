@@ -1,5 +1,8 @@
 import { sendTransactionalEmail } from "../../_core/mailer";
+import { createLogger } from "../../_core/logger";
 import * as referralRepo from "./repo";
+
+const logger = createLogger("referral-notification-worker");
 
 const DEFAULT_INTERVAL_MS = 60_000;
 const BATCH_LIMIT = 50;
@@ -102,7 +105,9 @@ export function startReferralNotificationWorker(options?: {
     try {
       await processReferralNotificationOutbox();
     } catch (error) {
-      console.warn("[ReferralNotificationWorker] tick failed:", error);
+      logger.warn("tick_failed", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
     } finally {
       running = false;
     }
