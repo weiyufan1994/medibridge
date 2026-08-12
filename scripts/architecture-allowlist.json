@@ -1,10 +1,4 @@
 {
   "dependencyViolations": {},
-  "fileBudgets": {
-    "scripts/translate-bilingual.ts": {
-      "maxLines": 506,
-      "phase": "6",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
-    }
-  }
+  "fileBudgets": {}
 }
