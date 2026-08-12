@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
 
 vi.mock("./modules/ai/repo", () => ({
@@ -43,6 +43,10 @@ describe("consultation.getHistory", () => {
     vi.mocked(aiRepo.getLatestSessionFlagByType).mockResolvedValue(
       null as never
     );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("returns session history with first user message titles", async () => {
@@ -108,8 +112,11 @@ describe("consultation.getHistory", () => {
       },
     ] as never);
     vi.mocked(aiRepo.listFirstUserMessagesBySessionIds).mockRejectedValue(
-      new Error("broken title lookup") as never
+      new Error("private first message and database detail") as never
     );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
 
     const caller = consultationRouter.createCaller(createTestContext());
     const result = await caller.getHistory();
@@ -121,6 +128,15 @@ describe("consultation.getHistory", () => {
         status: "completed",
       }),
     ]);
+    const logged = String(consoleError.mock.calls[0]?.[0]);
+    expect(JSON.parse(logged)).toMatchObject({
+      component: "ai-consultation-history",
+      event: "title_lookup_failed",
+      sessionCount: 1,
+      errorName: "Error",
+    });
+    expect(logged).not.toContain("private first message");
+    expect(logged).not.toContain("database detail");
   });
 
   it("returns persisted triage results for historical sessions", async () => {
