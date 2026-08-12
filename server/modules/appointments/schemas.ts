@@ -122,6 +122,19 @@ export const validateTokenOnlyInputSchema = z.object({
   token: z.string().trim().min(16).max(2048),
 });
 
+export const visitChatTokenInputSchema = z.object({
+  appointmentId: z.number().int().positive(),
+  token: z.string().trim().min(16).max(2048),
+});
+
+export const visitChatTokenOutputSchema = z.object({
+  token: z.string().min(16).max(2048),
+  appointmentId: z.number().int().positive(),
+  role: z.enum(["patient", "doctor"]),
+  purpose: z.literal("visit_chat"),
+  expiresAt: z.date(),
+});
+
 export const revokeTokenInputSchema = z
   .object({
     appointmentId: z.number().int().positive().optional(),

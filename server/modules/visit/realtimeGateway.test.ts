@@ -63,6 +63,7 @@ function parseTextFrame(frame: Buffer) {
 
 class FakeSocket extends EventEmitter {
   writes: Array<string | Buffer> = [];
+  destroyed = false;
 
   setKeepAlive() {
     return this;
@@ -78,6 +79,7 @@ class FakeSocket extends EventEmitter {
   }
 
   destroy() {
+    this.destroyed = true;
     return;
   }
 }
@@ -140,6 +142,7 @@ describe("visit realtime gateway", () => {
 
   afterEach(() => {
     vi.clearAllTimers();
+    vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
@@ -312,5 +315,48 @@ describe("visit realtime gateway", () => {
     );
 
     socket.emit("close");
+  });
+
+  it("closes a joined socket when periodic token validation is revoked", async () => {
+    vi.useFakeTimers();
+    const gateway = createVisitRealtimeGateway();
+    const socket = new FakeSocket();
+
+    gateway.handleUpgrade(createHttpReq(), socket as never, Buffer.alloc(0));
+    socket.emit(
+      "data",
+      createWsTextFrame({
+        event: "room.join",
+        data: { token: "short_lived_visit_chat_token" },
+      })
+    );
+    await vi.advanceTimersByTimeAsync(0);
+
+    vi.mocked(appointmentVisitApi.validateAccessToken).mockRejectedValueOnce(
+      new Error("TOKEN_REVOKED")
+    );
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    const envelopes = socket.writes
+      .filter(
+        (chunk): chunk is Buffer =>
+          Buffer.isBuffer(chunk) && chunk.length > 0 && chunk[0] === 0x81
+      )
+      .map(chunk => parseTextFrame(chunk));
+    expect(envelopes).toContainEqual({
+      event: "error",
+      data: { code: "TOKEN_REVOKED", message: "TOKEN_REVOKED" },
+    });
+    expect(socket.destroyed).toBe(true);
+    expect(appointmentVisitApi.validateAccessToken).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        token: "short_lived_visit_chat_token",
+        action: "read_history",
+        expectedAppointmentId: 9001,
+        expectedRole: "patient",
+      })
+    );
+
+    gateway.shutdown();
   });
 });

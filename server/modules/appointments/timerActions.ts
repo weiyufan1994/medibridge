@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import type { RequestMetadata } from "@shared/requestMetadata";
-import { validateAppointmentToken } from "./accessValidation";
+import { validateVisitChatTokenForAppointment } from "./visitChatAccess";
 import {
   applyConsultationFreeExtensionToNotes,
   FREE_EXTENSION_MINUTES,
@@ -13,7 +13,7 @@ export async function extendConsultationByDoctorTokenFlow(input: {
   extensionMinutes: number;
   requestMetadata?: RequestMetadata;
 }) {
-  const validated = await validateAppointmentToken(
+  const validated = await validateVisitChatTokenForAppointment(
     input.appointmentId,
     input.token,
     "read_history",

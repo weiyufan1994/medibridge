@@ -4,13 +4,16 @@ import { checkIpFailureRateLimit, recordIpFailure } from "./rateLimit";
 import { hashToken } from "../../_core/appointmentToken";
 import { getTokenAutoRevokeThreshold } from "./tokenService";
 import { throwTokenError, type TokenErrorCode } from "./tokenErrors";
-import { canJoinRoom, canSendMessage } from "./chatPolicy";
 import { incrementMetric } from "../../_core/metrics";
 import { createLogger } from "../../_core/logger";
+import {
+  getVisitAccessPolicyFailure,
+  type VisitAccessAction,
+} from "./visitAccessPolicy";
 
 const logger = createLogger("appointment-token");
 
-export type VisitAccessAction = "join_room" | "read_history" | "send_message";
+export type { VisitAccessAction } from "./visitAccessPolicy";
 
 export type AppointmentAccessContext = {
   appointmentId: number;
@@ -31,24 +34,6 @@ export type AppointmentAccessContext = {
 
 const tokenFailureCounts = new Map<string, number>();
 const JOIN_REUSE_WINDOW_MS = 10 * 60 * 1000;
-
-function isVisitRoomTestModeEnabled() {
-  if (process.env.NODE_ENV === "production") {
-    return false;
-  }
-  const raw = (process.env.VISIT_ROOM_TEST_MODE ?? "").trim().toLowerCase();
-  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
-}
-
-function hasConsultationStarted(scheduledAt: Date | null, now: Date) {
-  if (isVisitRoomTestModeEnabled()) {
-    return true;
-  }
-  if (!(scheduledAt instanceof Date) || Number.isNaN(scheduledAt.getTime())) {
-    return true;
-  }
-  return now.getTime() >= scheduledAt.getTime();
-}
 
 function canReuseJoinWithoutIncrement(input: {
   action: VisitAccessAction;
@@ -213,32 +198,18 @@ export async function validateAppointmentAccessToken(input: {
     throwTokenError("APPOINTMENT_NOT_FOUND");
   }
 
-  if (!hasConsultationStarted(appointment.scheduledAt, now)) {
+  const policyFailure = getVisitAccessPolicyFailure({
+    appointment,
+    action,
+    now,
+  });
+  if (policyFailure) {
     await handleFailedAttempt({
       tokenHash,
-      reason: "APPOINTMENT_NOT_STARTED",
+      reason: policyFailure,
       requestMetadata: input.requestMetadata,
     });
-    throwTokenError("APPOINTMENT_NOT_STARTED");
-  }
-
-  if (
-    !canJoinRoom({
-      status: appointment.status,
-      paymentStatus: appointment.paymentStatus,
-    }) ||
-    (action === "send_message" &&
-      !canSendMessage({
-        status: appointment.status,
-        paymentStatus: appointment.paymentStatus,
-      }))
-  ) {
-    await handleFailedAttempt({
-      tokenHash,
-      reason: "APPOINTMENT_NOT_ALLOWED",
-      requestMetadata: input.requestMetadata,
-    });
-    throwTokenError("APPOINTMENT_NOT_ALLOWED");
+    throwTokenError(policyFailure);
   }
 
   if (action === "join_room" && !isJoinReuseAllowed) {

@@ -43,6 +43,7 @@ const trpcClient = trpc.createClient({
     httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
+      methodOverride: "POST",
       fetch(input, init) {
         const deviceId = getOrCreateDeviceId();
         const headers = new Headers(init?.headers ?? undefined);

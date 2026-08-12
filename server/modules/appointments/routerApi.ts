@@ -6,12 +6,18 @@ import {
   revokeAccessTokenByInput,
   validateAccessTokenContext,
 } from "./tokenActions";
+import {
+  exchangeAppointmentTokenForVisitChat,
+  refreshVisitChatAccessToken,
+} from "./visitChatAccess";
 
 export const appointmentCore = {
   listAppointmentPackages,
   validateAppointmentToken,
   revokeAccessTokenByInput,
   validateAccessTokenContext,
+  exchangeAppointmentTokenForVisitChat,
+  refreshVisitChatAccessToken,
 };
 
 export { appointmentActions, appointmentSchemas };

@@ -60,6 +60,7 @@ async function startServer() {
     trpcMiddleware: createExpressMiddleware({
       router: appRouter,
       createContext: opts => createContext(opts, authSessionApi),
+      allowMethodOverride: true,
     }),
   });
   // development mode uses Vite, production mode uses static files

@@ -16,6 +16,7 @@ import {
 import { useVisits } from "@/features/visit/hooks/useVisits";
 import { useVisitRoomAccess } from "@/features/visit/hooks/useVisitRoomAccess";
 import { useVisitRoomData } from "@/features/visit/hooks/useVisitRoomData";
+import { useVisitChatToken } from "@/features/visit/hooks/useVisitChatToken";
 import { useNow } from "@/features/visit/hooks/useNow";
 import { useConsultationTimer } from "@/features/visit/hooks/useConsultationTimer";
 import { useVisitRoomPresentation } from "@/features/visit/hooks/useVisitRoomPresentation";
@@ -72,6 +73,11 @@ export function VisitRoomScreen() {
     accessInput,
     validInput,
   });
+  const visitChatToken = useVisitChatToken({
+    appointmentId: accessInput.appointmentId,
+    sourceToken: accessInput.token,
+    enabled: validInput,
+  });
   const [summaryModalOpen, setSummaryModalOpen] = useState(false);
   const [summaryFlowStarted, setSummaryFlowStarted] = useState(false);
 
@@ -95,8 +101,8 @@ export function VisitRoomScreen() {
     markRoomAsClosed,
     showInitialSkeleton,
   } = useVisits({
-    accessInput: { token: accessInput.token },
-    enabled: validInput,
+    accessInput: { token: visitChatToken.token ?? "invalid-token-000" },
+    enabled: validInput && Boolean(visitChatToken.token),
     scrollContainerRef,
     resolved,
   });
@@ -166,17 +172,23 @@ export function VisitRoomScreen() {
     shouldShowVisitRoomLoadingState({
       isLoading: appointmentQuery.isLoading,
       hasAppointmentData: Boolean(appointmentQuery.data),
-    })
+    }) ||
+    visitChatToken.isLoading
   ) {
     return <VisitRoomLoadingState title={pageTitle} />;
   }
 
-  if (appointmentQuery.error || !appointmentQuery.data) {
+  if (
+    appointmentQuery.error ||
+    visitChatToken.error ||
+    !appointmentQuery.data
+  ) {
     return (
       <VisitRoomErrorState
         title={pageTitle}
         message={resolveVisitRoomErrorMessage({
-          rawMessage: appointmentQuery.error?.message,
+          rawMessage:
+            appointmentQuery.error?.message ?? visitChatToken.error?.message,
           copy: t,
         })}
         backToAppointmentsText={t.backToAppointments}
