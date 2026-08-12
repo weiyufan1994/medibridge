@@ -16,6 +16,10 @@ import {
   touchAppointmentVisitAccess,
 } from "./visitIntegrationActions";
 import { resendPaymentLinkByPatient } from "./paymentActions";
+import {
+  validateVisitChatAccessToken,
+  validateVisitChatTokenForAppointment,
+} from "./visitChatAccess";
 
 export const appointmentAuthApi = {
   get bindAppointmentsToUserByEmail() {
@@ -60,8 +64,8 @@ export const appointmentVisitApi = {
   markInSessionAfterFirstMessage: markAppointmentInSessionAfterFirstMessage,
   resolveConsultationTimerState,
   touchVisitAccess: touchAppointmentVisitAccess,
-  validateAccessToken: validateAppointmentAccessToken,
-  validateToken: validateAppointmentToken,
+  validateAccessToken: validateVisitChatAccessToken,
+  validateToken: validateVisitChatTokenForAppointment,
 };
 
 export const appointmentsAdminApi = {

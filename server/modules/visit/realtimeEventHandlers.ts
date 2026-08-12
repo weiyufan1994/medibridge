@@ -161,6 +161,7 @@ export function createVisitRealtimeEventHandlers(
       token,
       action: "send_message",
       expectedAppointmentId: appointmentId,
+      expectedRole: role,
       requestMetadata,
     });
     const appointment = validated.appointment;

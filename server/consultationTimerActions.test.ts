@@ -1,8 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("./modules/appointments/accessValidation", () => ({
-  validateAppointmentToken: vi.fn(),
+vi.mock("./modules/appointments/visitChatAccess", () => ({
+  validateVisitChatTokenForAppointment: vi.fn(),
 }));
 
 vi.mock("./modules/appointments/repo", () => ({
@@ -11,7 +11,7 @@ vi.mock("./modules/appointments/repo", () => ({
   getAppointmentById: vi.fn(),
 }));
 
-import { validateAppointmentToken } from "./modules/appointments/accessValidation";
+import { validateVisitChatTokenForAppointment } from "./modules/appointments/visitChatAccess";
 import * as appointmentsRepo from "./modules/appointments/repo";
 import { extendConsultationByDoctorTokenFlow } from "./modules/appointments/timerActions";
 
@@ -21,7 +21,7 @@ describe("consultation timer actions", () => {
   });
 
   it("extends consultation by 5 minutes for doctor token", async () => {
-    vi.mocked(validateAppointmentToken).mockResolvedValue({
+    vi.mocked(validateVisitChatTokenForAppointment).mockResolvedValue({
       role: "doctor",
       appointment: {
         id: 99,
@@ -61,7 +61,7 @@ describe("consultation timer actions", () => {
   });
 
   it("rejects second extension with CONSULTATION_EXTENSION_ALREADY_USED", async () => {
-    vi.mocked(validateAppointmentToken).mockResolvedValue({
+    vi.mocked(validateVisitChatTokenForAppointment).mockResolvedValue({
       role: "doctor",
       appointment: {
         id: 99,

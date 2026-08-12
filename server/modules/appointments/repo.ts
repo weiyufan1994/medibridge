@@ -1,6 +1,7 @@
 export {
   getActiveAppointmentTokenByHash,
   getAppointmentTokenByHash,
+  getAppointmentTokenById,
   getAppointmentTokenCooldownRemainingSeconds,
   getLatestAppointmentTokenIssuedAt,
   listActiveAppointmentTokens,

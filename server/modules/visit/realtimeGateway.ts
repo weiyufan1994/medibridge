@@ -147,14 +147,25 @@ export function createVisitRealtimeGateway() {
       if (
         connection.isClosed ||
         !connection.appointmentId ||
-        !connection.role
+        !connection.role ||
+        !connection.token
       ) {
         return;
       }
-      const appointment = await appointmentVisitApi.getAppointmentById(
-        connection.appointmentId
-      );
-      if (!appointment) {
+      let appointment: Awaited<
+        ReturnType<typeof appointmentVisitApi.validateAccessToken>
+      >["appointment"];
+      try {
+        const validated = await appointmentVisitApi.validateAccessToken({
+          token: connection.token,
+          action: "read_history",
+          expectedAppointmentId: connection.appointmentId,
+          expectedRole: connection.role,
+          requestMetadata,
+        });
+        appointment = validated.appointment;
+      } catch (error) {
+        sendError(connection, asErrorCode(error));
         closeConnection(connection);
         return;
       }

@@ -114,6 +114,35 @@ export async function getAppointmentTokenByHash(tokenHash: string) {
   return rows[0] ?? null;
 }
 
+export async function getAppointmentTokenById(tokenId: number) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const rows = await db
+    .select({
+      id: appointmentTokens.id,
+      appointmentId: appointmentTokens.appointmentId,
+      role: appointmentTokens.role,
+      tokenHash: appointmentTokens.tokenHash,
+      expiresAt: appointmentTokens.expiresAt,
+      lastUsedAt: appointmentTokens.lastUsedAt,
+      useCount: appointmentTokens.useCount,
+      maxUses: appointmentTokens.maxUses,
+      revokedAt: appointmentTokens.revokedAt,
+      revokeReason: appointmentTokens.revokeReason,
+      ipFirstSeen: appointmentTokens.ipFirstSeen,
+      uaFirstSeen: appointmentTokens.uaFirstSeen,
+      createdAt: appointmentTokens.createdAt,
+    })
+    .from(appointmentTokens)
+    .where(eq(appointmentTokens.id, tokenId))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
 export async function getLatestAppointmentTokenIssuedAt(input: {
   appointmentId: number;
   role: AppointmentTokenRole;

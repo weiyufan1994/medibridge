@@ -103,15 +103,29 @@ const appointmentCheckoutProcedures = {
     ),
 };
 
+const visitChatTokenMutation = (
+  action: typeof appointmentCore.exchangeAppointmentTokenForVisitChat
+) =>
+  publicProcedure
+    .input(appointmentSchemas.visitChatTokenInputSchema)
+    .output(appointmentSchemas.visitChatTokenOutputSchema)
+    .mutation(({ input, ctx }) =>
+      action({ ...input, requestMetadata: ctx.requestMetadata })
+    );
+
 const appointmentAccessProcedures = {
+  exchangeVisitChatToken: visitChatTokenMutation(
+    appointmentCore.exchangeAppointmentTokenForVisitChat
+  ),
+  refreshVisitChatToken: visitChatTokenMutation(
+    appointmentCore.refreshVisitChatAccessToken
+  ),
   getByToken: publicProcedure
     .input(appointmentSchemas.accessWithLangInputSchema)
     .output(appointmentSchemas.appointmentAccessOutputSchema)
     .query(async ({ input, ctx }) =>
       appointmentActions.getAppointmentAccessByTokenWithDefaultIntake({
-        appointmentId: input.appointmentId,
-        token: input.token,
-        lang: input.lang,
+        ...input,
         requestMetadata: ctx.requestMetadata,
       })
     ),
@@ -120,9 +134,7 @@ const appointmentAccessProcedures = {
     .output(appointmentSchemas.appointmentPublicSchema)
     .mutation(async ({ input, ctx }) =>
       appointmentActions.rescheduleByTokenFlow({
-        appointmentId: input.appointmentId,
-        token: input.token,
-        newScheduledAt: input.newScheduledAt,
+        ...input,
         requestMetadata: ctx.requestMetadata,
       })
     ),
@@ -131,8 +143,7 @@ const appointmentAccessProcedures = {
     .output(appointmentSchemas.joinInfoOutputSchema)
     .query(async ({ input, ctx }) =>
       appointmentActions.getJoinInfoByToken({
-        appointmentId: input.appointmentId,
-        token: input.token,
+        ...input,
         requestMetadata: ctx.requestMetadata,
       })
     ),
@@ -161,7 +172,7 @@ const appointmentAccessProcedures = {
     .output(appointmentSchemas.accessContextOutputSchema)
     .query(async ({ input, ctx }) =>
       appointmentCore.validateAccessTokenContext({
-        token: input.token,
+        ...input,
         requestMetadata: ctx.requestMetadata,
       })
     ),
@@ -212,8 +223,7 @@ const appointmentCompletionProcedures = {
     .output(appointmentSchemas.completeAppointmentOutputSchema)
     .mutation(async ({ input, ctx }) =>
       appointmentActions.completeAppointmentByTokenFlow({
-        appointmentId: input.appointmentId,
-        token: input.token,
+        ...input,
         operatorId: ctx.user?.id ?? null,
         requestMetadata: ctx.requestMetadata,
       })
@@ -223,10 +233,7 @@ const appointmentCompletionProcedures = {
     .output(appointmentSchemas.medicalSummaryDraftOutputSchema)
     .mutation(async ({ input, ctx }) =>
       generateMedicalSummaryDraft({
-        appointmentId: input.appointmentId,
-        token: input.token,
-        lang: input.lang,
-        forceRegenerate: input.forceRegenerate,
+        ...input,
         requestMetadata: ctx.requestMetadata,
       })
     ),
@@ -235,14 +242,8 @@ const appointmentCompletionProcedures = {
     .output(appointmentSchemas.completeAppointmentOutputSchema)
     .mutation(async ({ input, ctx }) =>
       appointmentActions.signMedicalSummaryByTokenFlow({
-        appointmentId: input.appointmentId,
-        token: input.token,
+        ...input,
         operatorId: ctx.user?.id ?? null,
-        chiefComplaint: input.chiefComplaint,
-        historyOfPresentIllness: input.historyOfPresentIllness,
-        pastMedicalHistory: input.pastMedicalHistory,
-        assessmentDiagnosis: input.assessmentDiagnosis,
-        planRecommendations: input.planRecommendations,
         requestMetadata: ctx.requestMetadata,
       })
     ),
