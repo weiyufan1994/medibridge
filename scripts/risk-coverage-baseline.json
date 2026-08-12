@@ -3,36 +3,6 @@
   "highRiskLinesTarget": 90,
   "exceptions": [
     {
-      "file": "server/_core/cookies.ts",
-      "currentLineCoverage": 64,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "1-auth-session-cookie-permissions"
-    },
-    {
-      "file": "server/modules/auth/actions.ts",
-      "currentLineCoverage": 79.78,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "1-auth-session-cookie-permissions"
-    },
-    {
-      "file": "server/modules/auth/publicApi.ts",
-      "currentLineCoverage": 78.57,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "1-auth-session-cookie-permissions"
-    },
-    {
-      "file": "server/modules/auth/repo.ts",
-      "currentLineCoverage": 1,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "1-auth-session-cookie-permissions"
-    },
-    {
-      "file": "server/routers/auth.ts",
-      "currentLineCoverage": 80,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "1-auth-session-cookie-permissions"
-    },
-    {
       "file": "server/modules/admin/procedures/webhookReplay.ts",
       "currentLineCoverage": 33.07,
       "targetLineCoverage": 90,

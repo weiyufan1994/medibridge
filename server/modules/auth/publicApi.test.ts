@@ -1,11 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./repo", () => ({
+  findOrCreateFormalUserByEmail: vi.fn(),
   findOrCreateGuestUserByDeviceId: vi.fn(),
+  getGuestUserByDeviceId: vi.fn(),
+  getUserById: vi.fn(),
+  upsertUser: vi.fn(),
 }));
 
 import * as repo from "./repo";
-import { authGuestIdentityApi } from "./publicApi";
+import { authenticateRequest } from "./sessionAuthentication";
+import {
+  authAccountApi,
+  authGuestIdentityApi,
+  authOAuthApi,
+  authSessionApi,
+} from "./publicApi";
 
 describe("authGuestIdentityApi", () => {
   beforeEach(() => {
@@ -47,5 +57,20 @@ describe("authGuestIdentityApi", () => {
     await expect(
       authGuestIdentityApi.findOrCreateGuestSessionOwner("missing-device")
     ).resolves.toBeUndefined();
+  });
+
+  it("exposes only the declared account, session, and OAuth capabilities", () => {
+    expect(authAccountApi.findOrCreateFormalUserByEmail).toBe(
+      repo.findOrCreateFormalUserByEmail
+    );
+    expect(authAccountApi.getGuestUserByDeviceId).toBe(
+      repo.getGuestUserByDeviceId
+    );
+    expect(authAccountApi.getUserById).toBe(repo.getUserById);
+    expect(authSessionApi.authenticateRequest).toBe(authenticateRequest);
+    expect(authSessionApi.getGuestUserByDeviceId).toBe(
+      repo.getGuestUserByDeviceId
+    );
+    expect(authOAuthApi.upsertUser).toBe(repo.upsertUser);
   });
 });
