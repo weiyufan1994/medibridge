@@ -1,5 +1,8 @@
 import { invokeLLM } from "../../_core/llm";
+import { createLogger } from "../../_core/logger";
 export { localizeMedicalSummaryContent } from "./medicalSummaryLocalization";
+
+const logger = createLogger("appointment-access-query");
 
 type TriageIntakeRecord = Record<string, string | undefined>;
 type TriageLocalizationCacheValue = {
@@ -308,7 +311,10 @@ export async function localizeTriageContent<
       intake: mergedIntake,
     };
   } catch (error) {
-    console.warn("[appointments] triage content localization failed:", error);
+    logger.warn("triage_localization_failed", {
+      targetLang: input.targetLang,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
     return {
       summary: resolveLocalizedSummary({
         current: normalizedSummary,
