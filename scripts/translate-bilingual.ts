@@ -3,14 +3,11 @@ import { Pool } from "pg";
 import { and, asc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { departments, doctors, hospitals } from "../drizzle/schema";
 import {
-  HOSPITAL_CITY_TRANSLATIONS,
-  HOSPITAL_LEVEL_TRANSLATIONS,
   computeSourceHash,
   delay,
   missingTranslatedFields,
   normalizeSourceText,
   parseArgs,
-  pickEnglish,
   sanitizeTranslatedText,
 } from "./translate-bilingual-core";
 import {
@@ -25,25 +22,16 @@ import {
   withRetry,
   type EntityRunStats,
 } from "./translate-bilingual-runtime";
+import { translateDoctorBatch as translateDoctorBatchViaAdapter } from "./translate-bilingual-doctor-llm";
 import {
-  translateDoctor as translateDoctorViaAdapter,
-  translateDoctorBatch as translateDoctorBatchViaAdapter,
-  translateDoctorFieldText as translateDoctorFieldTextViaAdapter,
-} from "./translate-bilingual-doctor-llm";
-import {
-  DOCTOR_TRANSLATION_FIELDS,
-  buildDoctorPartialInput,
   emptyDoctorTranslationSnapshot,
-  getMissingDoctorFields,
   type DoctorBatchInput,
   type DoctorBatchTranslation,
   type DoctorSourceText,
-  type DoctorTranslationSnapshot,
 } from "./translate-bilingual-doctor-support";
 import {
   translateDepartment as translateDepartmentViaAdapter,
   translateDepartmentBatch as translateDepartmentBatchViaAdapter,
-  translateDepartmentNameOnly as translateDepartmentNameOnlyViaAdapter,
   translateHospital as translateHospitalViaAdapter,
   translateHospitalBatch as translateHospitalBatchViaAdapter,
   type DepartmentBatchInput,
@@ -54,8 +42,6 @@ import {
   applyDoctorTranslation as applyDoctorTranslationPersisted,
   applyHospitalTranslation as applyHospitalTranslationPersisted,
   createTranslationDb as createTranslationDbPersisted,
-  departmentTranslationIsComplete as departmentTranslationIsCompletePersisted,
-  hospitalTranslationIsComplete as hospitalTranslationIsCompletePersisted,
   markDepartmentFailed as markDepartmentFailedPersisted,
   markDoctorFailed as markDoctorFailedPersisted,
   markHospitalFailed as markHospitalFailedPersisted,
@@ -65,215 +51,17 @@ import {
   type HospitalRow,
   type TranslationDb,
 } from "./translate-bilingual-persistence";
+import {
+  completeDepartmentTranslation as completeDepartmentTranslationExtracted,
+  completeDoctorTranslation as completeDoctorTranslationExtracted,
+  completeHospitalTranslation as completeHospitalTranslationExtracted,
+} from "./translate-bilingual-completion";
 
 const DEFAULT_TRANSLATION_PROVIDER = "forge/gemini-2.5-flash";
 let translationModelOverride: string | undefined;
 
 const getTranslationProviderName = () =>
   translationModelOverride?.trim() || DEFAULT_TRANSLATION_PROVIDER;
-
-const completeHospitalTranslation = async (
-  row: HospitalRow,
-  translated: HospitalBatchTranslation,
-  config: ReturnType<typeof parseArgs>,
-  stats: EntityRunStats
-) => {
-  const current = {
-    nameEn: pickEnglish(row.nameEn, translated.nameEn),
-    cityEn: pickEnglish(row.cityEn, translated.cityEn),
-    levelEn: pickEnglish(row.levelEn, translated.levelEn),
-    addressEn: pickEnglish(row.addressEn, translated.addressEn),
-    descriptionEn: pickEnglish(row.descriptionEn, translated.descriptionEn),
-  };
-
-  if (hospitalTranslationIsCompletePersisted(row, current)) {
-    return current;
-  }
-
-  const fallback = await withRetry(
-    () =>
-      translateHospitalViaAdapter(
-        {
-          name: row.name,
-          city: row.city,
-          level: row.level,
-          address: row.address,
-          description: row.description,
-        },
-        translationModelOverride
-      ),
-    config.maxRetries,
-    () => {
-      stats.fallbackCalls += 1;
-      stats.llmCalls += 1;
-      stats.rowsPerCallTotal += 1;
-    }
-  );
-
-  return {
-    nameEn: pickEnglish(current.nameEn, fallback.nameEn),
-    cityEn: pickEnglish(
-      current.cityEn,
-      fallback.cityEn ??
-        (row.city ? (HOSPITAL_CITY_TRANSLATIONS[row.city] ?? null) : null)
-    ),
-    levelEn: pickEnglish(
-      current.levelEn,
-      fallback.levelEn ??
-        (row.level ? (HOSPITAL_LEVEL_TRANSLATIONS[row.level] ?? null) : null)
-    ),
-    addressEn: pickEnglish(current.addressEn, fallback.addressEn),
-    descriptionEn: pickEnglish(current.descriptionEn, fallback.descriptionEn),
-  };
-};
-
-const completeDepartmentTranslation = async (
-  row: DepartmentRow,
-  translated: DepartmentBatchTranslation,
-  config: ReturnType<typeof parseArgs>,
-  stats: EntityRunStats
-) => {
-  const current = {
-    nameEn: pickEnglish(row.nameEn, translated.nameEn),
-    descriptionEn: pickEnglish(row.descriptionEn, translated.descriptionEn),
-  };
-
-  if (!current.nameEn) {
-    const translatedName = await withRetry(
-      () =>
-        translateDepartmentNameOnlyViaAdapter(
-          row.name,
-          translationModelOverride
-        ),
-      config.maxRetries,
-      () => {
-        stats.fallbackCalls += 1;
-        stats.llmCalls += 1;
-        stats.rowsPerCallTotal += 1;
-      }
-    );
-    current.nameEn = pickEnglish(current.nameEn, translatedName);
-  }
-
-  if (departmentTranslationIsCompletePersisted(row, current)) {
-    return current;
-  }
-
-  const fallback = await withRetry(
-    () =>
-      translateDepartmentViaAdapter(
-        {
-          name: row.name,
-          description: row.description,
-        },
-        translationModelOverride
-      ),
-    config.maxRetries,
-    () => {
-      stats.fallbackCalls += 1;
-      stats.llmCalls += 1;
-      stats.rowsPerCallTotal += 1;
-    }
-  );
-
-  return {
-    nameEn: pickEnglish(current.nameEn, fallback.nameEn),
-    descriptionEn: pickEnglish(current.descriptionEn, fallback.descriptionEn),
-  };
-};
-
-const completeDoctorTranslation = async (
-  row: DoctorRow,
-  source: DoctorSourceText,
-  translated: DoctorBatchTranslation,
-  config: ReturnType<typeof parseArgs>,
-  stats: EntityRunStats
-) => {
-  const current: DoctorTranslationSnapshot = {
-    nameEn: pickEnglish(row.nameEn, translated.nameEn),
-    titleEn: pickEnglish(row.titleEn, translated.titleEn),
-    specialtyEn: pickEnglish(row.specialtyEn, translated.specialtyEn),
-    expertiseEn: pickEnglish(row.expertiseEn, translated.expertiseEn),
-    onlineConsultationEn: pickEnglish(
-      row.onlineConsultationEn,
-      translated.onlineConsultationEn
-    ),
-    appointmentAvailableEn: pickEnglish(
-      row.appointmentAvailableEn,
-      translated.appointmentAvailableEn
-    ),
-    satisfactionRateEn: pickEnglish(
-      row.satisfactionRateEn,
-      translated.satisfactionRateEn
-    ),
-    attitudeScoreEn: pickEnglish(
-      row.attitudeScoreEn,
-      translated.attitudeScoreEn
-    ),
-  };
-
-  const missingFields = getMissingDoctorFields(source, current);
-  if (missingFields.length === 0) {
-    return current;
-  }
-
-  let merged = { ...current };
-  for (const field of missingFields) {
-    const partialInput = buildDoctorPartialInput(source, [field]);
-    const partial = await withRetry(
-      () =>
-        translateDoctorViaAdapter(partialInput, translationModelOverride, [
-          field,
-        ]),
-      config.maxRetries,
-      () => {
-        stats.fallbackCalls += 1;
-        stats.llmCalls += 1;
-        stats.rowsPerCallTotal += 1;
-      }
-    );
-    merged = {
-      ...merged,
-      [field]: pickEnglish(merged[field], partial[field] ?? null),
-    };
-    if (!merged[field]) {
-      const sourceField = DOCTOR_TRANSLATION_FIELDS.find(
-        candidate => candidate.translatedKey === field
-      );
-      const sourceValue = sourceField ? source[sourceField.sourceKey] : null;
-      if (sourceValue) {
-        const translatedText = await withRetry(
-          () =>
-            translateDoctorFieldTextViaAdapter(
-              field,
-              sourceValue,
-              translationModelOverride
-            ),
-          config.maxRetries,
-          () => {
-            stats.fallbackCalls += 1;
-            stats.llmCalls += 1;
-            stats.rowsPerCallTotal += 1;
-          }
-        );
-        merged = {
-          ...merged,
-          [field]: pickEnglish(merged[field], translatedText),
-        };
-      }
-    }
-    await delay(config.rateLimitMs);
-  }
-
-  const remainingFields = getMissingDoctorFields(source, merged);
-  if (remainingFields.length > 0) {
-    throw new Error(
-      `Incomplete doctor translation after field retries: ${remainingFields.join(", ")}`
-    );
-  }
-
-  return merged;
-};
 
 const doctorNeedsTranslationCondition = sql`
   (
@@ -489,11 +277,12 @@ const translateHospitals = async (
             },
           ]);
           if (currentMissingFields > 0) {
-            const completed = await completeHospitalTranslation(
+            const completed = await completeHospitalTranslationExtracted(
               completionCandidate,
               translated,
               config,
-              stats
+              stats,
+              translationModelOverride
             );
             finalTranslated = {
               ...translated,
@@ -745,11 +534,12 @@ const translateDepartments = async (
             },
           ]);
           if (currentMissingFields > 0) {
-            const completed = await completeDepartmentTranslation(
+            const completed = await completeDepartmentTranslationExtracted(
               completionCandidate,
               translated,
               config,
-              stats
+              stats,
+              translationModelOverride
             );
             finalTranslated = {
               ...translated,
@@ -1073,12 +863,13 @@ const translateDoctors = async (
             },
           ]);
           if (currentMissingFields > 0) {
-            const completed = await completeDoctorTranslation(
+            const completed = await completeDoctorTranslationExtracted(
               completionCandidate,
               source,
               translated,
               config,
-              stats
+              stats,
+              translationModelOverride
             );
             finalTranslated = {
               ...translated,
