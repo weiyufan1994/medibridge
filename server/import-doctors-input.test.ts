@@ -1,7 +1,13 @@
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "fs";
+import {
+  copyFileSync,
+  mkdtempSync,
+  mkdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import ExcelJS from "exceljs";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   assertWorkbookFileCount,
@@ -16,6 +22,7 @@ import {
   parseDepartmentFromFileName,
   parseHospitalFromPath,
 } from "../scripts/import-doctors-input.mjs";
+import { readWorkbook } from "../scripts/xlsx-workbook-reader.mjs";
 
 const temporaryDirectories: string[] = [];
 
@@ -68,10 +75,20 @@ describe("doctor import input helpers", () => {
   });
 
   it("finds the workbook header and maps known doctor columns", () => {
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("骨科");
-    worksheet.getRow(1).values = ["导出说明"];
-    worksheet.getRow(2).values = ["医生姓名", "所属医院", "挂号科室"];
+    const rows = [["导出说明"], ["医生姓名", "所属医院", "挂号科室"]];
+    const worksheet = {
+      getRow(rowNumber: number) {
+        return {
+          eachCell(
+            callback: (cell: { value: string }, columnNumber: number) => void
+          ) {
+            (rows[rowNumber - 1] ?? []).forEach((value, index) => {
+              callback({ value }, index + 1);
+            });
+          },
+        };
+      },
+    };
 
     expect(getColumnMapping(worksheet)).toEqual({
       headerRowNum: 2,
@@ -106,11 +123,18 @@ describe("doctor import input helpers", () => {
   it("accepts a real XLSX file inside the trusted root", async () => {
     const root = createTemporaryDirectory();
     const workbookPath = join(root, "doctors.xlsx");
-    const workbook = new ExcelJS.Workbook();
-    workbook.addWorksheet("doctors").addRow(["name"]);
-    await workbook.xlsx.writeFile(workbookPath);
+    copyFileSync(
+      join(process.cwd(), "data", "ruijin_doctors_remaining.xlsx"),
+      workbookPath
+    );
 
     expect(() => assertXlsxInputFile(workbookPath, root)).not.toThrow();
+    const workbook = await readWorkbook(workbookPath);
+    expect(workbook.worksheets).toHaveLength(1);
+    expect(workbook.worksheets[0].name).toBe("Sheet1");
+    expect(getColumnMapping(workbook.worksheets[0])).toEqual(
+      expect.objectContaining({ headerRowNum: 1 })
+    );
   });
 
   it("rejects disguised, oversized, linked, and out-of-root workbook inputs", () => {
@@ -167,30 +191,26 @@ describe("doctor import input helpers", () => {
       )
     ).toThrow("Workbook file limit exceeded");
 
-    const tooManySheets = new ExcelJS.Workbook();
-    for (let index = 0; index <= EXCEL_IMPORT_LIMITS.maxSheets; index++) {
-      tooManySheets.addWorksheet(`sheet-${index}`);
-    }
+    const tooManySheets = {
+      worksheets: Array.from(
+        { length: EXCEL_IMPORT_LIMITS.maxSheets + 1 },
+        () => ({ rowCount: 0 })
+      ),
+    };
     expect(() => assertWorkbookLimits(tooManySheets)).toThrow(
       "Workbook sheet limit exceeded"
     );
 
-    const tooManyRows = new ExcelJS.Workbook();
-    tooManyRows
-      .addWorksheet("rows")
-      .getCell(`A${EXCEL_IMPORT_LIMITS.maxRowsPerSheet + 1}`).value = "doctor";
+    const tooManyRows = {
+      worksheets: [{ rowCount: EXCEL_IMPORT_LIMITS.maxRowsPerSheet + 1 }],
+    };
     expect(() => assertWorkbookLimits(tooManyRows)).toThrow(
       "Worksheet row limit exceeded"
     );
 
-    const tooManyTotalRows = new ExcelJS.Workbook();
-    for (const [name, rowCount] of [
-      ["one", 20_000],
-      ["two", 20_000],
-      ["three", 10_001],
-    ]) {
-      tooManyTotalRows.addWorksheet(name).getCell(`A${rowCount}`).value = name;
-    }
+    const tooManyTotalRows = {
+      worksheets: [20_000, 20_000, 10_001].map(rowCount => ({ rowCount })),
+    };
     expect(() => assertWorkbookLimits(tooManyTotalRows)).toThrow(
       "Workbook row limit exceeded"
     );

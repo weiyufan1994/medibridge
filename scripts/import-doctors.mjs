@@ -1,7 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { join, dirname, basename } from "path";
 import { fileURLToPath } from "url";
-import ExcelJS from "exceljs";
 import { hospitals, departments, doctors } from "../drizzle/schema.ts";
 import { eq, and } from "drizzle-orm";
 import "../server/_core/loadEnv.ts";
@@ -19,6 +18,7 @@ import {
   parseDepartmentFromFileName,
   parseHospitalFromPath,
 } from "./import-doctors-input.mjs";
+import { readWorkbook } from "./xlsx-workbook-reader.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -62,8 +62,7 @@ async function importDoctors() {
 
     try {
       assertXlsxInputFile(filePath, hospitalsDir);
-      const workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.readFile(filePath);
+      const workbook = await readWorkbook(filePath);
       assertWorkbookLimits(workbook);
 
       const rows = [];

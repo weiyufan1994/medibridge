@@ -1,9 +1,9 @@
-import ExcelJS from "exceljs";
 import path from "node:path";
 import {
   assertWorkbookLimits,
   assertXlsxInputFile,
 } from "./import-doctors-input.mjs";
+import { readWorkbook } from "./xlsx-workbook-reader.mjs";
 
 const excelPath = path.join(
   process.cwd(),
@@ -12,9 +12,8 @@ const excelPath = path.join(
   "华山医院_详细医生信息.xlsx"
 );
 
-const wb = new ExcelJS.Workbook();
 assertXlsxInputFile(excelPath, process.cwd());
-await wb.xlsx.readFile(excelPath);
+const wb = await readWorkbook(excelPath);
 assertWorkbookLimits(wb);
 const ws = wb.worksheets[0];
 
