@@ -40,11 +40,6 @@
       "maxLines": 575,
       "phase": "4",
       "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
-    "server/visit.test.ts": {
-      "maxLines": 427,
-      "phase": "4",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
     }
   }
 }
