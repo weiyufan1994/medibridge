@@ -1,6 +1,97 @@
 import { createHash } from "crypto";
-import { existsSync, readFileSync, readdirSync, statSync } from "fs";
-import { join, relative, sep } from "path";
+import {
+  existsSync,
+  lstatSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+} from "fs";
+import { isAbsolute, join, relative, sep } from "path";
+
+export const EXCEL_IMPORT_LIMITS = Object.freeze({
+  maxWorkbookFiles: 250,
+  maxFileBytes: 5 * 1024 * 1024,
+  maxSheets: 32,
+  maxRowsPerSheet: 20_000,
+  maxRowsTotal: 50_000,
+});
+
+const XLSX_FILE_SIGNATURE = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+const XLSX_REQUIRED_ENTRIES = ["[Content_Types].xml", "xl/workbook.xml"];
+
+function isPathInsideRoot(rootPath, filePath) {
+  const relativePath = relative(rootPath, filePath);
+  return (
+    relativePath !== ".." &&
+    !relativePath.startsWith(`..${sep}`) &&
+    !isAbsolute(relativePath)
+  );
+}
+
+export function assertWorkbookFileCount(filePaths) {
+  if (filePaths.length > EXCEL_IMPORT_LIMITS.maxWorkbookFiles) {
+    throw new Error(
+      `Workbook file limit exceeded: ${filePaths.length} > ${EXCEL_IMPORT_LIMITS.maxWorkbookFiles}`
+    );
+  }
+}
+
+export function assertXlsxInputFile(filePath, trustedRoot) {
+  if (!/\.xlsx$/i.test(filePath)) {
+    throw new Error("Workbook input must use the .xlsx file extension");
+  }
+
+  const stats = lstatSync(filePath);
+  if (!stats.isFile() || stats.isSymbolicLink()) {
+    throw new Error("Workbook input must be a regular file, not a link");
+  }
+  if (stats.size === 0 || stats.size > EXCEL_IMPORT_LIMITS.maxFileBytes) {
+    throw new Error(
+      `Workbook file size must be between 1 and ${EXCEL_IMPORT_LIMITS.maxFileBytes} bytes`
+    );
+  }
+
+  const realRoot = realpathSync(trustedRoot);
+  const realFile = realpathSync(filePath);
+  if (!isPathInsideRoot(realRoot, realFile)) {
+    throw new Error("Workbook input must remain inside the trusted root");
+  }
+
+  const contents = readFileSync(filePath);
+  const hasZipSignature = contents
+    .subarray(0, XLSX_FILE_SIGNATURE.length)
+    .equals(XLSX_FILE_SIGNATURE);
+  const hasRequiredEntries = XLSX_REQUIRED_ENTRIES.every(entry =>
+    contents.includes(Buffer.from(entry))
+  );
+  if (!hasZipSignature || !hasRequiredEntries) {
+    throw new Error("Workbook input is not a valid XLSX package");
+  }
+}
+
+export function assertWorkbookLimits(workbook) {
+  if (workbook.worksheets.length > EXCEL_IMPORT_LIMITS.maxSheets) {
+    throw new Error(
+      `Workbook sheet limit exceeded: ${workbook.worksheets.length} > ${EXCEL_IMPORT_LIMITS.maxSheets}`
+    );
+  }
+
+  let totalRows = 0;
+  for (const worksheet of workbook.worksheets) {
+    const rowCount = worksheet.rowCount;
+    if (rowCount > EXCEL_IMPORT_LIMITS.maxRowsPerSheet) {
+      throw new Error(
+        `Worksheet row limit exceeded: ${rowCount} > ${EXCEL_IMPORT_LIMITS.maxRowsPerSheet}`
+      );
+    }
+    totalRows += rowCount;
+    if (totalRows > EXCEL_IMPORT_LIMITS.maxRowsTotal) {
+      throw new Error(
+        `Workbook row limit exceeded: ${totalRows} > ${EXCEL_IMPORT_LIMITS.maxRowsTotal}`
+      );
+    }
+  }
+}
 
 export const hospitalMapping = {
   复旦大学附属华山医院: {
@@ -166,7 +257,7 @@ export function getAllXlsxFiles(dirPath, arrayOfFiles = []) {
     let stats;
 
     try {
-      stats = statSync(fullPath);
+      stats = lstatSync(fullPath);
     } catch {
       continue;
     }

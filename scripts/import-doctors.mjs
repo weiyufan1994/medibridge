@@ -7,6 +7,9 @@ import { eq, and } from "drizzle-orm";
 import "../server/_core/loadEnv.ts";
 import { Pool } from "pg";
 import {
+  assertWorkbookFileCount,
+  assertWorkbookLimits,
+  assertXlsxInputFile,
   computeSourceHash,
   getAllXlsxFiles,
   getColumnMapping,
@@ -19,6 +22,9 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const hospitalsDir = join(__dirname, "../data/hospitals");
+const xlsxFiles = getAllXlsxFiles(hospitalsDir);
+assertWorkbookFileCount(xlsxFiles);
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -29,13 +35,11 @@ const db = drizzle(pool);
 async function importDoctors() {
   console.log("Starting doctor data import...");
 
-  const hospitalsDir = join(__dirname, "../data/hospitals");
   const deptIndexPath = join(
     __dirname,
     "../data/departments/all_departments.json"
   );
   const deptUrlMap = loadDeptUrlMap(deptIndexPath);
-  const xlsxFiles = getAllXlsxFiles(hospitalsDir);
 
   console.log("Loaded department urls:", deptUrlMap.size);
 
@@ -57,8 +61,10 @@ async function importDoctors() {
     console.log(`\nProcessing file: ${fileName}`);
 
     try {
+      assertXlsxInputFile(filePath, hospitalsDir);
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.readFile(filePath);
+      assertWorkbookLimits(workbook);
 
       const rows = [];
       let fileDoctorsCount = 0;

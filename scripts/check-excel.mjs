@@ -1,5 +1,9 @@
 import ExcelJS from "exceljs";
 import path from "node:path";
+import {
+  assertWorkbookLimits,
+  assertXlsxInputFile,
+} from "./import-doctors-input.mjs";
 
 const excelPath = path.join(
   process.cwd(),
@@ -9,7 +13,9 @@ const excelPath = path.join(
 );
 
 const wb = new ExcelJS.Workbook();
+assertXlsxInputFile(excelPath, process.cwd());
 await wb.xlsx.readFile(excelPath);
+assertWorkbookLimits(wb);
 const ws = wb.worksheets[0];
 
 console.log("Row 1 (Headers):");
