@@ -12,7 +12,7 @@
     "lint": "eslint .",
     "check:architecture": "node scripts/check-import-boundaries.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage && node scripts/check-risk-coverage.mjs",
     "test:router-boundary": "vitest run server/router-boundary-pattern.test.ts",
     "lint:imports": "pnpm check:architecture",
     "format": "prettier --write .",
