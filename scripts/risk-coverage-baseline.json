@@ -9,24 +9,6 @@
       "cleanupBatch": "2-payments-refunds-webhooks"
     },
     {
-      "file": "server/modules/payments/providers/paypalAdapter.ts",
-      "currentLineCoverage": 5.94,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "2-payments-refunds-webhooks"
-    },
-    {
-      "file": "server/modules/payments/providers/stripeAdapter.ts",
-      "currentLineCoverage": 47.87,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "2-payments-refunds-webhooks"
-    },
-    {
-      "file": "server/modules/payments/stripe.ts",
-      "currentLineCoverage": 0,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "2-payments-refunds-webhooks"
-    },
-    {
       "file": "server/modules/referrals/refunds.ts",
       "currentLineCoverage": 47.17,
       "targetLineCoverage": 90,
