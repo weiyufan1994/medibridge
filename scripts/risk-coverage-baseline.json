@@ -1,0 +1,354 @@
+{
+  "changedLinesMinimum": 80,
+  "highRiskLinesTarget": 90,
+  "exceptions": [
+    {
+      "file": "server/_core/cookies.ts",
+      "currentLineCoverage": 64,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "1-auth-session-cookie-permissions"
+    },
+    {
+      "file": "server/modules/auth/actions.ts",
+      "currentLineCoverage": 79.78,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "1-auth-session-cookie-permissions"
+    },
+    {
+      "file": "server/modules/auth/publicApi.ts",
+      "currentLineCoverage": 78.57,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "1-auth-session-cookie-permissions"
+    },
+    {
+      "file": "server/modules/auth/repo.ts",
+      "currentLineCoverage": 1,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "1-auth-session-cookie-permissions"
+    },
+    {
+      "file": "server/routers/auth.ts",
+      "currentLineCoverage": 80,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "1-auth-session-cookie-permissions"
+    },
+    {
+      "file": "server/modules/admin/procedures/webhookReplay.ts",
+      "currentLineCoverage": 33.07,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "2-payments-refunds-webhooks"
+    },
+    {
+      "file": "server/modules/appointments/paymentActions.ts",
+      "currentLineCoverage": 5.26,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "2-payments-refunds-webhooks"
+    },
+    {
+      "file": "server/modules/appointments/checkoutActions.ts",
+      "currentLineCoverage": 73.23,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "2-payments-refunds-webhooks"
+    },
+    {
+      "file": "server/modules/payments/providerManager.ts",
+      "currentLineCoverage": 70.51,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "2-payments-refunds-webhooks"
+    },
+    {
+      "file": "server/modules/payments/providers/mockAdapter.ts",
+      "currentLineCoverage": 86.57,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "2-payments-refunds-webhooks"
+    },
+    {
+      "file": "server/modules/payments/providers/paypalAdapter.ts",
+      "currentLineCoverage": 5.94,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "2-payments-refunds-webhooks"
+    },
+    {
+      "file": "server/modules/payments/providers/stripeAdapter.ts",
+      "currentLineCoverage": 47.87,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "2-payments-refunds-webhooks"
+    },
+    {
+      "file": "server/modules/payments/readActions.ts",
+      "currentLineCoverage": 48.96,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "2-payments-refunds-webhooks"
+    },
+    {
+      "file": "server/modules/payments/stripe.ts",
+      "currentLineCoverage": 0,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "2-payments-refunds-webhooks"
+    },
+    {
+      "file": "server/modules/referrals/refunds.ts",
+      "currentLineCoverage": 47.17,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "2-payments-refunds-webhooks"
+    },
+    {
+      "file": "server/paypalWebhookRoute.ts",
+      "currentLineCoverage": 53.54,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "2-payments-refunds-webhooks"
+    },
+    {
+      "file": "server/routers/payments.ts",
+      "currentLineCoverage": 82.61,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "2-payments-refunds-webhooks"
+    },
+    {
+      "file": "server/routers/referrals.ts",
+      "currentLineCoverage": 79.46,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "2-payments-refunds-webhooks"
+    },
+    {
+      "file": "server/stripeWebhookContext.ts",
+      "currentLineCoverage": 85.34,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "2-payments-refunds-webhooks"
+    },
+    {
+      "file": "server/stripeWebhookProcessor.ts",
+      "currentLineCoverage": 48.93,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "2-payments-refunds-webhooks"
+    },
+    {
+      "file": "server/stripeWebhookRoute.ts",
+      "currentLineCoverage": 72.34,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "2-payments-refunds-webhooks"
+    },
+    {
+      "file": "server/_core/appointmentToken.ts",
+      "currentLineCoverage": 88.24,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/admin/procedures/appointmentActions.ts",
+      "currentLineCoverage": 79.84,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/admin/procedures/appointmentDetail.ts",
+      "currentLineCoverage": 70.49,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/appointments/accessLinkActions.ts",
+      "currentLineCoverage": 59.77,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/appointments/accessQueryActions.ts",
+      "currentLineCoverage": 78.95,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/appointments/accessReadActions.ts",
+      "currentLineCoverage": 68.22,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/appointments/accessValidation.ts",
+      "currentLineCoverage": 67.53,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/appointments/chatPolicy.ts",
+      "currentLineCoverage": 86.96,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/appointments/lifecycleRepo.ts",
+      "currentLineCoverage": 58.74,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/appointments/stateMachine.ts",
+      "currentLineCoverage": 71.54,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/appointments/statusActions.ts",
+      "currentLineCoverage": 70,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/appointments/tokenActions.ts",
+      "currentLineCoverage": 3.85,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/appointments/tokenCache.ts",
+      "currentLineCoverage": 48.15,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/appointments/tokenLifecycleWorkflow.ts",
+      "currentLineCoverage": 48.39,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/appointments/tokenReadRepo.ts",
+      "currentLineCoverage": 0.72,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/appointments/tokenService.ts",
+      "currentLineCoverage": 15.63,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/appointments/tokenValidation.ts",
+      "currentLineCoverage": 79.66,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/appointments/tokenWriteRepo.ts",
+      "currentLineCoverage": 39.78,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/visit/actions.ts",
+      "currentLineCoverage": 68.84,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/visit/guestAssetRepo.ts",
+      "currentLineCoverage": 6.25,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/visit/publicApi.ts",
+      "currentLineCoverage": 79.31,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/visit/realtimeEventHandlers.ts",
+      "currentLineCoverage": 54.58,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/visit/realtimeGateway.ts",
+      "currentLineCoverage": 58.33,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/visit/realtimeProtocol.ts",
+      "currentLineCoverage": 65.73,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/visit/repo.ts",
+      "currentLineCoverage": 0.5,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/visit/translation.ts",
+      "currentLineCoverage": 76.26,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/routers/appointments.ts",
+      "currentLineCoverage": 80.66,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "3-appointment-state-token-visit"
+    },
+    {
+      "file": "server/modules/admin/visitSummary.ts",
+      "currentLineCoverage": 0.59,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "4-medical-summary-ai-triage-safety"
+    },
+    {
+      "file": "server/modules/admin/visitSummaryRepo.ts",
+      "currentLineCoverage": 2.5,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "4-medical-summary-ai-triage-safety"
+    },
+    {
+      "file": "server/modules/admin/procedures/visitSummaries.ts",
+      "currentLineCoverage": 42.48,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "4-medical-summary-ai-triage-safety"
+    },
+    {
+      "file": "server/modules/ai/actions.ts",
+      "currentLineCoverage": 71.43,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "4-medical-summary-ai-triage-safety"
+    },
+    {
+      "file": "server/modules/appointments/medicalSummaryDraft.ts",
+      "currentLineCoverage": 55.74,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "4-medical-summary-ai-triage-safety"
+    },
+    {
+      "file": "server/modules/appointments/medicalSummaryLocalization.ts",
+      "currentLineCoverage": 79.59,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "4-medical-summary-ai-triage-safety"
+    },
+    {
+      "file": "server/modules/appointments/medicalSummaryWorkflow.ts",
+      "currentLineCoverage": 83.55,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "4-medical-summary-ai-triage-safety"
+    },
+    {
+      "file": "server/modules/triageSafety/events.ts",
+      "currentLineCoverage": 2.04,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "4-medical-summary-ai-triage-safety"
+    },
+    {
+      "file": "server/modules/triageSafety/index.ts",
+      "currentLineCoverage": 0,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "4-medical-summary-ai-triage-safety"
+    },
+    {
+      "file": "server/modules/appointments/autoCloseWorker.ts",
+      "currentLineCoverage": 44.12,
+      "targetLineCoverage": 90,
+      "cleanupBatch": "5-workers"
+    }
+  ]
+}
