@@ -3,6 +3,9 @@ import {
   initiateAutomaticReferralRefund,
   processReferralRefund,
 } from "./refunds";
+import { createLogger } from "../../_core/logger";
+
+const logger = createLogger("referral-fulfillment-worker");
 
 const DEFAULT_INTERVAL_MS = 60 * 60 * 1000;
 const BATCH_LIMIT = 100;
@@ -23,10 +26,10 @@ async function refundExpiredOrders(now: Date) {
         actor: { type: "system", id: null },
       });
     } catch (error) {
-      console.warn(
-        `[ReferralFulfillmentWorker] SLA refund failed for order ${order.id}:`,
-        error
-      );
+      logger.warn("sla_refund_failed", {
+        orderId: order.id,
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
     }
   }
 }
@@ -40,10 +43,10 @@ async function retryProcessingRefunds() {
         actor: { type: "system", id: null },
       });
     } catch (error) {
-      console.warn(
-        `[ReferralFulfillmentWorker] refund retry failed for order ${order.id}:`,
-        error
-      );
+      logger.warn("refund_retry_failed", {
+        orderId: order.id,
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
     }
   }
 }
@@ -69,7 +72,9 @@ export function startReferralFulfillmentWorker(options?: {
     try {
       await processReferralFulfillment();
     } catch (error) {
-      console.warn("[ReferralFulfillmentWorker] tick failed:", error);
+      logger.warn("tick_failed", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
     } finally {
       running = false;
     }
