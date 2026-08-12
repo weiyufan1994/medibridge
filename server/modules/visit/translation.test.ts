@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../_core/llm", () => ({
   invokeLLM: vi.fn(),
@@ -10,6 +10,11 @@ import { translateVisitMessage } from "./translation";
 describe("visit translation service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   it("returns identity translation when source and target are the same", async () => {
@@ -65,6 +70,39 @@ describe("visit translation service", () => {
     expect(result.translatedContent).toBe("hello");
     expect(result.sourceLanguage).toBe("en");
     expect(result.targetLanguage).toBe("zh");
+  });
+
+  it("logs production translation failures without medical content", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.mocked(invokeLLM).mockRejectedValue(
+      new Error("private medication and diagnosis detail")
+    );
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = await translateVisitMessage({
+      content: "患者专用测试病情",
+      sourceLanguage: "zh",
+      targetLanguage: "en",
+    });
+
+    expect(result).toMatchObject({
+      originalContent: "患者专用测试病情",
+      translatedContent: "患者专用测试病情",
+      sourceLanguage: "zh",
+      targetLanguage: "en",
+      translationProvider: "identity",
+    });
+    expect(consoleWarn).toHaveBeenCalledOnce();
+    const logged = String(consoleWarn.mock.calls[0]?.[0]);
+    expect(JSON.parse(logged)).toMatchObject({
+      component: "visit-translation",
+      event: "message_translation_failed",
+      sourceLanguage: "zh",
+      targetLanguage: "en",
+      errorName: "Error",
+    });
+    expect(logged).not.toContain("private medication and diagnosis detail");
+    expect(logged).not.toContain("患者专用测试病情");
   });
 
   it("resolves auto source/target in opposite-language mode", async () => {
