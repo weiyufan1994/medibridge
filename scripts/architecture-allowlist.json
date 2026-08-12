@@ -15,11 +15,6 @@
       "maxLines": 697,
       "phase": "6",
       "reason": "Existing oversized file; edits may not increase this ceiling"
-    },
-    "server/referrals.actions.test.ts": {
-      "maxLines": 741,
-      "phase": "4",
-      "reason": "Existing oversized file; edits may not increase this ceiling"
     }
   }
 }
