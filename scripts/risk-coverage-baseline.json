@@ -27,24 +27,6 @@
       "cleanupBatch": "2-payments-refunds-webhooks"
     },
     {
-      "file": "server/stripeWebhookContext.ts",
-      "currentLineCoverage": 85.34,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "2-payments-refunds-webhooks"
-    },
-    {
-      "file": "server/stripeWebhookProcessor.ts",
-      "currentLineCoverage": 48.93,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "2-payments-refunds-webhooks"
-    },
-    {
-      "file": "server/stripeWebhookRoute.ts",
-      "currentLineCoverage": 72.34,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "2-payments-refunds-webhooks"
-    },
-    {
       "file": "server/_core/appointmentToken.ts",
       "currentLineCoverage": 88.24,
       "targetLineCoverage": 90,
