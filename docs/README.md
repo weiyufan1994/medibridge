@@ -15,6 +15,7 @@
 - `docs/adr/0001-module-public-boundaries.md` — `routerApi` 与 `publicApi` 边界
 - `docs/adr/0002-cross-domain-workflows.md` — 跨域 application workflow 归属
 - `docs/adr/0003-dependency-security-baseline.md` — 生产依赖安全基线
+- `docs/adr/0004-map-capability-removal.md` — 地图能力移除与秘密边界
 
 ## docs/implementation/
 
