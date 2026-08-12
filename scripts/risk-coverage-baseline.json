@@ -15,12 +15,6 @@
       "cleanupBatch": "2-payments-refunds-webhooks"
     },
     {
-      "file": "server/paypalWebhookRoute.ts",
-      "currentLineCoverage": 53.54,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "2-payments-refunds-webhooks"
-    },
-    {
       "file": "server/routers/referrals.ts",
       "currentLineCoverage": 79.46,
       "targetLineCoverage": 90,
