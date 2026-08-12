@@ -1,4 +1,5 @@
 import { createEmbedding } from "../../_core/llm";
+import { createLogger } from "../../_core/logger";
 import {
   toLocalizedTextValue,
   toPublicLocalizedDoctorSearchResult,
@@ -11,6 +12,8 @@ import {
   type SpecialtyIntent,
 } from "./recommendationIntents";
 import { deriveDoctorSpecialtyTags } from "./taxonomy";
+
+const logger = createLogger("doctor-recommendation-retrieval");
 
 export type DoctorResult = Awaited<
   ReturnType<typeof doctorsRepo.searchDoctors>
@@ -158,7 +161,9 @@ export async function retrieveRecommendationBuckets(input: {
         }
       );
     } catch (error) {
-      console.warn("[Doctors] vector retrieval failed:", error);
+      logger.warn("vector_retrieval_failed", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
     }
   }
 
