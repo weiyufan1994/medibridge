@@ -5,6 +5,25 @@ import { defineConfig } from "vite";
 
 const plugins = [react(), tailwindcss()];
 
+const HTML_PARSER_PACKAGE_PATHS = [
+  "/node_modules/.pnpm/entities@",
+  "/node_modules/.pnpm/parse5@",
+  "/node_modules/.pnpm/property-information@",
+];
+
+function splitFrontendVendorChunk(moduleId: string) {
+  const normalizedId = moduleId.replaceAll("\\", "/");
+  if (
+    HTML_PARSER_PACKAGE_PATHS.some(packagePath =>
+      normalizedId.includes(packagePath)
+    )
+  ) {
+    return "html-parser";
+  }
+
+  return undefined;
+}
+
 export default defineConfig({
   plugins,
   resolve: {
@@ -20,6 +39,11 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: splitFrontendVendorChunk,
+      },
+    },
   },
   server: {
     host: true,
