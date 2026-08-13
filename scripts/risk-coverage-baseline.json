@@ -1,12 +1,5 @@
 {
   "changedLinesMinimum": 80,
   "highRiskLinesTarget": 90,
-  "exceptions": [
-    {
-      "file": "server/modules/visit/repo.ts",
-      "currentLineCoverage": 0.5,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "3-appointment-state-token-visit"
-    }
-  ]
+  "exceptions": []
 }
