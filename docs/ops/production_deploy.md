@@ -50,11 +50,16 @@ The workflow does this:
 4. Build and package a release archive
 5. Upload the archive to S3
 6. Send an SSM command to the EC2 instance
-7. Download the archive by presigned URL on the server
-8. Extract to `/srv/medibridge/releases/<release-id>`
-9. Switch `/srv/medibridge/current`
-10. Reload PM2
-11. Run a health check against `http://127.0.0.1:3000/`
+7. Verify that the server is running Node.js 24
+8. Download the archive by presigned URL on the server
+9. Extract to `/srv/medibridge/releases/<release-id>`
+10. Switch `/srv/medibridge/current`
+11. Reload PM2
+12. Run a health check against `http://127.0.0.1:3000/`
+
+The Node.js check runs before the release directory is created or replaced. A
+missing runtime or any major version other than 24 fails the deployment without
+switching `/srv/medibridge/current`.
 
 ## Server layout
 
@@ -114,10 +119,13 @@ You would only need `aws cli` on the server for separate operational tasks, such
 After a production deploy, check:
 
 ```bash
+node --version
 readlink -f /srv/medibridge/current
 sudo pm2 list
 curl -I http://127.0.0.1:3000/
 ```
+
+`node --version` must report `v24.x.x`.
 
 If needed, inspect logs:
 
