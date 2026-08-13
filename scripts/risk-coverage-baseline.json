@@ -25,12 +25,6 @@
       "currentLineCoverage": 0.5,
       "targetLineCoverage": 90,
       "cleanupBatch": "3-appointment-state-token-visit"
-    },
-    {
-      "file": "server/routers/appointments.ts",
-      "currentLineCoverage": 80.66,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "3-appointment-state-token-visit"
     }
   ]
 }
