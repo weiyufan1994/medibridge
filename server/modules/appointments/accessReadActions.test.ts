@@ -22,11 +22,20 @@ vi.mock("./consultationTimer", () => ({
   resolveConsultationTimerState: vi.fn(),
 }));
 
+vi.mock("./linkService", () => ({
+  buildAppointmentAccessLink: vi.fn(),
+}));
+
 import { invokeLLM } from "../../_core/llm";
 import { aiTriageSessionApi } from "../ai/publicApi";
 import { validateAppointmentToken } from "./accessValidation";
-import { getAppointmentAccessByToken } from "./accessReadActions";
+import {
+  getAppointmentAccessByToken,
+  getAppointmentAccessByTokenWithDefaultIntake,
+  getJoinInfoByToken,
+} from "./accessReadActions";
 import { resolveConsultationTimerState } from "./consultationTimer";
+import { buildAppointmentAccessLink } from "./linkService";
 import * as appointmentsRepo from "./repo";
 
 const buildValidatedAppointment = () => ({
@@ -76,6 +85,9 @@ describe("appointment access medical summary localization", () => {
       extensionMinutes: 0,
       totalDurationMinutes: 30,
     } as never);
+    vi.mocked(buildAppointmentAccessLink).mockReturnValue(
+      "https://app.example.test/visit/1?t=patient-token"
+    );
   });
 
   it("translates saved medical summary sections for english patient reads", async () => {
@@ -285,5 +297,79 @@ describe("appointment access medical summary localization", () => {
       medicalHistory: "",
     });
     expect(JSON.stringify(result.intake)).not.toMatch(/[\u4e00-\u9fff]/);
+  });
+
+  it("uses the default intake schema for appointment access reads", async () => {
+    vi.mocked(validateAppointmentToken).mockResolvedValue({
+      role: "doctor",
+      appointment: {
+        ...buildValidatedAppointment(),
+        notes: JSON.stringify({
+          chiefComplaint: "headache",
+          duration: "two days",
+          ignoredField: "not part of the public intake",
+        }),
+      },
+    } as never);
+    vi.mocked(
+      appointmentsRepo.getMedicalSummaryByAppointmentId
+    ).mockResolvedValue(null as never);
+
+    const result = await getAppointmentAccessByTokenWithDefaultIntake({
+      appointmentId: 1,
+      token: "doctor-token-value",
+      lang: "en",
+      requestMetadata: { requestId: "request-default-intake" },
+    });
+
+    expect(validateAppointmentToken).toHaveBeenCalledWith(
+      1,
+      "doctor-token-value",
+      "read_history",
+      { requestId: "request-default-intake" }
+    );
+    expect(result.intake).toEqual({
+      chiefComplaint: "headache",
+      duration: "two days",
+      medicalHistory: "",
+      medications: "",
+      allergies: "",
+      ageGroup: "",
+      otherSymptoms: "",
+    });
+  });
+
+  it("returns join information after validating join-room access", async () => {
+    vi.mocked(validateAppointmentToken).mockResolvedValue({
+      role: "doctor",
+      appointment: buildValidatedAppointment(),
+    } as never);
+
+    const result = await getJoinInfoByToken({
+      appointmentId: 1,
+      token: "doctor token/with symbols",
+      requestMetadata: { requestId: "request-join-info" },
+    });
+
+    expect(validateAppointmentToken).toHaveBeenCalledWith(
+      1,
+      "doctor token/with symbols",
+      "join_room",
+      { requestId: "request-join-info" }
+    );
+    expect(buildAppointmentAccessLink).toHaveBeenCalledWith({
+      appointmentId: 1,
+      token: "doctor token/with symbols",
+    });
+    expect(result).toEqual({
+      appointmentId: 1,
+      joinUrl: "https://app.example.test/visit/1?t=patient-token",
+      role: "doctor",
+      patient: {
+        email: "patient@example.com",
+        sessionId: "session-1",
+      },
+      doctor: { id: 3 },
+    });
   });
 });
