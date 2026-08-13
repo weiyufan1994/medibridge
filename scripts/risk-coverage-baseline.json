@@ -111,12 +111,6 @@
       "cleanupBatch": "3-appointment-state-token-visit"
     },
     {
-      "file": "server/modules/visit/realtimeEventHandlers.ts",
-      "currentLineCoverage": 54.58,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "3-appointment-state-token-visit"
-    },
-    {
       "file": "server/modules/visit/repo.ts",
       "currentLineCoverage": 0.5,
       "targetLineCoverage": 90,
