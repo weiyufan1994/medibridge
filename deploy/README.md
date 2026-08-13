@@ -26,11 +26,16 @@ IDs into documentation or operational artifacts.
 
 The workflow packages a release archive, uploads it to S3, and asks SSM to:
 
-1. Download the archive on the EC2 instance
-2. Extract it into `/srv/medibridge/releases/<release-id>`
-3. Install production dependencies with `pnpm`
-4. Switch `/srv/medibridge/current` to the new release
-5. Reload PM2 and run a local health check on port `3000`
+1. Verify that the EC2 host is running Node.js 24
+2. Download the archive on the EC2 instance
+3. Extract it into `/srv/medibridge/releases/<release-id>`
+4. Install production dependencies with `pnpm`
+5. Switch `/srv/medibridge/current` to the new release
+6. Reload PM2 and run a local health check on port `3000`
+
+Node.js 24 is a fail-closed production prerequisite. The remote command exits
+before changing the current release if `node` is missing or reports another
+major version.
 
 Detailed operating guide:
 
