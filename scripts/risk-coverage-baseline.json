@@ -189,18 +189,6 @@
       "cleanupBatch": "4-medical-summary-ai-triage-safety"
     },
     {
-      "file": "server/modules/triageSafety/events.ts",
-      "currentLineCoverage": 2.04,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "4-medical-summary-ai-triage-safety"
-    },
-    {
-      "file": "server/modules/triageSafety/index.ts",
-      "currentLineCoverage": 0,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "4-medical-summary-ai-triage-safety"
-    },
-    {
       "file": "server/modules/appointments/autoCloseWorker.ts",
       "currentLineCoverage": 44.12,
       "targetLineCoverage": 90,
