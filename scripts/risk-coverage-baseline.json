@@ -147,12 +147,6 @@
       "cleanupBatch": "3-appointment-state-token-visit"
     },
     {
-      "file": "server/modules/admin/procedures/visitSummaries.ts",
-      "currentLineCoverage": 42.48,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "4-medical-summary-ai-triage-safety"
-    },
-    {
       "file": "server/modules/ai/actions.ts",
       "currentLineCoverage": 71.43,
       "targetLineCoverage": 90,
