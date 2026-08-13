@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import type { RequestMetadata } from "@shared/requestMetadata";
 import type { LocalizedText } from "@shared/types";
 import {
   serializeHistoricalTriageResult,
@@ -22,6 +23,10 @@ const SESSION_MESSAGE_LIMIT = 20;
 const logger = createLogger("ai-triage");
 const SESSION_LIMIT_REPLY =
   "本次基础问诊已达最大深度。由于病情可能较为复杂，AI 无法继续细分，请尽快查看建议专科和参考医院并线下就诊。";
+const SAFETY_CHECK_UNAVAILABLE_REPLY: LocalizedText = {
+  zh: "安全检查暂时无法完成，因此本次不会继续生成 AI 分诊建议。请稍后重试；如有胸痛、呼吸困难、意识异常、大出血或其他严重或快速加重的症状，请立即联系当地急救服务或前往急诊。",
+  en: "The safety check is temporarily unavailable, so AI triage will not continue for this message. Please try again shortly. If you have chest pain, trouble breathing, altered consciousness, heavy bleeding, or other severe or rapidly worsening symptoms, contact local emergency services or go to the emergency department immediately.",
+};
 
 const detectTriageLanguage = (
   messages: Array<{ role: string; content: string }>
@@ -51,9 +56,149 @@ function requireUser(user: TrpcContext["user"], message: string): AuthUser {
 const resolveLocalizedReply = (message: LocalizedText, lang: "en" | "zh") =>
   message[lang];
 
+type TriageRequestMetadata = Pick<RequestMetadata, "requestId">;
+
+async function persistSafetyOutcome(input: {
+  event: string;
+  operation: () => Promise<unknown>;
+  requestMetadata?: TriageRequestMetadata;
+  sessionId: number;
+}) {
+  try {
+    return await input.operation();
+  } catch (error) {
+    logger.error(input.event, {
+      sessionId: input.sessionId,
+      requestId: input.requestMetadata?.requestId,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+    return null;
+  }
+}
+
+async function returnSafetyUnavailable(input: {
+  lang: "en" | "zh";
+  requestMetadata?: TriageRequestMetadata;
+  sessionId: number;
+}) {
+  const reply = resolveLocalizedReply(
+    SAFETY_CHECK_UNAVAILABLE_REPLY,
+    input.lang
+  );
+  await persistSafetyOutcome({
+    event: "safety_fallback_message_persistence_failed",
+    operation: () =>
+      aiRepo.createAiChatMessage({
+        sessionId: input.sessionId,
+        role: "assistant",
+        content: reply,
+      }),
+    requestMetadata: input.requestMetadata,
+    sessionId: input.sessionId,
+  });
+
+  return {
+    isComplete: false as const,
+    reply,
+    sessionStatus: "active" as const,
+    hitMessageLimit: false as const,
+  };
+}
+
+async function returnSafetyInterruption(input: {
+  displayMessage: LocalizedText;
+  lang: "en" | "zh";
+  requestMetadata?: TriageRequestMetadata;
+  riskScan: ReturnType<typeof safety.scanMessage>;
+  sessionId: number;
+  userMessageId: number | null;
+}) {
+  const reply = resolveLocalizedReply(input.displayMessage, input.lang);
+  const assistantMessageId = await persistSafetyOutcome({
+    event: "safety_interruption_message_persistence_failed",
+    operation: () =>
+      aiRepo.createAiChatMessage({
+        sessionId: input.sessionId,
+        role: "assistant",
+        content: reply,
+      }),
+    requestMetadata: input.requestMetadata,
+    sessionId: input.sessionId,
+  });
+
+  await persistSafetyOutcome({
+    event: "safety_risk_event_persistence_failed",
+    operation: () =>
+      safety.recordRiskEvents({
+        sessionId: input.sessionId,
+        messageId: input.userMessageId,
+        scanResult: input.riskScan,
+      }),
+    requestMetadata: input.requestMetadata,
+    sessionId: input.sessionId,
+  });
+  await persistSafetyOutcome({
+    event: "safety_interruption_flag_persistence_failed",
+    operation: () =>
+      safety.setSessionFlag({
+        sessionId: input.sessionId,
+        flagType: "interrupted",
+        flagValue: JSON.stringify({
+          riskCodes: input.riskScan.matchedRiskCodes,
+          severity: input.riskScan.highestSeverity,
+          assistantMessageId,
+        }),
+      }),
+    requestMetadata: input.requestMetadata,
+    sessionId: input.sessionId,
+  });
+  await persistSafetyOutcome({
+    event: "safety_result_clear_failed",
+    operation: () =>
+      safety.clearSessionFlagsByType(input.sessionId, TRIAGE_RESULT_FLAG_TYPE),
+    requestMetadata: input.requestMetadata,
+    sessionId: input.sessionId,
+  });
+  await persistSafetyOutcome({
+    event: "safety_result_persistence_failed",
+    operation: () =>
+      safety.setSessionFlag({
+        sessionId: input.sessionId,
+        flagType: TRIAGE_RESULT_FLAG_TYPE,
+        flagValue: serializeHistoricalTriageResult({
+          isComplete: true,
+          reply,
+          interruptionMessage: input.displayMessage,
+          interrupted: true,
+          riskCodes: input.riskScan.matchedRiskCodes,
+        }),
+      }),
+    requestMetadata: input.requestMetadata,
+    sessionId: input.sessionId,
+  });
+  await persistSafetyOutcome({
+    event: "safety_session_completion_failed",
+    operation: () =>
+      aiRepo.updateAiChatSessionStatus(input.sessionId, "completed"),
+    requestMetadata: input.requestMetadata,
+    sessionId: input.sessionId,
+  });
+
+  return {
+    isComplete: true as const,
+    reply,
+    interruptionMessage: input.displayMessage,
+    sessionStatus: "completed" as const,
+    hitMessageLimit: false as const,
+    interrupted: true as const,
+    riskCodes: input.riskScan.matchedRiskCodes,
+  };
+}
+
 export async function sendMessageAction(
   input: SendMessageInput,
-  user: TrpcContext["user"]
+  user: TrpcContext["user"],
+  requestMetadata?: TriageRequestMetadata
 ) {
   const authUser = requireUser(user, "Please login to continue triage.");
 
@@ -102,64 +247,34 @@ export async function sendMessageAction(
   }));
   const resolvedLang =
     input.lang === "auto" ? detectTriageLanguage(triageMessages) : input.lang;
+  let riskScan: ReturnType<typeof safety.scanMessage>;
   try {
-    const riskScan = safety.scanMessage({
+    riskScan = safety.scanMessage({
       latestMessage: input.content,
       priorMessages: triageMessages.slice(0, -1),
       lang: resolvedLang,
     });
-
-    if (riskScan.shouldInterrupt && riskScan.displayMessage) {
-      const localizedReply = resolveLocalizedReply(
-        riskScan.displayMessage,
-        resolvedLang
-      );
-      const assistantMessageId = await aiRepo.createAiChatMessage({
-        sessionId: session.id,
-        role: "assistant",
-        content: localizedReply,
-      });
-      await safety.recordRiskEvents({
-        sessionId: session.id,
-        messageId: userMessageId,
-        scanResult: riskScan,
-      });
-      await safety.setSessionFlag({
-        sessionId: session.id,
-        flagType: "interrupted",
-        flagValue: JSON.stringify({
-          riskCodes: riskScan.matchedRiskCodes,
-          severity: riskScan.highestSeverity,
-          assistantMessageId,
-        }),
-      });
-      await safety.clearSessionFlagsByType(session.id, TRIAGE_RESULT_FLAG_TYPE);
-      await safety.setSessionFlag({
-        sessionId: session.id,
-        flagType: TRIAGE_RESULT_FLAG_TYPE,
-        flagValue: serializeHistoricalTriageResult({
-          isComplete: true,
-          reply: localizedReply,
-          interruptionMessage: riskScan.displayMessage,
-          interrupted: true,
-          riskCodes: riskScan.matchedRiskCodes,
-        }),
-      });
-      await aiRepo.updateAiChatSessionStatus(session.id, "completed");
-      return {
-        isComplete: true,
-        reply: localizedReply,
-        interruptionMessage: riskScan.displayMessage,
-        sessionStatus: "completed" as const,
-        hitMessageLimit: false as const,
-        interrupted: true as const,
-        riskCodes: riskScan.matchedRiskCodes,
-      };
-    }
   } catch (error) {
     logger.error("safety_scan_failed", {
       sessionId: session.id,
+      requestId: requestMetadata?.requestId,
       errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+    return returnSafetyUnavailable({
+      lang: resolvedLang,
+      requestMetadata,
+      sessionId: session.id,
+    });
+  }
+
+  if (riskScan.shouldInterrupt && riskScan.displayMessage) {
+    return returnSafetyInterruption({
+      displayMessage: riskScan.displayMessage,
+      lang: resolvedLang,
+      requestMetadata,
+      riskScan,
+      sessionId: session.id,
+      userMessageId,
     });
   }
 
@@ -182,6 +297,7 @@ export async function sendMessageAction(
   } catch (error) {
     logger.error("knowledge_retrieval_failed", {
       sessionId: session.id,
+      requestId: requestMetadata?.requestId,
       errorName: error instanceof Error ? error.name : "UnknownError",
     });
   }

@@ -16,7 +16,9 @@ export const aiRouter = router({
 
   sendMessage: publicProcedure
     .input(aiSchemas.sendMessageInputSchema)
-    .mutation(({ input, ctx }) => aiActions.sendMessageAction(input, ctx.user)),
+    .mutation(({ input, ctx }) =>
+      aiActions.sendMessageAction(input, ctx.user, ctx.requestMetadata)
+    ),
 
   chatTriage: publicProcedure
     .input(aiSchemas.chatTriageInputSchema)
