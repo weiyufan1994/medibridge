@@ -14,6 +14,7 @@ import { createVisitRealtimeGateway } from "../modules/visit/realtimeGateway";
 import { startAppointmentAutoCloseWorker } from "../workflows/appointmentAutoClose/publicApi";
 import { startReferralFulfillmentWorker } from "../modules/referrals/fulfillmentWorker";
 import { startReferralNotificationWorker } from "../modules/referrals/notificationWorker";
+import { startRetentionCleanupWorker } from "../modules/admin/retentionCleanupWorker";
 import { authOAuthApi, authSessionApi } from "../modules/auth/publicApi";
 import { requestIdMiddleware } from "./requestId";
 import { registerHttpMiddleware } from "./httpMiddleware";
@@ -49,6 +50,7 @@ async function startServer() {
   const stopAppointmentAutoCloseWorker = startAppointmentAutoCloseWorker();
   const stopReferralFulfillmentWorker = startReferralFulfillmentWorker();
   const stopReferralNotificationWorker = startReferralNotificationWorker();
+  const stopRetentionCleanupWorker = startRetentionCleanupWorker();
   app.set("trust proxy", true);
   app.use(requestIdMiddleware);
   app.use("/uploads", express.static(getLocalUploadDir()));
@@ -89,6 +91,7 @@ async function startServer() {
     stopAppointmentAutoCloseWorker();
     stopReferralFulfillmentWorker();
     stopReferralNotificationWorker();
+    stopRetentionCleanupWorker();
     visitRealtimeGateway.shutdown();
     server.close();
   });

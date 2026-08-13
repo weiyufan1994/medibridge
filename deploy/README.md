@@ -40,3 +40,4 @@ major version.
 Detailed operating guide:
 
 - `docs/ops/production_deploy.md`
+- `docs/ops/retention_cleanup.md`
