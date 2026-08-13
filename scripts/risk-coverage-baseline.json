@@ -169,12 +169,6 @@
       "currentLineCoverage": 71.43,
       "targetLineCoverage": 90,
       "cleanupBatch": "4-medical-summary-ai-triage-safety"
-    },
-    {
-      "file": "server/modules/appointments/medicalSummaryDraft.ts",
-      "currentLineCoverage": 55.74,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "4-medical-summary-ai-triage-safety"
     }
   ]
 }
