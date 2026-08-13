@@ -23,7 +23,8 @@
 - `client/src/lib/` = client helpers, i18n helpers, TRPC client glue
 - `server/_core/` = server bootstrap, env, auth/session, context, cookies, TRPC glue
 - `server/routers/` = thin router composition only
-- `server/modules/` = domain logic, repos, actions, schemas, routerApi
+- `server/workflows/` = cross-domain application orchestration
+- `server/modules/` = domain logic, repos, actions, schemas, `routerApi` and `publicApi`
 - `shared/` = shared types and runtime-safe helpers
 - `drizzle/` = schema and migrations
 - `scripts/` = import, translate, repair, cleanup, operational tooling
@@ -39,7 +40,12 @@
 ## Architecture rules
 
 - Preserve the architecture contract in `.context/architecture.md`.
-- Keep `server/routers/*` thin. They should compose module `routerApi.ts` files and avoid embedding business logic.
+- Keep `server/routers/*` thin. They may compose the owned module `routerApi.ts`
+  and application workflows, but must avoid embedding business logic.
+- Cross-domain workflows may depend only on participating module `publicApi.ts`
+  files, core infrastructure and shared code.
+- Cross-module calls must use the target module's `publicApi.ts`; never deep-import
+  another module's actions, repositories, schemas or `routerApi.ts`.
 - Put business logic in `server/modules/*`.
 - Keep `client/src/pages/*` light. Move reusable logic into `client/src/features/*`, `client/src/components/*`, or `client/src/lib/*`.
 - Preserve the typed TRPC contract. Client code may depend on shared types and router types, but do not pull server runtime behavior into UI code.
@@ -78,15 +84,22 @@ For plan-first tasks:
 
 Safe first-pass verification commands:
 
+- `pnpm format:check`
+- `pnpm lint`
+- `pnpm check:secrets`
+- `pnpm check:architecture`
 - `pnpm check`
 - `pnpm lint:imports`
 - `pnpm check:i18n:inline`
-- `pnpm test`
 - `pnpm test:router-boundary`
+- relevant targeted Vitest tests
 
 Use these only when relevant to the task:
 
+- `pnpm test:coverage`
+- `pnpm test`
 - `pnpm build`
+- `pnpm audit --prod --audit-level high`
 - `pnpm db:verify:migrations`
 
 Require explicit human approval before running:
@@ -154,9 +167,14 @@ Require explicit human approval before running:
 - Minimum expectation for touched code:
   - relevant Vitest tests
   - `pnpm check`
+  - `pnpm check:architecture`
   - `pnpm lint:imports`
 - If i18n behavior changes, also run `pnpm check:i18n:inline`.
 - If router boundaries or module placement change, also run `pnpm test:router-boundary`.
+- Before creating a PR, run the complete CI-equivalent gate: format, lint,
+  secrets, architecture, type, i18n, coverage, build and production audit.
+- `pnpm test:coverage` already runs the full Vitest suite. Do not repeat
+  `pnpm test` unless test configuration or the covered scope differs.
 - State clearly what you did not run and why.
 
 ## Output format for every task

@@ -2,7 +2,10 @@
 
 MediBridge is a Node.js + React SaaS platform for AI triage, doctor discovery, appointment booking, and visit messaging.
 
-This README is the single handover document for onboarding, architecture understanding, and core business constraints.
+This README is the onboarding overview. The canonical placement and dependency
+contract is [`.context/architecture.md`](./.context/architecture.md); detailed
+implementation and operations material is indexed in
+[`docs/README.md`](./docs/README.md).
 
 ## Tech Stack
 
@@ -12,6 +15,8 @@ This README is the single handover document for onboarding, architecture underst
 - Auth: Progressive Profiling (Guest shadow account + passwordless OTP + Magic Link)
 
 ## Quick Start
+
+Use Node.js 24 and the repository-pinned pnpm version through Corepack.
 
 1. Install dependencies
 
@@ -64,14 +69,25 @@ pnpm test
 - `modules/chat`: chat-oriented business composition
 - `modules/doctors`: doctor search and recommendation repositories
 - `modules/hospitals`: hospital and department query repositories
+- `routerApi.ts`: the module boundary used by its HTTP/tRPC router
+- `publicApi.ts`: the minimal module boundary used by workflows or other modules
+
+### Application Workflows (`server/workflows/*`)
+
+- `appointmentBooking`: appointment creation and scheduling orchestration
+- `appointmentPayments`: payment settlement and appointment lifecycle orchestration
+- `appointmentMedicalSummary`: medical-summary generation orchestration
+- `appointmentAutoClose`: inactive visit closure across appointment and visit modules
+- `authGuestUpgrade`: guest-owned asset merge after formal authentication
 
 ### API Layer (`server/routers/*`)
 
 - `routers/auth.ts`: OTP request, OTP verify + merge, magic-link verify, logout
 - `routers/ai.ts`: triage session creation, message sending, triage orchestration endpoints
 - `routers/doctors.ts`, `routers/hospitals.ts`, `routers/chat.ts`: discovery and conversational routes
-- `appointmentsRouter.ts` (mounted in `routers/index.ts`): booking and link-based appointment ops
-- `visitRouter.ts` (mounted in `routers/index.ts`): visit room message operations
+- `routers/appointments.ts`: booking, appointment access and visit-chat token exchange
+- `routers/visit.ts`: visit room message operations
+- `routers/system.ts`: thin composition preserving the existing `trpc.system.*` contract
 
 ### Infrastructure
 
@@ -201,6 +217,8 @@ Quota is charged by **Session**, with a **Message-count fallback guard** inside 
 - Tokens are high-entropy random values; database stores only SHA-256 hash (`appointmentTokens.tokenHash`)
 - Token rows enforce expiry, revoke status, and usage quota (`useCount` / `maxUses`)
 - Validation returns normalized access context for downstream visit/chat APIs
+- Browser realtime traffic exchanges the appointment token for a visit-specific,
+  short-lived token and refreshes it before expiry
 - Abuse guards include IP failure rate limit and auto-revoke for repeated failed attempts on the same token hash
 - See implementation details: [`docs/implementation/appointment-link-auth.md`](./docs/implementation/appointment-link-auth.md)
 
@@ -227,11 +245,24 @@ Quota is charged by **Session**, with a **Message-count fallback guard** inside 
   - `pnpm db:repair:migration-history`
 - Auth and billing constraints are business-critical and must be covered by tests before release
 - Do not reintroduce password-based authentication paths
+- Production hosts must run Node.js 24; the deploy workflow fails before
+  switching releases when the remote runtime does not match
+- The daily retention worker ships disabled and remains dry-run unless both
+  production rollout switches are explicitly approved; see
+  [`docs/ops/retention_cleanup.md`](./docs/ops/retention_cleanup.md)
 
 ## Release Safety Checklist
 
+- `pnpm format:check` passes
+- `pnpm lint` passes
+- `pnpm check:secrets` passes
+- `pnpm check:architecture` passes
 - `pnpm check` passes
-- `pnpm test` passes
+- `pnpm check:i18n:inline` passes
+- `pnpm test:router-boundary` passes
+- `pnpm test:coverage` passes
+- `pnpm build` passes
+- `pnpm audit --prod --audit-level high` reports no high/critical vulnerability
 - Guest -> Free merge flow manually verified
 - Session quota + message cap behavior manually verified
 - Magic-link login flow manually verified
