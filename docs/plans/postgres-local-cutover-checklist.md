@@ -30,7 +30,10 @@ Use this checklist to validate the PostgreSQL migration in local or test environ
 ## 3. App Verification
 
 - Run `pnpm check`.
-- Run `pnpm test server/appointments.test.ts server/visit.test.ts server/modules/visit/realtimeGateway.test.ts server/stripeWebhookRoute.test.ts`.
+- Run focused appointment, visit and webhook tests, for example:
+  - `pnpm exec vitest run server/appointments.access-lifecycle.test.ts server/appointments.visit-chat-router.test.ts`
+  - `pnpm exec vitest run server/visit.test.ts server/modules/visit/realtimeGateway.test.ts`
+  - `pnpm exec vitest run server/stripeWebhookRoute.test.ts server/paypalWebhookRoute.test.ts`
 - Start the app with `pnpm dev`.
 - Verify these flows manually:
   - guest access and OTP flow
@@ -45,7 +48,8 @@ Use this checklist to validate the PostgreSQL migration in local or test environ
 
 - Confirm doctor, department, and hospital counts match the source import expectations.
 - Confirm `appointmentTokens`, `appointmentVisitSummaries`, and `visitRetentionPolicies` tables exist and accept writes.
-- Confirm `doctorEmbeddings.embedding` stores JSON arrays successfully.
+- Confirm the `vector` extension is installed and the doctor/triage embedding
+  vector columns and HNSW indexes are present.
 
 ## 5. Rollback Readiness
 
@@ -55,6 +59,7 @@ Use this checklist to validate the PostgreSQL migration in local or test environ
 
 ## Current Known Gaps
 
-- `pgvector` is intentionally not included in this phase.
+- pgvector is included in the PostgreSQL migrations; this checklist does not
+  provision or upgrade the extension on a managed production database.
 - Production RDS provisioning and deployment variable switching are not covered by this checklist.
 - MySQL-era migrations now live under `drizzle/archive/mysql/` and are not a valid PostgreSQL bootstrap path.
