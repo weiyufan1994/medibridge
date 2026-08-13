@@ -177,12 +177,6 @@
       "cleanupBatch": "4-medical-summary-ai-triage-safety"
     },
     {
-      "file": "server/modules/appointments/medicalSummaryLocalization.ts",
-      "currentLineCoverage": 79.59,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "4-medical-summary-ai-triage-safety"
-    },
-    {
       "file": "server/modules/appointments/medicalSummaryWorkflow.ts",
       "currentLineCoverage": 83.55,
       "targetLineCoverage": 90,
