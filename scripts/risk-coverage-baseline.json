@@ -3,12 +3,6 @@
   "highRiskLinesTarget": 90,
   "exceptions": [
     {
-      "file": "server/modules/admin/procedures/appointmentActions.ts",
-      "currentLineCoverage": 79.84,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "3-appointment-state-token-visit"
-    },
-    {
       "file": "server/modules/admin/procedures/appointmentDetail.ts",
       "currentLineCoverage": 70.49,
       "targetLineCoverage": 90,
