@@ -51,12 +51,6 @@
       "cleanupBatch": "3-appointment-state-token-visit"
     },
     {
-      "file": "server/modules/appointments/tokenActions.ts",
-      "currentLineCoverage": 3.85,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "3-appointment-state-token-visit"
-    },
-    {
       "file": "server/modules/appointments/tokenReadRepo.ts",
       "currentLineCoverage": 0.72,
       "targetLineCoverage": 90,
