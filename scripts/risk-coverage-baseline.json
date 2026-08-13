@@ -3,12 +3,6 @@
   "highRiskLinesTarget": 90,
   "exceptions": [
     {
-      "file": "server/modules/visit/actions.ts",
-      "currentLineCoverage": 68.84,
-      "targetLineCoverage": 90,
-      "cleanupBatch": "3-appointment-state-token-visit"
-    },
-    {
       "file": "server/modules/visit/repo.ts",
       "currentLineCoverage": 0.5,
       "targetLineCoverage": 90,
