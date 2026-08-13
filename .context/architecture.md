@@ -105,8 +105,16 @@ exact ceilings and may not grow. Once an allowlisted file is removed or reaches
 
 ## Mandatory PR checks
 
+- `pnpm format:check`
+- `pnpm lint`
+- `pnpm check:secrets`
 - `pnpm check:architecture`
+- `pnpm check`
+- `pnpm check:i18n:inline`
 - `pnpm test:router-boundary`
+- `pnpm test:coverage`
+- `pnpm build`
+- `pnpm audit --prod --audit-level high`
 - Relevant unit tests for every changed public boundary
 - No new allowlist entry, wildcard, dependency cycle, or oversized file
 - No router business logic, cross-module deep import, or feature deep import
