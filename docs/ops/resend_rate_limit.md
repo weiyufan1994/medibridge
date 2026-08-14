@@ -10,8 +10,8 @@
 
 - Uses token table (`appointmentTokens`) latest `createdAt` as source of truth.
 - Check point:
-  - `appointmentsRouter.resendLink` (role=`patient`)
-  - `appointmentsRouter.resendDoctorLink` (role=`doctor`)
+  - `trpc.appointments.resendLink` (role=`patient`)
+  - `trpc.appointments.resendDoctorLink` (role=`doctor`)
 - Query helper: `appointmentsRepo.getLatestAppointmentTokenIssuedAt({ appointmentId, role })`.
 
 ## Error returned when limited

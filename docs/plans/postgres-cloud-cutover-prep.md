@@ -38,7 +38,7 @@
 当前生产配置注入方式：
 
 - 生产进程由 PM2 启动
-- 启动脚本是 [deploy/start-medibridge.mjs](/Users/ich/projects/personal/medibridge/deploy/start-medibridge.mjs)
+- 启动脚本是 [deploy/start-medibridge.mjs](../../deploy/start-medibridge.mjs)
 - 运行时会读取 `/srv/medibridge/shared/.env.production`
 - 如果设置了 `DATABASE_URL_SSM_PARAMETER`，应用启动时会从 AWS SSM 拉取数据库连接串
 

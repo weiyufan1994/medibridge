@@ -31,6 +31,7 @@
 
 - `docs/ops/daily_scrape.md` — 每日医生信息抓取任务说明
 - `docs/ops/production_deploy.md` — 生产部署 runbook
+- `docs/ops/retention_cleanup.md` — 留存任务安全调度、监控与回滚
 - `docs/ops/resend_rate_limit.md` — Resend 限流规则
 
 ## docs/plans/
@@ -46,12 +47,7 @@
 
 ## docs/archive/
 
-- `docs/archive/2026-03-12/token_field_retirement_plan.md`
-- `docs/archive/2026-03-12/token_validation_cleanup.md`
-- `docs/archive/2026-03-12/token_migration_audit.md`
-- `docs/archive/2026-03-12/CURRENT_PROGRESS_SUMMARY.md`
-- `docs/archive/2026-03-12/phase1-appointment-payment-refactor.md`
-- `docs/archive/2026-03-12/TEST_CHECKLIST.md`
+- `docs/archive/2026-03-12/TEST_CHECKLIST.md` — 2026-03-12 历史测试清单（非当前门禁）
 
 ## 规则
 
