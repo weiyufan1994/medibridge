@@ -36,6 +36,19 @@ pnpm db:migrate:safe
 pnpm dev
 ```
 
+For local OTP login without an email provider, configure a private,
+Git-ignored `.env.development` with an explicit allowlist and six-digit code:
+
+```dotenv
+LOCAL_OTP_ENABLED=true
+LOCAL_OTP_EMAILS=local@example.test
+LOCAL_OTP_CODE=replace-with-six-digits
+```
+
+The fixed code is accepted only by `pnpm dev`, which marks the runtime as
+`development` and release channel `local`. It is not returned by the API or
+written to logs, and it is rejected by `dev` and `main` release artifacts.
+
 4. Type check
 
 ```bash
