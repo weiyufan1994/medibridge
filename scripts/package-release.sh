@@ -18,6 +18,7 @@ cp package.json "${RELEASE_DIR}/package.json"
 cp pnpm-lock.yaml "${RELEASE_DIR}/pnpm-lock.yaml"
 cp -R dist "${RELEASE_DIR}/dist"
 cp -R deploy "${RELEASE_DIR}/deploy"
+printf '%s\n' "${MEDIBRIDGE_RELEASE_CHANNEL:-unknown}" > "${RELEASE_DIR}/.release-channel"
 
 if [[ ! -d "${TRIAGE_REFERENCE_DIR}" ]]; then
   echo "Missing triage hospital reference data: ${TRIAGE_REFERENCE_DIR}" >&2
