@@ -57,7 +57,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          package_output="$(./scripts/package-release.sh)"
+          package_output="$(bash ./scripts/package-release.sh)"
           archive_path="$(printf '%s\n' "${package_output}" | tail -n 1)"
 
           if [ ! -f "${archive_path}" ]; then
