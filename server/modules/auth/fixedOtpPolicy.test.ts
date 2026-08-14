@@ -87,6 +87,64 @@ describe("fixed OTP policy", () => {
     ).toBe("482731");
   });
 
+  it("keeps the public demo and dev admin codes independent", () => {
+    const env = {
+      NODE_ENV: "production",
+      MEDIBRIDGE_RELEASE_CHANNEL: "dev",
+      DEMO_OTP_ENABLED: "true",
+      DEMO_OTP_EMAILS: "demo@medibridge.test",
+      DEMO_OTP_CODE: "482731",
+      DEV_ADMIN_OTP_ENABLED: "true",
+      DEV_ADMIN_OTP_EMAIL: "admin@medibridge.test",
+      DEV_ADMIN_OTP_CODE: "864209",
+    };
+
+    expect(resolveFixedOtpCode({ email: "demo@medibridge.test", env })).toBe(
+      "482731"
+    );
+    expect(resolveFixedOtpCode({ email: "admin@medibridge.test", env })).toBe(
+      "864209"
+    );
+  });
+
+  it("fails closed when the dev admin email enters the demo allowlist", () => {
+    expect(
+      resolveFixedOtpCode({
+        email: "admin@medibridge.test",
+        env: {
+          NODE_ENV: "production",
+          MEDIBRIDGE_RELEASE_CHANNEL: "dev",
+          DEMO_OTP_ENABLED: "true",
+          DEMO_OTP_EMAILS: "demo@medibridge.test,admin@medibridge.test",
+          DEMO_OTP_CODE: "482731",
+          DEV_ADMIN_OTP_ENABLED: "true",
+          DEV_ADMIN_OTP_EMAIL: "admin@medibridge.test",
+          DEV_ADMIN_OTP_CODE: "864209",
+        },
+      })
+    ).toBeNull();
+  });
+
+  it("fails closed when public demo and dev admin codes are identical", () => {
+    const env = {
+      NODE_ENV: "production",
+      MEDIBRIDGE_RELEASE_CHANNEL: "dev",
+      DEMO_OTP_ENABLED: "true",
+      DEMO_OTP_EMAILS: "demo@medibridge.test",
+      DEMO_OTP_CODE: "482731",
+      DEV_ADMIN_OTP_ENABLED: "true",
+      DEV_ADMIN_OTP_EMAIL: "admin@medibridge.test",
+      DEV_ADMIN_OTP_CODE: "482731",
+    };
+
+    expect(
+      resolveFixedOtpCode({ email: "demo@medibridge.test", env })
+    ).toBeNull();
+    expect(
+      resolveFixedOtpCode({ email: "admin@medibridge.test", env })
+    ).toBeNull();
+  });
+
   it("fails closed when enabled local and demo allowlists overlap", () => {
     expect(
       resolveFixedOtpCode({

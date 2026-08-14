@@ -1,4 +1,5 @@
 import { resolveDemoOtpCode } from "./demoOtpPolicy";
+import { resolveDevAdminOtpCode } from "./devAdminOtpPolicy";
 
 const LOCAL_RELEASE_CHANNEL = "local";
 const DEVELOPMENT_NODE_ENV = "development";
@@ -12,6 +13,9 @@ type FixedOtpEnvironment = Pick<
   | "DEMO_OTP_ENABLED"
   | "DEMO_OTP_EMAILS"
   | "DEMO_OTP_CODE"
+  | "DEV_ADMIN_OTP_ENABLED"
+  | "DEV_ADMIN_OTP_EMAIL"
+  | "DEV_ADMIN_OTP_CODE"
   | "LOCAL_OTP_ENABLED"
   | "LOCAL_OTP_EMAILS"
   | "LOCAL_OTP_CODE"
@@ -24,6 +28,9 @@ function readFixedOtpEnvironment(): FixedOtpEnvironment {
     DEMO_OTP_ENABLED: process.env.DEMO_OTP_ENABLED,
     DEMO_OTP_EMAILS: process.env.DEMO_OTP_EMAILS,
     DEMO_OTP_CODE: process.env.DEMO_OTP_CODE,
+    DEV_ADMIN_OTP_ENABLED: process.env.DEV_ADMIN_OTP_ENABLED,
+    DEV_ADMIN_OTP_EMAIL: process.env.DEV_ADMIN_OTP_EMAIL,
+    DEV_ADMIN_OTP_CODE: process.env.DEV_ADMIN_OTP_CODE,
     LOCAL_OTP_ENABLED: process.env.LOCAL_OTP_ENABLED,
     LOCAL_OTP_EMAILS: process.env.LOCAL_OTP_EMAILS,
     LOCAL_OTP_CODE: process.env.LOCAL_OTP_CODE,
@@ -57,6 +64,24 @@ function hasEnabledAllowlistOverlap(
   );
 }
 
+function hasSeparatedDevProfiles(env: FixedOtpEnvironment): boolean {
+  if (
+    !isEnabled(env.DEMO_OTP_ENABLED) ||
+    !isEnabled(env.DEV_ADMIN_OTP_ENABLED)
+  ) {
+    return true;
+  }
+
+  const adminEmail = normalizeEmail(env.DEV_ADMIN_OTP_EMAIL ?? "");
+  const demoCode = env.DEMO_OTP_CODE?.trim() ?? "";
+  const adminCode = env.DEV_ADMIN_OTP_CODE?.trim() ?? "";
+  return (
+    Boolean(adminEmail) &&
+    !parseAllowedEmails(env.DEMO_OTP_EMAILS).has(adminEmail) &&
+    demoCode !== adminCode
+  );
+}
+
 export function resolveLocalOtpCode(input: {
   email: string;
   env?: FixedOtpEnvironment;
@@ -86,11 +111,15 @@ export function resolveFixedOtpCode(input: {
   env?: FixedOtpEnvironment;
 }): string | null {
   const env = input.env ?? readFixedOtpEnvironment();
+  if (!hasSeparatedDevProfiles(env)) {
+    return null;
+  }
   if (hasEnabledAllowlistOverlap(input.email, env)) {
     return null;
   }
   const candidates = [
     resolveDemoOtpCode({ email: input.email, env }),
+    resolveDevAdminOtpCode({ email: input.email, env }),
     resolveLocalOtpCode({ email: input.email, env }),
   ].filter((code): code is string => code !== null);
 

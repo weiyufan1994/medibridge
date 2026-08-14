@@ -95,6 +95,19 @@ with the exact `dev` channel. Do not enable them for a `main` release, expose
 the code through logs or API responses, or grant allowlisted users elevated
 roles.
 
+An administrator test login, when explicitly approved for the `dev` experience
+server, uses a separate single-account profile:
+
+- `DEV_ADMIN_OTP_ENABLED` must be `true`
+- `DEV_ADMIN_OTP_EMAIL` must contain exactly one administrator email
+- `DEV_ADMIN_OTP_CODE` must be a six-digit server-only value different from
+  `DEMO_OTP_CODE`
+
+The administrator email must not appear in `DEMO_OTP_EMAILS`. These variables
+also require the immutable `dev` artifact marker and therefore remain disabled
+on `main`. Keep the values only in the protected shared environment, preserve
+mode `0600`, and verify the account role independently in persisted data.
+
 For the PostgreSQL cutover:
 
 - keep the MySQL SSM parameter intact
