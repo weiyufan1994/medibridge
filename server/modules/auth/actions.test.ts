@@ -184,6 +184,31 @@ describe("auth actions", () => {
     ).not.toThrow();
   });
 
+  it("accepts a separate dev admin code only for its configured email", () => {
+    vi.stubEnv("MEDIBRIDGE_RELEASE_CHANNEL", "dev");
+    vi.stubEnv("DEMO_OTP_ENABLED", "true");
+    vi.stubEnv("DEMO_OTP_EMAILS", "demo@medibridge.test");
+    vi.stubEnv("DEMO_OTP_CODE", "482731");
+    vi.stubEnv("DEV_ADMIN_OTP_ENABLED", "true");
+    vi.stubEnv("DEV_ADMIN_OTP_EMAIL", "admin@medibridge.test");
+    vi.stubEnv("DEV_ADMIN_OTP_CODE", "864209");
+
+    requestOtpAction({ email: "admin@medibridge.test" });
+
+    expect(() =>
+      consumeOtpCode({
+        email: "admin@medibridge.test",
+        code: "482731",
+      })
+    ).toThrowError("Invalid OTP code");
+    expect(() =>
+      consumeOtpCode({
+        email: "admin@medibridge.test",
+        code: "864209",
+      })
+    ).not.toThrow();
+  });
+
   it("uses a random code on main even when demo variables remain configured", () => {
     vi.stubEnv("MEDIBRIDGE_RELEASE_CHANNEL", "main");
     vi.stubEnv("DEMO_OTP_ENABLED", "true");
@@ -224,6 +249,28 @@ describe("auth actions", () => {
     expect(() =>
       consumeOtpCode({
         email: "local-main@medibridge.test",
+        code: "000042",
+      })
+    ).not.toThrow();
+  });
+
+  it("uses a random code on main even when dev admin variables remain configured", () => {
+    vi.stubEnv("MEDIBRIDGE_RELEASE_CHANNEL", "main");
+    vi.stubEnv("DEV_ADMIN_OTP_ENABLED", "true");
+    vi.stubEnv("DEV_ADMIN_OTP_EMAIL", "admin-main@medibridge.test");
+    vi.stubEnv("DEV_ADMIN_OTP_CODE", "864209");
+
+    requestOtpAction({ email: "admin-main@medibridge.test" });
+
+    expect(() =>
+      consumeOtpCode({
+        email: "admin-main@medibridge.test",
+        code: "864209",
+      })
+    ).toThrowError("Invalid OTP code");
+    expect(() =>
+      consumeOtpCode({
+        email: "admin-main@medibridge.test",
         code: "000042",
       })
     ).not.toThrow();
