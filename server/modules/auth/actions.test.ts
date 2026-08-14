@@ -167,6 +167,23 @@ describe("auth actions", () => {
     ).not.toThrow();
   });
 
+  it("accepts the fixed local code only in the local development runtime", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("MEDIBRIDGE_RELEASE_CHANNEL", "local");
+    vi.stubEnv("LOCAL_OTP_ENABLED", "true");
+    vi.stubEnv("LOCAL_OTP_EMAILS", "local@medibridge.test");
+    vi.stubEnv("LOCAL_OTP_CODE", "135790");
+
+    requestOtpAction({ email: "local@medibridge.test" });
+
+    expect(() =>
+      consumeOtpCode({
+        email: "local@medibridge.test",
+        code: "135790",
+      })
+    ).not.toThrow();
+  });
+
   it("uses a random code on main even when demo variables remain configured", () => {
     vi.stubEnv("MEDIBRIDGE_RELEASE_CHANNEL", "main");
     vi.stubEnv("DEMO_OTP_ENABLED", "true");
@@ -184,6 +201,29 @@ describe("auth actions", () => {
     expect(() =>
       consumeOtpCode({
         email: "demo-main@medibridge.test",
+        code: "000042",
+      })
+    ).not.toThrow();
+  });
+
+  it("uses a random code on main even when local variables remain configured", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("MEDIBRIDGE_RELEASE_CHANNEL", "main");
+    vi.stubEnv("LOCAL_OTP_ENABLED", "true");
+    vi.stubEnv("LOCAL_OTP_EMAILS", "local-main@medibridge.test");
+    vi.stubEnv("LOCAL_OTP_CODE", "135790");
+
+    requestOtpAction({ email: "local-main@medibridge.test" });
+
+    expect(() =>
+      consumeOtpCode({
+        email: "local-main@medibridge.test",
+        code: "135790",
+      })
+    ).toThrowError("Invalid OTP code");
+    expect(() =>
+      consumeOtpCode({
+        email: "local-main@medibridge.test",
         code: "000042",
       })
     ).not.toThrow();
