@@ -34,6 +34,11 @@
 - `docs/ops/retention_cleanup.md` — 留存任务安全调度、监控与回滚
 - `docs/ops/resend_rate_limit.md` — Resend 限流规则
 
+## docs/reference/
+
+- `docs/reference/api-contracts.md` — API transport、tRPC namespace、权限与冻结契约索引
+- `docs/reference/database-ownership.md` — PostgreSQL 表的领域归属与跨域访问边界
+
 ## docs/plans/
 
 - `docs/plans/PROJECT_MAP.md` — 系统结构速览
@@ -51,6 +56,6 @@
 
 ## 规则
 
-- 新文档优先放入 `docs/implementation`、`docs/ops`、`docs/plans`、`docs/changelog`。
+- 新文档优先放入 `docs/implementation`、`docs/ops`、`docs/reference`、`docs/plans`、`docs/changelog`。
 - 架构规则只在 `.context/architecture.md` 定义；其他文档应链接而不是复制一套规则。
 - 超过 400 行或超过 90 天未更新的内容优先归档。
