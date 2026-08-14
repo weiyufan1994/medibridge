@@ -37,4 +37,10 @@ describe("production deployment runtime guard", () => {
       '"${MEDIBRIDGE_RELEASE_CHANNEL:-unknown}" > "${RELEASE_DIR}/.release-channel"'
     );
   });
+
+  it("invokes the release packager through bash", () => {
+    expect(workflow).toContain(
+      'package_output="$(bash ./scripts/package-release.sh)"'
+    );
+  });
 });
