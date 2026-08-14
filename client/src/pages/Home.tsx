@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, CheckCircle2, Hospital, Stethoscope } from "lucide-react";
@@ -63,24 +63,15 @@ export default function Home() {
             <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-slate-600">
               {t.heroDescription}
             </p>
-            <div className="mt-10 flex flex-col justify-center gap-4 sm:flex-row">
+            <div className="mt-10 flex justify-center">
               <Button
                 size="lg"
-                className="rounded-full bg-teal-600 px-8 py-3 text-lg font-medium text-white shadow-md shadow-teal-500/20 transition-all hover:bg-teal-700"
+                className="rounded-full bg-primary px-8 py-3 text-lg font-medium text-primary-foreground shadow-md shadow-primary/20 transition-all hover:bg-primary/90"
                 onClick={handleStartConsultation}
               >
                 {t.startConsultation}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
-              <Link href="/triage">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="rounded-full border border-slate-300 bg-white px-8 py-3 text-lg font-medium text-slate-700 transition-all hover:bg-slate-50"
-                >
-                  {t.browseHospitals}
-                </Button>
-              </Link>
             </div>
           </div>
 
