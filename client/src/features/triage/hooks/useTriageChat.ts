@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { createClientLogger } from "@/lib/clientLogger";
 import { getTriageCopy } from "@/features/triage/copy";
 import { shouldLockInputForReportGeneration } from "@/features/triage/hooks/triageReportState";
 import { TRPCClientError } from "@trpc/client";
@@ -29,6 +30,8 @@ type UseTriageChatParams = {
 
 const DISCLAIMER_KEY = "medibridge_disclaimer_accepted_v1";
 const TRIAGE_SESSION_KEY = "medibridge_triage_chat_v2";
+const logger = createClientLogger("ai-triage");
+
 export function useTriageChat({ resolved, reportInput }: UseTriageChatParams) {
   const utils = trpc.useUtils();
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -150,10 +153,7 @@ export function useTriageChat({ resolved, reportInput }: UseTriageChatParams) {
       utils.consultation.getHistory.invalidate(),
       utils.auth.me.invalidate(),
     ]).catch(error => {
-      console.error(
-        "[AITriageChat] failed to refresh session creation state:",
-        error
-      );
+      logger.error("session_state.refresh_failed", error);
     });
   };
 
@@ -270,7 +270,7 @@ export function useTriageChat({ resolved, reportInput }: UseTriageChatParams) {
       setReportGenerationLocked(normalized.reportGenerationLocked);
       setTriageResult(normalized.result);
     } catch (error) {
-      console.error("[AITriageChat] sendMessage error:", error);
+      logger.error("message.send_failed", error);
       const inputLang = detectTriageLanguage(content);
       const inputText = getTriageCopy(inputLang);
       if (error instanceof TRPCClientError) {
