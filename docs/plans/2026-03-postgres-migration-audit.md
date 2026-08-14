@@ -25,9 +25,9 @@
 - 文中标记为“MySQL 耦合点”的大部分问题，很多已经在代码层完成整改
 - 这份文档现在更适合被当作**迁移审计历史记录**，而不是当前实施状态的唯一事实来源
 - 当前实施状态应同时参考：
-  - [postgres-migration-history-strategy.md](/Users/ich/projects/personal/medibridge/docs/plans/postgres-migration-history-strategy.md)
-  - [postgres-local-cutover-checklist.md](/Users/ich/projects/personal/medibridge/docs/plans/postgres-local-cutover-checklist.md)
-  - [postgres-production-cutover-strategy.md](/Users/ich/projects/personal/medibridge/docs/plans/postgres-production-cutover-strategy.md)
+  - [postgres-migration-history-strategy.md](./postgres-migration-history-strategy.md)
+  - [postgres-local-cutover-checklist.md](./postgres-local-cutover-checklist.md)
+  - [postgres-production-cutover-strategy.md](./postgres-production-cutover-strategy.md)
 
 ## 结论
 
@@ -87,8 +87,8 @@ MediBridge 当前**适合做 PostgreSQL 迁移准备**，原因是：
 
 文件：
 
-- [server/db.ts](/Users/ich/projects/personal/medibridge/server/db.ts)
-- [drizzle.config.ts](/Users/ich/projects/personal/medibridge/drizzle.config.ts)
+- [server/db.ts](../../server/db.ts)
+- [drizzle.config.ts](../../drizzle.config.ts)
 
 当前状态：
 
@@ -111,7 +111,7 @@ MediBridge 当前**适合做 PostgreSQL 迁移准备**，原因是：
 
 文件：
 
-- [server/db.ts](/Users/ich/projects/personal/medibridge/server/db.ts)
+- [server/db.ts](../../server/db.ts)
 
 当前状态：
 
@@ -130,7 +130,7 @@ MediBridge 当前**适合做 PostgreSQL 迁移准备**，原因是：
 
 文件：
 
-- [drizzle/schema.ts](/Users/ich/projects/personal/medibridge/drizzle/schema.ts)
+- [drizzle/schema.ts](../../drizzle/schema.ts)
 
 当前状态：
 
@@ -151,7 +151,7 @@ MediBridge 当前**适合做 PostgreSQL 迁移准备**，原因是：
 
 文件：
 
-- [drizzle/schema.ts](/Users/ich/projects/personal/medibridge/drizzle/schema.ts)
+- [drizzle/schema.ts](../../drizzle/schema.ts)
 
 涉及表：
 
@@ -183,10 +183,10 @@ MediBridge 当前**适合做 PostgreSQL 迁移准备**，原因是：
 
 文件示例：
 
-- [server/modules/ai/repo.ts](/Users/ich/projects/personal/medibridge/server/modules/ai/repo.ts)
-- [server/modules/visit/actions.ts](/Users/ich/projects/personal/medibridge/server/modules/visit/actions.ts)
-- [server/modules/visit/realtimeGateway.ts](/Users/ich/projects/personal/medibridge/server/modules/visit/realtimeGateway.ts)
-- [server/modules/appointments/checkoutActions.ts](/Users/ich/projects/personal/medibridge/server/modules/appointments/checkoutActions.ts)
+- [server/modules/ai/repo.ts](../../server/modules/ai/repo.ts)
+- [server/modules/visit/actions.ts](../../server/modules/visit/actions.ts)
+- [server/modules/visit/realtimeGateway.ts](../../server/modules/visit/realtimeGateway.ts)
+- [server/modules/appointments/checkoutActions.ts](../../server/modules/appointments/checkoutActions.ts)
 
 当前状态：
 
@@ -208,9 +208,9 @@ MediBridge 当前**适合做 PostgreSQL 迁移准备**，原因是：
 
 文件示例：
 
-- [server/modules/appointments/repo.ts](/Users/ich/projects/personal/medibridge/server/modules/appointments/repo.ts)
-- [server/modules/admin/repo.ts](/Users/ich/projects/personal/medibridge/server/modules/admin/repo.ts)
-- [scripts/backfill-legacy-appointment-tokens.ts](/Users/ich/projects/personal/medibridge/scripts/backfill-legacy-appointment-tokens.ts)
+- [server/modules/appointments/repo.ts](../../server/modules/appointments/repo.ts)
+- [server/modules/admin/repo.ts](../../server/modules/admin/repo.ts)
+- [scripts/backfill-legacy-appointment-tokens.ts](../../scripts/backfill-legacy-appointment-tokens.ts)
 
 当前状态：
 
@@ -231,8 +231,8 @@ MediBridge 当前**适合做 PostgreSQL 迁移准备**，原因是：
 
 文件示例：
 
-- [server/modules/appointments/repo.ts](/Users/ich/projects/personal/medibridge/server/modules/appointments/repo.ts)
-- [server/modules/admin/repo.ts](/Users/ich/projects/personal/medibridge/server/modules/admin/repo.ts)
+- [server/modules/appointments/repo.ts](../../server/modules/appointments/repo.ts)
+- [server/modules/admin/repo.ts](../../server/modules/admin/repo.ts)
 
 当前状态：
 
@@ -254,11 +254,11 @@ MediBridge 当前**适合做 PostgreSQL 迁移准备**，原因是：
 
 文件示例：
 
-- [server/modules/auth/repo.ts](/Users/ich/projects/personal/medibridge/server/modules/auth/repo.ts)
-- [server/modules/admin/repo.ts](/Users/ich/projects/personal/medibridge/server/modules/admin/repo.ts)
-- [server/modules/appointments/repo.ts](/Users/ich/projects/personal/medibridge/server/modules/appointments/repo.ts)
-- [scripts/import-doctors.mjs](/Users/ich/projects/personal/medibridge/scripts/import-doctors.mjs)
-- [scripts/backfill-doctor-specialty-tags.ts](/Users/ich/projects/personal/medibridge/scripts/backfill-doctor-specialty-tags.ts)
+- [server/modules/auth/repo.ts](../../server/modules/auth/repo.ts)
+- [server/modules/admin/repo.ts](../../server/modules/admin/repo.ts)
+- [server/modules/appointments/repo.ts](../../server/modules/appointments/repo.ts)
+- [scripts/import-doctors.mjs](../../scripts/import-doctors.mjs)
+- [scripts/backfill-doctor-specialty-tags.ts](../../scripts/backfill-doctor-specialty-tags.ts)
 
 影响：
 
@@ -271,10 +271,10 @@ MediBridge 当前**适合做 PostgreSQL 迁移准备**，原因是：
 
 文件示例：
 
-- [server/modules/visit/actions.ts](/Users/ich/projects/personal/medibridge/server/modules/visit/actions.ts)
-- [server/modules/visit/realtimeGateway.ts](/Users/ich/projects/personal/medibridge/server/modules/visit/realtimeGateway.ts)
-- [server/stripeWebhookRoute.ts](/Users/ich/projects/personal/medibridge/server/stripeWebhookRoute.ts)
-- [server/paypalWebhookRoute.ts](/Users/ich/projects/personal/medibridge/server/paypalWebhookRoute.ts)
+- [server/modules/visit/actions.ts](../../server/modules/visit/actions.ts)
+- [server/modules/visit/realtimeGateway.ts](../../server/modules/visit/realtimeGateway.ts)
+- [server/stripeWebhookRoute.ts](../../server/stripeWebhookRoute.ts)
+- [server/paypalWebhookRoute.ts](../../server/paypalWebhookRoute.ts)
 
 当前状态：
 
@@ -298,13 +298,13 @@ MediBridge 当前**适合做 PostgreSQL 迁移准备**，原因是：
 
 文件示例：
 
-- [scripts/import-doctors.mjs](/Users/ich/projects/personal/medibridge/scripts/import-doctors.mjs)
-- [scripts/vectorize-doctors.mjs](/Users/ich/projects/personal/medibridge/scripts/vectorize-doctors.mjs)
-- [scripts/translate-bilingual.ts](/Users/ich/projects/personal/medibridge/scripts/translate-bilingual.ts)
-- [scripts/repair-migration-history.ts](/Users/ich/projects/personal/medibridge/scripts/repair-migration-history.ts)
-- [scripts/verify-migrations.ts](/Users/ich/projects/personal/medibridge/scripts/verify-migrations.ts)
-- [scripts/add-hospital-links.mjs](/Users/ich/projects/personal/medibridge/scripts/add-hospital-links.mjs)
-- [scripts/translate-doctors.mjs](/Users/ich/projects/personal/medibridge/scripts/translate-doctors.mjs)
+- [scripts/import-doctors.mjs](../../scripts/import-doctors.mjs)
+- [scripts/vectorize-doctors.mjs](../../scripts/vectorize-doctors.mjs)
+- [scripts/translate-bilingual.ts](../../scripts/translate-bilingual.ts)
+- [scripts/repair-migration-history.ts](../../scripts/repair-migration-history.ts)
+- [scripts/verify-migrations.ts](../../scripts/verify-migrations.ts)
+- [scripts/add-hospital-links.mjs](../../scripts/add-hospital-links.mjs)
+- [scripts/translate-doctors.mjs](../../scripts/translate-doctors.mjs)
 
 影响：
 
@@ -321,9 +321,10 @@ MediBridge 当前**适合做 PostgreSQL 迁移准备**，原因是：
 
 文件示例：
 
-- [server/visit.test.ts](/Users/ich/projects/personal/medibridge/server/visit.test.ts)
-- [server/modules/visit/realtimeGateway.test.ts](/Users/ich/projects/personal/medibridge/server/modules/visit/realtimeGateway.test.ts)
-- [server/appointments.test.ts](/Users/ich/projects/personal/medibridge/server/appointments.test.ts)
+- [server/visit.test.ts](../../server/visit.test.ts)
+- [server/modules/visit/realtimeGateway.test.ts](../../server/modules/visit/realtimeGateway.test.ts)
+- [server/appointments.access-lifecycle.test.ts](../../server/appointments.access-lifecycle.test.ts)
+- [server/appointments.visit-chat-router.test.ts](../../server/appointments.visit-chat-router.test.ts)
 
 当前状态：
 
@@ -343,9 +344,9 @@ MediBridge 当前**适合做 PostgreSQL 迁移准备**，原因是：
 
 文件：
 
-- [drizzle.config.ts](/Users/ich/projects/personal/medibridge/drizzle.config.ts)
-- [.env.development](/Users/ich/projects/personal/medibridge/.env.development)
-- [.env.production](/Users/ich/projects/personal/medibridge/.env.production)
+- [drizzle.config.ts](../../drizzle.config.ts)
+- local `.env.development` (ignored; use [`.env.example`](../../.env.example) as the template)
+- local `.env.production` (ignored; use [`.env.production.example`](../../.env.production.example) as the template)
 
 当前状态：
 
