@@ -212,7 +212,7 @@ Quota is charged by **Session**, with a **Message-count fallback guard** inside 
 
 ## Appointment Link Token Security
 
-- Room entry links are token-only: `{APP_BASE_URL}/room?token=...`
+- Room entry links are token-only: `{APP_BASE_URL}/visit/<appointmentId>?t=...`
 - `APP_BASE_URL` is required for link issuance; no Host header fallback is used for token links
 - Tokens are high-entropy random values; database stores only SHA-256 hash (`appointmentTokens.tokenHash`)
 - Token rows enforce expiry, revoke status, and usage quota (`useCount` / `maxUses`)

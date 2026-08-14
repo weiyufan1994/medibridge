@@ -4,7 +4,9 @@
 
 - Visit chat access supports both patient and doctor magic links.
 - The `/visit/:appointmentId?t=token` page supports text-only messaging.
-- New messages are fetched by client polling every 2.5 seconds.
+- The browser exchanges the appointment link token for a visit-specific token
+  before loading chat history or joining the realtime room.
+- New messages are delivered over WebSocket; tRPC provides paginated history.
 - Patient links can only send `senderType=patient`; doctor links can only send `senderType=doctor`.
 
 ## Realtime Chat Protocol
@@ -15,7 +17,8 @@ WebSocket endpoint: `/api/visit-room/ws`
 
 - `room.join`
   - payload: `{ token: string }`
-  - note: token-only join, no `appointmentId` in client payload
+  - note: the token is a visit-specific chat token; no `appointmentId` is
+    trusted from the client payload
 - `message.send`
   - payload: `{ textOriginal: string, clientMessageId: string }`
   - `clientMessageId` is required for idempotent retry
@@ -33,7 +36,8 @@ WebSocket endpoint: `/api/visit-room/ws`
 
 ### Permission model
 
-- Room join uses existing token validation + `ensureAppointmentStatusAllowsVisitV2`:
+- Room join validates the scoped chat token, its source appointment token and
+  the current appointment access policy:
   - allowed statuses: `paid`, `active` (and `paymentStatus=paid`)
 - Message send adds extra rule on top of token validation:
   - only `active` can send (`paid` is read-only)
@@ -42,7 +46,7 @@ WebSocket endpoint: `/api/visit-room/ws`
 ### History API
 
 - tRPC: `visit.roomGetMessages`
-- input: `{ token, beforeCursor?, limit? }`
+- input: `{ token: visitChatToken, beforeCursor?, limit? }`
 - output: `{ appointmentId, role, messages[], nextCursor, hasMore }`
 - scope: returns only the appointment bound to the token
 
@@ -52,13 +56,25 @@ WebSocket endpoint: `/api/visit-room/ws`
 - Server heartbeat: ping every 25s; stale sockets are closed
 - Client reconnect: auto reconnect with backoff; reconnect triggers `room.join` again
 
-## Security follow-up
+## Scoped chat-token security
 
-- The current appointment tokens grant visit message access for their whole validity period.
-- A future hardening step should introduce a shorter-lived, visit-specific token for chat-room entry.
+- `appointments.exchangeVisitChatToken` exchanges a valid appointment link
+  token for a chat token with a maximum lifetime of 10 minutes.
+- `appointments.refreshVisitChatToken` refreshes a valid chat token; the client
+  refreshes 60 seconds before expiry.
+- Chat token claims bind appointment, patient/doctor role, source token ID,
+  issuer, audience and `visit_chat` purpose.
+- The chat token cannot outlive the source appointment token. Every validation
+  rechecks that the source token still exists and is neither revoked nor
+  expired, then applies the current appointment access policy.
+- WebSocket join/send and `visit.roomGetMessages` all require the scoped token.
 
-## Data retention follow-up
+## Data retention
 
-- Medical chat messages should have a retention policy.
-- Current access policy: both patient and doctor links expire at `scheduledAt + 60 minutes + 7 days`.
-- Recommended cleanup job: regularly delete expired appointment messages from `appointmentMessages`.
+- Configurable free and paid message-retention policies default to 7 and 180
+  days. Inactive unbound guest accounts default to 30 days.
+- Cleanup candidates and results are recorded in retention audits; admins can
+  inspect policies, dry-run cleanup and export audit summaries.
+- A daily worker is implemented but ships disabled. When scheduling is enabled,
+  it still defaults to dry-run and requires a second explicit switch before
+  deleting rows. See [`../ops/retention_cleanup.md`](../ops/retention_cleanup.md).

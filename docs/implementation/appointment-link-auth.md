@@ -4,7 +4,7 @@
 
 Medibridge uses short-lived appointment access tokens instead of traditional account login for room entry links.
 
-- Link format: `{APP_BASE_URL}/room?token=<token>`
+- Link format: `{APP_BASE_URL}/visit/<appointmentId>?t=<token>`
 - Token contains no clear-text identity data (`appointmentId`, email, role are not exposed)
 - Database stores only `sha256(token)` in `appointmentTokens.tokenHash`
 
@@ -38,6 +38,23 @@ Success returns access context:
 - `expiresAt`
 - `displayInfo`
 
+## Visit Chat Token Exchange
+
+The appointment link token is used to load the appointment entry context. Chat
+traffic then uses a narrower token:
+
+1. The client calls `trpc.appointments.exchangeVisitChatToken` with the
+   appointment ID and source appointment token.
+2. The server validates the source token and issues a signed `visit_chat` token
+   for at most 10 minutes and never beyond the source token expiry.
+3. The client uses the scoped token for WebSocket join/send and
+   `trpc.visit.roomGetMessages`.
+4. The client calls `trpc.appointments.refreshVisitChatToken` 60 seconds before
+   expiry. Refresh revalidates the source token and current appointment policy.
+
+Revoking or expiring the source appointment token invalidates subsequent chat
+token validation even when a previously issued chat token has not yet expired.
+
 ## Abuse Controls
 
 - In-memory IP failure rate limiting (`APPOINTMENT_TOKEN_FAIL_*`)
@@ -57,8 +74,15 @@ Success returns access context:
 
 ## APIs
 
-Implemented in `appointmentsRouter`:
+Implemented under `trpc.appointments`:
 
 - `issueAccessLinks({ appointmentId })`
 - `validateAccessToken({ token })`
 - `revokeAccessToken({ appointmentId?, role?, token?, revokeReason? })`
+- `exchangeVisitChatToken({ appointmentId, token })`
+- `refreshVisitChatToken({ appointmentId, token })`
+
+Chat history is exposed as
+`trpc.visit.roomGetMessages({ token, beforeCursor?, limit? })`. The older visit
+message procedures remain compatibility endpoints and also validate scoped chat
+tokens.
