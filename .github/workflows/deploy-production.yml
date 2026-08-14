@@ -17,6 +17,7 @@ env:
   AWS_REGION: ap-southeast-1
   DEPLOY_BUCKET: medibridge-deploy-artifacts-525164180577-ap-southeast-1
   INSTANCE_ID: i-0c9bfbb5287d85ccf
+  MEDIBRIDGE_RELEASE_CHANNEL: ${{ github.ref_name }}
 
 jobs:
   deploy:

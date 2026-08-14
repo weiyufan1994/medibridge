@@ -6,6 +6,7 @@ import { getSessionCookieOptions } from "../../_core/cookies";
 import { createLogger } from "../../_core/logger";
 import { sdk } from "../../_core/sdk";
 import { doctorAccountAccessApi } from "../doctorAccounts/publicApi";
+import { resolveDemoOtpCode } from "./demoOtpPolicy";
 import type { RequestOtpInput } from "./schemas";
 
 const OTP_TTL_MS = 10 * 60 * 1000;
@@ -93,7 +94,7 @@ export async function getMeUser(user: TrpcContext["user"]) {
 }
 
 export function requestOtpAction(input: RequestOtpInput) {
-  const code = generateOtpCode();
+  const code = resolveDemoOtpCode({ email: input.email }) ?? generateOtpCode();
   const expiresAtMs = Date.now() + OTP_TTL_MS;
   otpStore.set(input.email, { code, expiresAtMs });
 

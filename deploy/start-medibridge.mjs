@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { spawn } from "node:child_process";
 import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
+import { applyReleaseChannel, readReleaseChannel } from "./release-channel.mjs";
 
 const envFilePath = "/srv/medibridge/shared/.env.production";
 
@@ -43,7 +44,10 @@ async function getSecureParameter(client, name) {
 
 async function main() {
   const fileEnv = parseEnvFile(envFilePath);
-  const runtimeEnv = { ...process.env, ...fileEnv };
+  const runtimeEnv = applyReleaseChannel(
+    { ...process.env, ...fileEnv },
+    readReleaseChannel()
+  );
   runtimeEnv.NODE_ENV ||= "production";
 
   const region =

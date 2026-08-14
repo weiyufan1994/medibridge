@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("crypto", () => ({
   default: { randomInt: vi.fn(() => 42) },
@@ -52,6 +52,10 @@ describe("auth actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useRealTimers();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("rejects session creation without a formal open id", async () => {
@@ -145,5 +149,43 @@ describe("auth actions", () => {
     expect(() =>
       consumeOtpCode({ email: "expired@example.com", code: "000042" })
     ).toThrowError("OTP has expired or does not exist");
+  });
+
+  it("accepts the fixed demo code for an allowlisted email on dev", () => {
+    vi.stubEnv("MEDIBRIDGE_RELEASE_CHANNEL", "dev");
+    vi.stubEnv("DEMO_OTP_ENABLED", "true");
+    vi.stubEnv("DEMO_OTP_EMAILS", "demo@medibridge.test");
+    vi.stubEnv("DEMO_OTP_CODE", "482731");
+
+    requestOtpAction({ email: "demo@medibridge.test" });
+
+    expect(() =>
+      consumeOtpCode({
+        email: "demo@medibridge.test",
+        code: "482731",
+      })
+    ).not.toThrow();
+  });
+
+  it("uses a random code on main even when demo variables remain configured", () => {
+    vi.stubEnv("MEDIBRIDGE_RELEASE_CHANNEL", "main");
+    vi.stubEnv("DEMO_OTP_ENABLED", "true");
+    vi.stubEnv("DEMO_OTP_EMAILS", "demo-main@medibridge.test");
+    vi.stubEnv("DEMO_OTP_CODE", "482731");
+
+    requestOtpAction({ email: "demo-main@medibridge.test" });
+
+    expect(() =>
+      consumeOtpCode({
+        email: "demo-main@medibridge.test",
+        code: "482731",
+      })
+    ).toThrowError("Invalid OTP code");
+    expect(() =>
+      consumeOtpCode({
+        email: "demo-main@medibridge.test",
+        code: "000042",
+      })
+    ).not.toThrow();
   });
 });

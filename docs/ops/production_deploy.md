@@ -61,6 +61,12 @@ The Node.js check runs before the release directory is created or replaced. A
 missing runtime or any major version other than 24 fails the deployment without
 switching `/srv/medibridge/current`.
 
+The package also stamps `${{ github.ref_name }}` into a root-level
+`.release-channel` file. Runtime authentication policy treats only an exact
+`dev` marker as eligible for the explicitly configured demo OTP. A `main`,
+feature-branch, missing, or empty marker fails closed, and the artifact value
+overrides any stale shared environment value.
+
 ## Server layout
 
 Important production paths:
@@ -77,6 +83,17 @@ Runtime secrets:
 - `deploy/start-medibridge.mjs` reads `/srv/medibridge/shared/.env.production`
 - if `DATABASE_URL_SSM_PARAMETER` is set, runtime fetches the database URL from AWS SSM at startup
 - this is the preferred switch point for the upcoming PostgreSQL cutover
+
+Temporary `dev` experience login variables:
+
+- `DEMO_OTP_ENABLED` must be `true`
+- `DEMO_OTP_EMAILS` is a comma-separated, minimal email allowlist
+- `DEMO_OTP_CODE` is a six-digit server-only value
+
+These variables have no effect unless the active release artifact is stamped
+with the exact `dev` channel. Do not enable them for a `main` release, expose
+the code through logs or API responses, or grant allowlisted users elevated
+roles.
 
 For the PostgreSQL cutover:
 
