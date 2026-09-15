@@ -4,7 +4,7 @@ import {
   FULL_DAY_QUICK_TIME_SLOTS,
   formatDoctorAvailabilityHint,
   resolveAppointmentAvailabilityConfig,
-} from "@/features/appointment/components/appointmentAvailability";
+} from "./appointmentAvailability";
 
 describe("appointmentAvailability", () => {
   it("keeps the daytime doctor window for normal doctors", () => {

@@ -10,7 +10,9 @@ import {
   getPatientVisibleReferralTimeline,
   getReferralPaymentAction,
   getReferralOrderDetailHelperNotice,
+  shouldShowReferralConsultationJoinLink,
 } from "./presentation";
+import { getReferralProgressUpdates } from "./progressPresentation";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -213,6 +215,96 @@ describe("getLatestReferralProgressUpdate", () => {
   });
 });
 
+describe("getReferralProgressUpdates", () => {
+  it("does not rewrite an earlier confirmation with the current consultation time", () => {
+    const result = getReferralProgressUpdates({
+      operations: [
+        {
+          id: 12,
+          actionType: "patient_notification",
+          actionPayload: { detail: "Consultation time confirmed." },
+          createdAt: new Date("2026-04-12T08:30:00.000Z"),
+        },
+        {
+          id: 11,
+          actionType: "patient_notification",
+          actionPayload: { detail: "Consultation time confirmed." },
+          createdAt: new Date("2026-04-12T08:00:00.000Z"),
+        },
+      ],
+      lang: "zh",
+      consultationTime: "2026-04-13T09:00:00.000Z",
+    });
+
+    expect(result[0].text).toContain("问诊时间已确认:");
+    expect(result[1].text).toBe("问诊时间已确认。");
+  });
+
+  it("preserves the consultation time stored on an earlier scheduling event", () => {
+    const originalConsultationTime = "2026-04-13T09:00:00.000Z";
+    const originalOperation = {
+      id: 11,
+      actionType: "consultation_time_confirmed",
+      actionPayload: { consultationTime: originalConsultationTime },
+      createdAt: new Date("2026-04-12T08:00:00.000Z"),
+    };
+    const result = getReferralProgressUpdates({
+      operations: [
+        {
+          id: 12,
+          actionType: "patient_notification",
+          actionPayload: { detail: "Consultation time confirmed." },
+          createdAt: new Date("2026-04-12T08:30:00.000Z"),
+        },
+        originalOperation,
+      ],
+      lang: "en",
+      consultationTime: "2026-04-14T09:00:00.000Z",
+    });
+
+    expect(result[1]).toEqual({
+      id: originalOperation.id,
+      ...getLatestReferralProgressUpdate({
+        operation: originalOperation,
+        lang: "en",
+      }),
+    });
+    expect(result[1].text).not.toBe(result[0].text);
+  });
+
+  it("keeps an earlier patient-visible update after a later scheduling event", () => {
+    const result = getReferralProgressUpdates({
+      operations: [
+        {
+          id: 12,
+          actionType: "patient_notification",
+          actionPayload: { detail: "Consultation time confirmed." },
+          createdAt: new Date("2026-04-12T08:30:00.000Z"),
+        },
+        {
+          id: 11,
+          actionType: "patient_notification",
+          actionPayload: { detail: "已提交资料，正在等待院方确认" },
+          createdAt: new Date("2026-04-12T08:00:00.000Z"),
+        },
+      ],
+      lang: "zh",
+      consultationTime: "2026-04-13T09:00:00.000Z",
+    });
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({
+      id: 12,
+      text: expect.stringContaining("问诊时间已确认"),
+    });
+    expect(result[1]).toEqual({
+      id: 11,
+      text: "已提交资料，正在等待院方确认",
+      updatedAt: new Date("2026-04-12T08:00:00.000Z"),
+    });
+  });
+});
+
 describe("getReferralOrderDetailHelperNotice", () => {
   it("shows the manual coordination notice only while manual fulfillment is still in progress", () => {
     expect(
@@ -241,6 +333,19 @@ describe("getReferralOrderDetailHelperNotice", () => {
       text: "问诊时间已确认，请按下方显示时间准时参加；如时间有变动，我们会及时通知你。",
     });
   });
+});
+
+describe("shouldShowReferralConsultationJoinLink", () => {
+  it("shows the join link while the consultation is scheduled", () => {
+    expect(shouldShowReferralConsultationJoinLink("scheduled")).toBe(true);
+  });
+
+  it.each(["completed", "refund_pending_review", "cancelled"] as const)(
+    "hides the join link when the order is %s",
+    status => {
+      expect(shouldShowReferralConsultationJoinLink(status)).toBe(false);
+    }
+  );
 });
 
 describe("getPatientVisibleReferralTimeline", () => {

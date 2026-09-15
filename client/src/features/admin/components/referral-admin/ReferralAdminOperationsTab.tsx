@@ -2,7 +2,10 @@ import { TabsContent } from "@/components/ui/tabs";
 import { useAdminActionConfirmation } from "../../adminActionConfirmationContext";
 import { getReferralAdminPrimaryNextStatus } from "../../adminStatusTransitions";
 import { getAdminConfirmationCopy } from "../../copy";
-import { getReferralAdminTaskKind } from "../../referralAdminPresentation";
+import {
+  getReferralAdminTaskKind,
+  getReferralInternalNotes,
+} from "../../referralAdminPresentation";
 import type { useReferralAdminActions } from "../../hooks/useReferralAdminActions";
 import type { useReferralAdminDrafts } from "../../hooks/useReferralAdminDrafts";
 import type { useReferralAdminSelection } from "../../hooks/useReferralAdminSelection";
@@ -40,6 +43,7 @@ export function ReferralAdminOperationsTab({
   const primaryNextStatus = getReferralAdminPrimaryNextStatus(
     orderState.status
   );
+  const internalNotes = getReferralInternalNotes(selectedOrder.operations);
 
   return (
     <TabsContent value="operations" className="min-h-0 overflow-y-auto p-4">
@@ -134,6 +138,7 @@ export function ReferralAdminOperationsTab({
           consultationPlatform={drafts.consultationPlatform}
           consultationJoinUrl={drafts.consultationJoinUrl}
           consultationInstructions={drafts.consultationInstructions}
+          coordinationNote={actions.coordinationNote}
           consultationNote={drafts.consultationNote}
           consultationDraftIssues={drafts.consultationDraftIssues}
           consultationDraftIsDirty={drafts.consultationDraftIsDirty}
@@ -147,11 +152,12 @@ export function ReferralAdminOperationsTab({
           onConsultationPlatformChange={drafts.setConsultationPlatform}
           onConsultationJoinUrlChange={drafts.setConsultationJoinUrl}
           onConsultationInstructionsChange={drafts.setConsultationInstructions}
+          onCoordinationNoteChange={actions.setCoordinationNote}
           onConsultationNoteChange={drafts.setConsultationNote}
           onBeginCoordination={() => {
             void actions.beginTimeCoordinationMutation.mutateAsync({
               orderId: orderState.id,
-              note: drafts.consultationNote.trim(),
+              note: actions.coordinationNote.trim(),
             });
           }}
           onSaveConsultation={() => {
@@ -171,6 +177,7 @@ export function ReferralAdminOperationsTab({
         <ReferralCommunicationSections
           lang={lang}
           taskKind={taskKind}
+          internalNotes={internalNotes}
           internalNote={actions.internalNote}
           patientProgressUpdate={actions.patientProgressUpdate}
           contactOutcome={actions.contactOutcome}

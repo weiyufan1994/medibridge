@@ -133,6 +133,7 @@ export const referralCopyEn = {
     title: "Referral Order",
     latestUpdate: "Latest update",
     latestUpdateTime: "Updated",
+    previousUpdates: "Previous updates",
     latestUpdateFallback:
       "Your referral request is in progress. We will keep this page updated.",
     pendingPaymentNotice:
@@ -229,14 +230,21 @@ export const referralCopyEn = {
     updateStatus: "Update status",
     reason: "Reason",
     note: "Note",
-    addNote: "Add note",
-    patientProgressTitle: "Patient-visible progress update",
+    addNote: "Internal note (not visible to patient)",
+    internalNotePlaceholder:
+      "For internal staff only. This will not be shown to the patient.",
+    noInternalNotes: "No internal notes yet.",
+    patientProgressTitle: "Add patient-visible note",
     patientProgressPlaceholder:
       "Share a progress update that will appear on the patient's referral order page.",
-    publishPatientProgress: "Publish progress update",
+    publishPatientProgress: "Publish to patient",
     contactAttemptTitle: "Contact attempt",
     bookingResultTitle: "Booking progress",
     consultationTimeTitle: "Consultation time",
+    timeCoordinationTitle: "Start consultation time coordination",
+    timeCoordinationNote: "Coordination note",
+    timeCoordinationNotePlaceholder:
+      "Record the coordination context. It will not carry into the scheduling note.",
     beginTimeCoordination: "Start time coordination",
     consultationScheduleHint:
       "Saving this arrangement moves the order to Consultation scheduled. Scheduled is not a manual status option.",
@@ -265,7 +273,7 @@ export const referralCopyEn = {
     consultationPlatform: "Consultation platform",
     consultationJoinUrl: "HTTPS joining link",
     consultationInstructions: "Patient joining instructions",
-    consultationTimeNote: "Scheduling note",
+    consultationTimeNote: "Scheduling note (optional)",
     initiateRefund: "Initiate refund",
     approveRefund: "Approve refund",
     rejectRefund: "Reject refund",

@@ -1,7 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { getReferralCopy } from "@/features/referrals";
-import type { ReferralAdminTaskKind } from "../../referralAdminPresentation";
+import { formatReferralDateTime, getReferralCopy } from "@/features/referrals";
+import type {
+  ReferralAdminTaskKind,
+  ReferralInternalNote,
+} from "../../referralAdminPresentation";
 import { SectionBox } from "./ReferralAdminPrimitives";
 
 type ContactOutcome = "connected" | "no_response" | "failed";
@@ -10,6 +13,7 @@ type BookingOutcome = "progressing" | "failed" | "scheduled";
 type ReferralCommunicationSectionsProps = {
   lang: "en" | "zh";
   taskKind: ReferralAdminTaskKind | null;
+  internalNotes: readonly ReferralInternalNote[];
   internalNote: string;
   patientProgressUpdate: string;
   contactOutcome: ContactOutcome;
@@ -35,6 +39,7 @@ type ReferralCommunicationSectionsProps = {
 export function ReferralCommunicationSections({
   lang,
   taskKind,
+  internalNotes,
   internalNote,
   patientProgressUpdate,
   contactOutcome,
@@ -61,28 +66,7 @@ export function ReferralCommunicationSections({
   return (
     <>
       {taskKind !== "terminal" ? (
-        <SectionBox title={copy.admin.addNote} collapsible>
-          <div className="space-y-2">
-            <Textarea
-              value={internalNote}
-              onChange={event => onInternalNoteChange(event.target.value)}
-              placeholder={copy.admin.note}
-              className="min-h-24 px-2 py-1 text-sm leading-tight"
-            />
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={addNotePending || internalNote.trim().length < 1}
-              onClick={onAddNote}
-            >
-              {copy.admin.addNote}
-            </Button>
-          </div>
-        </SectionBox>
-      ) : null}
-
-      {taskKind !== "terminal" ? (
-        <SectionBox title={copy.admin.patientProgressTitle} collapsible>
+        <SectionBox title={copy.admin.patientProgressTitle}>
           <div className="space-y-2">
             <Textarea
               value={patientProgressUpdate}
@@ -92,7 +76,6 @@ export function ReferralCommunicationSections({
             />
             <Button
               size="sm"
-              variant="outline"
               disabled={
                 publishProgressPending ||
                 patientProgressUpdate.trim().length < 1
@@ -104,6 +87,51 @@ export function ReferralCommunicationSections({
           </div>
         </SectionBox>
       ) : null}
+
+      <SectionBox title={copy.admin.addNote}>
+        <div className="space-y-3">
+          {internalNotes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {copy.admin.noInternalNotes}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {internalNotes.map(item => (
+                <div
+                  key={item.id}
+                  className="rounded-lg border border-admin-border bg-admin-surface-muted px-3 py-2"
+                >
+                  <p className="whitespace-pre-wrap text-sm text-foreground">
+                    {item.note}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {formatReferralDateTime(item.createdAt, lang)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {taskKind !== "terminal" ? (
+            <div className="space-y-2 border-t border-admin-border pt-3">
+              <Textarea
+                value={internalNote}
+                onChange={event => onInternalNoteChange(event.target.value)}
+                placeholder={copy.admin.internalNotePlaceholder}
+                className="min-h-24 px-2 py-1 text-sm leading-tight"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={addNotePending || internalNote.trim().length < 1}
+                onClick={onAddNote}
+              >
+                {copy.admin.addNote}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </SectionBox>
 
       {taskKind === "contact" ? (
         <SectionBox title={copy.admin.contactAttemptTitle}>

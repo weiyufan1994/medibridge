@@ -60,6 +60,15 @@ describe("admin action copy", () => {
     expect(
       getAdminStatusGuidanceCopy("en").referral.completionAction
     ).toContain("mark completed");
+    expect(
+      getAdminStatusGuidanceCopy("zh").referral.manualCorrectionTitle
+    ).toBe("手动更新状态");
+    expect(
+      getAdminStatusGuidanceCopy("zh").referral.manualCorrectionDescription
+    ).toContain("人工处理");
+    expect(
+      getAdminStatusGuidanceCopy("en").referral.manualCorrectionReasonLabel
+    ).toBe("Handling note");
     expect(getAdminStatusGuidanceCopy("en").appointment.description).toContain(
       "valid next"
     );

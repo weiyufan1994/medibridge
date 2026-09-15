@@ -16,6 +16,7 @@ type ConsultationSavedInput = {
 
 type UseReferralAdminActionsInput = {
   lang: "en" | "zh";
+  selectedOrderId: number | null;
   refreshData: () => Promise<void>;
   onStatusSaved: (orderId: number) => void;
   onConsultationSaved: (input: ConsultationSavedInput) => void;
@@ -23,6 +24,7 @@ type UseReferralAdminActionsInput = {
 
 export function useReferralAdminActions({
   lang,
+  selectedOrderId,
   refreshData,
   onStatusSaved,
   onConsultationSaved,
@@ -38,6 +40,11 @@ export function useReferralAdminActions({
     "progressing" | "failed" | "scheduled"
   >("progressing");
   const [bookingNote, setBookingNote] = useState("");
+  const [coordinationNotes, setCoordinationNotes] = useState<
+    Partial<Record<number, string>>
+  >({});
+  const coordinationNote =
+    selectedOrderId === null ? "" : (coordinationNotes[selectedOrderId] ?? "");
   const [refundReasonCode, setRefundReasonCode] =
     useState<ReferralRefundReasonCode>("contact_failed");
   const [refundReasonDetail, setRefundReasonDetail] = useState("");
@@ -45,6 +52,14 @@ export function useReferralAdminActions({
 
   function handleMutationError(error: unknown) {
     toast.error(error instanceof Error ? error.message : copy.admin.loadFailed);
+  }
+
+  function setCoordinationNote(note: string) {
+    if (selectedOrderId === null) {
+      return;
+    }
+
+    setCoordinationNotes(notes => ({ ...notes, [selectedOrderId]: note }));
   }
 
   const claimOrderMutation = trpc.referrals.claimOrder.useMutation({
@@ -113,8 +128,13 @@ export function useReferralAdminActions({
   });
   const beginTimeCoordinationMutation =
     trpc.referrals.beginTimeCoordination.useMutation({
-      onSuccess: async () => {
+      onSuccess: async (_data, input) => {
         toast.success(copy.admin.actionSuccess);
+        setCoordinationNotes(notes => {
+          const remainingNotes = { ...notes };
+          delete remainingNotes[input.orderId];
+          return remainingNotes;
+        });
         await refreshData();
       },
       onError: handleMutationError,
@@ -152,6 +172,7 @@ export function useReferralAdminActions({
     contactNote,
     bookingOutcome,
     bookingNote,
+    coordinationNote,
     refundReasonCode,
     refundReasonDetail,
     refundReviewNote,
@@ -173,6 +194,7 @@ export function useReferralAdminActions({
     setContactNote,
     setBookingOutcome,
     setBookingNote,
+    setCoordinationNote,
     setRefundReasonCode,
     setRefundReasonDetail,
     setRefundReviewNote,

@@ -60,9 +60,6 @@ export default function Home() {
             <h2 className="mt-6 text-4xl font-extrabold tracking-tight text-slate-900 md:text-6xl">
               {t.heroTitle}
             </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-slate-600">
-              {t.heroDescription}
-            </p>
             <div className="mt-10 flex justify-center">
               <Button
                 size="lg"

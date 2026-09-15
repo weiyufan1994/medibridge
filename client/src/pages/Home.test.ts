@@ -5,6 +5,8 @@ import Home from "@/pages/Home";
 
 vi.stubGlobal("React", React);
 
+const language = vi.hoisted(() => ({ resolved: "zh" as "zh" | "en" }));
+
 afterAll(() => {
   vi.unstubAllGlobals();
 });
@@ -22,16 +24,29 @@ vi.mock("@/components/disclaimer/DisclaimerDialog", () => ({
 }));
 
 vi.mock("@/contexts/LanguageContext", () => ({
-  useLanguage: () => ({ resolved: "zh" }),
+  useLanguage: () => language,
 }));
 
 describe("Home", () => {
-  it("renders one triage call to action without a duplicate referral action", () => {
-    const markup = renderToStaticMarkup(createElement(Home));
-    const buttons = markup.match(/<button\b/g) ?? [];
+  it.each(["zh", "en"] as const)(
+    "renders one triage call to action without the removed description in %s",
+    locale => {
+      language.resolved = locale;
+      const markup = renderToStaticMarkup(createElement(Home));
+      const buttons = markup.match(/<button\b/g) ?? [];
 
-    expect(buttons).toHaveLength(1);
-    expect(markup).toContain("开始 AI 分诊");
-    expect(markup).not.toContain("开始医院转诊");
-  });
+      expect(buttons).toHaveLength(1);
+      expect(markup).toContain(
+        locale === "zh" ? "开始 AI 分诊" : "Start AI Triage"
+      );
+      expect(markup).not.toContain(
+        locale === "zh" ? "开始医院转诊" : "Start Hospital Referral"
+      );
+      expect(markup).not.toContain(
+        locale === "zh"
+          ? "MediBridge 通过 AI 分诊给出医院排序"
+          : "MediBridge uses AI triage to rank suitable hospitals"
+      );
+    }
+  );
 });

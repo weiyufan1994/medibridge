@@ -13,8 +13,6 @@ export const HOME_COPY = {
     logoutFailed: "Logout failed, please retry.",
     browseHospitals: "Start Hospital Referral",
     heroTitle: "Find the Right Hospital Path in China",
-    heroDescription:
-      "MediBridge uses AI triage to rank suitable hospitals, then a platform coordinator helps with registration and online consultation scheduling.",
     startConsultation: "Start AI Triage",
     feature1Title: "AI-Powered Matching",
     feature1Description:
@@ -61,8 +59,6 @@ export const HOME_COPY = {
     logoutFailed: "退出失败，请重试。",
     browseHospitals: "开始医院转诊",
     heroTitle: "找到更合适的中国就医路径",
-    heroDescription:
-      "MediBridge 通过 AI 分诊给出医院排序，再由平台协调专员协助挂号并协调线上面诊时间。",
     startConsultation: "开始 AI 分诊",
     feature1Title: "AI 智能匹配",
     feature1Description: "系统会整理您的症状与就医需求，给出更合适的专科方向。",
