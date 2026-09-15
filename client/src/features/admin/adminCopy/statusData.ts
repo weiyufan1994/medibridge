@@ -138,8 +138,8 @@ export const ADMIN_STATUS_GUIDANCE_COPY = {
   referral: {
     title: { zh: "状态推进条件", en: "Status progression" },
     description: {
-      zh: "系统会根据当前阶段决定推进方式；常规流程请优先使用下方专用操作。",
-      en: "The current stage determines how the order advances. Use the dedicated action below for normal progression.",
+      zh: "转诊履约由运营人员人工推进；请使用当前阶段的操作，并根据实际处理结果更新状态。",
+      en: "Referral fulfillment is handled by the operations team. Use the action for the current stage and update the status to reflect the actual outcome.",
     },
     currentStatus: { zh: "当前状态", en: "Current status" },
     nextStatus: { zh: "预计下一状态", en: "Expected next status" },
@@ -150,8 +150,8 @@ export const ADMIN_STATUS_GUIDANCE_COPY = {
     noNextStatus: { zh: "无后续状态", en: "No further status" },
     advanceModes: {
       automatic: {
-        zh: "完成当前任务后自动推进，无需再手动更新状态。",
-        en: "The status advances automatically after the current task; no separate status update is needed.",
+        zh: "提交当前阶段的业务操作后，系统会同步更新状态，无需再单独选择状态。",
+        en: "Submitting the current workflow action updates the status; no separate status selection is needed.",
       },
       manual: {
         zh: "完成条件后，由管理员确认进入下一状态。",
@@ -167,12 +167,20 @@ export const ADMIN_STATUS_GUIDANCE_COPY = {
       },
     },
     manualCorrectionTitle: {
-      zh: "异常状态修正",
-      en: "Exceptional status correction",
+      zh: "手动更新状态",
+      en: "Manual status update",
     },
     manualCorrectionDescription: {
-      zh: "常规流程请使用上方当前任务。仅当业务动作已在线下完成、但系统记录未同步时，才手动修正状态。",
-      en: "Use the current task for normal progression. Correct the state manually only when the business action happened outside the system and the record needs reconciliation.",
+      zh: "当前流程由运营人员人工处理。请根据实际处理进度选择下一状态；提交后系统会将本次更新记录在时间线中。",
+      en: "This workflow is handled by the operations team. Select the next status based on actual progress; the update will be recorded in the timeline.",
+    },
+    manualCorrectionReasonLabel: {
+      zh: "处理说明",
+      en: "Handling note",
+    },
+    manualCorrectionReasonRequirement: {
+      zh: "请填写至少 3 个字符的处理说明；该说明会写入时间线。",
+      en: "Enter a handling note of at least 3 characters. It will be recorded in the timeline.",
     },
     completionTitle: { zh: "确认问诊结果", en: "Confirm consultation outcome" },
     completionDescription: {

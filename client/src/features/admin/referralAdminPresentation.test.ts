@@ -4,6 +4,7 @@ import {
   formatReferralWaitingDuration,
   getReferralAdminTaskKind,
   getReferralAdminStatusTone,
+  getReferralInternalNotes,
   shouldShowReferralAssignment,
   shouldShowReferralBooking,
   shouldShowReferralContact,
@@ -47,5 +48,38 @@ describe("referral admin task presentation", () => {
     expect(shouldShowReferralWaitDuration("contacting")).toBe(true);
     expect(shouldShowReferralWaitDuration("completed")).toBe(false);
     expect(shouldShowReferralWaitDuration("refunded")).toBe(false);
+  });
+
+  it("extracts only valid internal notes for staff presentation", () => {
+    const createdAt = new Date("2026-08-14T12:00:00.000Z");
+
+    expect(
+      getReferralInternalNotes([
+        {
+          id: 4,
+          actionType: "internal_note",
+          actionPayload: { note: "  已联系院方医务处  " },
+          createdAt,
+        },
+        {
+          id: 3,
+          actionType: "patient_notification",
+          actionPayload: { detail: "患者公开进展" },
+          createdAt,
+        },
+        {
+          id: 2,
+          actionType: "internal_note",
+          actionPayload: { note: "   " },
+          createdAt,
+        },
+      ])
+    ).toEqual([
+      {
+        id: 4,
+        note: "已联系院方医务处",
+        createdAt,
+      },
+    ]);
   });
 });

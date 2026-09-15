@@ -231,10 +231,10 @@ describe("referral admin read actions", () => {
     vi.mocked(referralRepo.listOperationsByOrderId).mockResolvedValue([
       {
         id: 2,
-        actionType: "payment_success",
-        operatorType: "webhook",
-        operatorId: null,
-        actionPayload: null,
+        actionType: "internal_note",
+        operatorType: "ops",
+        operatorId: 901,
+        actionPayload: { note: "Confirm hospital documents" },
         createdAt: now,
       },
     ] as never);
@@ -276,7 +276,14 @@ describe("referral admin read actions", () => {
         providerName: "Dr Zhang",
       },
       timeline: [{ id: 1, actorId: null, reason: null }],
-      operations: [{ id: 2, operatorId: null, actionPayload: null }],
+      operations: [
+        {
+          id: 2,
+          actionType: "internal_note",
+          operatorId: 901,
+          actionPayload: { note: "Confirm hospital documents" },
+        },
+      ],
       notificationFailures: [{ id: 8, lastError: null }],
       refundRequest: { id: 7, reasonDetail: null, reviewedBy: null },
     });

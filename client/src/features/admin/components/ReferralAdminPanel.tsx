@@ -25,6 +25,7 @@ export function ReferralAdminPanel({
   });
   const actions = useReferralAdminActions({
     lang,
+    selectedOrderId: selection.selectedOrderId,
     refreshData: selection.refreshReferralAdminData,
     onStatusSaved: drafts.handleStatusSaved,
     onConsultationSaved: drafts.handleConsultationSaved,

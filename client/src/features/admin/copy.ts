@@ -118,6 +118,14 @@ export function getAdminStatusGuidanceCopy(lang: AdminLang) {
         lang,
         ADMIN_STATUS_GUIDANCE_COPY.referral.manualCorrectionDescription
       ),
+      manualCorrectionReasonLabel: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.referral.manualCorrectionReasonLabel
+      ),
+      manualCorrectionReasonRequirement: getAdminText(
+        lang,
+        ADMIN_STATUS_GUIDANCE_COPY.referral.manualCorrectionReasonRequirement
+      ),
       completionTitle: getAdminText(
         lang,
         ADMIN_STATUS_GUIDANCE_COPY.referral.completionTitle

@@ -18,6 +18,7 @@ type ReferralConsultationSectionProps = {
   consultationPlatform: string;
   consultationJoinUrl: string;
   consultationInstructions: string;
+  coordinationNote: string;
   consultationNote: string;
   consultationDraftIssues: ReferralConsultationDraftIssue[];
   consultationDraftIsDirty: boolean;
@@ -29,6 +30,7 @@ type ReferralConsultationSectionProps = {
   onConsultationPlatformChange: (value: string) => void;
   onConsultationJoinUrlChange: (value: string) => void;
   onConsultationInstructionsChange: (value: string) => void;
+  onCoordinationNoteChange: (value: string) => void;
   onConsultationNoteChange: (value: string) => void;
   onBeginCoordination: () => void;
   onSaveConsultation: () => void;
@@ -45,6 +47,7 @@ export function ReferralConsultationSection({
   consultationPlatform,
   consultationJoinUrl,
   consultationInstructions,
+  coordinationNote,
   consultationNote,
   consultationDraftIssues,
   consultationDraftIsDirty,
@@ -56,6 +59,7 @@ export function ReferralConsultationSection({
   onConsultationPlatformChange,
   onConsultationJoinUrlChange,
   onConsultationInstructionsChange,
+  onCoordinationNoteChange,
   onConsultationNoteChange,
   onBeginCoordination,
   onSaveConsultation,
@@ -75,20 +79,28 @@ export function ReferralConsultationSection({
   }
 
   return (
-    <SectionBox title={copy.admin.consultationTimeTitle}>
+    <SectionBox
+      title={
+        taskKind === "coordinate_time"
+          ? copy.admin.timeCoordinationTitle
+          : copy.admin.consultationTimeTitle
+      }
+    >
       <div className="space-y-2">
         {taskKind === "coordinate_time" ? (
           <>
-            <Textarea
-              value={consultationNote}
-              onChange={event => onConsultationNoteChange(event.target.value)}
-              placeholder={copy.admin.consultationTimeNote}
-              className="min-h-24 px-2 py-1 text-sm leading-tight"
-            />
+            <FieldShell label={copy.admin.timeCoordinationNote}>
+              <Textarea
+                value={coordinationNote}
+                onChange={event => onCoordinationNoteChange(event.target.value)}
+                placeholder={copy.admin.timeCoordinationNotePlaceholder}
+                className="min-h-24 px-2 py-1 text-sm leading-tight"
+              />
+            </FieldShell>
             <Button
               size="sm"
               disabled={
-                beginCoordinationPending || consultationNote.trim().length < 1
+                beginCoordinationPending || coordinationNote.trim().length < 1
               }
               onClick={onBeginCoordination}
             >

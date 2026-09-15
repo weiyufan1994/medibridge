@@ -13,6 +13,19 @@ export type ReferralAdminTaskKind =
   | "refund_processing"
   | "terminal";
 
+type ReferralOperationLike = {
+  id: number;
+  actionType: string;
+  actionPayload: unknown;
+  createdAt: Date | string;
+};
+
+export type ReferralInternalNote = {
+  id: number;
+  note: string;
+  createdAt: Date | string;
+};
+
 const TASK_BY_STATUS: Record<ReferralOrderStatus, ReferralAdminTaskKind> = {
   pending_payment: "await_payment",
   paid_pending_assignment: "assign",
@@ -66,6 +79,33 @@ export function getReferralAdminTaskKind(status: ReferralOrderStatus) {
 
 export function getReferralAdminStatusTone(status: ReferralOrderStatus) {
   return TONE_BY_STATUS[status];
+}
+
+export function getReferralInternalNotes(
+  operations: readonly ReferralOperationLike[]
+): ReferralInternalNote[] {
+  return operations.flatMap(operation => {
+    if (
+      operation.actionType !== "internal_note" ||
+      !operation.actionPayload ||
+      typeof operation.actionPayload !== "object"
+    ) {
+      return [];
+    }
+
+    const note = (operation.actionPayload as Record<string, unknown>).note;
+    if (typeof note !== "string" || note.trim().length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        id: operation.id,
+        note: note.trim(),
+        createdAt: operation.createdAt,
+      },
+    ];
+  });
 }
 
 export function formatReferralWaitingDuration(

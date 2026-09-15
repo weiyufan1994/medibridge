@@ -220,6 +220,12 @@ export function getReferralPaymentAction(input: {
   return getReferralPaymentActionForOrder(input);
 }
 
+export function shouldShowReferralConsultationJoinLink(
+  status: ReferralOrderStatus
+) {
+  return status === "scheduled";
+}
+
 export function getReferralUserErrorMessage(
   error: unknown,
   fallbackMessage: string

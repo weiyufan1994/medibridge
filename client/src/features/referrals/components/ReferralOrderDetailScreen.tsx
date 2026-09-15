@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
@@ -6,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ReferralProgressUpdateHistory } from "@/features/referrals/components/ReferralProgressUpdateHistory";
 import { getLocalizedText } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
 import { getReferralCopy, type ReferralLang } from "@/features/referrals/copy";
@@ -20,7 +20,9 @@ import {
   getReferralUserErrorMessage,
   getReferralStatusLabel,
   getRefundStatusLabel,
+  shouldShowReferralConsultationJoinLink,
 } from "@/features/referrals/presentation";
+import { getReferralProgressUpdates } from "@/features/referrals/progressPresentation";
 import { REFERRAL_FULFILLMENT_TIME_ZONE } from "@shared/referrals";
 
 type ReferralOrderDetailScreenProps = {
@@ -28,13 +30,18 @@ type ReferralOrderDetailScreenProps = {
   lang: ReferralLang;
 };
 
+const REFERRAL_ORDER_DETAIL_REFRESH_INTERVAL_MS = 15_000;
+
 export function ReferralOrderDetailScreen({
   orderId,
   lang,
 }: ReferralOrderDetailScreenProps) {
   const [, setLocation] = useLocation();
   const copy = getReferralCopy(lang);
-  const orderQuery = trpc.referrals.getOrderDetail.useQuery({ orderId });
+  const orderQuery = trpc.referrals.getOrderDetail.useQuery(
+    { orderId },
+    { refetchInterval: REFERRAL_ORDER_DETAIL_REFRESH_INTERVAL_MS }
+  );
   const createPaymentSessionMutation =
     trpc.referrals.createPaymentSession.useMutation({
       onSuccess: result => {
@@ -49,15 +56,18 @@ export function ReferralOrderDetailScreen({
       },
     });
 
-  const latestUpdate = useMemo(
-    () =>
-      getLatestReferralProgressUpdate({
-        operation: orderQuery.data?.operations[0] ?? null,
-        lang,
-        consultationTime: orderQuery.data?.order.consultationTime ?? null,
-      }),
-    [lang, orderQuery.data?.operations, orderQuery.data?.order.consultationTime]
-  );
+  const progressUpdates = getReferralProgressUpdates({
+    operations: orderQuery.data?.operations ?? [],
+    lang,
+    consultationTime: orderQuery.data?.order.consultationTime ?? null,
+  });
+  const latestUpdate =
+    progressUpdates[0] ??
+    getLatestReferralProgressUpdate({
+      operation: null,
+      lang,
+    });
+  const previousProgressUpdates = progressUpdates.slice(1);
 
   if (orderQuery.isLoading) {
     return (
@@ -96,6 +106,9 @@ export function ReferralOrderDetailScreen({
     consultationTime: detail.order.consultationTime,
     lang,
   });
+  const showConsultationJoinLink = shouldShowReferralConsultationJoinLink(
+    detail.order.status
+  );
   const timeline = getPatientVisibleReferralTimeline(detail.timeline);
 
   return (
@@ -174,19 +187,25 @@ export function ReferralOrderDetailScreen({
           ) : null}
 
           <Card className="rounded-3xl border-slate-200/80">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between gap-3">
               <CardTitle>{copy.orderDetail.latestUpdate}</CardTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={orderQuery.isFetching}
+                onClick={() => {
+                  void orderQuery.refetch();
+                }}
+              >
+                {copy.common.refresh}
+              </Button>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
-                <p>{latestUpdate.text}</p>
-                {latestUpdate.updatedAt ? (
-                  <p className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-500">
-                    {copy.orderDetail.latestUpdateTime}:{" "}
-                    {formatReferralDateTime(latestUpdate.updatedAt, lang)}
-                  </p>
-                ) : null}
-              </div>
+              <ReferralProgressUpdateHistory
+                lang={lang}
+                latestUpdate={latestUpdate}
+                previousUpdates={previousProgressUpdates}
+              />
 
               {helperNotice ? (
                 <div
@@ -288,15 +307,20 @@ export function ReferralOrderDetailScreen({
                       {detail.consultationArrangement.instructions}
                     </p>
                   </div>
-                  <Button asChild className="rounded-xl bg-teal-600 text-white">
-                    <a
-                      href={detail.consultationArrangement.joinUrl}
-                      target="_blank"
-                      rel="noreferrer"
+                  {showConsultationJoinLink ? (
+                    <Button
+                      asChild
+                      className="rounded-xl bg-teal-600 text-white"
                     >
-                      {copy.orderDetail.consultationJoinLink}
-                    </a>
-                  </Button>
+                      <a
+                        href={detail.consultationArrangement.joinUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {copy.orderDetail.consultationJoinLink}
+                      </a>
+                    </Button>
+                  ) : null}
                 </div>
               ) : null}
 

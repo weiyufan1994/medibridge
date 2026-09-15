@@ -77,7 +77,7 @@ export function ReferralStatusSection({
           label={
             isScheduledCompletion
               ? statusGuidanceCopy.referral.completionReasonLabel
-              : copy.admin.reason
+              : statusGuidanceCopy.referral.manualCorrectionReasonLabel
           }
         >
           <Textarea
@@ -87,7 +87,7 @@ export function ReferralStatusSection({
             placeholder={
               isScheduledCompletion
                 ? statusGuidanceCopy.referral.completionReasonLabel
-                : copy.admin.reason
+                : statusGuidanceCopy.referral.manualCorrectionReasonLabel
             }
           />
         </FieldShell>
@@ -118,7 +118,9 @@ export function ReferralStatusSection({
               : "text-amber-700 dark:text-amber-300"
           )}
         >
-          {statusGuidanceCopy.reasonRequirement}
+          {isScheduledCompletion
+            ? statusGuidanceCopy.reasonRequirement
+            : statusGuidanceCopy.referral.manualCorrectionReasonRequirement}
         </p>
       </div>
     </SectionBox>
