@@ -3,7 +3,7 @@ import {
   getAppointmentSelectionScopeKey,
   parseOptionalNonNegativeInteger,
   translateAdminConsoleError,
-} from "@/features/admin/hooks/adminConsoleHelpers";
+} from "./adminConsoleHelpers";
 
 describe("parseOptionalNonNegativeInteger", () => {
   it("returns undefined for empty or whitespace input", () => {
